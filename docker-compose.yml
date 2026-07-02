@@ -1,0 +1,195 @@
+version: "3.9"
+
+services:
+  # ─── Database ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sms_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sms_db
+      POSTGRES_USER: sms
+      POSTGRES_PASSWORD: sms_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sms -d sms_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sms_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MinIO (S3-compatible) ─────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: sms_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: sms_admin
+      MINIO_ROOT_PASSWORD: sms_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Django Backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend/Dockerfile
+      target: development
+    container_name: sms_backend
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=sms_admin
+      - AWS_SECRET_ACCESS_KEY=sms_minio_password
+      - AWS_STORAGE_BUCKET_NAME=sms-documents
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+    volumes:
+      - ./backend:/app
+      - media_files:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+  # ─── Celery Worker ─────────────────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend/Dockerfile
+      target: development
+    container_name: sms_celery
+    restart: unless-stopped
+    command: celery -A core worker -l info -c 4 -Q default,notifications,reports
+    environment:
+      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+
+  # ─── Celery Beat (Scheduler) ───────────────────────────────────────────────
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend/Dockerfile
+      target: development
+    container_name: sms_celery_beat
+    restart: unless-stopped
+    command: celery -A core beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+
+  # ─── Celery Flower (Task monitor) ─────────────────────────────────────────
+  flower:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend/Dockerfile
+      target: development
+    container_name: sms_flower
+    restart: unless-stopped
+    command: celery -A core flower --port=5555
+    environment:
+      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  # ─── React Frontend ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend/web
+      dockerfile: ../../infrastructure/docker/frontend/Dockerfile
+      target: development
+    container_name: sms_frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - REACT_APP_WS_URL=ws://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend/web/src:/app/src
+      - ./frontend/web/public:/app/public
+      - ./frontend/web/package.json:/app/package.json
+      - ./frontend/web/tsconfig.json:/app/tsconfig.json
+      - ./frontend/web/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/web/postcss.config.js:/app/postcss.config.js
+      - ./frontend/web/.eslintrc.json:/app/.eslintrc.json
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # ─── Nginx Reverse Proxy ───────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: sms_nginx
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - media_files:/var/www/media:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  media_files:
+
+networks:
+  default:
+    name: sms_network

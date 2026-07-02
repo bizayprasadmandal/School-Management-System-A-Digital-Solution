@@ -1,0 +1,64 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.sqlite3
+staticfiles/
+media/
+htmlcov/
+.coverage
+.pytest_cache/
+celerybeat-schedule
+celerybeat.pid
+
+# ── Node / React ────────────────────────────────────────────────────────
+node_modules/
+build/
+dist/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# ── Expo / React Native ─────────────────────────────────────────────────
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# ── Environment & secrets ───────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+google-services.json
+GoogleService-Info.plist
+
+# ── IDE ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ── Terraform ────────────────────────────────────────────────────────────
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Docker ───────────────────────────────────────────────────────────────
+docker-compose.override.yml

@@ -1,0 +1,409 @@
+---
+# ─── Namespace ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sms
+  labels:
+    app.kubernetes.io/name: school-management-system
+    environment: production
+
+---
+# ─── Backend Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-backend
+  namespace: sms
+  labels:
+    app: sms-backend
+    component: api
+    version: "2.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sms-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: sms-backend
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: sms-backend-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: backend
+          image: your-registry/sms-backend:2.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: core.settings.production
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: secret-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: redis-url
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: aws-secret-access-key
+          envFrom:
+            - configMapRef:
+                name: sms-config
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health/live/
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready/
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - sms-backend
+                topologyKey: kubernetes.io/hostname
+
+---
+# ─── Backend Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-backend-svc
+  namespace: sms
+  labels:
+    app: sms-backend
+spec:
+  selector:
+    app: sms-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+
+---
+# ─── Celery Worker Deployment ─────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-celery-worker
+  namespace: sms
+  labels:
+    app: sms-celery-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sms-celery-worker
+  template:
+    metadata:
+      labels:
+        app: sms-celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: your-registry/sms-backend:2.0.0
+          command:
+            - celery
+            - -A
+            - core
+            - worker
+            - -l
+            - info
+            - -c
+            - "4"
+            - -Q
+            - default,notifications,reports
+          envFrom:
+            - configMapRef:
+                name: sms-config
+            - secretRef:
+                name: sms-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+---
+# ─── HorizontalPodAutoscaler for Backend ─────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sms-backend-hpa
+  namespace: sms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sms-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# ─── HPA for Celery ───────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sms-celery-hpa
+  namespace: sms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sms-celery-worker
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+---
+# ─── ConfigMap ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sms-config
+  namespace: sms
+data:
+  DEBUG: "False"
+  ALLOWED_HOSTS: "api.edusphere.school,*.edusphere.school"
+  CORS_ALLOWED_ORIGINS: "https://app.edusphere.school"
+  TIME_ZONE: "UTC"
+  AWS_STORAGE_BUCKET_NAME: "sms-documents-prod"
+  AWS_S3_REGION_NAME: "us-east-1"
+  EMAIL_HOST: "smtp.sendgrid.net"
+  EMAIL_PORT: "587"
+
+---
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sms-ingress
+  namespace: sms
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.edusphere.school
+        - api.edusphere.school
+      secretName: sms-tls-secret
+  rules:
+    - host: api.edusphere.school
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sms-backend-svc
+                port:
+                  number: 80
+    - host: app.edusphere.school
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sms-frontend-svc
+                port:
+                  number: 80
+
+---
+# ─── Celery Beat (Scheduler) ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-celery-beat
+  namespace: sms
+  labels:
+    app: sms-celery-beat
+spec:
+  replicas: 1          # Always exactly 1 — multiple beat instances would double-fire tasks
+  selector:
+    matchLabels:
+      app: sms-celery-beat
+  template:
+    metadata:
+      labels:
+        app: sms-celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: your-registry/sms-backend:2.0.0
+          command:
+            - celery
+            - -A
+            - core
+            - beat
+            - -l
+            - info
+            - --scheduler
+            - django_celery_beat.schedulers:DatabaseScheduler
+          envFrom:
+            - configMapRef:
+                name: sms-config
+            - secretRef:
+                name: sms-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "celery -A core inspect ping --timeout=5 || exit 0"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+
+---
+# ─── Flower (Celery Task Monitor) ─────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-flower
+  namespace: sms
+  labels:
+    app: sms-flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sms-flower
+  template:
+    metadata:
+      labels:
+        app: sms-flower
+    spec:
+      containers:
+        - name: flower
+          image: your-registry/sms-backend:2.0.0
+          command:
+            - celery
+            - -A
+            - core
+            - flower
+            - --port=5555
+            - --basic-auth=admin:$(FLOWER_PASSWORD)
+          ports:
+            - containerPort: 5555
+          envFrom:
+            - configMapRef:
+                name: sms-config
+            - secretRef:
+                name: sms-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-flower-svc
+  namespace: sms
+spec:
+  selector:
+    app: sms-flower
+  ports:
+    - port: 5555
+      targetPort: 5555
+  type: ClusterIP

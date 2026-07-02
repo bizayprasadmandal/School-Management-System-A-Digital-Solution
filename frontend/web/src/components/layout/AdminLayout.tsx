@@ -1,0 +1,205 @@
+/**
+ * AdminLayout — Sidebar + topbar shell for administrators
+ */
+
+import React, { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  HomeIcon,
+  UsersIcon,
+  AcademicCapIcon,
+  ClipboardDocumentCheckIcon,
+  CalendarDaysIcon,
+  BookOpenIcon,
+  ChartBarIcon,
+  MegaphoneIcon,
+  BanknotesIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+  Bars3Icon,
+  XMarkIcon,
+  BellIcon,
+  UserCircleIcon,
+  BuildingLibraryIcon,
+  DocumentChartBarIcon,
+} from "@heroicons/react/24/outline";
+import { useAuthStore } from "../../store/authStore";
+import { useUnreadNotificationCount } from "../../api/hooks";
+import clsx from "clsx";
+import NotificationPanel from "./NotificationPanel";
+
+interface NavItem {
+  label: string;
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard",      to: "/admin",              icon: HomeIcon },
+  { label: "Students",       to: "/admin/students",     icon: UsersIcon },
+  { label: "Teachers",       to: "/admin/teachers",     icon: AcademicCapIcon },
+  { label: "Classrooms",     to: "/admin/classrooms",   icon: BuildingLibraryIcon },
+  { label: "Timetable",      to: "/admin/timetable",    icon: CalendarDaysIcon },
+  { label: "Attendance",     to: "/admin/attendance",   icon: ClipboardDocumentCheckIcon },
+  { label: "Examinations",   to: "/admin/exams",        icon: BookOpenIcon },
+  { label: "Report Cards",   to: "/admin/report-cards", icon: DocumentChartBarIcon },
+  { label: "Announcements",  to: "/admin/announcements",icon: MegaphoneIcon },
+  { label: "Fee Management", to: "/admin/fees",         icon: BanknotesIcon },
+  { label: "Analytics",      to: "/admin/reports",      icon: ChartBarIcon },
+  { label: "Settings",       to: "/admin/settings",     icon: Cog6ToothIcon },
+];
+
+export default function AdminLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
+      {/* ── Mobile overlay ───────────────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      <aside
+        className={clsx(
+          "fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-indigo-900 transition-transform duration-300 lg:static lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center justify-between px-5 border-b border-indigo-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+              <AcademicCapIcon className="h-5 w-5 text-indigo-700" />
+            </div>
+            <span className="text-lg font-bold text-white tracking-tight">EduSphere</span>
+          </div>
+          <button
+            className="lg:hidden text-indigo-300 hover:text-white"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* School badge */}
+        {user?.school && (
+          <div className="mx-4 mt-4 rounded-lg bg-indigo-800/60 px-3 py-2">
+            <p className="text-xs text-indigo-300">School</p>
+            <p className="text-sm font-medium text-white truncate">{user.school.name}</p>
+          </div>
+        )}
+
+        {/* Nav links */}
+        <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+          {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/admin"}
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                clsx(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-white/10 text-white"
+                    : "text-indigo-300 hover:bg-white/5 hover:text-white"
+                )
+              }
+            >
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* User info */}
+        <div className="border-t border-indigo-800 p-4">
+          <div className="flex items-center gap-3">
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white font-semibold text-sm">
+                {user?.first_name?.[0]}{user?.last_name?.[0]}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-white truncate">{user?.full_name}</p>
+              <p className="text-xs text-indigo-300 capitalize">{user?.role?.replace("_", " ")}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="text-indigo-400 hover:text-white transition-colors"
+            >
+              <ArrowRightOnRectangleIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        {/* Topbar */}
+        <header className="flex h-16 items-center justify-between bg-white px-4 shadow-sm z-10 border-b border-slate-200">
+          <button
+            className="lg:hidden text-slate-500 hover:text-slate-900"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Bars3Icon className="h-6 w-6" />
+          </button>
+
+          <div className="flex-1 lg:pl-0" />
+
+          <div className="flex items-center gap-3">
+            {/* Notifications bell */}
+            <button
+              className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              onClick={() => setNotifOpen(v => !v)}
+            >
+              <BellIcon className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Avatar */}
+            <button className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 transition-colors">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">
+                  {user?.first_name?.[0]}{user?.last_name?.[0]}
+                </div>
+              )}
+              <span className="hidden md:block text-sm font-medium text-slate-700">
+                {user?.first_name}
+              </span>
+            </button>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </main>
+            <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+        </div>
+      </div>
+  );
+}

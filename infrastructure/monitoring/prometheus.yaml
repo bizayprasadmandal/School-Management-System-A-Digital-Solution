@@ -1,0 +1,225 @@
+# ─── Prometheus ConfigMap ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: sms
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: sms-production
+        environment: production
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    scrape_configs:
+      # Django backend metrics (django-prometheus)
+      - job_name: sms-backend
+        static_configs:
+          - targets: ["sms-backend-svc:80"]
+        metrics_path: /metrics
+        scrape_interval: 30s
+
+      # Celery metrics (via Flower or custom exporter)
+      - job_name: sms-celery
+        static_configs:
+          - targets: ["sms-flower:5555"]
+        metrics_path: /metrics
+        scrape_interval: 30s
+
+      # PostgreSQL metrics
+      - job_name: postgres
+        static_configs:
+          - targets: ["postgres-exporter:9187"]
+
+      # Redis metrics
+      - job_name: redis
+        static_configs:
+          - targets: ["redis-exporter:9121"]
+
+      # Node-level metrics
+      - job_name: node
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - source_labels: [__address__]
+            regex: '(.*):10250'
+            replacement: '${1}:9100'
+            target_label: __address__
+
+  rules/sms_alerts.yml: |
+    groups:
+      - name: sms_critical
+        rules:
+          # Backend is down
+          - alert: BackendDown
+            expr: up{job="sms-backend"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "SMS Backend is unreachable"
+              description: "The backend API has been down for more than 1 minute."
+
+          # High error rate
+          - alert: HighErrorRate
+            expr: |
+              rate(django_http_responses_total_by_status_total{status=~"5.."}[5m]) /
+              rate(django_http_responses_total_by_status_total[5m]) > 0.05
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High HTTP error rate (>5%)"
+
+          # Database connection pool exhaustion
+          - alert: DBConnectionPoolExhausted
+            expr: django_db_execute_total > 10000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Database connection pool nearing exhaustion"
+
+          # Redis memory pressure
+          - alert: RedisHighMemory
+            expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Redis memory usage above 85%"
+
+          # Celery task queue backed up
+          - alert: CeleryQueueBacklog
+            expr: celery_queue_length > 500
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Celery task queue has >500 pending tasks"
+
+          # Disk space
+          - alert: DiskSpaceLow
+            expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.15
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Disk space below 15%"
+
+          # Pod crash looping
+          - alert: PodCrashLooping
+            expr: kube_pod_container_status_restarts_total > 5
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} is crash-looping"
+
+---
+# ─── Prometheus Deployment ────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus-sa
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.50.0
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time=30d"
+            - "--web.enable-lifecycle"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: storage
+          emptyDir: {}
+
+---
+# ─── Grafana Deployment ───────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.3.1
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: grafana-admin-password
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_SERVER_ROOT_URL
+              value: "https://monitoring.edusphere.school"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+            - name: dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: grafana-storage
+          emptyDir: {}
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards

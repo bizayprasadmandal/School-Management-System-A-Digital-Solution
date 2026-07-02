@@ -1,0 +1,235 @@
+version: "3.9"
+
+# ─── Production Docker Compose ──────────────────────────────────────────────
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Required env file: .env.production
+# Required secrets: Docker secrets or inline environment variables
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "5"
+    labels: "service"
+
+x-backend-env: &backend-env
+  env_file: .env.production
+  environment:
+    DJANGO_SETTINGS_MODULE: core.settings.production
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sms_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-sms_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-sms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sms} -d ${POSTGRES_DB:-sms_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+    networks:
+      - backend
+
+  # ─── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sms_redis_prod
+    restart: always
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --requirepass ${REDIS_PASSWORD:?Redis password required}
+      --loglevel notice
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    networks:
+      - backend
+
+  # ─── Backend ─────────────────────────────────────────────────────────────
+  backend:
+    image: ${BACKEND_IMAGE:-your-registry/sms-backend:2.0.0}
+    container_name: sms_backend_prod
+    restart: always
+    <<: *backend-env
+    command: >
+      gunicorn core.asgi:application
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --workers 4
+      --threads 2
+      --worker-connections 1000
+      --timeout 120
+      --keep-alive 5
+      --access-logfile -
+      --error-logfile -
+    volumes:
+      - media_files:/app/media
+      - static_files:/app/staticfiles
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/ready/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    networks:
+      - backend
+      - frontend
+
+  # ─── Celery Worker ────────────────────────────────────────────────────────
+  celery_worker:
+    image: ${BACKEND_IMAGE:-your-registry/sms-backend:2.0.0}
+    container_name: sms_celery_worker_prod
+    restart: always
+    <<: *backend-env
+    command: >
+      celery -A core worker
+      -l info
+      -c 4
+      -Q default,notifications,reports
+      --max-tasks-per-child 100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+    networks:
+      - backend
+
+  # ─── Celery Beat ──────────────────────────────────────────────────────────
+  celery_beat:
+    image: ${BACKEND_IMAGE:-your-registry/sms-backend:2.0.0}
+    container_name: sms_celery_beat_prod
+    restart: always
+    <<: *backend-env
+    command: >
+      celery -A core beat
+      -l info
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      --pidfile /tmp/celerybeat.pid
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+    networks:
+      - backend
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE:-your-registry/sms-frontend:2.0.0}
+    container_name: sms_frontend_prod
+    restart: always
+    volumes:
+      - static_files:/usr/share/nginx/static:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    networks:
+      - frontend
+
+  # ─── Nginx Reverse Proxy ──────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: sms_nginx_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+      - media_files:/var/www/media:ro
+      - static_files:/var/www/static:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    networks:
+      - frontend
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  media_files:
+    driver: local
+  static_files:
+    driver: local
+  nginx_cache:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge
+    internal: true
+  frontend:
+    driver: bridge

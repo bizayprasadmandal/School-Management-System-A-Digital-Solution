@@ -1,0 +1,307 @@
+---
+# ─── Frontend Deployment ──────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-frontend
+  namespace: sms
+  labels:
+    app: sms-frontend
+    component: ui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sms-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: sms-frontend
+        component: ui
+    spec:
+      containers:
+        - name: frontend
+          image: your-registry/sms-frontend:2.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: REACT_APP_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: sms-config
+                  key: FRONTEND_API_URL
+            - name: REACT_APP_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: sms-config
+                  key: FRONTEND_WS_URL
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+# ─── Frontend Service ─────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-frontend-svc
+  namespace: sms
+spec:
+  selector:
+    app: sms-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+# ─── PostgreSQL StatefulSet ───────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sms-postgres
+  namespace: sms
+spec:
+  serviceName: sms-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sms-postgres
+  template:
+    metadata:
+      labels:
+        app: sms-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: sms_db
+            - name: POSTGRES_USER
+              value: sms
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: postgres-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "sms", "-d", "sms_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "sms", "-d", "sms_db"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: postgres-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "gp3"
+        resources:
+          requests:
+            storage: 50Gi
+
+---
+# ─── PostgreSQL Service ───────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-postgres-svc
+  namespace: sms
+spec:
+  selector:
+    app: sms-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP
+
+---
+# ─── Redis StatefulSet ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sms-redis
+  namespace: sms
+spec:
+  serviceName: sms-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sms-redis
+  template:
+    metadata:
+      labels:
+        app: sms-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command:
+            - redis-server
+            - "--maxmemory"
+            - "512mb"
+            - "--maxmemory-policy"
+            - "allkeys-lru"
+            - "--save"
+            - "60 1"
+            - "--loglevel"
+            - "notice"
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "768Mi"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "gp3"
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# ─── Redis Service ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-redis-svc
+  namespace: sms
+spec:
+  selector:
+    app: sms-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+
+---
+# ─── Secrets Template (fill before applying) ─────────────────────────────────
+# kubectl create secret generic sms-secrets --from-env-file=.env.production -n sms
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sms-secrets
+  namespace: sms
+type: Opaque
+stringData:
+  secret-key: "REPLACE_WITH_50_CHAR_RANDOM_SECRET"
+  database-url: "postgresql://sms:REPLACE_PASSWORD@sms-postgres-svc:5432/sms_db"
+  redis-url: "redis://sms-redis-svc:6379/0"
+  postgres-password: "REPLACE_DB_PASSWORD"
+  aws-access-key-id: "REPLACE_AWS_KEY"
+  aws-secret-access-key: "REPLACE_AWS_SECRET"
+
+---
+# ─── Network Policy — isolate SMS namespace ───────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sms-network-policy
+  namespace: sms
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sms
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    - {}  # Allow all egress (external APIs, email, etc.)
+
+---
+# ─── PodDisruptionBudget — ensure availability during upgrades ────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sms-backend-pdb
+  namespace: sms
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sms-backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sms-frontend-pdb
+  namespace: sms
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sms-frontend

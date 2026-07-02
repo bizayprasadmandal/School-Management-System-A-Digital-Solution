@@ -1,0 +1,75 @@
+/**
+ * Parent Children Page — full profile view for each child
+ */
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { Avatar, Badge, Spinner, EmptyState } from "../../components/common";
+import { fmt, attendanceColor, percent } from "../../utils";
+import { useTitle } from "../../hooks";
+import { UsersIcon } from "@heroicons/react/24/outline";
+
+export default function ParentChildrenPage() {
+  useTitle("My Children");
+
+  const { data: children, isLoading } = useQuery({
+    queryKey: ["parent-children-full"],
+    queryFn: () => api.get<any>("/students/"),
+  });
+  const childList = children?.results ?? [];
+
+  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+
+  return (
+    <div className="space-y-5">
+      <div><h1 className="text-2xl font-bold text-slate-900">My Children</h1><p className="text-sm text-slate-500 mt-1">{childList.length} {childList.length === 1 ? "child" : "children"} linked to your account</p></div>
+
+      {childList.length === 0
+        ? <div className="card p-8"><EmptyState icon={UsersIcon} title="No children linked" description="Contact your school administrator to link your children to this parent account." /></div>
+        : childList.map((child: any) => (
+          <div key={child.id} className="card">
+            <div className="p-5 flex flex-col sm:flex-row gap-5">
+              <Avatar name={child.full_name} src={child.avatar} className="h-20 w-20 text-2xl flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-3 mb-1">
+                  <h2 className="text-xl font-bold text-slate-900">{child.full_name}</h2>
+                  <Badge color={child.is_active?"green":"slate"} dot>{child.is_active?"Active":"Inactive"}</Badge>
+                </div>
+                <p className="text-sm text-slate-500">{child.email}</p>
+                <div className="mt-3 flex flex-wrap gap-5 text-sm">
+                  {[
+                    ["Admission #", child.admission_number],
+                    ["Class", child.current_class ?? "—"],
+                    ["Date of Birth", child.date_of_birth ? fmt.date(child.date_of_birth) : "—"],
+                    ["Gender", child.gender === "M" ? "Male" : child.gender === "F" ? "Female" : "—"],
+                    ["Blood Group", child.blood_group || "—"],
+                  ].map(([l,v])=>(
+                    <div key={String(l)}>
+                      <span className="text-slate-500 text-xs font-medium">{l}</span>
+                      <p className="font-semibold text-slate-800 mt-0.5">{v}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick stats */}
+            <div className="border-t border-slate-100 px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label:"Attendance", value:child.attendance_pct != null ? percent(child.attendance_pct) : "—", color: child.attendance_pct != null ? attendanceColor(child.attendance_pct) : "text-slate-500" },
+                { label:"Fees Due", value: child.fees_due > 0 ? `$${Number(child.fees_due).toFixed(2)}` : "Paid", color: child.fees_due > 0 ? "text-red-600" : "text-green-600" },
+                { label:"Admission Date", value: child.admission_date ? fmt.date(child.admission_date) : "—", color:"text-slate-700" },
+                { label:"City", value: child.city || "—", color:"text-slate-700" },
+              ].map(({label,value,color})=>(
+                <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
+                  <p className={`text-lg font-bold ${color}`}>{value}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  );
+}

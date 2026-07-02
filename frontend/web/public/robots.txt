@@ -1,0 +1,3 @@
+# EduSphere is an authenticated application — disallow all crawling
+User-agent: *
+Disallow: /
