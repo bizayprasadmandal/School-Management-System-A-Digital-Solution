@@ -13,6 +13,8 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./store/authStore";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import RouteProgressBar from "./components/common/RouteProgressBar";
 import type { UserRole } from "./types";
 
 // Lazy-loaded layouts
@@ -49,6 +51,8 @@ const TeacherTimetable    = React.lazy(() => import("./pages/teacher/TimetablePa
 const TeacherMessages     = React.lazy(() => import("./pages/teacher/MessagesPage"));
 const TeacherLessonPlans  = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
 
+import { ErrorRoutes } from "./config/errorRoutes";
+
 // Student pages
 const StudentDashboard    = React.lazy(() => import("./pages/student/Dashboard"));
 const StudentAttendance   = React.lazy(() => import("./pages/student/AttendancePage"));
@@ -70,9 +74,11 @@ const ParentMessages      = React.lazy(() => import("./pages/parent/MessagesPage
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,       // 5 min
+      staleTime: 5 * 60 * 1000,       // 5 min — per-query overrides below
+      gcTime: 30 * 60 * 1000,          // keep stale data 30 min for SWR
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,        // revalidate after network comes back
     },
   },
 });
@@ -120,7 +126,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
+        <ErrorBoundary>
+          <RouteProgressBar />
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* ── Public routes ─────────────────────────── */}
             <Route element={<RedirectIfAuth />}>
@@ -190,30 +198,10 @@ export default function App() {
 
             {/* ── Fallbacks ─────────────────────────────── */}
             <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route
-              path="/unauthorized"
-              element={
-                <div className="flex h-screen items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-slate-800">Access Denied</h1>
-                    <p className="mt-2 text-slate-500">You don&apos;t have permission to view this page.</p>
-                  </div>
-                </div>
-              }
-            />
-            <Route
-              path="*"
-              element={
-                <div className="flex h-screen items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-6xl font-bold text-slate-200">404</h1>
-                    <p className="mt-4 text-slate-500">Page not found</p>
-                  </div>
-                </div>
-              }
-            />
+            {ErrorRoutes}
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
 
       <Toaster

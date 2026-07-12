@@ -5,9 +5,8 @@
 import {
   useQuery,
   useMutation,
-  useInfiniteQuery,
   useQueryClient,
-  type UseQueryOptions,
+  keepPreviousData,
 } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
@@ -92,6 +91,8 @@ export function useStudents(params?: {
   return useQuery({
     queryKey: QK.students.list(params),
     queryFn: () => api.get<PaginatedResponse<StudentListItem>>("/students/", params),
+    staleTime: 3 * 60 * 1000,               // 3 min — students may be updated by admin
+    placeholderData: keepPreviousData,       // show previous page while navigating
   });
 }
 
@@ -100,6 +101,7 @@ export function useStudent(id: string) {
     queryKey: QK.students.detail(id),
     queryFn: () => api.get<StudentDetail>(`/students/${id}/`),
     enabled: !!id,
+    staleTime: 2 * 60 * 1000,               // 2 min — profile edits by admin
   });
 }
 
@@ -133,6 +135,8 @@ export function useStudentAttendanceSummary(
         academic_year: academicYearId,
       }),
     enabled: !!studentId,
+    staleTime: 60 * 1000,                   // 1 min — attendance changes daily
+    gcTime: 5 * 60 * 1000,                  // keep in cache 5 min for SWR
   });
 }
 
@@ -162,6 +166,8 @@ export function useClassroomAttendance(classroomId: number, date: string) {
         date,
       }),
     enabled: !!classroomId,
+    staleTime: 60 * 1000,                   // 1 min — teachers update attendance live
+    gcTime: 10 * 60 * 1000,                 // keep stale 10 min
   });
 }
 
@@ -175,6 +181,8 @@ export function useStudentMonthlyAttendance(
     queryFn: () =>
       api.get(`/attendance/student-report/`, { student_id: studentId, month, year }),
     enabled: !!studentId,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -198,6 +206,8 @@ export function useExams(academicYearId: number) {
     queryFn: () =>
       api.get<PaginatedResponse<Exam>>("/gradebook/exams/", { academic_year: academicYearId }),
     enabled: !!academicYearId,
+    staleTime: 5 * 60 * 1000,               // 5 min
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -207,6 +217,7 @@ export function useReportCards(studentId: string) {
     queryFn: () =>
       api.get<PaginatedResponse<ReportCard>>("/gradebook/report-cards/", { student: studentId }),
     enabled: !!studentId,
+    staleTime: 10 * 60 * 1000,              // 10 min — report cards stable once published
   });
 }
 
@@ -241,6 +252,7 @@ export function useClassroomTimetable(classroomId: number, academicYearId: numbe
         academic_year: academicYearId,
       }),
     enabled: !!classroomId && !!academicYearId,
+    staleTime: 15 * 60 * 1000,              // 15 min — timetable is semester-stable
   });
 }
 
@@ -248,6 +260,7 @@ export function useSchoolEvents() {
   return useQuery({
     queryKey: ["school-events"],
     queryFn: () => api.get<PaginatedResponse<SchoolEvent>>("/timetable/events/"),
+    staleTime: 10 * 60 * 1000,               // 10 min
   });
 }
 
@@ -257,6 +270,9 @@ export function useAnnouncements() {
   return useQuery({
     queryKey: QK.communication.announcements,
     queryFn: () => api.get<PaginatedResponse<Announcement>>("/communication/announcements/"),
+    staleTime: 60 * 1000,                    // 1 min — announcements are time-sensitive
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,          // poll every 2 min
   });
 }
 
@@ -308,6 +324,8 @@ export function useStudentInvoices(studentId: string) {
     queryFn: () =>
       api.get<PaginatedResponse<FeeInvoice>>("/fees/invoices/", { student: studentId }),
     enabled: !!studentId,
+    staleTime: 2 * 60 * 1000,                // 2 min — payment status can change
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -326,6 +344,7 @@ export function useGradeLevels() {
   return useQuery({
     queryKey: QK.grades.all,
     queryFn: () => api.get<PaginatedResponse<GradeLevel>>("/students/grades/"),
+    staleTime: 30 * 60 * 1000,               // 30 min — grade levels are static
   });
 }
 
@@ -334,6 +353,8 @@ export function useClassrooms(gradeId?: number) {
     queryKey: QK.classrooms.list({ grade: gradeId }),
     queryFn: () =>
       api.get<PaginatedResponse<Classroom>>("/students/classrooms/", { grade: gradeId }),
+    staleTime: 10 * 60 * 1000,               // 10 min — classrooms change termly
+    placeholderData: keepPreviousData,       // keep old list while switching grade filter
   });
 }
 
@@ -341,6 +362,7 @@ export function useAcademicYears() {
   return useQuery({
     queryKey: QK.academicYears.all,
     queryFn: () => api.get<PaginatedResponse<AcademicYear>>("/students/academic-years/"),
+    staleTime: 30 * 60 * 1000,               // 30 min — academic years are rare-changing
   });
 }
 
@@ -351,6 +373,7 @@ export function useCurrentAcademicYear() {
       api
         .get<PaginatedResponse<AcademicYear>>("/students/academic-years/", { is_current: true })
         .then((r) => r.results[0] ?? null),
+    staleTime: 30 * 60 * 1000,               // 30 min — changes once a year
   });
 }
 
@@ -360,6 +383,8 @@ export function useSubjects(gradeId: number) {
     queryFn: () =>
       api.get<PaginatedResponse<Subject>>("/academics/subjects/", { grade: gradeId }),
     enabled: !!gradeId,
+    staleTime: 30 * 60 * 1000,               // 30 min — subject lists are static
+    placeholderData: keepPreviousData,       // keep old subjects while switching grade
   });
 }
 
@@ -369,6 +394,7 @@ export function useProfile() {
   return useQuery({
     queryKey: ["profile"],
     queryFn: () => api.get<User>("/auth/profile/"),
+    staleTime: 30 * 60 * 1000,               // 30 min — profile rarely changes
   });
 }
 

@@ -3,7 +3,7 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Keyboard
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, EmptyState } from "../../components";
+import { SkeletonMessagesScreen, EmptyState } from "../../components";
 
 export default function StudentMessagesScreen() {
   const qc = useQueryClient();
@@ -28,7 +28,7 @@ export default function StudentMessagesScreen() {
   });
 
   const threads = inbox ?? [];
-  if (isLoading) return <LoadingScreen text="Loading messages..." />;
+  if (isLoading) return <SkeletonMessagesScreen />;
 
   if (!activeThread) return (
     <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>

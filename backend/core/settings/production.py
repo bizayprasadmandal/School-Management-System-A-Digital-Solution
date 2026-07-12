@@ -1,8 +1,9 @@
 """
 Production settings — extends base, enforces security, uses real services
 """
+# Explicit imports from base (star import needed for Django settings convention)
+from .base import *  # noqa: F401, F403 — Django settings require wildcard import
 
-from .base import *  # noqa: F401, F403
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -27,8 +28,14 @@ SECURE_BROWSER_XSS_FILTER = True
 
 # ─── Static / media (S3) ──────────────────────────────────────────────────────
 
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
+# Allow disabling S3 during Docker build where MinIO is not available
+USE_S3 = env.bool("USE_S3", default=True)
+if USE_S3:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
+else:
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",

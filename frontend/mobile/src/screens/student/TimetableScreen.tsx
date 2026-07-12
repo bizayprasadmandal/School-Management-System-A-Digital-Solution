@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, SectionHeader, Card } from "../../components";
+import { SkeletonTimetableScreen, SectionHeader, Card } from "../../components";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const COLORS = ["#eef2ff","#f0fdf4","#fffbeb","#fdf4ff","#fff1f2","#f0fdfa"];
@@ -17,7 +17,7 @@ export default function StudentTimetableScreen() {
     enabled: !!classroomId,
   });
 
-  if (isLoading) return <LoadingScreen text="Loading timetable..." />;
+  if (isLoading) return <SkeletonTimetableScreen />;
 
   const subjectColorMap: Record<string,number> = {};
   let ci = 0;

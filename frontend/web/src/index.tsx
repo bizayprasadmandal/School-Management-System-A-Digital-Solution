@@ -9,3 +9,10 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Hide the pre-React loading screen once the app mounts
+const loader = document.getElementById("app-loading");
+if (loader) {
+  loader.classList.add("hidden");
+  setTimeout(() => loader.remove(), 400);
+}

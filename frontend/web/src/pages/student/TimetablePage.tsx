@@ -1,7 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Badge, Spinner } from "../../components/common";
+import { Badge, SkeletonCard } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { fmt } from "../../utils";
 
@@ -10,20 +10,20 @@ const COLORS = ["bg-indigo-50 border-indigo-200 text-indigo-800","bg-emerald-50 
 
 export default function StudentTimetablePage() {
   useTitle("My Timetable");
-  const { data: profile } = useQuery({ queryKey:["student-me-tt"], queryFn:()=>api.get<any>("/students/me/") });
+  const { data: profile } = useQuery({ queryKey:["student-me-tt"], queryFn:()=>api.get<{ id: string; enrollments: { classroom: number }[] }>("/students/me/") });
   const classroomId = profile?.enrollments?.[0]?.classroom;
 
   const { data: weekly, isLoading } = useQuery({
     queryKey: ["student-timetable", classroomId],
-    queryFn: () => api.get<any>(`/timetable/slots/weekly/?classroom_id=${classroomId}`),
+    queryFn: () => api.get<Record<string, { subject_name: string; start_time: string; end_time: string; teacher_name: string; room: string }[]>>(`/timetable/slots/weekly/?classroom_id=${classroomId}`),
     enabled: !!classroomId,
   });
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
 
   const subjectColorMap: Record<string,string> = {};
   let colorIdx = 0;
-  Object.values(weekly ?? {}).flat().forEach((s: any) => {
+  Object.values(weekly ?? {}).flat().forEach((s: { subject_name: string; teacher_name: string; start_time: string; end_time: string; room: string }) => {
     if (!subjectColorMap[s.subject_name]) subjectColorMap[s.subject_name] = COLORS[colorIdx++ % COLORS.length];
   });
 
@@ -35,14 +35,14 @@ export default function StudentTimetablePage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {DAYS.map(day => {
-            const slots: any[] = weekly[day] ?? [];
+            const slots = weekly[day] ?? [];
             return (
               <div key={day} className="card">
                 <div className="card-header"><h2 className="text-sm font-bold text-slate-800">{day}</h2><Badge color="slate">{slots.length} periods</Badge></div>
                 <div className="card-body space-y-2">
                   {slots.length === 0
                     ? <p className="text-xs text-slate-400 text-center py-4">No classes</p>
-                    : slots.map((s: any, i: number) => (
+                    : slots.map((s: { subject_name: string; teacher_name: string; start_time: string; end_time: string; room: string }, i: number) => (
                       <div key={i} className={`rounded-xl border px-3 py-2.5 ${subjectColorMap[s.subject_name] ?? COLORS[0]}`}>
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold truncate">{s.subject_name}</p>

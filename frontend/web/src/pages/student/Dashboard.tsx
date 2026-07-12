@@ -20,6 +20,7 @@ import {
   useNotifications,
   useStudentInvoices,
 } from "../../api/hooks";
+import { SkeletonStudentDashboard } from "../../components/common";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { StudentDetail } from "../../types";
@@ -43,14 +44,14 @@ function InfoCard({ label, value, icon: Icon, accent }: {
 export default function StudentDashboard() {
   const { user } = useAuthStore();
 
-  const { data: profile } = useQuery<StudentDetail>({
+  const { data: profile, isLoading: profileLoading } = useQuery<StudentDetail>({
     queryKey: ["student-profile"],
     queryFn: () => api.get("/students/me/"),
   });
 
   const { data: academicYear } = useCurrentAcademicYear();
 
-  const { data: attendanceSummary } = useStudentAttendanceSummary(
+  const { data: attendanceSummary, isLoading: attLoading } = useStudentAttendanceSummary(
     profile?.id ?? "",
     academicYear?.id
   );
@@ -58,10 +59,14 @@ export default function StudentDashboard() {
   const { data: notifications } = useNotifications();
   const unread = notifications?.results.filter((n) => !n.read_at) ?? [];
 
-  const { data: invoices } = useStudentInvoices(profile?.id ?? "");
+  const { data: invoices, isLoading: invLoading } = useStudentInvoices(profile?.id ?? "");
   const unpaidAmount = invoices?.results
     .filter((i) => i.status === "unpaid" || i.status === "overdue")
     .reduce((sum, i) => sum + i.outstanding_amount, 0) ?? 0;
+
+  if (profileLoading || attLoading || invLoading) {
+    return <SkeletonStudentDashboard />;
+  }
 
   const attendancePct = attendanceSummary?.attendance_percentage ?? 0;
   const attendanceColor =

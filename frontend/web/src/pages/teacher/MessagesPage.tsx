@@ -2,13 +2,13 @@ import React from "react";
 import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Avatar, Spinner, EmptyState } from "../../components/common";
+import { Avatar, EmptyState, SkeletonText } from "../../components/common";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
 
 export default function TeacherMessagesPage() {
   useTitle("Messages");
-  const { data: inbox, isLoading } = useQuery({ queryKey:["inbox"], queryFn:()=>api.get<any>("/communication/messages/inbox/") });
+  const { data: inbox, isLoading } = useQuery({ queryKey:["inbox"], queryFn:()=>api.get<any[]>("/communication/messages/inbox/") });
   const threads = inbox ?? [];
 
   return (
@@ -18,10 +18,10 @@ export default function TeacherMessagesPage() {
         <div className="flex" style={{minHeight:480}}>
           <div className="w-80 border-r border-slate-100 flex-shrink-0">
             <div className="p-3 border-b border-slate-100"><p className="text-xs font-semibold text-slate-500 uppercase">Conversations</p></div>
-            {isLoading ? <div className="flex justify-center p-8"><Spinner /></div>
+            {isLoading ? <div className="p-4"><SkeletonText lines={6} /></div>
               : threads.length === 0
               ? <div className="p-8"><EmptyState icon={ChatBubbleLeftEllipsisIcon} title="No messages yet" description="Messages from students and parents appear here." /></div>
-              : threads.map((t: any) => (
+              : threads.map((t: { partner: { id: string; name: string }; last_message: { content: string; sent_at: string }; unread_count: number }) => (
                 <div key={t.partner.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors">
                   <Avatar name={t.partner.name} size="md" />
                   <div className="flex-1 min-w-0">

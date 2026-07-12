@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
-import { Button, Badge, Select, DataTable, Spinner } from "../../components/common";
+import { Button, Badge, Select, DataTable, Spinner, SkeletonChart, SkeletonTable } from "../../components/common";
 import type { BadgeColor } from "../../components/common";
 import { percent, attendanceColor, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
@@ -86,7 +86,7 @@ export default function AdminAttendancePage() {
       </div>
 
       {/* Bar chart */}
-      {isLoading ? <div className="flex justify-center py-10"><Spinner /></div> : chartData.length > 0 && (
+      {isLoading ? <SkeletonChart className="m-4" /> : chartData.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h2 className="text-base font-semibold">Attendance by Classroom — {fmt.date(selectedDate)}</h2>
@@ -119,7 +119,7 @@ export default function AdminAttendancePage() {
             className="w-48" />
         </div>
         {selectedClassroom && (
-          recLoading ? <div className="p-8 flex justify-center"><Spinner /></div>
+          recLoading ? <SkeletonTable rows={8} cols={4} />
           : <DataTable
               columns={[
                 { key: "student_name", header: "Student" },

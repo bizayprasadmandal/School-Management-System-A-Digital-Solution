@@ -5,7 +5,7 @@
 import React from "react";
 import {
   View, Text, TouchableOpacity, ActivityIndicator,
-  StyleSheet, TextInput, StyleProp, ViewStyle,
+  StyleSheet, TextInput, StyleProp, ViewStyle, Animated,
 } from "react-native";
 
 const BRAND = "#4F46E5";
@@ -136,6 +136,236 @@ export function MobileInput({ label, error, ...props }: MobileInputProps) {
         {...props}
       />
       {error && <Text style={styles.inputErr}>{error}</Text>}
+    </View>
+  );
+}
+
+// ─── Skeleton Components ──────────────────────────────────────────────────────
+
+/** Animated pulsing block — base building block for all skeletons */
+function SkeletonBlock({ width, height, style }: { width?: number | string; height?: number; style?: StyleProp<ViewStyle> }) {
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        { backgroundColor: "#e2e8f0", borderRadius: 8, opacity: pulseAnim },
+        width ? { width } : { flex: 1 },
+        height ? { height } : { height: 16 },
+        style,
+      ]}
+    />
+  );
+}
+
+/** Skeleton that mimics a stat card with value + label */
+export function SkeletonStatCard() {
+  return (
+    <View style={[styles.statCard, { borderLeftColor: "#e2e8f0", borderLeftWidth: 3 }]}>
+      <SkeletonBlock width="60%" height={24} style={{ marginBottom: 6 }} />
+      <SkeletonBlock width="40%" height={12} />
+    </View>
+  );
+}
+
+/** Skeleton that mimics a Card with title + 2 text lines */
+export function SkeletonCard() {
+  return (
+    <View style={[styles.card, { marginBottom: 12 }]}>
+      <SkeletonBlock width="50%" height={14} style={{ marginBottom: 12 }} />
+      <SkeletonBlock width="100%" height={12} style={{ marginBottom: 8 }} />
+      <SkeletonBlock width="80%" height={12} />
+    </View>
+  );
+}
+
+/** Skeleton that mimics a list of Card items */
+export function SkeletonList({ count = 3 }: { count?: number }) {
+  return (
+    <View>
+      {Array.from({ length: count }, (_, i) => (
+        <SkeletonCard key={i} />
+      ))}
+    </View>
+  );
+}
+
+/** Skeleton that mimics the teacher dashboard loading state */
+export function SkeletonTeacherDashboard() {
+  return (
+    <View style={{ padding: 20 }}>
+      <SkeletonBlock width="60%" height={22} style={{ marginBottom: 4 }} />
+      <SkeletonBlock width="40%" height={13} style={{ marginBottom: 20 }} />
+      <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </View>
+      <SkeletonBlock width="30%" height={16} style={{ marginBottom: 12 }} />
+      <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
+        <SkeletonBlock height={80} style={{ flex: 1, borderRadius: 16 }} />
+        <SkeletonBlock height={80} style={{ flex: 1, borderRadius: 16 }} />
+      </View>
+      <SkeletonCard />
+      <SkeletonCard />
+    </View>
+  );
+}
+
+/** Skeleton that mimics the student dashboard loading state */
+export function SkeletonStudentDashboard() {
+  return (
+    <View style={{ padding: 20 }}>
+      <SkeletonBlock width="60%" height={22} style={{ marginBottom: 4 }} />
+      <SkeletonBlock width="40%" height={13} style={{ marginBottom: 20 }} />
+      <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </View>
+      <SkeletonBlock width="30%" height={16} style={{ marginBottom: 12 }} />
+      <SkeletonBlock height={120} style={{ borderRadius: 16, marginBottom: 20 }} />
+      <SkeletonBlock width="30%" height={16} style={{ marginBottom: 12 }} />
+      <SkeletonCard />
+      <SkeletonCard />
+    </View>
+  );
+}
+
+/** Skeleton that mimics the attendance screen loading state */
+export function SkeletonAttendanceScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      <SkeletonBlock width="100%" height={36} style={{ marginBottom: 16, borderRadius: 20 }} />
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </View>
+      <SkeletonCard />
+    </View>
+  );
+}
+
+/** Skeleton that mimics a grades/result screen (latest result card + list of cards) */
+export function SkeletonGradesScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      <View style={{ height: 140, backgroundColor: "#e2e8f0", borderRadius: 16, marginBottom: 20, padding: 20 }}>
+        <SkeletonBlock width="30%" height={12} style={{ marginBottom: 8 }} />
+        <SkeletonBlock width="60%" height={18} style={{ marginBottom: 16 }} />
+        <View style={{ flexDirection: "row", gap: 24 }}>
+          <SkeletonBlock width={60} height={28} />
+          <SkeletonBlock width={50} height={28} />
+        </View>
+      </View>
+      <SkeletonBlock width="30%" height={16} style={{ marginBottom: 12 }} />
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </View>
+  );
+}
+
+/** Skeleton that mimics a timetable/loading screen (day blocks with slots) */
+export function SkeletonTimetableScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      {Array.from({ length: 3 }, (_, i) => (
+        <View key={i} style={{ marginBottom: 14, backgroundColor: "#fff", borderRadius: 14, padding: 14, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }}>
+          <SkeletonBlock width="30%" height={14} style={{ marginBottom: 10 }} />
+          <SkeletonBlock width="100%" height={44} style={{ marginBottom: 6, borderRadius: 10 }} />
+          <SkeletonBlock width="100%" height={44} style={{ borderRadius: 10 }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Skeleton that mimics a messages/thread list screen */
+export function SkeletonMessagesScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      {Array.from({ length: 5 }, (_, i) => (
+        <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#f1f5f9" }}>
+          <SkeletonBlock width={44} height={44} style={{ borderRadius: 12 }} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBlock width="50%" height={14} style={{ marginBottom: 6 }} />
+            <SkeletonBlock width="80%" height={12} />
+          </View>
+          <SkeletonBlock width={20} height={20} style={{ borderRadius: 10 }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Skeleton that mimics a children/profile list screen */
+export function SkeletonChildrenScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      {Array.from({ length: 2 }, (_, i) => (
+        <View key={i} style={{ flexDirection: "row", gap: 14, backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+          <SkeletonBlock width={56} height={56} style={{ borderRadius: 16 }} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBlock width="60%" height={16} style={{ marginBottom: 4 }} />
+            <SkeletonBlock width="40%" height={12} style={{ marginBottom: 10 }} />
+            <View style={{ flexDirection: "row", gap: 16 }}>
+              <View>
+                <SkeletonBlock width={40} height={10} style={{ marginBottom: 4 }} />
+                <SkeletonBlock width={60} height={13} />
+              </View>
+              <View>
+                <SkeletonBlock width={40} height={10} style={{ marginBottom: 4 }} />
+                <SkeletonBlock width={50} height={13} />
+              </View>
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Skeleton that mimics a fees/invoices screen */
+export function SkeletonFeesScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
+      <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </View>
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </View>
+  );
+}
+
+/** Skeleton that mimics a gradebook/exam selection screen */
+export function SkeletonGradebookScreen() {
+  return (
+    <View style={{ padding: 16 }}>
+      <SkeletonBlock width="30%" height={20} style={{ marginBottom: 16 }} />
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
     </View>
   );
 }

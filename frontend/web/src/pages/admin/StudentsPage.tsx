@@ -13,6 +13,7 @@ import { downloadFromUrl } from "../../utils";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import type { StudentListItem } from "../../types";
+import { SkeletonTable } from "../../components/common";
 
 const GENDER_LABELS: Record<string, string> = { M: "Male", F: "Female", O: "Other" };
 
@@ -158,10 +159,7 @@ export default function StudentsPage() {
       {/* Table */}
       <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-slate-400">
-            <div className="h-7 w-7 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mr-3" />
-            Loading students…
-          </div>
+          <SkeletonTable rows={6} cols={6} />
         ) : students.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <p className="text-base font-medium">No students found</p>

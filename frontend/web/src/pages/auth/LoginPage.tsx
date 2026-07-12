@@ -57,11 +57,12 @@ export default function LoginPage() {
       const route = ROLE_ROUTES[response.user.role] ?? "/login";
       toast.success(`Welcome back, ${response.user.first_name}!`);
       navigate(route, { replace: true });
-    } catch (err: any) {
-      const msg = err?.message ?? "Invalid credentials. Please try again.";
-      if (err?.status === 401) {
+    } catch (err: unknown) {
+      const error = err as { message?: string; status?: number };
+      const msg = error?.message ?? "Invalid credentials. Please try again.";
+      if (error?.status === 401) {
         setError("password", { message: "Incorrect email or password" });
-      } else if (err?.status === 429) {
+      } else if (error?.status === 429) {
         toast.error("Too many attempts. Please wait 30 minutes.");
       } else {
         toast.error(msg);
@@ -82,14 +83,14 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl bg-white p-8 shadow-2xl">
-          <h2 className="text-xl font-bold text-slate-900 mb-1">Welcome back</h2>
-          <p className="text-sm text-slate-500 mb-6">Sign in to your account to continue</p>
+        <div className="rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-2xl dark:shadow-none">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in to your account to continue</p>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Email address
               </label>
               <input
@@ -111,7 +112,7 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700">Password</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
@@ -180,7 +181,7 @@ export default function LoginPage() {
           </form>
 
           {/* Demo credentials hint */}
-          <div className="mt-6 rounded-xl bg-indigo-50 px-4 py-3">
+          <div className="mt-6 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 dark:border dark:border-indigo-800/50">
             <p className="text-xs font-semibold text-indigo-700 mb-2">Demo Credentials</p>
             <div className="space-y-1 text-xs text-indigo-600">
               <p>Admin: <span className="font-mono">admin@school.edu / Admin@1234</span></p>

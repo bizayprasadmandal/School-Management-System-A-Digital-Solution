@@ -1,0 +1,47 @@
+# ─── Git ──────────────────────────────────────────────────────────────────────
+.git/
+.gitattributes
+.gitignore
+
+# ─── Environment ──────────────────────────────────────────────────────────────
+.env
+.env.*
+*.pem
+
+# ─── Python / Django ─────────────────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/*.egg-info/
+**/.coverage
+**/htmlcov/
+**/.tox/
+*.log
+backend/media/
+backend/staticfiles/
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+**/node_modules/
+frontend/web/build/
+frontend/web/.cache/
+frontend/mobile/.expo/
+frontend/mobile/android/
+frontend/mobile/ios/
+
+# ─── IDE / OS ─────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+docker-data/
+
+# ─── Terraform ────────────────────────────────────────────────────────────────
+*.tfstate
+*.tfstate.*
+.terraform/

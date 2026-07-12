@@ -2,7 +2,7 @@
  * Common UI Components — reusable across all role dashboards
  */
 
-import React, { Fragment } from "react";
+import React from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
@@ -188,11 +188,264 @@ export function Spinner({ size = "md", className }: { size?: "sm" | "md" | "lg";
   return <div className={clsx("animate-spin rounded-full border-indigo-500 border-t-transparent", sizes[size], className)} />;
 }
 
-export function PageLoader({ text = "Loading…" }: { text?: string }) {
+// ─── Skeleton Loaders ─────────────────────────────────────────────────────────
+
+/** Base skeleton pulse block */
+function Skeleton({ className }: { className?: string }) {
+  return <div className={clsx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700", className)} />;
+}
+
+/** Skeleton that mimics a card with title + 2 text lines */
+export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-      <Spinner size="lg" />
-      <p className="text-sm">{text}</p>
+    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+      <Skeleton className="h-4 w-1/3 mb-4" />
+      <Skeleton className="h-8 w-2/3 mb-3" />
+      <Skeleton className="h-3 w-full mb-2" />
+      <Skeleton className="h-3 w-4/5" />
+    </div>
+  );
+}
+
+/** Skeleton that mimics a table with header + rows */
+export function SkeletonTable({ rows = 5, cols = 4, className }: { rows?: number; cols?: number; className?: string }) {
+  return (
+    <div className={clsx("rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden", className)}>
+      {/* Header */}
+      <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 flex gap-4">
+        {Array.from({ length: cols }, (_, i) => (
+          <Skeleton key={i} className="h-3 flex-1" />
+        ))}
+      </div>
+      {/* Rows */}
+      {Array.from({ length: rows }, (_, r) => (
+        <div key={r} className="flex gap-4 px-4 py-3 border-t border-slate-50 dark:border-slate-700/50">
+          {Array.from({ length: cols }, (_, c) => (
+            <Skeleton key={c} className={`h-4 ${c === 0 ? "flex-[2]" : "flex-1"}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Skeleton that mimics a KPI stat card */
+export function SkeletonStatCard({ className }: { className?: string }) {
+  return (
+    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+      <Skeleton className="h-3 w-1/2 mb-3" />
+      <Skeleton className="h-8 w-1/3 mb-3" />
+      <Skeleton className="h-3 w-2/3" />
+    </div>
+  );
+}
+
+/** Skeleton that mimics a chart/visualization area */
+export function SkeletonChart({ className }: { className?: string }) {
+  return (
+    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+      <Skeleton className="h-3 w-1/4 mb-6" />
+      <div className="flex items-end gap-2 h-40">
+        <Skeleton className="flex-1 h-3/4" />
+        <Skeleton className="flex-1 h-1/2" />
+        <Skeleton className="flex-1 h-4/5" />
+        <Skeleton className="flex-1 h-1/3" />
+        <Skeleton className="flex-1 h-2/3" />
+        <Skeleton className="flex-1 h-5/6" />
+      </div>
+    </div>
+  );
+}
+
+/** Skeleton that mimics a list of text lines */
+export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
+  return (
+    <div className={clsx("space-y-2", className)}>
+      {Array.from({ length: lines }, (_, i) => (
+        <Skeleton key={i} className={`h-3 ${i === lines - 1 ? "w-3/5" : "w-full"}`} />
+      ))}
+    </div>
+  );
+}
+
+/** Skeleton that mimics the Teacher Dashboard layout — KPI cards + schedule + chart */
+export function SkeletonTeacherDashboard() {
+  return (
+    <div className="space-y-6">
+      {/* KPI cards row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </div>
+
+      {/* Schedule + chart row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SkeletonChart />
+        </div>
+        <SkeletonChart />
+      </div>
+
+      {/* Attendance summaries */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    </div>
+  );
+}
+
+/** Skeleton that mimics the Student Dashboard layout — info cards + gauge + notifications */
+export function SkeletonStudentDashboard() {
+  return (
+    <div className="space-y-6">
+      {/* Metric cards row */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+      </div>
+
+      {/* Gauge + notifications row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <SkeletonChart />
+        <div className="lg:col-span-2">
+          <SkeletonCard />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SkeletonSection types ───────────────────────────────────────────────────
+
+export type SkeletonSectionType = "card" | "stat-card" | "chart" | "table" | "text";
+
+export interface SkeletonSection {
+  type: SkeletonSectionType;
+  /** Number of items to render (cards, stat-cards, or chart items) */
+  count?: number;
+  /** Rows for table type (default 5) */
+  rows?: number;
+  /** Columns for table type (default 4) */
+  cols?: number;
+  /** Lines for text type (default 3) */
+  lines?: number;
+  /** Wrapper className, e.g. "grid grid-cols-1 gap-4 sm:grid-cols-2" */
+  className?: string;
+}
+
+interface SkeletonPageProps {
+  /** Single layout type — shorthand for a one-section skeleton */
+  layout?: SkeletonSectionType;
+  /** Number of items for the shorthand layout (cards, stat-cards, etc.) */
+  count?: number;
+  /** Rows for table shorthand */
+  rows?: number;
+  /** Columns for table shorthand */
+  cols?: number;
+  /** Lines for text shorthand */
+  lines?: number;
+  /** Multi-section config for complex page layouts */
+  sections?: SkeletonSection[];
+  /** Optional heading skeleton shown above all sections */
+  header?: boolean;
+  /** Optional className on the root wrapper */
+  className?: string;
+}
+
+/**
+ * Flexible skeleton page — compose a loading placeholder from
+ * section types (card, stat-card, chart, table, text).
+ *
+ * Shorthand examples:
+ *   <SkeletonPage layout="card" count={3} />
+ *   <SkeletonPage layout="table" rows={6} cols={5} />
+ *
+ * Multi-section example:
+ *   <SkeletonPage header sections={[
+ *     { type: "stat-card", count: 4, className: "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" },
+ *     { type: "chart", count: 2, className: "grid grid-cols-1 gap-6 lg:grid-cols-3" },
+ *   ]} />
+ */
+export function SkeletonPage({ layout, count = 1, rows, cols, lines, sections, header, className }: SkeletonPageProps) {
+  const resolvedSections: SkeletonSection[] = sections ?? (layout ? [{ type: layout, count, rows, cols, lines }] : []);
+
+  const renderSection = (sec: SkeletonSection, idx: number) => {
+    const items = sec.count ?? 1;
+    let wrapperClass = sec.className ?? "";
+
+    // Auto-grid for cards/stat-cards when no custom className
+    if (!sec.className && (sec.type === "card" || sec.type === "stat-card")) {
+      if (items <= 2) wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-2";
+      else if (items <= 3) wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-3";
+      else wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
+    }
+
+    switch (sec.type) {
+      case "card":
+        return (
+          <div key={idx} className={wrapperClass || undefined}>
+            {Array.from({ length: items }, (_, i) => <SkeletonCard key={i} />)}
+          </div>
+        );
+      case "stat-card":
+        return (
+          <div key={idx} className={wrapperClass || undefined}>
+            {Array.from({ length: items }, (_, i) => <SkeletonStatCard key={i} />)}
+          </div>
+        );
+      case "chart":
+        return (
+          <div key={idx} className={wrapperClass || undefined}>
+            {Array.from({ length: items }, (_, i) => <SkeletonChart key={i} />)}
+          </div>
+        );
+      case "table":
+        return <SkeletonTable key={idx} rows={sec.rows ?? 5} cols={sec.cols ?? 4} className={sec.className} />;
+      case "text":
+        return (
+          <div key={idx} className={wrapperClass || undefined}>
+            {Array.from({ length: items }, (_, i) => <SkeletonText key={i} lines={sec.lines ?? 3} />)}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className={clsx("space-y-6", className)}>
+      {header && (
+        <div className="space-y-2">
+          <div className="h-5 w-1/3 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />
+          <div className="h-3 w-1/5 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />
+        </div>
+      )}
+      {resolvedSections.map(renderSection)}
+    </div>
+  );
+}
+
+/** Skeleton that mimics the Admin Dashboard layout — KPI cards + charts + announcements */
+export function SkeletonDashboard() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <SkeletonChart />
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <SkeletonCard />
+      </div>
     </div>
   );
 }
@@ -216,7 +469,7 @@ interface DataTableProps<T> {
 }
 
 export function DataTable<T>({ columns, data, loading, emptyMessage = "No data found", rowKey, onRowClick }: DataTableProps<T>) {
-  if (loading) return <PageLoader />;
+  if (loading) return <SkeletonTable rows={5} cols={columns.length} />;
   return (
     <div className="rounded-xl overflow-hidden border border-slate-100">
       <div className="overflow-x-auto">

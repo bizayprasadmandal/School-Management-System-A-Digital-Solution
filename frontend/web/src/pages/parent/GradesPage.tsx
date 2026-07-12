@@ -4,22 +4,23 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Badge, Spinner, DataTable, EmptyState } from "../../components/common";
+import { Badge, DataTable, EmptyState, SkeletonCard } from "../../components/common";
 import { percent, gradeBg } from "../../utils";
 import { useTitle } from "../../hooks";
+import type { StudentListItem, ReportCard, PaginatedResponse } from "../../types";
 import { TrophyIcon } from "@heroicons/react/24/outline";
 
 export default function ParentGradesPage() {
   useTitle("Children's Grades");
   const [childIdx, setChildIdx] = useState(0);
 
-  const { data: children } = useQuery({ queryKey: ["parent-children-gr"], queryFn: () => api.get<any>("/students/") });
+  const { data: children, isLoading: childrenLoading } = useQuery({ queryKey: ["parent-children-gr"], queryFn: () => api.get<PaginatedResponse<StudentListItem>>("/students/") });
   const childList = children?.results ?? [];
   const child = childList[childIdx];
 
-  const { data: rcData, isLoading } = useQuery({
+  const { data: rcData, isLoading: rcLoading } = useQuery({
     queryKey: ["parent-child-rc", child?.id],
-    queryFn: () => api.get<any>(`/gradebook/report-cards/?student=${child.id}`),
+    queryFn: () => api.get<PaginatedResponse<ReportCard>>(`/gradebook/report-cards/?student=${child.id}`),
     enabled: !!child?.id,
   });
   const rcs = rcData?.results ?? [];
@@ -30,7 +31,7 @@ export default function ParentGradesPage() {
 
       {childList.length > 1 && (
         <div className="card p-4 flex gap-2 overflow-x-auto">
-          {childList.map((c: any, i: number) => (
+          {childList.map((c: StudentListItem, i: number) => (
             <button key={c.id} onClick={() => setChildIdx(i)}
               className={`flex-shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${i===childIdx?"bg-violet-600 text-white":"bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
               {c.full_name}
@@ -39,7 +40,7 @@ export default function ParentGradesPage() {
         </div>
       )}
 
-      {isLoading ? <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+      {childrenLoading || rcLoading ? <div className="p-4"><SkeletonCard /></div>
         : rcs.length === 0
         ? <div className="card p-8"><EmptyState icon={TrophyIcon} title="No published results" description="Report cards appear here once published by the school." /></div>
         : (
@@ -67,7 +68,7 @@ export default function ParentGradesPage() {
                   { key:"rank_in_class", header:"Rank", render:r=>r.rank_in_class?`#${r.rank_in_class}`:"—" },
                   { key:"status", header:"Status", render:r=><Badge color={r.status==="published"?"green":"slate"}>{r.status}</Badge> },
                 ]}
-                data={rcs as any[]} rowKey={r=>r.id}
+                data={rcs} rowKey={r=>r.id}
               />
             </div>
           </>

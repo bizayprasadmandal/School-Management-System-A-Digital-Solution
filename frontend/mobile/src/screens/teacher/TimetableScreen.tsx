@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
 import { useAuthStore } from "../../hooks/useAuthStore";
-import { LoadingScreen, Card, Badge, SectionHeader } from "../../components";
+import { SkeletonTimetableScreen, Card, Badge, SectionHeader } from "../../components";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const COLORS = ["#eef2ff","#f0fdf4","#fffbeb","#fdf4ff","#fff1f2"];
@@ -20,7 +20,7 @@ export default function TeacherTimetableScreen() {
     queryFn: () => mobileApi.get<any[]>("/timetable/slots/teacher-schedule/"),
   });
 
-  if (isLoading) return <LoadingScreen text="Loading timetable..." />;
+  if (isLoading) return <SkeletonTimetableScreen />;
 
   const byDay: Record<string, any[]> = {};
   DAYS.forEach(d => { byDay[d] = []; });

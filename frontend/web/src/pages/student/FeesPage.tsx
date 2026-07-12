@@ -3,7 +3,7 @@ import { BanknotesIcon, CheckCircleIcon, ClockIcon } from "@heroicons/react/24/o
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
-import { Badge, Spinner, DataTable, EmptyState } from "../../components/common";
+import { Badge, DataTable, EmptyState, SkeletonCard } from "../../components/common";
 import { currency, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
@@ -16,7 +16,7 @@ export default function StudentFeesPage() {
   const totalDue = invoices.filter(i=>["unpaid","overdue","partial"].includes(i.status)).reduce((s,i)=>s+Number(i.outstanding_amount),0);
   const totalPaid = invoices.reduce((s,i)=>s+Number(i.paid_amount),0);
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
 
   return (
     <div className="space-y-6">

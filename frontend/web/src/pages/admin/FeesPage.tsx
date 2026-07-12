@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 import type { FeeInvoice } from "../../types";
+import { SkeletonTable } from "../../components/common";
 import dayjs from "dayjs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -183,10 +184,7 @@ export default function FeesPage() {
       {/* Invoices table */}
       <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-slate-400">
-            <div className="h-7 w-7 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mr-3" />
-            Loading invoices…
-          </div>
+          <SkeletonTable rows={5} cols={8} />
         ) : invoices.length === 0 ? (
           <div className="text-center py-16 text-slate-400">
             <BanknotesIcon className="h-10 w-10 mx-auto mb-2 opacity-30" />

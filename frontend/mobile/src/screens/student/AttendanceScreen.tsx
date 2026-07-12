@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-nati
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, StatCard, SectionHeader } from "../../components";
+import { SkeletonAttendanceScreen, Card, StatCard, SectionHeader } from "../../components";
 
 const STATUS_COLOR: Record<string,string> = { P: "#22c55e", A: "#ef4444", L: "#f59e0b", E: "#3b82f6" };
 const STATUS_BG: Record<string,string> = { P: "#dcfce7", A: "#fee2e2", L: "#fef9c3", E: "#dbeafe" };
@@ -19,7 +19,7 @@ export default function StudentAttendanceScreen() {
     enabled: !!profile?.id,
   });
 
-  if (isLoading) return <LoadingScreen text="Loading attendance..." />;
+  if (isLoading) return <SkeletonAttendanceScreen />;
 
   const pct = report?.percentage ?? 0;
   const records = report?.records ?? [];

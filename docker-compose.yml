@@ -140,6 +140,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
       - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
     ports:
       - "5555:5555"
     depends_on:

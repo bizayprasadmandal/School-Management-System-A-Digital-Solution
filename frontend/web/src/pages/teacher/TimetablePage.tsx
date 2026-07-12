@@ -2,7 +2,7 @@ import React from "react";
 import { useCurrentAcademicYear } from "../../api/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Badge, Spinner } from "../../components/common";
+import { Badge, Spinner, SkeletonCard } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
 import dayjs from "dayjs";
@@ -34,7 +34,7 @@ export default function TeacherTimetablePage() {
   let ci = 0;
   (slots ?? []).forEach(s => { if (!colorMap[s.subject_name]) colorMap[s.subject_name] = COLORS[ci++ % COLORS.length]; });
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (isLoading) return <SkeletonCard className="max-w-md mx-auto" />;
 
   return (
     <div className="space-y-5">

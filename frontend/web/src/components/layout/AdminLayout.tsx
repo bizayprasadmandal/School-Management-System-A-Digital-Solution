@@ -19,12 +19,15 @@ import {
   Bars3Icon,
   XMarkIcon,
   BellIcon,
-  UserCircleIcon,
   BuildingLibraryIcon,
   DocumentChartBarIcon,
+  SunIcon,
+  MoonIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import { useUnreadNotificationCount } from "../../api/hooks";
+import { useDarkMode } from "../../hooks/useDarkMode";
+import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
 import clsx from "clsx";
 import NotificationPanel from "./NotificationPanel";
 
@@ -56,6 +59,7 @@ export default function AdminLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  const [isDark, toggleDark] = useDarkMode();
 
   const handleLogout = () => {
     logout();
@@ -63,7 +67,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
       {/* ── Mobile overlay ───────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -75,15 +79,15 @@ export default function AdminLayout() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-indigo-900 transition-transform duration-300 lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-indigo-900 dark:bg-indigo-950 transition-transform duration-300 lg:static lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-5 border-b border-indigo-800">
+        <div className="flex h-16 items-center justify-between px-5 border-b border-indigo-800 dark:border-indigo-900">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
-              <AcademicCapIcon className="h-5 w-5 text-indigo-700" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-indigo-200">
+              <AcademicCapIcon className="h-5 w-5 text-indigo-700 dark:text-indigo-900" />
             </div>
             <span className="text-lg font-bold text-white tracking-tight">EduSphere</span>
           </div>
@@ -97,8 +101,8 @@ export default function AdminLayout() {
 
         {/* School badge */}
         {user?.school && (
-          <div className="mx-4 mt-4 rounded-lg bg-indigo-800/60 px-3 py-2">
-            <p className="text-xs text-indigo-300">School</p>
+          <div className="mx-4 mt-4 rounded-lg bg-indigo-800/60 dark:bg-indigo-900/80 px-3 py-2">
+            <p className="text-xs text-indigo-300 dark:text-indigo-400">School</p>
             <p className="text-sm font-medium text-white truncate">{user.school.name}</p>
           </div>
         )}
@@ -127,7 +131,7 @@ export default function AdminLayout() {
         </nav>
 
         {/* User info */}
-        <div className="border-t border-indigo-800 p-4">
+        <div className="border-t border-indigo-800 dark:border-indigo-900 p-4">
           <div className="flex items-center gap-3">
             {user?.avatar ? (
               <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
@@ -138,7 +142,7 @@ export default function AdminLayout() {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">{user?.full_name}</p>
-              <p className="text-xs text-indigo-300 capitalize">{user?.role?.replace("_", " ")}</p>
+              <p className="text-xs text-indigo-300 dark:text-indigo-400 capitalize">{user?.role?.replace("_", " ")}</p>
             </div>
             <button
               onClick={handleLogout}
@@ -154,9 +158,9 @@ export default function AdminLayout() {
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="flex h-16 items-center justify-between bg-white px-4 shadow-sm z-10 border-b border-slate-200">
+        <header className="flex h-16 items-center justify-between bg-white dark:bg-slate-800 px-4 shadow-sm z-10 border-b border-slate-200 dark:border-slate-700 transition-colors duration-200">
           <button
-            className="lg:hidden text-slate-500 hover:text-slate-900"
+            className="lg:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />
@@ -164,10 +168,23 @@ export default function AdminLayout() {
 
           <div className="flex-1 lg:pl-0" />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleDark}
+              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              className="rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
+            >
+              {isDark ? (
+                <SunIcon className="h-5 w-5" />
+              ) : (
+                <MoonIcon className="h-5 w-5" />
+              )}
+            </button>
+
             {/* Notifications bell */}
             <button
-              className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              className="relative rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors"
               onClick={() => setNotifOpen(v => !v)}
             >
               <BellIcon className="h-5 w-5" />
@@ -179,7 +196,7 @@ export default function AdminLayout() {
             </button>
 
             {/* Avatar */}
-            <button className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 transition-colors">
+            <button className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
               {user?.avatar ? (
                 <img src={user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
               ) : (
@@ -187,7 +204,7 @@ export default function AdminLayout() {
                   {user?.first_name?.[0]}{user?.last_name?.[0]}
                 </div>
               )}
-              <span className="hidden md:block text-sm font-medium text-slate-700">
+              <span className="hidden md:block text-sm font-medium text-slate-700 dark:text-slate-300">
                 {user?.first_name}
               </span>
             </button>
@@ -195,8 +212,8 @@ export default function AdminLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
+          <AnimatedOutlet />
         </main>
             <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
         </div>

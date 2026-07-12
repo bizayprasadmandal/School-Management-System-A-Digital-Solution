@@ -7,4 +7,4 @@ class FeesConfig(AppConfig):
     verbose_name = "Fee Management"
 
     def ready(self):
-        import services.fees.signals  # noqa
+        import services.fees.signals  # noqa: F401 — imported for signal registration

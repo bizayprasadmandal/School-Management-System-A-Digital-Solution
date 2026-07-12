@@ -40,6 +40,7 @@ import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import ProfileScreen from "../screens/shared/ProfileScreen";
 
 import { useAuthStore } from "../hooks/useAuthStore";
+import RouteProgressBar from "../components/RouteProgressBar";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -209,6 +210,7 @@ export default function RootNavigator() {
   return (
     <NavigationContainer>
       <StatusBar barStyle="light-content" backgroundColor={BRAND} />
+      <RouteProgressBar />
       <AppContent />
     </NavigationContainer>
   );

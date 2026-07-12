@@ -7,4 +7,4 @@ class AttendanceConfig(AppConfig):
     verbose_name = "Attendance"
 
     def ready(self):
-        import services.attendance.signals  # noqa
+        import services.attendance.signals  # noqa: F401 — imported for signal registration

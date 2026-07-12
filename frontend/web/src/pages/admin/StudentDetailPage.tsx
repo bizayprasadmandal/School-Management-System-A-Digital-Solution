@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeftIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards } from "../../api/hooks";
-import { Button, Badge, Avatar, Spinner, DataTable } from "../../components/common";
+import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard } from "../../components/common";
 import { fmt, currency, percent, attendanceColor, FEE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
 
@@ -21,7 +21,7 @@ export default function StudentDetailPage() {
   const { data: reportCardsData } = useReportCards(id!);
   useTitle(student?.full_name ?? "Student Profile");
 
-  if (isLoading) return <div className="flex items-center justify-center py-32"><Spinner size="lg" /></div>;
+  if (isLoading) return <SkeletonCard className="max-w-2xl mx-auto mt-6" />;
   if (!student) return <div className="text-center py-32 text-slate-400"><p className="text-lg font-semibold">Student not found</p><Link to="/admin/students" className="text-indigo-600 text-sm mt-2 inline-block">Back to students</Link></div>;
 
   const invoices = invoicesData?.results ?? [];

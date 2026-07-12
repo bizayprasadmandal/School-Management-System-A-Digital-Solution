@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
 import { useAuthStore } from "../../hooks/useAuthStore";
-import { LoadingScreen, Card, Badge, StatCard, SectionHeader, Button } from "../../components";
+import { SkeletonTeacherDashboard, Card, Badge, StatCard, SectionHeader, Button } from "../../components";
 
 const BRAND = "#059669";
 
@@ -27,7 +27,7 @@ export default function TeacherHomeScreen() {
     queryFn: () => mobileApi.get<any>("/communication/notifications/?channel=in_app&page_size=3"),
   });
 
-  if (clsLoading) return <LoadingScreen text="Loading dashboard..." />;
+  if (clsLoading) return <SkeletonTeacherDashboard />;
 
   const classList = classrooms?.results ?? [];
   const unread = (notifications?.results ?? []).filter((n: any) => !n.read_at).length;

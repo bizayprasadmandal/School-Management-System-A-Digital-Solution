@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, Badge, StatCard } from "../../components";
+import { SkeletonFeesScreen, Card, Badge, StatCard } from "../../components";
 
 const FEE_COLOR: Record<string, any> = { paid: "green", unpaid: "amber", overdue: "red", partial: "blue" };
 
@@ -16,7 +16,7 @@ export default function ParentFeesScreen() {
     enabled: !!childId,
   });
 
-  if (isLoading) return <LoadingScreen text="Loading fees..." />;
+  if (isLoading) return <SkeletonFeesScreen />;
   const invoices = inv?.results ?? [];
   const totalDue = invoices.filter((i: any) => ["unpaid","overdue","partial"].includes(i.status)).reduce((s: number, i: any) => s + Number(i.outstanding_amount), 0);
   const totalPaid = invoices.reduce((s: number, i: any) => s + Number(i.paid_amount), 0);

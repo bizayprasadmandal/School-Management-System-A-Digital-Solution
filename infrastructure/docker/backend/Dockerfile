@@ -36,14 +36,21 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ─── Production stage ─────────────────────────────────────────────────────────
 FROM base AS production
 
+# Build args for collectstatic (passed from docker-compose)
+ARG SECRET_KEY
+ARG DATABASE_URL
+ARG REDIS_URL
+
 # Create non-root user
 RUN groupadd --gid 1001 django && \
     useradd --uid 1001 --gid django --shell /bin/bash --create-home django
 
 COPY --chown=django:django . .
 
-# Collect static
-RUN python manage.py collectstatic --noinput --settings=core.settings.production
+# Collect static (needs env vars to initialize Django settings)
+# Collect static files to local filesystem during build (S3/MinIO not available at build time)
+RUN SECRET_KEY=${SECRET_KEY} DATABASE_URL=${DATABASE_URL} REDIS_URL=${REDIS_URL} SENTRY_DSN= USE_S3=no \
+    python manage.py collectstatic --noinput --settings=core.settings.production
 
 USER django
 

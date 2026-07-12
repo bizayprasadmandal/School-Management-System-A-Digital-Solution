@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, EmptyState } from "../../components";
+import { SkeletonMessagesScreen, EmptyState } from "../../components";
 
 export default function ParentMessagesScreen() {
   const qc = useQueryClient();
@@ -14,7 +14,7 @@ export default function ParentMessagesScreen() {
   const send = useMutation({ mutationFn: (c: string) => mobileApi.post("/communication/messages/", { recipient: active, content: c }), onSuccess: () => { setMsg(""); qc.invalidateQueries({ queryKey: ["mob-par-thread", active] }); } });
 
   const threads = inbox ?? [];
-  if (isLoading) return <LoadingScreen text="Loading messages..." />;
+  if (isLoading) return <SkeletonMessagesScreen />;
 
   if (!active) return (
     <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>

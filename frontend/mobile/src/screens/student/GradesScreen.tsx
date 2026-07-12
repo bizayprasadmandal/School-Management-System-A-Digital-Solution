@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, Badge, StatCard, SectionHeader } from "../../components";
+import { SkeletonGradesScreen, Card, Badge, StatCard, SectionHeader } from "../../components";
 
 export default function StudentGradesScreen() {
   const { data: profile } = useQuery({ queryKey: ["student-me-mob"], queryFn: () => mobileApi.get<any>("/students/me/") });
@@ -14,7 +14,7 @@ export default function StudentGradesScreen() {
   const reportCards = rcData?.results ?? [];
   const latest = reportCards.find((r: any) => r.status === "published") ?? reportCards[0];
 
-  if (isLoading) return <LoadingScreen text="Loading grades..." />;
+  if (isLoading) return <SkeletonGradesScreen />;
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
 import { useAuthStore } from "../../hooks/useAuthStore";
-import { LoadingScreen, Card, Badge, SectionHeader } from "../../components";
+import { SkeletonStudentDashboard, Card, Badge, SectionHeader } from "../../components";
 
 const BRAND = "#6366f1";
 
@@ -30,7 +30,7 @@ export default function StudentHomeScreen() {
     refetchInterval: 30000,
   });
 
-  if (isLoading) return <LoadingScreen text="Loading..." />;
+  if (isLoading) return <SkeletonStudentDashboard />;
 
   const latestRC = rcData?.results?.[0];
   const notifications = notifData?.results ?? [];

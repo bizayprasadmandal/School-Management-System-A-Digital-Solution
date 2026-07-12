@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { MagnifyingGlassIcon, PlusIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Button, Avatar, Badge, DataTable, Spinner, EmptyState } from "../../components/common";
+import { Button, Avatar, Badge, DataTable, SkeletonTable, EmptyState } from "../../components/common";
 import { useTitle, useDebounce } from "../../hooks";
 
 export default function TeachersPage() {
@@ -22,7 +22,7 @@ export default function TeachersPage() {
         <div className="relative"><MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"/><input className="input pl-9" placeholder="Search by name, employee ID, department…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
       </div>
       <div className="card">
-        {isLoading ? <div className="flex justify-center py-16"><Spinner size="lg"/></div>
+        {isLoading ? <SkeletonTable rows={6} cols={5} className="m-4" />
           : teachers.length === 0
           ? <div className="p-8"><EmptyState icon={AcademicCapIcon} title="No teachers found" description="Adjust search or add new teachers." /></div>
           : <DataTable

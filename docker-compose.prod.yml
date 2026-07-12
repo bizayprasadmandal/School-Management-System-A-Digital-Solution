@@ -73,6 +73,14 @@ services:
 
   # ─── Backend ─────────────────────────────────────────────────────────────
   backend:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend/Dockerfile
+      target: production
+      args:
+        SECRET_KEY: ${SECRET_KEY}
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
     image: ${BACKEND_IMAGE:-your-registry/sms-backend:2.0.0}
     container_name: sms_backend_prod
     restart: always
@@ -104,7 +112,7 @@ services:
       start_period: 60s
     logging: *default-logging
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           memory: 1G
@@ -170,6 +178,13 @@ services:
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
   frontend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/frontend/Dockerfile
+      target: production
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-https://localhost/api/v1}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL:-wss://localhost/ws}
     image: ${FRONTEND_IMAGE:-your-registry/sms-frontend:2.0.0}
     container_name: sms_frontend_prod
     restart: always
@@ -198,14 +213,15 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./infrastructure/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/nginx.local.prod.conf:/etc/nginx/nginx.conf:ro
       - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
       - media_files:/var/www/media:ro
       - static_files:/var/www/static:ro
-      - nginx_cache:/var/cache/nginx
     depends_on:
       - backend
       - frontend
+      - postgres
+      - redis
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -223,8 +239,6 @@ volumes:
   media_files:
     driver: local
   static_files:
-    driver: local
-  nginx_cache:
     driver: local
 
 networks:

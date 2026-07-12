@@ -11,9 +11,12 @@ import RootNavigator from "./src/navigation/RootNavigator";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
+      staleTime: 5 * 60 * 1000,       // 5 min — baseline; per-query overrides in hooks
+      gcTime: 30 * 60 * 1000,          // keep stale data 30 min for instant back-nav
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,        // revalidate after network comes back
+      networkMode: "offlineFirst",     // prefer cache when offline
     },
   },
 });

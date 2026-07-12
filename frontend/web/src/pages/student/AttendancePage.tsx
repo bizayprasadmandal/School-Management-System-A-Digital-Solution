@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useCurrentAcademicYear } from "../../api/hooks";
-import { Badge, Spinner } from "../../components/common";
+import { Badge, SkeletonCard } from "../../components/common";
 import { percent, attendanceColor, ATTENDANCE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
@@ -11,10 +11,10 @@ export default function StudentAttendancePage() {
   useTitle("My Attendance");
   const [month, setMonth] = useState(dayjs().month() + 1);
   const [year, setYear] = useState(dayjs().year());
-  const { data: profile } = useQuery({ queryKey:["student-me-att"], queryFn:()=>api.get<any>("/students/me/") });
+  const { data: profile } = useQuery({ queryKey:["student-me-att"], queryFn:()=>api.get<{ id: string }>("/students/me/") });
   const { data: report, isLoading } = useQuery({
     queryKey: ["student-monthly-att", profile?.id, month, year],
-    queryFn: () => api.get<any>(`/attendance/student-report/?student_id=${profile?.id}&month=${month}&year=${year}`),
+    queryFn: () => api.get<{ records: { date: string; status: string }[]; present: number; absent: number; late: number; percentage: number; total_school_days: number }>(`/attendance/student-report/?student_id=${profile?.id}&month=${month}&year=${year}`),
     enabled: !!profile?.id,
   });
 
@@ -34,7 +34,7 @@ export default function StudentAttendancePage() {
         </select>
       </div>
 
-      {isLoading ? <div className="flex justify-center py-20"><Spinner size="lg" /></div> : report && (
+      {isLoading ? <div className="p-4"><SkeletonCard /></div> : report && (
         <>
           {/* Summary */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
@@ -62,7 +62,7 @@ export default function StudentAttendancePage() {
               <div className="grid grid-cols-7 gap-1">
                 {/* Offset for first day */}
                 {Array.from({length:(dayjs(`${year}-${String(month).padStart(2,"0")}-01`).day()+6)%7},(_,i)=><div key={`pad-${i}`}/>)}
-                {(report.records ?? []).map((rec: any) => {
+                {(report.records ?? []).map((rec: { date: string; status: string }) => {
                   const s = rec.status;
                   const bg = colorMap[s] ?? "bg-slate-100";
                   const day = dayjs(rec.date).date();

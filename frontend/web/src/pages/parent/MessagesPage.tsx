@@ -4,9 +4,22 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Avatar, Badge, Spinner, EmptyState, Button } from "../../components/common";
+import { Avatar, Badge, EmptyState, Button, SkeletonText, SkeletonCard } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { ChatBubbleLeftEllipsisIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
+
+interface MessageThread {
+  partner: { id: string; name: string; avatar?: string; role: string };
+  last_message: { content: string; sent_at: string };
+  unread_count: number;
+}
+
+interface ThreadMessage {
+  id: string;
+  content: string;
+  sent_at: string;
+  is_mine: boolean;
+}
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 
@@ -18,12 +31,12 @@ export default function ParentMessagesPage() {
 
   const { data: inbox, isLoading } = useQuery({
     queryKey: ["parent-inbox"],
-    queryFn: () => api.get<any>("/communication/messages/inbox/"),
+    queryFn: () => api.get<MessageThread[]>("/communication/messages/inbox/"),
   });
 
   const { data: thread, isLoading: threadLoading } = useQuery({
     queryKey: ["parent-thread", activeThread],
-    queryFn: () => api.get<any[]>(`/communication/messages/conversation/${activeThread}/`),
+    queryFn: () => api.get<ThreadMessage[]>(`/communication/messages/conversation/${activeThread}/`),
     enabled: !!activeThread,
     refetchInterval: 5000,
   });
@@ -48,10 +61,10 @@ export default function ParentMessagesPage() {
               {threads.length > 0 && <span className="text-xs text-slate-400">{threads.length}</span>}
             </div>
             <div className="flex-1 overflow-y-auto">
-              {isLoading ? <div className="flex justify-center p-8"><Spinner /></div>
+              {isLoading ? <div className="p-4"><SkeletonText lines={6} /></div>
                 : threads.length === 0
                 ? <div className="p-6"><EmptyState icon={ChatBubbleLeftEllipsisIcon} title="No messages yet" description="Start a conversation with a teacher from the school portal." /></div>
-                : threads.map((t: any) => (
+                : threads.map((t: MessageThread) => (
                   <button key={t.partner.id} onClick={() => setActiveThread(t.partner.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left ${activeThread===t.partner.id?"bg-violet-50 border-r-2 border-violet-600":""}`}>
                     <Avatar name={t.partner.name} size="md" />
@@ -74,11 +87,11 @@ export default function ParentMessagesPage() {
             {!activeThread
               ? <div className="flex-1 flex items-center justify-center text-slate-400"><div className="text-center"><ChatBubbleLeftEllipsisIcon className="h-12 w-12 mx-auto mb-2 opacity-20"/><p className="text-sm">Select a conversation to read messages</p></div></div>
               : threadLoading
-              ? <div className="flex-1 flex items-center justify-center"><Spinner /></div>
+              ? <div className="flex-1 p-4"><SkeletonCard /></div>
               : (
                 <>
                   <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-2">
-                    {[...(thread ?? [])].reverse().map((m: any) => (
+                    {[...(thread ?? [])].reverse().map((m: ThreadMessage) => (
                       <div key={m.id} className={`flex ${m.is_mine ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-xs rounded-2xl px-4 py-2.5 text-sm ${m.is_mine ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-800"}`}>
                           <p>{m.content}</p>

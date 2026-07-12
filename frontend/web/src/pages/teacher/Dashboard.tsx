@@ -10,7 +10,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Button, Badge, Spinner } from "../../components/common";
+import { Button, Badge, SkeletonCard, SkeletonTeacherDashboard } from "../../components/common";
 import { percent, attendanceColor } from "../../utils";
 import { useTitle } from "../../hooks";
 
@@ -30,6 +30,8 @@ export default function TeacherDashboard() {
   const { data: academicYear } = useCurrentAcademicYear();
   const { data: classroomsData } = useClassrooms();
   const classrooms = classroomsData?.results ?? [];
+
+  const [pageLoaded, setPageLoaded] = React.useState(false);
 
   const { data: todaySlots, isLoading: slotsLoading } = useQuery({
     queryKey: ["teacher-today-slots", user?.id, academicYear?.id],
@@ -52,10 +54,19 @@ export default function TeacherDashboard() {
     enabled: classrooms.length > 0,
   });
 
-  const todaySchedule = (todaySlots ?? []).filter((s: any) => s.day_of_week === dayIndex);
+  const todaySchedule = (todaySlots ?? []).filter((s: Record<string, unknown>) => s.day_of_week === dayIndex);
   const avgAttendance = attendanceSummaries?.length
-    ? attendanceSummaries.reduce((s: number, a: any) => s + (a.breakdown?.present / (a.total_students || 1) * 100), 0) / attendanceSummaries.length
+    ? attendanceSummaries.reduce((s: number, a: Record<string, any>) => s + (a.breakdown?.present / (a.total_students || 1) * 100), 0) / attendanceSummaries.length
     : null;
+
+  // Track when data first arrives so we don't flash skeleton after initial load
+  React.useEffect(() => {
+    if (!slotsLoading && classrooms.length > 0) setPageLoaded(true);
+  }, [slotsLoading, classrooms.length]);
+
+  if (!pageLoaded && (slotsLoading || classrooms.length === 0)) {
+    return <SkeletonTeacherDashboard />;
+  }
 
   return (
     <div className="space-y-6">
@@ -88,11 +99,11 @@ export default function TeacherDashboard() {
           </div>
           <div className="card-body">
             {slotsLoading
-              ? <div className="flex justify-center py-8"><Spinner /></div>
+              ? <div className="p-4"><SkeletonCard /></div>
               : todaySchedule.length === 0
               ? <div className="text-center py-10 text-slate-400"><BookOpenIcon className="h-10 w-10 mx-auto mb-2 opacity-30" /><p>No classes scheduled today</p></div>
               : <div className="space-y-3">
-                  {todaySchedule.map((slot: any, i: number) => (
+                  {todaySchedule.map((slot: { start_time?: string; end_time?: string; subject_name?: string; classroom_name?: string; room?: string }, i: number) => (
                     <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 hover:bg-indigo-50/60 transition-colors">
                       <div className="text-center w-16 flex-shrink-0">
                         <p className="text-xs font-bold text-indigo-600">{slot.start_time?.slice(0,5)}</p>
@@ -135,8 +146,9 @@ export default function TeacherDashboard() {
           </div>
           <div className="card-body">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {attendanceSummaries?.map((summary: any, i: number) => {
-                const pct = summary.total_students > 0 ? (summary.breakdown.present / summary.total_students * 100) : 0;
+              {attendanceSummaries?.map((summary: { classroom?: { grade_name?: string; name?: string }; total_students?: number; breakdown?: { present: number; absent: number }; not_recorded?: number }, i: number) => {
+                const totalStudents = summary.total_students ?? 0;
+                const pct = totalStudents > 0 ? ((summary.breakdown?.present ?? 0) / totalStudents * 100) : 0;
                 return (
                   <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-indigo-200 transition-colors">
                     <div className="flex items-center justify-between mb-3">
@@ -149,7 +161,7 @@ export default function TeacherDashboard() {
                     <div className="flex gap-2 text-xs">
                       <span className="text-green-600 font-medium">✓ {summary.breakdown?.present} Present</span>
                       <span className="text-red-600 font-medium">✗ {summary.breakdown?.absent} Absent</span>
-                      {summary.not_recorded > 0 && <span className="text-amber-600">⚠ {summary.not_recorded} Unrecorded</span>}
+                      {(summary.not_recorded ?? 0) > 0 && <span className="text-amber-600">⚠ {summary.not_recorded} Unrecorded</span>}
                     </div>
                     <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />

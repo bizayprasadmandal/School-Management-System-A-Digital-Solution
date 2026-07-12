@@ -14,10 +14,10 @@ CMD ["npm", "start"]
 FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps
+COPY frontend/web/package*.json ./
+RUN npm install --legacy-peer-deps && npm install ajv@8.12.0 --legacy-peer-deps
 
-COPY . .
+COPY frontend/web/ ./
 ARG REACT_APP_API_URL
 ARG REACT_APP_WS_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
@@ -32,7 +32,7 @@ FROM nginx:1.25-alpine AS production
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Nginx config for SPA
-COPY nginx.conf /etc/nginx/conf.d/app.conf
+COPY infrastructure/docker/frontend/nginx.conf /etc/nginx/conf.d/app.conf
 
 # Copy built assets
 COPY --from=builder /app/build /usr/share/nginx/html
@@ -40,7 +40,7 @@ COPY --from=builder /app/build /usr/share/nginx/html
 EXPOSE 80
 
 # Runtime env substitution for API URL
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY infrastructure/docker/frontend/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, Badge } from "../../components";
+import { SkeletonGradesScreen, Card, Badge } from "../../components";
 
 export default function ParentGradesScreen() {
   const { data: children } = useQuery({ queryKey: ["mob-par-children-gr"], queryFn: () => mobileApi.get<any>("/students/") });
@@ -14,7 +14,7 @@ export default function ParentGradesScreen() {
     enabled: !!childId,
   });
 
-  if (isLoading) return <LoadingScreen text="Loading grades..." />;
+  if (isLoading) return <SkeletonGradesScreen />;
   const rcs = rcData?.results ?? [];
 
   return (

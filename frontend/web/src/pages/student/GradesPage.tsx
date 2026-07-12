@@ -3,7 +3,7 @@ import { DocumentArrowDownIcon, TrophyIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useReportCards } from "../../api/hooks";
-import { Badge, Spinner, EmptyState, DataTable } from "../../components/common";
+import { Badge, EmptyState, DataTable, SkeletonCard } from "../../components/common";
 import { percent, gradeBg } from "../../utils";
 import { useTitle } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
@@ -11,10 +11,10 @@ import { useAuthStore } from "../../store/authStore";
 export default function StudentGradesPage() {
   useTitle("My Grades");
   const { tokens } = useAuthStore();
-  const { data: profile } = useQuery({ queryKey: ["student-me"], queryFn: () => api.get<any>("/students/me/") });
-  const { data: rcData, isLoading } = useReportCards(profile?.id ?? "");
+  const { data: profile, isLoading: profileLoading } = useQuery({ queryKey: ["student-me"], queryFn: () => api.get<{ id: string }>("/students/me/") });
+  const { data: rcData, isLoading: rcLoading } = useReportCards(profile?.id ?? "");
   const reportCards = rcData?.results ?? [];
-  const latest = reportCards.find((r: any) => r.status === "published") ?? reportCards[0];
+  const latest = reportCards.find((r: { status: string }) => r.status === "published") ?? reportCards[0];
 
   const downloadPDF = async (url: string, name: string) => {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${tokens?.access}` } });
@@ -22,7 +22,7 @@ export default function StudentGradesPage() {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${name}.pdf`; a.click();
   };
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (profileLoading || rcLoading) return <div className="p-4"><SkeletonCard /></div>;
 
   return (
     <div className="space-y-6">

@@ -7,4 +7,4 @@ class GradebookConfig(AppConfig):
     verbose_name = "Gradebook"
 
     def ready(self):
-        import services.gradebook.signals  # noqa
+        import services.gradebook.signals  # noqa: F401 — imported for signal registration

@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
 import { useAnnouncements } from "../../api/hooks";
+import { SkeletonDashboard } from "../../components/common";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -76,11 +77,11 @@ interface StatCardProps {
 function StatCard({ label, value, icon: Icon, color, delta, deltaLabel }: StatCardProps) {
   const isPositive = delta !== undefined && delta >= 0;
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
+    <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900">{value}</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{value}</p>
         </div>
         <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${color}`}>
           <Icon className="h-6 w-6 text-white" />
@@ -93,10 +94,10 @@ function StatCard({ label, value, icon: Icon, color, delta, deltaLabel }: StatCa
           ) : (
             <ArrowTrendingDownIcon className="h-4 w-4 text-red-500" />
           )}
-          <span className={`text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
+          <span className={`text-sm font-medium ${isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
             {Math.abs(delta)}%
           </span>
-          <span className="text-sm text-slate-400">{deltaLabel}</span>
+          <span className="text-sm text-slate-400 dark:text-slate-500">{deltaLabel}</span>
         </div>
       )}
     </div>
@@ -109,7 +110,7 @@ export default function AdminDashboard() {
   const { user } = useAuthStore();
   const today = dayjs().format("dddd, MMMM D YYYY");
 
-  const { data: stats } = useQuery<DashboardStats>({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats"],
     queryFn: () => api.get("/reporting/dashboard-stats/"),
   });
@@ -117,14 +118,16 @@ export default function AdminDashboard() {
   const { data: announcements } = useAnnouncements();
   const recentAnnouncements = announcements?.results.slice(0, 4) ?? [];
 
+  if (isLoading) return <SkeletonDashboard />;
+
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
           Good morning, {user?.first_name} 👋
         </h1>
-        <p className="mt-1 text-sm text-slate-500">{today}</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{today}</p>
       </div>
 
       {/* KPI cards */}
@@ -166,8 +169,8 @@ export default function AdminDashboard() {
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Attendance trend */}
-        <div className="lg:col-span-2 rounded-xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800 mb-4">
+        <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">
             This Week&apos;s Attendance
           </h2>
           <ResponsiveContainer width="100%" height={220}>
@@ -203,8 +206,8 @@ export default function AdminDashboard() {
         </div>
 
         {/* Grade distribution */}
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800 mb-4">Grade Distribution</h2>
+        <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Grade Distribution</h2>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
@@ -230,8 +233,8 @@ export default function AdminDashboard() {
       {/* Fee collection chart + Announcements */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Fee trend */}
-        <div className="lg:col-span-2 rounded-xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800 mb-4">Fee Collection Trend</h2>
+        <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Fee Collection Trend</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={FEE_TREND} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -245,10 +248,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent announcements */}
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800 mb-4">Recent Announcements</h2>
+        <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Recent Announcements</h2>
           {recentAnnouncements.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">No announcements yet</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No announcements yet</p>
           ) : (
             <ul className="space-y-3">
               {recentAnnouncements.map((a) => (
@@ -263,8 +266,8 @@ export default function AdminDashboard() {
                     }`}
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{a.title}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{a.title}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       {dayjs(a.created_at).fromNow()}
                     </p>
                   </div>
@@ -277,13 +280,13 @@ export default function AdminDashboard() {
 
       {/* Outstanding fees alert */}
       {stats && stats.fees_outstanding > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-4">
           <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
               Outstanding Fees Alert
             </p>
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-amber-700 dark:text-amber-400">
               ${stats.fees_outstanding.toLocaleString()} in unpaid fees. Consider sending payment reminders.
             </p>
           </div>

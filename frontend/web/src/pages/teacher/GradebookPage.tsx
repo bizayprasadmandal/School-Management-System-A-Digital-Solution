@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import {
   useExams, useClassrooms, useSubmitGrades, useCurrentAcademicYear,
 } from "../../api/hooks";
+import { SkeletonTable } from "../../components/common";
 import { api } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 import type { StudentListItem } from "../../types";
@@ -64,7 +65,7 @@ export default function TeacherGradebookPage() {
     }
   }, [students]);
 
-  const setField = useCallback((id: string, field: keyof GradeEntry, value: any) => {
+  const setField = useCallback((id: string, field: keyof GradeEntry, value: string | boolean) => {
     setEntries(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
     setSaved(false);
   }, []);
@@ -180,10 +181,7 @@ export default function TeacherGradebookPage() {
 
           <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
             {studentsLoading ? (
-              <div className="flex items-center justify-center py-16 text-slate-400">
-                <div className="h-7 w-7 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mr-3" />
-                Loading students…
-              </div>
+              <SkeletonTable rows={8} cols={7} />
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">

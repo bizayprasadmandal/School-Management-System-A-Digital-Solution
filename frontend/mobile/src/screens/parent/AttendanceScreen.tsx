@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, StatCard } from "../../components";
+import { SkeletonAttendanceScreen, Card, StatCard } from "../../components";
 
 export default function ParentAttendanceScreen() {
   const { data: children, isLoading: clLoad } = useQuery({ queryKey: ["mob-par-children-att"], queryFn: () => mobileApi.get<any>("/students/") });
@@ -14,7 +14,7 @@ export default function ParentAttendanceScreen() {
     enabled: !!childId,
   });
 
-  if (clLoad || isLoading) return <LoadingScreen text="Loading attendance..." />;
+  if (clLoad || isLoading) return <SkeletonAttendanceScreen />;
   const pct = report?.percentage ?? 0;
 
   return (

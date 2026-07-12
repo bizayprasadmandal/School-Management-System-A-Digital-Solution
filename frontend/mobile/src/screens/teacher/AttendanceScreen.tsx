@@ -6,7 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Button, Badge } from "../../components";
+import { SkeletonList, SkeletonAttendanceScreen, Button, Badge } from "../../components";
 
 const BRAND = "#059669";
 type Status = "P" | "A" | "L" | "E";
@@ -62,7 +62,7 @@ export default function TeacherAttendanceScreen() {
     finally { setSaving(false); }
   };
 
-  if (clsLoad) return <LoadingScreen text="Loading..." />;
+  if (clsLoad) return <SkeletonList count={4} />;
   const classrooms = clsData?.results ?? [];
 
   if (!cls) return (
@@ -82,7 +82,7 @@ export default function TeacherAttendanceScreen() {
     </ScrollView>
   );
 
-  if (stuLoad) return <LoadingScreen text="Loading students..." />;
+  if (stuLoad) return <SkeletonAttendanceScreen />;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>

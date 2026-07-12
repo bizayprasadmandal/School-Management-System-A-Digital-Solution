@@ -12,7 +12,7 @@ import {
 } from "../../api/hooks";
 import { QK } from "../../api/hooks";
 import { useClickOutside } from "../../hooks";
-import { Spinner } from "../common";
+import { SkeletonText } from "../common";
 import clsx from "clsx";
 
 interface NotificationPanelProps {
@@ -95,8 +95,10 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Spinner size="md" />
+            <div className="px-5 py-4 space-y-3">
+              <SkeletonText lines={4} />
+              <SkeletonText lines={3} />
+              <SkeletonText lines={4} />
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">

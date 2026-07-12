@@ -3,11 +3,11 @@ import { PlusIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, Badge, Modal, Input, Select, Spinner, EmptyState } from "../../components/common";
+import { Button, Badge, Modal, Input, Select, EmptyState, SkeletonCard } from "../../components/common";
 import { fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 
-const STATUS_COLOR: Record<string,any> = { draft:"slate", approved:"green", completed:"blue" };
+const STATUS_COLOR: Record<string, "slate" | "green" | "blue"> = { draft:"slate", approved:"green", completed:"blue" };
 
 export default function TeacherLessonPlansPage() {
   useTitle("Lesson Plans");
@@ -19,7 +19,7 @@ export default function TeacherLessonPlansPage() {
   const plans = data?.results ?? [];
 
   const create = useMutation({
-    mutationFn: (d: any) => api.post("/academics/lesson-plans/", d),
+    mutationFn: (d: Record<string, string>) => api.post("/academics/lesson-plans/", d),
     onSuccess: () => { toast.success("Lesson plan created"); qc.invalidateQueries({queryKey:["lesson-plans"]}); setShowCreate(false); },
     onError: () => toast.error("Failed to create"),
   });
@@ -32,11 +32,11 @@ export default function TeacherLessonPlansPage() {
         <div><h1 className="text-2xl font-bold text-slate-900">Lesson Plans</h1><p className="text-sm text-slate-500 mt-0.5">Manage your teaching plans</p></div>
         <Button variant="primary" leftIcon={<PlusIcon className="h-4 w-4"/>} onClick={()=>setShowCreate(true)}>New Plan</Button>
       </div>
-      {isLoading ? <div className="flex justify-center py-16"><Spinner size="lg"/></div>
+      {isLoading ? <div className="grid grid-cols-1 gap-3"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
         : plans.length === 0
         ? <div className="card p-8"><EmptyState icon={DocumentTextIcon} title="No lesson plans yet" description="Create your first lesson plan to get started." /></div>
         : <div className="space-y-3">
-            {plans.map((p: any) => (
+            {plans.map((p: { id: string; title: string; status: string; subject_name: string; classroom_name: string; date: string; duration_minutes: number; topic: string }) => (
               <div key={p.id} className="card p-4 hover:border-indigo-200 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">

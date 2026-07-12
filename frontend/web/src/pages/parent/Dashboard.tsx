@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
 import { useUnreadNotificationCount } from "../../api/hooks";
-import { Avatar, Badge, Spinner } from "../../components/common";
+import { Avatar, Badge, SkeletonCard, SkeletonText } from "../../components/common";
 import { percent, attendanceColor, currency, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import { BellIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
@@ -48,7 +48,7 @@ export default function ParentDashboard() {
       <div>
         <h2 className="text-base font-semibold text-slate-800 mb-3">My Children</h2>
         {isLoading ? (
-          <div className="flex justify-center py-10"><Spinner /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><SkeletonCard /><SkeletonCard /></div>
         ) : childList.length === 0 ? (
           <div className="card p-8 text-center text-slate-400">
             <AcademicCapIcon className="h-10 w-10 mx-auto mb-2 opacity-30" />
@@ -56,7 +56,7 @@ export default function ParentDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {childList.map((child: any) => (
+            {childList.map((child: { id: string; full_name: string; avatar?: string; is_active: boolean; current_class?: string; admission_number: string; email: string }) => (
               <div key={child.id} className="card p-5 hover:border-violet-200 transition-colors cursor-pointer">
                 <div className="flex items-center gap-4">
                   <Avatar name={child.full_name} src={child.avatar} className="h-14 w-14 text-lg flex-shrink-0" />
@@ -89,7 +89,7 @@ export default function ParentDashboard() {
         <div>
           <h2 className="text-base font-semibold text-slate-800 mb-3">Recent Notifications</h2>
           <div className="space-y-2">
-            {notifList.map((n: any) => (
+            {notifList.map((n: { id: string; title: string; body: string; read_at: string | null; created_at: string }) => (
               <div key={n.id} className={`card p-4 flex items-start gap-3 ${!n.read_at ? "border-violet-200 bg-violet-50/30" : ""}`}>
                 {!n.read_at && <div className="mt-1.5 h-2 w-2 rounded-full bg-violet-500 flex-shrink-0" />}
                 <div className="flex-1 min-w-0">

@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 import { useCurrentAcademicYear } from "../../api/hooks";
-import { Button, Badge, DataTable, Spinner, EmptyState, Modal } from "../../components/common";
+import { Button, Badge, DataTable, SkeletonCard, SkeletonTable, EmptyState, Modal } from "../../components/common";
 import { percent, gradeBg, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import { DocumentTextIcon, RocketLaunchIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
@@ -33,9 +33,9 @@ export default function ReportCardsPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: (examId: string) =>
-      api.post(`/gradebook/exams/${examId}/generate-report-cards/`, {}),
-    onSuccess: (data: any) => {
+    mutationFn: (examId: string): Promise<{ task_id?: string }> =>
+      api.post(`/gradebook/exams/${examId}/generate-report-cards/`, {}) as Promise<{ task_id?: string }>,
+    onSuccess: (data: { task_id?: string }) => {
       toast.success(`Report card generation queued (task: ${data.task_id?.slice(0, 8)}…)`);
       setTimeout(() => qc.invalidateQueries({ queryKey: ["admin-rc-list"] }), 3000);
     },
@@ -43,9 +43,9 @@ export default function ReportCardsPage() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: (examId: string) =>
-      api.post(`/gradebook/exams/${examId}/publish-results/`, {}),
-    onSuccess: (data: any) => {
+    mutationFn: (examId: string): Promise<{ published: number }> =>
+      api.post(`/gradebook/exams/${examId}/publish-results/`, {}) as Promise<{ published: number }>,
+    onSuccess: (data: { published: number }) => {
       toast.success(`${data.published} report cards published to students`);
       setPublishConfirm(false);
       qc.invalidateQueries({ queryKey: ["admin-rc-list"] });
@@ -54,7 +54,7 @@ export default function ReportCardsPage() {
   });
 
   const examList = exams?.results ?? [];
-  const selected = examList.find((e: any) => e.id === selectedExam);
+  const selected = examList.find((e: { id: string }) => e.id === selectedExam);
   const rcs = reportCards?.results ?? [];
 
   return (
@@ -65,14 +65,14 @@ export default function ReportCardsPage() {
       </div>
 
       {/* Exam selection */}
-      {examsLoading ? <div className="flex justify-center py-10"><Spinner /></div> : (
+      {examsLoading ? <div className="grid grid-cols-3 gap-3 p-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {examList.length === 0 ? (
             <div className="col-span-3 card p-8 text-center text-slate-400">
               <DocumentTextIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
               <p>No exams found for {academicYear?.name}. Create exams first.</p>
             </div>
-          ) : examList.map((exam: any) => (
+          ) : examList.map((exam: { id: string; name: string; status: string; exam_type_name: string; start_date: string; end_date: string; schedule_count: number }) => (
             <button key={exam.id} onClick={() => setSelectedExam(exam.id)}
               className={`card p-4 text-left hover:border-indigo-300 transition-colors ${selectedExam === exam.id ? "border-indigo-500 ring-2 ring-indigo-500 ring-offset-1" : ""}`}>
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -118,8 +118,7 @@ export default function ReportCardsPage() {
           <div className="card-header">
             <h2 className="text-base font-semibold">Report Cards — {selected?.name}</h2>
             <Badge color="slate">{reportCards?.count ?? 0} total</Badge>
-          </div>
-          {rcLoading ? <div className="p-8 flex justify-center"><Spinner /></div>
+          </div>            {rcLoading ? <SkeletonTable rows={6} cols={5} className="m-4" />
             : rcs.length === 0
             ? <div className="p-8"><EmptyState icon={DocumentTextIcon} title="No report cards yet" description="Click 'Generate Report Cards' to compute results for all students." /></div>
             : <DataTable

@@ -5,9 +5,25 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
-import { Badge, Spinner, Select } from "../../components/common";
+import { Badge, Select, SkeletonCard, SkeletonChart } from "../../components/common";
 import { percent, attendanceColor, ATTENDANCE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
+import type { StudentListItem, PaginatedResponse } from "../../types";
+
+interface AttendanceReport {
+  total_school_days: number;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  percentage: number;
+  records: AttendanceDayRecord[];
+}
+
+interface AttendanceDayRecord {
+  date: string;
+  status: string;
+}
 
 const colorMap: Record<string,string> = { P:"bg-green-500", A:"bg-red-500", L:"bg-amber-500", E:"bg-blue-400" };
 
@@ -19,14 +35,14 @@ export default function ParentAttendancePage() {
 
   const { data: children } = useQuery({
     queryKey: ["parent-children-att"],
-    queryFn: () => api.get<any>("/students/"),
+    queryFn: () => api.get<PaginatedResponse<StudentListItem>>("/students/"),
   });
   const childList = children?.results ?? [];
   const child = childList[childIdx];
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["parent-child-att", child?.id, month, year],
-    queryFn: () => api.get<any>(`/attendance/student-report/?student_id=${child.id}&month=${month}&year=${year}`),
+    queryFn: () => api.get<AttendanceReport>(`/attendance/student-report/?student_id=${child.id}&month=${month}&year=${year}`),
     enabled: !!child?.id,
   });
 
@@ -41,7 +57,7 @@ export default function ParentAttendancePage() {
       <div className="card p-4 flex flex-wrap gap-4">
         {childList.length > 1 && (
           <Select label="Child" value={childIdx} onChange={e => setChildIdx(Number(e.target.value))}
-            options={childList.map((c: any, i: number) => ({ value: i, label: c.full_name }))} className="w-52" />
+            options={childList.map((c: StudentListItem, i: number) => ({ value: i, label: c.full_name }))} className="w-52" />
         )}
         <Select label="Month" value={month} onChange={e => setMonth(Number(e.target.value))}
           options={Array.from({length:12},(_,i)=>({value:i+1,label:dayjs().month(i).format("MMMM")}))} className="w-40" />
@@ -56,7 +72,7 @@ export default function ParentAttendancePage() {
         </div>
       )}
 
-      {isLoading ? <div className="flex justify-center py-16"><Spinner size="lg" /></div> : report && (
+      {isLoading ? <div className="space-y-4"><SkeletonChart /><SkeletonCard /></div> : report && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
@@ -90,7 +106,7 @@ export default function ParentAttendancePage() {
                 {Array.from({length:firstDay},(_,i)=><div key={`p${i}`}/>)}
                 {Array.from({length:daysInMonth},(_,i)=>{
                   const day = i + 1;
-                  const rec = (report.records??[]).find((r:any)=>dayjs(r.date).date()===day);
+                  const rec = (report.records??[]).find((r: AttendanceDayRecord)=>dayjs(r.date).date()===day);
                   const s = rec?.status;
                   return (
                     <div key={day} title={s ? ATTENDANCE_STATUS[s]?.label : undefined}

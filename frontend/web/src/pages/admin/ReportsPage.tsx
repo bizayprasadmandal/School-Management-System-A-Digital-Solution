@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Select, Spinner } from "../../components/common";
+import { Button, Select, Spinner, SkeletonStatCard, SkeletonCard, SkeletonChart } from "../../components/common";
 import { useCurrentAcademicYear } from "../../api/hooks";
 import { useTitle } from "../../hooks";
 import { currency, percent, CHART_COLORS } from "../../utils";
@@ -47,7 +47,7 @@ export default function ReportsPage() {
     } catch { toast.error("Export failed"); }
   };
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (isLoading) return <div className="grid grid-cols-3 gap-4 p-4"><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonCard className="col-span-2" /><SkeletonChart /></div>;
 
   const attendanceDailyData = attendanceReport?.daily ?? [];
   const feeByStatus = feeReport?.by_status ?? [];

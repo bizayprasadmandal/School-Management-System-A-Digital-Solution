@@ -60,5 +60,9 @@ GoogleService-Info.plist
 *.log
 logs/
 
+# ── Windows ─────────────────────────────────────────────────────────────
+# Ignore the Windows reserved device-name file that can appear in repos
+nul
+
 # ── Docker ───────────────────────────────────────────────────────────────
 docker-compose.override.yml

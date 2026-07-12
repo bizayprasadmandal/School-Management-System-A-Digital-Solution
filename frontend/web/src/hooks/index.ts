@@ -47,7 +47,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 type WSStatus = "connecting" | "connected" | "disconnected" | "error";
 
 interface UseWebSocketOptions {
-  onMessage?: (data: any) => void;
+  onMessage?: (data: Record<string, unknown>) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   reconnectDelay?: number;
@@ -120,13 +120,13 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
 
 // ─── useNotificationSocket ────────────────────────────────────────────────────
 
-export function useNotificationSocket(onNewNotification?: (notif: any) => void) {
+export function useNotificationSocket(onNewNotification?: (notif: { id: string; title: string; body: string; created_at: string; read_at: string | null }) => void) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const { send } = useWebSocket("/ws/notifications/", {
     onMessage: (data) => {
-      if (data.type === "notification") onNewNotification?.(data.notification);
-      if (data.type === "unread_count") setUnreadCount(data.count);
+      if (data.type === "notification") onNewNotification?.(data.notification as { id: string; title: string; body: string; created_at: string; read_at: string | null });
+      if (data.type === "unread_count") setUnreadCount(data.count as number);
     },
   });
 
@@ -139,15 +139,15 @@ export function useNotificationSocket(onNewNotification?: (notif: any) => void) 
 
 // ─── useChatSocket ────────────────────────────────────────────────────────────
 
-export function useChatSocket(recipientId: string, onMessage?: (msg: any) => void) {
+export function useChatSocket(recipientId: string, onMessage?: (msg: { id: string; content: string; sender_id: string; sender_name: string; status: string; sent_at: string }) => void) {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { status, send } = useWebSocket(`/ws/chat/${recipientId}/`, {
     onMessage: (data) => {
-      if (data.type === "chat_message") onMessage?.(data.message);
+      if (data.type === "chat_message") onMessage?.(data.message as { id: string; content: string; sender_id: string; sender_name: string; status: string; sent_at: string });
       if (data.type === "typing_indicator") {
-        setIsTyping(data.is_typing);
+        setIsTyping(data.is_typing as boolean);
         clearTimeout(typingTimeoutRef.current);
         if (data.is_typing) {
           typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 3000);

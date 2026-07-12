@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, Badge, EmptyState, SectionHeader } from "../../components";
+import { SkeletonChildrenScreen, Card, Badge, EmptyState, SectionHeader } from "../../components";
 
 export default function ParentChildrenScreen() {
   const { data, isLoading } = useQuery({
@@ -10,7 +10,7 @@ export default function ParentChildrenScreen() {
     queryFn: () => mobileApi.get<any>("/students/"),
   });
 
-  if (isLoading) return <LoadingScreen text="Loading children..." />;
+  if (isLoading) return <SkeletonChildrenScreen />;
   const children = data?.results ?? [];
 
   return (

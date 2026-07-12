@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { PlusIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
 import { useClassrooms, useGradeLevels } from "../../api/hooks";
-import { Button, Badge, DataTable, Select, Spinner, EmptyState } from "../../components/common";
+import { Button, Badge, DataTable, Select, Spinner, EmptyState, SkeletonTable } from "../../components/common";
 import { useTitle } from "../../hooks";
 
 export default function ClassroomsPage() {
@@ -19,7 +19,7 @@ export default function ClassroomsPage() {
         <Select placeholder="All Grades" options={grades.map(g=>({value:g.id,label:g.name}))} value={gradeFilter??""} onChange={e=>setGradeFilter(Number(e.target.value)||undefined)} className="w-48" />
       </div>
       <div className="card">
-        {isLoading ? <div className="flex justify-center py-16"><Spinner size="lg"/></div>
+        {isLoading ? <div className="m-4"><SkeletonTable rows={5} cols={4} /></div>
           : classrooms.length === 0
           ? <div className="p-8"><EmptyState icon={BuildingLibraryIcon} title="No classrooms" description="Add classrooms to get started." /></div>
           : <DataTable

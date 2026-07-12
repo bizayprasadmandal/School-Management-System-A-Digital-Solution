@@ -232,13 +232,13 @@ class Command(BaseCommand):
                 (1, "Period 1", "08:00", "08:45"), (2, "Period 2", "08:50", "09:35"),
                 (3, "Period 3", "09:40", "10:25"), (0, "Break",    "10:25", "10:45"),
                 (4, "Period 4", "10:45", "11:30"), (5, "Period 5", "11:35", "12:20"),
-                (0, "Lunch",   "12:20", "13:00"), (6, "Period 6", "13:00", "13:45"),
+                (8, "Lunch",   "12:20", "13:00"), (6, "Period 6", "13:00", "13:45"),
                 (7, "Period 7", "13:50", "14:35"),
             ]
             for num, name, start, end in periods_data:
                 Period.objects.get_or_create(
                     school=school, name=name,
-                    defaults={"period_number": num or 99, "start_time": start,
+                    defaults={"period_number": num, "start_time": start,
                               "end_time": end, "is_break": num == 0},
                 )
 

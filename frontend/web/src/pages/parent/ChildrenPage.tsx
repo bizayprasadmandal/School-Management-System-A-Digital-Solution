@@ -4,9 +4,17 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Avatar, Badge, Spinner, EmptyState } from "../../components/common";
+import { Avatar, Badge, EmptyState, SkeletonCard } from "../../components/common";
 import { fmt, attendanceColor, percent } from "../../utils";
 import { useTitle } from "../../hooks";
+import type { PaginatedResponse } from "../../types";
+import type { StudentDetail } from "../../types";
+
+interface ParentChild extends StudentDetail {
+  current_class?: string;
+  attendance_pct?: number;
+  fees_due?: number;
+}
 import { UsersIcon } from "@heroicons/react/24/outline";
 
 export default function ParentChildrenPage() {
@@ -14,11 +22,11 @@ export default function ParentChildrenPage() {
 
   const { data: children, isLoading } = useQuery({
     queryKey: ["parent-children-full"],
-    queryFn: () => api.get<any>("/students/"),
+    queryFn: () => api.get<PaginatedResponse<ParentChild>>("/students/"),
   });
   const childList = children?.results ?? [];
 
-  if (isLoading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
+  if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
 
   return (
     <div className="space-y-5">
@@ -26,7 +34,7 @@ export default function ParentChildrenPage() {
 
       {childList.length === 0
         ? <div className="card p-8"><EmptyState icon={UsersIcon} title="No children linked" description="Contact your school administrator to link your children to this parent account." /></div>
-        : childList.map((child: any) => (
+        : childList.map((child: ParentChild) => (
           <div key={child.id} className="card">
             <div className="p-5 flex flex-col sm:flex-row gap-5">
               <Avatar name={child.full_name} src={child.avatar} className="h-20 w-20 text-2xl flex-shrink-0" />
@@ -57,7 +65,7 @@ export default function ParentChildrenPage() {
             <div className="border-t border-slate-100 px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { label:"Attendance", value:child.attendance_pct != null ? percent(child.attendance_pct) : "—", color: child.attendance_pct != null ? attendanceColor(child.attendance_pct) : "text-slate-500" },
-                { label:"Fees Due", value: child.fees_due > 0 ? `$${Number(child.fees_due).toFixed(2)}` : "Paid", color: child.fees_due > 0 ? "text-red-600" : "text-green-600" },
+                { label:"Fees Due", value: child.fees_due != null && child.fees_due > 0 ? `$${Number(child.fees_due).toFixed(2)}` : "Paid", color: child.fees_due != null && child.fees_due > 0 ? "text-red-600" : "text-green-600" },
                 { label:"Admission Date", value: child.admission_date ? fmt.date(child.admission_date) : "—", color:"text-slate-700" },
                 { label:"City", value: child.city || "—", color:"text-slate-700" },
               ].map(({label,value,color})=>(

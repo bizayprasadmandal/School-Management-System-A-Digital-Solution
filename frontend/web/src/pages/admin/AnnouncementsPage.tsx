@@ -4,6 +4,7 @@
 
 import React, { useState } from "react";
 import { PlusIcon, MegaphoneIcon, EyeIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { SkeletonCard } from "../../components/common";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
@@ -41,7 +42,7 @@ function CreateAnnouncementModal({ onClose }: CreateModalProps) {
     onError: () => toast.error("Failed to publish announcement"),
   });
 
-  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -85,8 +86,8 @@ function CreateAnnouncementModal({ onClose }: CreateModalProps) {
               { key: "send_email", label: "Send Email" },
             ].map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={(form as any)[key]}
-                  onChange={e => set(key, e.target.checked)}
+                <input type="checkbox" checked={(form)[key as keyof typeof form] as boolean}
+                  onChange={e => set(key as keyof typeof form, e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 {label}
               </label>
@@ -138,9 +139,7 @@ export default function AnnouncementsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-7 w-7 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-        </div>
+        <div className="space-y-3"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
       ) : announcements.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 rounded-xl bg-white border border-slate-100">
           <MegaphoneIcon className="h-12 w-12 mb-3 opacity-30" />

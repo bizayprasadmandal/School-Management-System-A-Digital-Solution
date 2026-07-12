@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "../../api/client";
-import { LoadingScreen, Card, Button, SectionHeader } from "../../components";
+import { SkeletonGradebookScreen, Card, Button, SectionHeader } from "../../components";
 
 export default function TeacherGradebookScreen() {
   const qc = useQueryClient();
@@ -26,7 +26,7 @@ export default function TeacherGradebookScreen() {
     onError: () => Alert.alert("Error", "Failed to save grades."),
   });
 
-  if (isLoading) return <LoadingScreen text="Loading exams..." />;
+  if (isLoading) return <SkeletonGradebookScreen />;
   const examList = exams?.results ?? [];
 
   if (!examId) return (

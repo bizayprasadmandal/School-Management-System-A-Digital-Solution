@@ -12,6 +12,7 @@ import {
   useBulkRecordAttendance,
   useClassroomAttendance,
 } from "../../api/hooks";
+import { SkeletonTable } from "../../components/common";
 import { useAuthStore } from "../../store/authStore";
 import type { AttendanceStatus, StudentListItem } from "../../types";
 import { api } from "../../api/client";
@@ -280,10 +281,7 @@ export default function TeacherAttendancePage() {
       )}
 
       {selectedClassroom && studentsLoading && (
-        <div className="flex items-center justify-center py-16 text-slate-400">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mr-3" />
-          Loading students…
-        </div>
+        <SkeletonTable rows={8} cols={4} />
       )}
 
       {!selectedClassroom && (
