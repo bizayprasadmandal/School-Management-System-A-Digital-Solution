@@ -1,0 +1,8 @@
+Fix: React Router useNavigation error and Docker build context mismatch
+
+- RouteProgressBar: replaced useNavigation() with useLocation() + location.key
+  to work with traditional BrowserRouter (useNavigation requires createBrowserRouter)
+- docker-compose.yml: fixed frontend build context from ./frontend/web to .
+  (project root) so Dockerfile COPY paths resolve correctly
+- Dockerfile development stage: updated COPY commands to use frontend/web/
+  prefix (matching corrected project-root build context)

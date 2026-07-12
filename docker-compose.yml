@@ -150,8 +150,8 @@ services:
   # ─── React Frontend ────────────────────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend/web
-      dockerfile: ../../infrastructure/docker/frontend/Dockerfile
+      context: .
+      dockerfile: infrastructure/docker/frontend/Dockerfile
       target: development
     container_name: sms_frontend
     restart: unless-stopped

@@ -2,9 +2,9 @@
 FROM node:20-alpine AS development
 
 WORKDIR /app
-COPY package*.json ./
+COPY frontend/web/package*.json ./
 RUN npm install --legacy-peer-deps && npm install ajv@8.12.0 --legacy-peer-deps
-COPY . .
+COPY frontend/web/ ./
 
 EXPOSE 3000
 ENV CHOKIDAR_USEPOLLING=true

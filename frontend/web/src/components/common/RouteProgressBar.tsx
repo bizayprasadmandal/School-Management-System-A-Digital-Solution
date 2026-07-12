@@ -1,46 +1,49 @@
 /**
  * RouteProgressBar — thin animated bar at the top of the viewport
- * that appears when React Router is loading a new route.
- * Uses useNavigation() (available in react-router-dom v6.4+).
+ * that appears briefly when navigating between routes.
+ * Compatible with traditional <BrowserRouter> (no data-router needed).
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function RouteProgressBar() {
-  const navigation = useNavigation();
-  const isIdle = navigation.state === "idle";
+  const location = useLocation();
+  const prevKey = useRef(location.key);
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
-    if (!isIdle) {
-      // Navigation started — show bar and animate to ~90%
+    // Detect route change by comparing location keys
+    if (location.key !== prevKey.current) {
+      prevKey.current = location.key;
+
+      // Show bar and quickly animate
       setVisible(true);
       setProgress(0);
 
-      // Quickly ramp to 70% after the initial 0% renders
-      setTimeout(() => setProgress(70), 16);
+      const rampTimer = setTimeout(() => setProgress(70), 20);
 
-      // Then slowly creep toward 90%
       timerRef.current = setInterval(() => {
-        setProgress((p) => Math.min(p + 3, 90));
-      }, 200);
-    } else {
-      // Navigation finished — snap to 100% then hide
-      setProgress(100);
-      clearInterval(timerRef.current);
+        setProgress((p) => Math.min(p + 5, 90));
+      }, 100);
 
-      const hideTimer = setTimeout(() => setVisible(false), 400);
-      return () => clearTimeout(hideTimer);
+      // Complete & hide after a brief moment
+      const completeTimer = setTimeout(() => {
+        setProgress(100);
+        clearInterval(timerRef.current);
+        setTimeout(() => setVisible(false), 400);
+      }, 600);
+
+      return () => {
+        clearTimeout(rampTimer);
+        clearTimeout(completeTimer);
+        clearInterval(timerRef.current);
+      };
     }
-
-    return () => {
-      clearInterval(timerRef.current);
-    };
-  }, [isIdle]);
+  }, [location]);
 
   return (
     <AnimatePresence>
