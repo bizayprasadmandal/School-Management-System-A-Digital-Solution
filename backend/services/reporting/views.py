@@ -25,7 +25,7 @@ from reportlab.platypus import (
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
-from core.permissions import IsSchoolAdmin, IsSchoolMember
+from core.permissions import IsSchoolAdmin
 from services.students.models import Student, Classroom, AcademicYear
 from services.attendance.models import AttendanceRecord
 from services.gradebook.models import Grade, ReportCard, Exam
@@ -38,7 +38,7 @@ ACCENT_COLOR = colors.HexColor("#E0E7FF")
 
 
 class ReportingViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, IsSchoolMember]
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
 
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
@@ -82,8 +82,10 @@ class ReportingViewSet(viewsets.ViewSet):
             status__in=["unpaid", "overdue", "partial"],
         ).aggregate(total=Sum("total_amount") - Sum("paid_amount"))["total"] or Decimal("0")
 
-        from services.academics.models import TeacherProfile
-        total_teachers = TeacherProfile.objects.filter(school=school, is_active=True).count()
+        from services.auth.models import User, UserRole
+        total_teachers = User.objects.filter(
+            school=school, role=UserRole.TEACHER, is_active=True
+        ).count()
         total_classrooms = Classroom.objects.filter(school=school).count()
 
         student_delta = (

@@ -52,7 +52,7 @@ export default function StudentsPage() {
   const { data: gradesData } = useGradeLevels();
   const [grade, setGrade] = useState<number | undefined>();
 
-  const { data, isLoading, isFetching } = useStudents({
+  const { data, isLoading } = useStudents({
     search: search || undefined,
     gender: gender || undefined,
     is_active: isActive,

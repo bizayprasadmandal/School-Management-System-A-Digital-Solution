@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
-import { Button, Badge, Select, DataTable, Spinner, SkeletonChart, SkeletonTable } from "../../components/common";
+import { Badge, Select, DataTable, SkeletonChart, SkeletonTable } from "../../components/common";
 import type { BadgeColor } from "../../components/common";
 import { percent, attendanceColor, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
@@ -17,7 +17,7 @@ export default function AdminAttendancePage() {
   useTitle("Attendance");
   const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [selectedClassroom, setSelectedClassroom] = useState<number | undefined>();
-  const { data: academicYear } = useCurrentAcademicYear();
+  useCurrentAcademicYear();
   const { data: classroomsData } = useClassrooms();
   const classrooms = classroomsData?.results ?? [];
 

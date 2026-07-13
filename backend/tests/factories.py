@@ -20,7 +20,7 @@ class SchoolFactory(factory.django.DjangoModelFactory):
     code = factory.Sequence(lambda n: f"SCH{n:03d}")
     subdomain = factory.Sequence(lambda n: f"school{n}")
     address = factory.Faker("street_address")
-    phone = factory.Faker("phone_number")
+    phone = factory.Sequence(lambda n: f"+1-555-{n:04d}")
     email = factory.LazyAttribute(lambda o: f"admin@{o.subdomain}.edu")
     timezone = "UTC"
     is_active = True
@@ -115,7 +115,7 @@ class GuardianFactory(factory.django.DjangoModelFactory):
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
     email = factory.Faker("email")
-    phone = factory.Faker("phone_number")
+    phone = factory.Sequence(lambda n: f"+1-555-{n:04d}")
 
 
 class EnrollmentFactory(factory.django.DjangoModelFactory):

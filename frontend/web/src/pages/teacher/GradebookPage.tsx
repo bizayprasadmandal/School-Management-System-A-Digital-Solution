@@ -32,7 +32,7 @@ export default function TeacherGradebookPage() {
 
   const [selectedExam, setSelectedExam] = useState("");
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
+  const selectedSubject: number | null = null;
   const [maxMarks, setMaxMarks] = useState(100);
   const [passingMarks, setPassingMarks] = useState(35);
   const [entries, setEntries] = useState<Record<string, GradeEntry>>({});

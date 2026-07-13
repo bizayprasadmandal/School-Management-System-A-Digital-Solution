@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { useCurrentAcademicYear } from "../../api/hooks";
-import { Badge, SkeletonCard } from "../../components/common";
+import { SkeletonCard } from "../../components/common";
 import { percent, attendanceColor, ATTENDANCE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";

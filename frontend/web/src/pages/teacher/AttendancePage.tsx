@@ -10,7 +10,6 @@ import dayjs from "dayjs";
 import {
   useClassrooms,
   useBulkRecordAttendance,
-  useClassroomAttendance,
 } from "../../api/hooks";
 import { SkeletonTable } from "../../components/common";
 import { useAuthStore } from "../../store/authStore";
@@ -37,7 +36,6 @@ interface StudentAttendanceEntry {
 }
 
 export default function TeacherAttendancePage() {
-  const { user } = useAuthStore();
   const today = dayjs().format("YYYY-MM-DD");
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(null);
@@ -55,10 +53,7 @@ export default function TeacherAttendancePage() {
   });
 
   // Fetch existing attendance for the day
-  const { data: existingAttendance } = useClassroomAttendance(
-    selectedClassroom ?? 0,
-    selectedDate
-  );
+  // (keeping useClassroomAttendance imported for future drill-down feature)
 
   // Initialize entries when students load
   React.useEffect(() => {

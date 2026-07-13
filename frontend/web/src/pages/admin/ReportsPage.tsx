@@ -6,10 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Select, Spinner, SkeletonStatCard, SkeletonCard, SkeletonChart } from "../../components/common";
+import { Button, SkeletonStatCard, SkeletonCard, SkeletonChart } from "../../components/common";
 import { useCurrentAcademicYear } from "../../api/hooks";
 import { useTitle } from "../../hooks";
-import { currency, percent, CHART_COLORS } from "../../utils";
+import { currency, percent } from "../../utils";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 
@@ -17,8 +17,6 @@ export default function ReportsPage() {
   useTitle("Reports & Analytics");
   const { tokens } = useAuthStore();
   const { data: currentYear } = useCurrentAcademicYear();
-  const [reportType, setReportType] = useState("attendance");
-
   const { data: dashStats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: () => api.get<any>("/reporting/dashboard-stats/"),

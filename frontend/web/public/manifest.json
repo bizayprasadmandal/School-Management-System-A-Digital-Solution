@@ -3,9 +3,10 @@
   "name": "EduSphere School Management System",
   "description": "Comprehensive school management for students, teachers, parents and admins.",
   "icons": [
-    { "src": "favicon.ico",   "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
-    { "src": "logo192.png",   "type": "image/png", "sizes": "192x192" },
-    { "src": "logo512.png",   "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+    { "src": "favicon.ico",      "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
+    { "src": "favicon.svg",      "type": "image/svg+xml",           "sizes": "any" },
+    { "src": "logo192.svg",      "type": "image/svg+xml",           "sizes": "192x192" },
+    { "src": "logo512.svg",      "type": "image/svg+xml",           "sizes": "512x512", "purpose": "maskable" }
   ],
   "start_url": ".",
   "display": "standalone",
@@ -20,14 +21,14 @@
       "short_name": "Attendance",
       "description": "Quickly mark today's class attendance",
       "url": "/teacher/attendance",
-      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
     },
     {
       "name": "View Grades",
       "short_name": "Grades",
       "description": "Check your latest grades and report cards",
       "url": "/student/grades",
-      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
     }
   ]
 }

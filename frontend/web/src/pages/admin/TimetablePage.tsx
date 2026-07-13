@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Select, Badge, SkeletonCard } from "../../components/common";
-import { fmt } from "../../utils";
+import { Select, SkeletonCard } from "../../components/common";
 import { useTitle } from "../../hooks";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];

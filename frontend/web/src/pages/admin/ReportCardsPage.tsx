@@ -10,12 +10,9 @@ import { Button, Badge, DataTable, SkeletonCard, SkeletonTable, EmptyState, Moda
 import { percent, gradeBg, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import { DocumentTextIcon, RocketLaunchIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
-import { useAuthStore } from "../../store/authStore";
-
 export default function ReportCardsPage() {
   useTitle("Report Cards");
   const qc = useQueryClient();
-  const { tokens } = useAuthStore();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [publishConfirm, setPublishConfirm] = useState(false);
   const { data: academicYear } = useCurrentAcademicYear();

@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
   CalendarDaysIcon, ChatBubbleLeftRightIcon, DocumentTextIcon,

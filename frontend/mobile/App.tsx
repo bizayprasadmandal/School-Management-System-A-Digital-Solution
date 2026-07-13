@@ -6,6 +6,14 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
+
+// ─── Global dayjs configuration ─────────────────────────────────────────────
+// Extend dayjs with plugins at the entry point so all screens that import dayjs
+// directly inherit the extended methods (e.g., .fromNow()).
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+dayjs.extend(relativeTime);
+
 import RootNavigator from "./src/navigation/RootNavigator";
 
 const queryClient = new QueryClient({

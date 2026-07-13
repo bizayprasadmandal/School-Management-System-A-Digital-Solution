@@ -2,7 +2,7 @@
  * NotificationPanel — slide-in notification drawer for the topbar bell icon
  */
 
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { XMarkIcon, BellIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
