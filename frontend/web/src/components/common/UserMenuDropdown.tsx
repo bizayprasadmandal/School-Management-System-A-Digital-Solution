@@ -40,10 +40,7 @@ export default function UserMenuDropdown({ verifyEmailPath, profilePath, accent 
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
-  // Don't render if user data hasn't loaded
-  if (!user) return null;
-
-  // Close on click outside
+  // Close on click outside — MUST be before any early return (hooks rule)
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
@@ -59,6 +56,9 @@ export default function UserMenuDropdown({ verifyEmailPath, profilePath, accent 
     logout();
     navigate("/login");
   }, [logout, navigate]);
+
+  // Don't render if user data hasn't loaded
+  if (!user) return null;
 
   const handleResend = async () => {
     setSending(true);

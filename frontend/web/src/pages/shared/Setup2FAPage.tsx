@@ -8,7 +8,7 @@
  * can be regenerated from the enabled state.
  */
 
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   KeyIcon,
@@ -320,7 +320,7 @@ export default function Setup2FAPage() {
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
               Two-factor authentication adds an extra layer of protection.
-              After setup, you'll need both your password and a one-time code
+              After setup, you&apos;ll need both your password and a one-time code
               from your authenticator app to sign in.
             </p>
             <button
@@ -456,8 +456,7 @@ export default function Setup2FAPage() {
                         type="button"
                         onClick={() => setBackupCodesSaved(true)}
                         className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 underline underline-offset-2 transition-colors"
-                      >
-                        I've saved them
+                      >                         I&apos;ve saved them
                       </button>
                     )}
                     {backupCodesSaved && (
@@ -688,7 +687,7 @@ export default function Setup2FAPage() {
           <ol className="space-y-2 text-xs text-slate-500 dark:text-slate-400 list-decimal list-inside">
             <li>Scan the QR code with your authenticator app</li>
             <li>The app generates a 6-digit code that refreshes every 30 seconds</li>
-            <li>Save your backup codes — you'll need them if you lose your phone</li>
+            <li>Save your backup codes — you&apos;ll need them if you lose your phone</li>
             <li>Enter the current code to confirm setup</li>
           </ol>
         </div>

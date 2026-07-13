@@ -16,7 +16,6 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   ShieldCheckIcon,
   KeyIcon,
-  ArrowPathIcon,
   AcademicCapIcon,
   ExclamationTriangleIcon,
   ArrowLeftIcon,
@@ -28,7 +27,7 @@ import { QK } from "../../api/hooks";
 import { trackEvent } from "../../utils/analytics";
 import toast from "react-hot-toast";
 import clsx from "clsx";
-import type { User, AuthTokens } from "../../types";
+import type { User } from "../../types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -129,7 +128,7 @@ export default function Verify2FALoginPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [code, userId]);
+  }, [code, userId, _completeLogin]);
 
   // ── Verify backup code ───────────────────────────────────────────────────
 
@@ -172,7 +171,7 @@ export default function Verify2FALoginPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [backupCode, userId]);
+  }, [backupCode, userId, _completeLogin]);
 
   // ── Complete login after successful 2FA verification ────────────────────
 
@@ -543,8 +542,8 @@ export default function Verify2FALoginPage() {
               Need help signing in?
             </p>
             <p className="text-xs text-indigo-600 dark:text-indigo-400/70">
-              If you've lost access to your authenticator app, use a backup code
-              instead. If you don't have any backup codes, contact your school
+              If you&apos;ve lost access to your authenticator app, use a backup code
+              instead. If you don&apos;t have any backup codes, contact your school
               administrator to have 2FA disabled for your account.
             </p>
           </div>

@@ -255,8 +255,7 @@ export default function VerifyEmailSettingsPage() {
               </div>
 
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                {is2FAEnabled
-                  ? "Your account is protected with two-factor authentication. In addition to your password, you'll need a one-time code from your authenticator app or a backup code to sign in."
+                {is2FAEnabled                   ? "Your account is protected with two-factor authentication. In addition to your password, you&apos;ll need a one-time code from your authenticator app or a backup code to sign in."
                   : "Add an extra layer of security to your account by enabling two-factor authentication."}
               </p>
 
@@ -369,7 +368,7 @@ export default function VerifyEmailSettingsPage() {
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Once you click the link in the verification email, your status will update
-            automatically and you'll gain access to all features. The link expires in 24 hours.
+            automatically and you&apos;ll gain access to all features. The link expires in 24 hours.
           </p>
         </div>
       </div>
