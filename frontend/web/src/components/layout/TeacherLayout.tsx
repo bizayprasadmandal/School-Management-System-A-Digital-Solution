@@ -27,7 +27,8 @@ const NAV = [
 
 export default function TeacherLayout() {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const { data: unread = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();

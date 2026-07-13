@@ -30,7 +30,7 @@ export default function ParentGradesPage() {
       <div><h1 className="text-2xl font-bold text-slate-900">Grades</h1><p className="text-sm text-slate-500 mt-1">Exam results and report cards</p></div>
 
       {childList.length > 1 && (
-        <div className="card p-4 flex gap-2 overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex gap-2 overflow-x-auto">
           {childList.map((c: StudentListItem, i: number) => (
             <button key={c.id} onClick={() => setChildIdx(i)}
               className={`flex-shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${i===childIdx?"bg-violet-600 text-white":"bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
@@ -42,7 +42,7 @@ export default function ParentGradesPage() {
 
       {childrenLoading || rcLoading ? <div className="p-4"><SkeletonCard /></div>
         : rcs.length === 0
-        ? <div className="card p-8"><EmptyState icon={TrophyIcon} title="No published results" description="Report cards appear here once published by the school." /></div>
+        ? <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-8"><EmptyState icon={TrophyIcon} title="No published results" description="Report cards appear here once published by the school." /></div>
         : (
           <>
             {/* Latest result highlight */}
@@ -56,8 +56,8 @@ export default function ParentGradesPage() {
                 </div>
               </div>
             )}
-            <div className="card">
-              <div className="card-header"><h2 className="text-base font-semibold">All Report Cards</h2></div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">All Report Cards</h2></div>
               <DataTable
                 columns={[
                   { key:"exam_name", header:"Exam" },

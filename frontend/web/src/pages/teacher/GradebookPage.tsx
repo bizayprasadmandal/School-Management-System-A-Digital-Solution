@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import {
   useExams, useClassrooms, useSubmitGrades, useCurrentAcademicYear,
 } from "../../api/hooks";
-import { SkeletonTable } from "../../components/common";
+import { Button, SkeletonTable } from "../../components/common";
 import { api } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 import type { StudentListItem } from "../../types";
@@ -253,10 +253,10 @@ export default function TeacherGradebookPage() {
           </div>
 
           <div className="flex justify-end">
-            <button onClick={handleSubmit} disabled={submitGrades.isPending || saved}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
-              {submitGrades.isPending ? "Saving…" : saved ? "✓ Grades Saved" : "Save Grades"}
-            </button>
+            <Button onClick={handleSubmit} disabled={submitGrades.isPending || saved}
+              loading={submitGrades.isPending}>
+              {saved ? "✓ Grades Saved" : "Save Grades"}
+            </Button>
           </div>
         </>
       )}

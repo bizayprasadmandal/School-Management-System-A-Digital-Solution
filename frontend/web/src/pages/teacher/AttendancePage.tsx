@@ -11,7 +11,7 @@ import {
   useClassrooms,
   useBulkRecordAttendance,
 } from "../../api/hooks";
-import { SkeletonTable } from "../../components/common";
+import { Button, SkeletonTable } from "../../components/common";
 import { useAuthStore } from "../../store/authStore";
 import type { AttendanceStatus, StudentListItem } from "../../types";
 import { api } from "../../api/client";
@@ -178,18 +178,8 @@ export default function TeacherAttendancePage() {
               <span className="text-slate-400">/ {stats.total} total</span>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => markAll("P")}
-                className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
-              >
-                Mark All Present
-              </button>
-              <button
-                onClick={() => markAll("A")}
-                className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
-              >
-                Mark All Absent
-              </button>
+              <Button variant="ghost" size="sm" onClick={() => markAll("P")}>Mark All Present</Button>
+              <Button variant="ghost" size="sm" onClick={() => markAll("A")}>Mark All Absent</Button>
             </div>
           </div>
 
@@ -260,17 +250,13 @@ export default function TeacherAttendancePage() {
 
           {/* Submit */}
           <div className="flex justify-end">
-            <button
+            <Button
               onClick={handleSubmit}
               disabled={mutate.isPending || submitted}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              loading={mutate.isPending}
             >
-              {mutate.isPending
-                ? "Saving…"
-                : submitted
-                ? "✓ Attendance Saved"
-                : "Save Attendance"}
-            </button>
+              {submitted ? "✓ Attendance Saved" : "Save Attendance"}
+            </Button>
           </div>
         </>
       )}

@@ -14,7 +14,7 @@ export default function TeacherMessagesPage() {
   return (
     <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-slate-900">Messages</h1><p className="text-sm text-slate-500 mt-1">Direct messages with students and parents</p></div>
-      <div className="card" style={{minHeight:480}}>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none" style={{minHeight:480}}>
         <div className="flex" style={{minHeight:480}}>
           <div className="w-80 border-r border-slate-100 flex-shrink-0">
             <div className="p-3 border-b border-slate-100"><p className="text-xs font-semibold text-slate-500 uppercase">Conversations</p></div>

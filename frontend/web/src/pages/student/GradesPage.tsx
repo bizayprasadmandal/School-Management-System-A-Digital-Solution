@@ -3,7 +3,7 @@ import { DocumentArrowDownIcon, TrophyIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useReportCards } from "../../api/hooks";
-import { Badge, EmptyState, DataTable, SkeletonCard } from "../../components/common";
+import { Badge, EmptyState, DataTable, SkeletonCard, ErrorState } from "../../components/common";
 import { percent, gradeBg } from "../../utils";
 import { useTitle } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
@@ -11,8 +11,8 @@ import { useAuthStore } from "../../store/authStore";
 export default function StudentGradesPage() {
   useTitle("My Grades");
   const { tokens } = useAuthStore();
-  const { data: profile, isLoading: profileLoading } = useQuery({ queryKey: ["student-me"], queryFn: () => api.get<{ id: string }>("/students/me/") });
-  const { data: rcData, isLoading: rcLoading } = useReportCards(profile?.id ?? "");
+  const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useQuery({ queryKey: ["student-me"], queryFn: () => api.get<{ id: string }>("/students/me/") });
+  const { data: rcData, isLoading: rcLoading, isError: rcError, refetch: refetchRc } = useReportCards(profile?.id ?? "");
   const reportCards = rcData?.results ?? [];
   const latest = reportCards.find((r: { status: string }) => r.status === "published") ?? reportCards[0];
 
@@ -23,6 +23,8 @@ export default function StudentGradesPage() {
   };
 
   if (profileLoading || rcLoading) return <div className="p-4"><SkeletonCard /></div>;
+  if (profileError) return <ErrorState onRetry={() => refetchProfile()} />;
+  if (rcError) return <ErrorState onRetry={() => refetchRc()} />;
 
   return (
     <div className="space-y-6">
@@ -38,8 +40,8 @@ export default function StudentGradesPage() {
           {latest.pdf_url && <button onClick={() => downloadPDF(latest.pdf_url!, latest.exam_name)} className="mt-4 flex items-center gap-2 rounded-xl bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-semibold transition-colors"><DocumentArrowDownIcon className="h-4 w-4" />Download PDF</button>}
         </div>
       )}
-      <div className="card">
-        <div className="card-header"><h2 className="text-base font-semibold">All Report Cards</h2></div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">All Report Cards</h2></div>
         {reportCards.length === 0
           ? <div className="p-8"><EmptyState icon={TrophyIcon} title="No results published yet" description="Your exam results will appear here once published." /></div>
           : <DataTable

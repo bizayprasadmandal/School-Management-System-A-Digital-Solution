@@ -15,6 +15,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 
+from core.throttles import (
+    AuthLoginAnonThrottle,
+    AuthPasswordResetThrottle,
+    AuthPasswordResetConfirmThrottle,
+)
+
 from .models import User, PasswordResetToken, AuditLog
 from .serializers import CustomTokenObtainPairSerializer, UserProfileSerializer
 
@@ -25,6 +31,7 @@ class LoginView(TokenObtainPairView):
     plus full user profile in the response body.
     """
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [AuthLoginAnonThrottle]
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
@@ -103,6 +110,7 @@ class ChangePasswordView(APIView):
 
 class RequestPasswordResetView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthPasswordResetThrottle]
 
     def post(self, request):
         email = request.data.get("email", "").strip().lower()
@@ -134,6 +142,7 @@ class RequestPasswordResetView(APIView):
 
 class ConfirmPasswordResetView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthPasswordResetConfirmThrottle]
 
     def post(self, request):
         token_str = request.data.get("token", "")

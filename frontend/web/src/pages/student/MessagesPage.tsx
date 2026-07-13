@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Avatar, EmptyState, Button, SkeletonText, SkeletonCard } from "../../components/common";
+import { Avatar, EmptyState, Button, SkeletonText, SkeletonCard, ErrorState } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { ChatBubbleLeftEllipsisIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 
@@ -29,12 +29,12 @@ export default function StudentMessagesPage() {
   const [activeThread, setActiveThread] = useState<string | null>(null);
   const [msgText, setMsgText] = useState("");
 
-  const { data: inbox, isLoading } = useQuery({
+  const { data: inbox, isLoading, isError: inboxError, refetch: refetchInbox } = useQuery({
     queryKey: ["student-inbox"],
     queryFn: () => api.get<MessageThread[]>("/communication/messages/inbox/"),
   });
 
-  const { data: thread, isLoading: threadLoading } = useQuery({
+  const { data: thread, isLoading: threadLoading, isError: threadError, refetch: refetchThread } = useQuery({
     queryKey: ["student-thread", activeThread],
     queryFn: () => api.get<ThreadMessage[]>(`/communication/messages/conversation/${activeThread}/`),
     enabled: !!activeThread,
@@ -52,17 +52,18 @@ export default function StudentMessagesPage() {
   return (
     <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-slate-900">Messages</h1><p className="text-sm text-slate-500 mt-1">Direct messages with your teachers</p></div>
-      <div className="card overflow-hidden" style={{minHeight:480}}>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden" style={{minHeight:480}}>
         <div className="flex h-full" style={{minHeight:480}}>
           <div className="w-full sm:w-72 border-r border-slate-100 flex-shrink-0 flex flex-col">
             <div className="p-3 border-b border-slate-100"><p className="text-xs font-semibold text-slate-500 uppercase">Conversations</p></div>
             <div className="flex-1 overflow-y-auto">
               {isLoading ? <div className="p-4"><SkeletonText lines={6} /></div>
+                : inboxError ? <ErrorState onRetry={() => refetchInbox()} />
                 : threads.length === 0
                 ? <div className="p-6"><EmptyState icon={ChatBubbleLeftEllipsisIcon} title="No messages yet" description="Messages from your teachers appear here." /></div>
                 : threads.map((t: MessageThread) => (
-                  <button key={t.partner.id} onClick={() => setActiveThread(t.partner.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left ${activeThread===t.partner.id?"bg-indigo-50 border-r-2 border-indigo-600":""}`}>
+                  <div key={t.partner.id} onClick={() => setActiveThread(t.partner.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer text-left ${activeThread===t.partner.id?"bg-indigo-50 border-r-2 border-indigo-600":""}`}>
                     <Avatar name={t.partner.name} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
@@ -72,7 +73,7 @@ export default function StudentMessagesPage() {
                       <p className="text-xs text-slate-500 truncate mt-0.5">{t.last_message.content}</p>
                     </div>
                     {t.unread_count > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">{t.unread_count}</span>}
-                  </button>
+                  </div>
                 ))
               }
             </div>
@@ -81,6 +82,7 @@ export default function StudentMessagesPage() {
             {!activeThread
               ? <div className="flex-1 flex items-center justify-center text-slate-400"><div className="text-center"><ChatBubbleLeftEllipsisIcon className="h-12 w-12 mx-auto mb-2 opacity-20"/><p className="text-sm">Select a conversation</p></div></div>
               : threadLoading ? <div className="flex-1 p-4"><SkeletonCard /></div>
+              : threadError ? <div className="flex-1 p-4"><ErrorState onRetry={() => refetchThread()} /></div>
               : (
                 <>
                   <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-2">

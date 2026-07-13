@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
 // ─── Button ───────────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   rightIcon?: React.ReactNode;
 }
 
-export function Button({
+export const Button = React.memo(function Button({
   variant = "primary", size = "md", loading, leftIcon, rightIcon,
   children, className, disabled, ...props
 }: ButtonProps) {
@@ -44,7 +44,7 @@ export function Button({
       {!loading && rightIcon}
     </button>
   );
-}
+});
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,9 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   rightAddon?: React.ReactNode;
 }
 
-export function Input({ label, error, hint, leftAddon, rightAddon, className, id, ...props }: InputProps) {
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({
+  label, error, hint, leftAddon, rightAddon, className, id, ...props
+}, ref) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
   return (
     <div className="flex flex-col gap-1.5">
@@ -64,6 +66,7 @@ export function Input({ label, error, hint, leftAddon, rightAddon, className, id
       <div className="relative flex items-center">
         {leftAddon && <div className="absolute left-3 text-slate-400">{leftAddon}</div>}
         <input
+          ref={ref}
           id={inputId}
           className={clsx(
             "w-full rounded-xl border bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900",
@@ -81,7 +84,7 @@ export function Input({ label, error, hint, leftAddon, rightAddon, className, id
       {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
   );
-}
+});
 
 // ─── Select ───────────────────────────────────────────────────────────────────
 
@@ -134,14 +137,14 @@ const DOT_COLORS: Record<BadgeColor, string> = {
   blue: "bg-blue-500", purple: "bg-purple-500", slate: "bg-slate-400", indigo: "bg-indigo-500",
 };
 
-export function Badge({ color = "slate", dot, children, className }: BadgeProps) {
+export const Badge = React.memo(function Badge({ color = "slate", dot, children, className }: BadgeProps) {
   return (
     <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", BADGE_COLORS[color], className)}>
       {dot && <span className={clsx("h-1.5 w-1.5 rounded-full", DOT_COLORS[color])} />}
       {children}
     </span>
   );
-}
+});
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
@@ -466,9 +469,18 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   rowKey: (row: T) => string | number;
   onRowClick?: (row: T) => void;
+  /** Built-in pagination — when provided, a Pagination bar renders below the table */
+  page?: number;
+  total?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export function DataTable<T>({ columns, data, loading, emptyMessage = "No data found", rowKey, onRowClick }: DataTableProps<T>) {
+const DataTableInner = <T,>({
+  columns, data, loading, emptyMessage = "No data found",
+  rowKey, onRowClick,
+  page, total, pageSize, onPageChange,
+}: DataTableProps<T>) => {
   if (loading) return <SkeletonTable rows={5} cols={columns.length} />;
   return (
     <div className="rounded-xl overflow-hidden border border-slate-100">
@@ -502,9 +514,14 @@ export function DataTable<T>({ columns, data, loading, emptyMessage = "No data f
           </tbody>
         </table>
       </div>
+      {page !== undefined && total !== undefined && onPageChange && (
+        <Pagination page={page} total={total} pageSize={pageSize ?? 25} onChange={onPageChange} />
+      )}
     </div>
   );
-}
+};
+
+export const DataTable = React.memo(DataTableInner) as typeof DataTableInner;
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
@@ -515,7 +532,7 @@ interface PaginationProps {
   onChange: (page: number) => void;
 }
 
-export function Pagination({ page, total, pageSize = 25, onChange }: PaginationProps) {
+export const Pagination = React.memo(function Pagination({ page, total, pageSize = 25, onChange }: PaginationProps) {
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
   const start = (page - 1) * pageSize + 1;
@@ -528,6 +545,41 @@ export function Pagination({ page, total, pageSize = 25, onChange }: PaginationP
         <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
         <Button variant="secondary" size="sm" disabled={page === totalPages} onClick={() => onChange(page + 1)}>Next</Button>
       </div>
+    </div>
+  );
+});
+
+// ─── Error State ──────────────────────────────────────────────────────────────
+
+export function ErrorState({
+  title,
+  message,
+  onRetry,
+}: {
+  title?: string;
+  message?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex min-h-[200px] flex-col items-center justify-center p-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+        <ExclamationTriangleIcon className="h-7 w-7 text-red-600" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold text-slate-800">
+        {title ?? "Failed to load data"}
+      </h3>
+      {message && (
+        <p className="mt-1 max-w-sm text-sm text-slate-500">{message}</p>
+      )}
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+        >
+          <ArrowPathIcon className="h-4 w-4" />
+          Try Again
+        </button>
+      )}
     </div>
   );
 }
@@ -584,7 +636,7 @@ export function ConfirmDialog({
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-export function Avatar({ name, src, size = "md", className }: {
+export const Avatar = React.memo(function Avatar({ name, src, size = "md", className }: {
   name: string; src?: string; size?: "sm" | "md" | "lg"; className?: string;
 }) {
   const sizes = { sm: "h-7 w-7 text-xs", md: "h-9 w-9 text-sm", lg: "h-12 w-12 text-base" };
@@ -595,4 +647,4 @@ export function Avatar({ name, src, size = "md", className }: {
       {initials}
     </div>
   );
-}
+});

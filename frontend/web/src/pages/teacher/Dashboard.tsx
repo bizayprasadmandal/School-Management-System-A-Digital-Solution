@@ -10,7 +10,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Button, Badge, SkeletonCard, SkeletonTeacherDashboard } from "../../components/common";
+import { Button, Badge, SkeletonCard, SkeletonTeacherDashboard, ErrorState } from "../../components/common";
 import { percent, attendanceColor } from "../../utils";
 import { useTitle } from "../../hooks";
 
@@ -33,7 +33,7 @@ export default function TeacherDashboard() {
 
   const [pageLoaded, setPageLoaded] = React.useState(false);
 
-  const { data: todaySlots, isLoading: slotsLoading } = useQuery({
+  const { data: todaySlots, isLoading: slotsLoading, isError: slotsError, refetch: refetchSlots } = useQuery({
     queryKey: ["teacher-today-slots", user?.id, academicYear?.id],
     queryFn: () => api.get<any[]>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
     enabled: !!user && !!academicYear,
@@ -68,6 +68,8 @@ export default function TeacherDashboard() {
     return <SkeletonTeacherDashboard />;
   }
 
+  if (slotsError) return <ErrorState onRetry={() => refetchSlots()} />;
+
   return (
     <div className="space-y-6">
       <div>
@@ -82,7 +84,7 @@ export default function TeacherDashboard() {
           { label: "Pending Grading", value: "—", icon: ClipboardDocumentCheckIcon, color: "bg-amber-500" },
           { label: "Avg Attendance", value: avgAttendance !== null ? percent(avgAttendance) : "—", icon: CheckCircleIcon, color: "bg-emerald-500" },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color} flex-shrink-0`}>
               <Icon className="h-5 w-5 text-white" />
             </div>
@@ -92,12 +94,12 @@ export default function TeacherDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 card">
-          <div className="card-header">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
             <h2 className="text-base font-semibold">Today&apos;s Schedule</h2>
             <Badge color="blue">{today.format("dddd")}</Badge>
           </div>
-          <div className="card-body">
+          <div className="p-5">
             {slotsLoading
               ? <div className="p-4"><SkeletonCard /></div>
               : todaySchedule.length === 0
@@ -123,9 +125,9 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header"><h2 className="text-base font-semibold">This Week</h2></div>
-          <div className="card-body">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">This Week</h2></div>
+          <div className="p-5">
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={WEEK_ATTENDANCE} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -140,11 +142,11 @@ export default function TeacherDashboard() {
       </div>
 
       {(attendanceSummaries?.length ?? 0) > 0 && (
-        <div className="card">
-          <div className="card-header">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
             <h2 className="text-base font-semibold">Today&apos;s Class Attendance</h2>
           </div>
-          <div className="card-body">
+          <div className="p-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {attendanceSummaries?.map((summary: { classroom?: { grade_name?: string; name?: string }; total_students?: number; breakdown?: { present: number; absent: number }; not_recorded?: number }, i: number) => {
                 const totalStudents = summary.total_students ?? 0;

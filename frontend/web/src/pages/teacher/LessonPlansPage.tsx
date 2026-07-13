@@ -34,10 +34,10 @@ export default function TeacherLessonPlansPage() {
       </div>
       {isLoading ? <div className="grid grid-cols-1 gap-3"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
         : plans.length === 0
-        ? <div className="card p-8"><EmptyState icon={DocumentTextIcon} title="No lesson plans yet" description="Create your first lesson plan to get started." /></div>
+        ? <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-8"><EmptyState icon={DocumentTextIcon} title="No lesson plans yet" description="Create your first lesson plan to get started." /></div>
         : <div className="space-y-3">
             {plans.map((p: { id: string; title: string; status: string; subject_name: string; classroom_name: string; date: string; duration_minutes: number; topic: string }) => (
-              <div key={p.id} className="card p-4 hover:border-indigo-200 transition-colors">
+              <div key={p.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 hover:border-indigo-200 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1"><h3 className="text-sm font-semibold text-slate-900">{p.title}</h3><Badge color={STATUS_COLOR[p.status]}>{p.status}</Badge></div>
@@ -58,8 +58,8 @@ export default function TeacherLessonPlansPage() {
             <Input label="Date" type="date" value={form.date} onChange={e=>set("date",e.target.value)}/>
             <Input label="Duration (min)" type="number" value={form.duration_minutes} onChange={e=>set("duration_minutes",e.target.value)}/>
           </div>
-          <div><label className="text-xs font-semibold text-slate-700 mb-1.5 block">Learning Objectives</label><textarea rows={3} value={form.objectives} onChange={e=>set("objectives",e.target.value)} className="input resize-none" placeholder="Students will be able to…"/></div>
-          <div><label className="text-xs font-semibold text-slate-700 mb-1.5 block">Content / Notes</label><textarea rows={4} value={form.content} onChange={e=>set("content",e.target.value)} className="input resize-none" placeholder="Lesson content…"/></div>
+          <div><label className="text-xs font-semibold text-slate-700 mb-1.5 block">Learning Objectives</label><textarea rows={3} value={form.objectives} onChange={e=>set("objectives",e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-400 resize-none" placeholder="Students will be able to…"/></div>
+          <div><label className="text-xs font-semibold text-slate-700 mb-1.5 block">Content / Notes</label><textarea rows={4} value={form.content} onChange={e=>set("content",e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-400 resize-none" placeholder="Lesson content…"/></div>
         </div>
       </Modal>
     </div>

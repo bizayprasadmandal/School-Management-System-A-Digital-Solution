@@ -1,7 +1,7 @@
 /**
  * Admin Attendance Page — school-wide attendance overview with per-classroom drill-down
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
@@ -17,6 +17,7 @@ export default function AdminAttendancePage() {
   useTitle("Attendance");
   const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [selectedClassroom, setSelectedClassroom] = useState<number | undefined>();
+  const [page, setPage] = useState(1);
   useCurrentAcademicYear();
   const { data: classroomsData } = useClassrooms();
   const classrooms = classroomsData?.results ?? [];
@@ -41,10 +42,13 @@ export default function AdminAttendancePage() {
 
   // Student-level records for selected classroom
   const { data: records, isLoading: recLoading } = useQuery({
-    queryKey: ["admin-attendance-detail", selectedClassroom, selectedDate],
-    queryFn: () => api.get<any>("/attendance/", { classroom: selectedClassroom, date: selectedDate, page_size: 100 }),
+    queryKey: ["admin-attendance-detail", selectedClassroom, selectedDate, page],
+    queryFn: () => api.get<any>("/attendance/", { classroom: selectedClassroom, date: selectedDate, page_size: 100, page }),
     enabled: !!selectedClassroom,
   });
+
+  // Reset to page 1 when switching classroom or date
+  useEffect(() => { setPage(1); }, [selectedClassroom, selectedDate]);
 
   const chartData = (summaries ?? []).map(s => ({
     name: `${s.classroom.grade_name} ${s.classroom.name}`,
@@ -66,7 +70,7 @@ export default function AdminAttendancePage() {
         </div>
         <div className="flex items-center gap-3">
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-            className="input w-44" max={dayjs().format("YYYY-MM-DD")} />
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-400 w-44" max={dayjs().format("YYYY-MM-DD")} />
         </div>
       </div>
 
@@ -78,7 +82,7 @@ export default function AdminAttendancePage() {
           { label: "Total Present", value: chartData.reduce((s,d) => s + d.present, 0), color: "text-green-600" },
           { label: "Total Absent", value: chartData.reduce((s,d) => s + d.absent, 0), color: "text-red-600" },
         ].map(({ label, value, color }) => (
-          <div key={label} className="card p-4 text-center">
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 text-center">
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
             <p className="text-xs text-slate-500 mt-1">{label}</p>
           </div>
@@ -87,11 +91,11 @@ export default function AdminAttendancePage() {
 
       {/* Bar chart */}
       {isLoading ? <SkeletonChart className="m-4" /> : chartData.length > 0 && (
-        <div className="card">
-          <div className="card-header">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
             <h2 className="text-base font-semibold">Attendance by Classroom — {fmt.date(selectedDate)}</h2>
           </div>
-          <div className="card-body">
+          <div className="p-5">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -110,8 +114,8 @@ export default function AdminAttendancePage() {
       )}
 
       {/* Classroom drill-down */}
-      <div className="card">
-        <div className="card-header">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
           <h2 className="text-base font-semibold">Classroom Detail</h2>
           <Select placeholder="Select a classroom…" value={selectedClassroom ?? ""}
             onChange={e => setSelectedClassroom(Number(e.target.value) || undefined)}
@@ -133,6 +137,7 @@ export default function AdminAttendancePage() {
               data={(records?.results ?? []) as any[]}
               rowKey={r => r.id}
               emptyMessage="No attendance records for this classroom today"
+              page={page} total={records?.count ?? 0} pageSize={100} onPageChange={setPage}
             />
         )}
         {!selectedClassroom && (

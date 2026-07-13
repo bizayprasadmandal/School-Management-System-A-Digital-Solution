@@ -38,7 +38,7 @@ repos:
     rev: v3.1.0
     hooks:
       - id: prettier
-        types_or: [javascript, jsx, typescript, tsx, json, css, markdown, yaml]
+        types_or: [javascript, jsx, ts, tsx, json, css, markdown, yaml]
         args: [--print-width=100, --trailing-comma=all, --tab-width=2, --single-quote=false]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
@@ -49,11 +49,11 @@ repos:
         files: \.(ts|tsx)$
         args: [--fix]
         additional_dependencies:
-          - eslint@8.57.0
-          - @typescript-eslint/eslint-plugin@7.2.0
-          - @typescript-eslint/parser@7.2.0
-          - eslint-plugin-react@7.34.1
-          - eslint-plugin-react-hooks@4.6.0
+          - "eslint@8.57.0"
+          - "@typescript-eslint/eslint-plugin@7.2.0"
+          - "@typescript-eslint/parser@7.2.0"
+          - "eslint-plugin-react@7.34.1"
+          - "eslint-plugin-react-hooks@4.6.0"
 
   - repo: https://github.com/djlint/djLint
     rev: v1.34.1

@@ -20,7 +20,7 @@ import {
   useNotifications,
   useStudentInvoices,
 } from "../../api/hooks";
-import { SkeletonStudentDashboard } from "../../components/common";
+import { SkeletonStudentDashboard, ErrorState } from "../../components/common";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { StudentDetail } from "../../types";
@@ -44,7 +44,7 @@ function InfoCard({ label, value, icon: Icon, accent }: {
 export default function StudentDashboard() {
   const { user } = useAuthStore();
 
-  const { data: profile, isLoading: profileLoading } = useQuery<StudentDetail>({
+  const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useQuery<StudentDetail>({
     queryKey: ["student-profile"],
     queryFn: () => api.get("/students/me/"),
   });
@@ -67,6 +67,8 @@ export default function StudentDashboard() {
   if (profileLoading || attLoading || invLoading) {
     return <SkeletonStudentDashboard />;
   }
+
+  if (profileError) return <ErrorState onRetry={() => refetchProfile()} />;
 
   const attendancePct = attendanceSummary?.attendance_percentage ?? 0;
   const attendanceColor =

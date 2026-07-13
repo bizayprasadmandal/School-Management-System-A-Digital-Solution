@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MagnifyingGlassIcon, PlusIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -8,20 +8,23 @@ import { useTitle, useDebounce } from "../../hooks";
 export default function TeachersPage() {
   useTitle("Teachers");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const dSearch = useDebounce(search);
+  // Reset to page 1 when search results would change
+  useEffect(() => { setPage(1); }, [dSearch]);
   const { data, isLoading } = useQuery({
-    queryKey: ["teacher-profiles", dSearch],
-    queryFn: () => api.get<any>("/academics/teacher-profiles/", { search: dSearch||undefined }),
+    queryKey: ["teacher-profiles", dSearch, page],
+    queryFn: () => api.get<any>("/academics/teacher-profiles/", { search: dSearch||undefined, page }),
   });
   const teachers = data?.results ?? [];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-slate-900">Teachers</h1><p className="text-sm text-slate-500 mt-0.5">{data?.count ?? 0} staff members</p></div><Button variant="primary" leftIcon={<PlusIcon className="h-4 w-4"/>}>Add Teacher</Button></div>
-      <div className="card p-4">
-        <div className="relative"><MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"/><input className="input pl-9" placeholder="Search by name, employee ID, department…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4">
+        <div className="relative"><MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"/><input className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-400 pl-9" placeholder="Search by name, employee ID, department…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
       </div>
-      <div className="card">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
         {isLoading ? <SkeletonTable rows={6} cols={5} className="m-4" />
           : teachers.length === 0
           ? <div className="p-8"><EmptyState icon={AcademicCapIcon} title="No teachers found" description="Adjust search or add new teachers." /></div>
@@ -35,6 +38,7 @@ export default function TeachersPage() {
                 { key:"is_active", header:"Status", render:r=><Badge color={r.is_active?"green":"slate"} dot>{r.is_active?"Active":"Inactive"}</Badge> },
               ]}
               data={teachers as any[]} rowKey={r=>r.id}
+              page={page} total={data?.count ?? 0} pageSize={25} onPageChange={setPage}
             />
         }
       </div>

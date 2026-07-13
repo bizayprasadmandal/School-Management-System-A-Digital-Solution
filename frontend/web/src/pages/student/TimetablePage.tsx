@@ -1,7 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Badge, SkeletonCard } from "../../components/common";
+import { Badge, SkeletonCard, ErrorState } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { fmt } from "../../utils";
 
@@ -13,13 +13,14 @@ export default function StudentTimetablePage() {
   const { data: profile } = useQuery({ queryKey:["student-me-tt"], queryFn:()=>api.get<{ id: string; enrollments: { classroom: number }[] }>("/students/me/") });
   const classroomId = profile?.enrollments?.[0]?.classroom;
 
-  const { data: weekly, isLoading } = useQuery({
+  const { data: weekly, isLoading, isError, refetch } = useQuery({
     queryKey: ["student-timetable", classroomId],
     queryFn: () => api.get<Record<string, { subject_name: string; start_time: string; end_time: string; teacher_name: string; room: string }[]>>(`/timetable/slots/weekly/?classroom_id=${classroomId}`),
     enabled: !!classroomId,
   });
 
   if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
+  if (isError) return <ErrorState onRetry={() => refetch()} />;
 
   const subjectColorMap: Record<string,string> = {};
   let colorIdx = 0;
@@ -31,15 +32,15 @@ export default function StudentTimetablePage() {
     <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-slate-900">My Timetable</h1><p className="text-sm text-slate-500 mt-1">Weekly class schedule</p></div>
       {!weekly ? (
-        <div className="card p-16 text-center text-slate-400"><p>No timetable available for your class yet.</p></div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-16 text-center text-slate-400"><p>No timetable available for your class yet.</p></div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {DAYS.map(day => {
             const slots = weekly[day] ?? [];
             return (
-              <div key={day} className="card">
-                <div className="card-header"><h2 className="text-sm font-bold text-slate-800">{day}</h2><Badge color="slate">{slots.length} periods</Badge></div>
-                <div className="card-body space-y-2">
+              <div key={day} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-sm font-bold text-slate-800">{day}</h2><Badge color="slate">{slots.length} periods</Badge></div>
+                <div className="p-5 space-y-2">
                   {slots.length === 0
                     ? <p className="text-xs text-slate-400 text-center py-4">No classes</p>
                     : slots.map((s: { subject_name: string; teacher_name: string; start_time: string; end_time: string; room: string }, i: number) => (

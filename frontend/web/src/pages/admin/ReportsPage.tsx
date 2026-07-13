@@ -72,7 +72,7 @@ export default function ReportsPage() {
           { label: "Today Attendance", value: dashStats ? percent(dashStats.attendance_today_pct) : "—", color: "text-emerald-600" },
           { label: "Monthly Fees", value: dashStats ? currency(dashStats.fees_collected_month) : "—", color: "text-blue-600" },
         ].map(({ label, value, color }) => (
-          <div key={label} className="card p-5 text-center">
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-5 text-center">
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
             <p className="text-xs text-slate-500 mt-1">{label}</p>
           </div>
@@ -81,9 +81,9 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Attendance trend */}
-        <div className="card">
-          <div className="card-header"><h2 className="text-base font-semibold">Attendance Trend (This Month)</h2></div>
-          <div className="card-body">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Attendance Trend (This Month)</h2></div>
+          <div className="p-5">
             {attendanceDailyData.length === 0
               ? <p className="text-center text-slate-400 py-10 text-sm">No attendance data for this period</p>
               : <ResponsiveContainer width="100%" height={220}>
@@ -101,9 +101,9 @@ export default function ReportsPage() {
         </div>
 
         {/* Grade distribution */}
-        <div className="card">
-          <div className="card-header"><h2 className="text-base font-semibold">Grade Distribution</h2></div>
-          <div className="card-body">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Grade Distribution</h2></div>
+          <div className="p-5">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} paddingAngle={2} dataKey="value">
@@ -117,9 +117,9 @@ export default function ReportsPage() {
         </div>
 
         {/* Fee collection */}
-        <div className="card">
-          <div className="card-header"><h2 className="text-base font-semibold">Fee Collection Status</h2></div>
-          <div className="card-body">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Fee Collection Status</h2></div>
+          <div className="p-5">
             {feeByStatus.length === 0
               ? <p className="text-center text-slate-400 py-10 text-sm">No fee data available</p>
               : <ResponsiveContainer width="100%" height={220}>
@@ -143,9 +143,9 @@ export default function ReportsPage() {
         </div>
 
         {/* Quick stats table */}
-        <div className="card">
-          <div className="card-header"><h2 className="text-base font-semibold">School Summary</h2></div>
-          <div className="card-body space-y-3">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">School Summary</h2></div>
+          <div className="p-5 space-y-3">
             {[
               ["Total Students",     dashStats?.total_students?.toLocaleString() ?? "—"],
               ["Total Teachers",     dashStats?.total_teachers ?? "—"],

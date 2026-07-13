@@ -11,6 +11,7 @@ import { EyeIcon, EyeSlashIcon, AcademicCapIcon } from "@heroicons/react/24/outl
 import toast from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../api/client";
+import { Button, Input } from "../../components/common";
 import type { User, AuthTokens } from "../../types";
 
 const loginSchema = z.object({
@@ -46,6 +47,8 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "", remember_me: false },
   });
+
+  const { ref: emailRef, ...emailReg } = register("email");
 
   const onSubmit = async (data: LoginForm) => {
     try {
@@ -89,25 +92,15 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
             {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Email address
-              </label>
-              <input
-                {...register("email")}
-                type="email"
-                autoComplete="email"
-                placeholder="you@school.edu"
-                className={`w-full rounded-xl border px-4 py-2.5 text-sm transition focus:outline-none focus:ring-2 ${
-                  errors.email
-                    ? "border-red-300 focus:ring-red-400"
-                    : "border-slate-200 focus:ring-indigo-500 focus:border-indigo-400"
-                }`}
-              />
-              {errors.email && (
-                <p className="mt-1.5 text-xs text-red-600">{errors.email.message}</p>
-              )}
-            </div>
+            <Input
+              ref={emailRef}
+              {...emailReg}
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              placeholder="you@school.edu"
+              error={errors.email?.message}
+            />
 
             {/* Password */}
             <div>
@@ -164,20 +157,14 @@ export default function LoginPage() {
             </div>
 
             {/* Submit */}
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              loading={isSubmitting}
+              className="w-full"
             >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Signing in…
-                </span>
-              ) : (
-                "Sign in"
-              )}
-            </button>
+              {isSubmitting ? "Signing in…" : "Sign in"}
+            </Button>
           </form>
 
           {/* Demo credentials hint */}

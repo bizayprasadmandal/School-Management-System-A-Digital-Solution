@@ -270,7 +270,7 @@ export function useAnnouncements() {
     queryFn: () => api.get<PaginatedResponse<Announcement>>("/communication/announcements/"),
     staleTime: 60 * 1000,                    // 1 min — announcements are time-sensitive
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,          // poll every 2 min
+    refetchInterval: 3 * 60 * 1000,          // poll every 3 min
   });
 }
 
@@ -278,7 +278,9 @@ export function useNotifications() {
   return useQuery({
     queryKey: QK.communication.notifications,
     queryFn: () => api.get<PaginatedResponse<Notification>>("/communication/notifications/"),
-    refetchInterval: 30_000, // Poll every 30s
+    staleTime: 30_000,        // 30s — notification list is live
+    refetchInterval: 60_000,  // Poll every 60s instead of 30s
+    gcTime: 5 * 60 * 1000,    // 5 min cache
   });
 }
 
@@ -289,7 +291,9 @@ export function useUnreadNotificationCount() {
       api
         .get<{ count: number }>("/communication/notifications/unread-count/")
         .then((r) => r.count),
-    refetchInterval: 30_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,   // lightweight count — keep at 30s for responsive badge
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -346,11 +350,11 @@ export function useGradeLevels() {
   });
 }
 
-export function useClassrooms(gradeId?: number) {
+export function useClassrooms(gradeId?: number, page: number = 1) {
   return useQuery({
-    queryKey: QK.classrooms.list({ grade: gradeId }),
+    queryKey: QK.classrooms.list({ grade: gradeId, page }),
     queryFn: () =>
-      api.get<PaginatedResponse<Classroom>>("/students/classrooms/", { grade: gradeId }),
+      api.get<PaginatedResponse<Classroom>>("/students/classrooms/", { grade: gradeId, page }),
     staleTime: 10 * 60 * 1000,               // 10 min — classrooms change termly
     placeholderData: keepPreviousData,       // keep old list while switching grade filter
   });

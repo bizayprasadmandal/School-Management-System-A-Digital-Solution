@@ -3,7 +3,7 @@ import { BanknotesIcon, CheckCircleIcon, ClockIcon } from "@heroicons/react/24/o
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
-import { Badge, DataTable, EmptyState, SkeletonCard } from "../../components/common";
+import { Badge, DataTable, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
 import { currency, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
@@ -11,12 +11,13 @@ import dayjs from "dayjs";
 export default function StudentFeesPage() {
   useTitle("My Fees");
   const { data: profile } = useQuery({ queryKey:["student-me-fees"], queryFn:()=>api.get<any>("/students/me/") });
-  const { data: invData, isLoading } = useStudentInvoices(profile?.id ?? "");
+  const { data: invData, isLoading, isError, refetch } = useStudentInvoices(profile?.id ?? "");
   const invoices = invData?.results ?? [];
   const totalDue = invoices.filter(i=>["unpaid","overdue","partial"].includes(i.status)).reduce((s,i)=>s+Number(i.outstanding_amount),0);
   const totalPaid = invoices.reduce((s,i)=>s+Number(i.paid_amount),0);
 
   if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
+  if (isError) return <ErrorState onRetry={() => refetch()} />;
 
   return (
     <div className="space-y-6">
@@ -27,7 +28,7 @@ export default function StudentFeesPage() {
           { label:"Outstanding", value:currency(totalDue), icon:ClockIcon, color:totalDue>0?"text-red-600 bg-red-50":"text-slate-600 bg-slate-50" },
           { label:"Total Invoices", value:invoices.length, icon:BanknotesIcon, color:"text-indigo-600 bg-indigo-50" },
         ].map(({label,value,icon:Icon,color})=>(
-          <div key={label} className="card p-4 flex items-center gap-4">
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center gap-4">
             <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color.split(" ")[1]}`}><Icon className={`h-5 w-5 ${color.split(" ")[0]}`}/></div>
             <div><p className={`text-xl font-bold ${color.split(" ")[0]}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>
           </div>
@@ -39,8 +40,8 @@ export default function StudentFeesPage() {
           <span className="text-lg font-bold text-amber-800">{currency(totalDue)}</span>
         </div>
       )}
-      <div className="card">
-        <div className="card-header"><h2 className="text-base font-semibold">Invoice History</h2></div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Invoice History</h2></div>
         {invoices.length === 0
           ? <div className="p-8"><EmptyState icon={BanknotesIcon} title="No invoices yet" description="Your fee invoices will appear here." /></div>
           : <DataTable

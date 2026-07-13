@@ -52,7 +52,7 @@ export default function ParentMessagesPage() {
   return (
     <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-slate-900">Messages</h1><p className="text-sm text-slate-500 mt-1">Communicate with your children&apos;s teachers</p></div>
-      <div className="card overflow-hidden" style={{minHeight:480}}>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden" style={{minHeight:480}}>
         <div className="flex h-full" style={{minHeight:480}}>
           {/* Thread list */}
           <div className="w-full sm:w-72 border-r border-slate-100 flex-shrink-0 flex flex-col">

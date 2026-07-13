@@ -2,7 +2,7 @@
  * NotificationPanel — slide-in notification drawer for the topbar bell icon
  */
 
-import React from "react";
+import React, { memo } from "react";
 import { XMarkIcon, BellIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -27,7 +27,7 @@ const CHANNEL_ICONS: Record<string, string> = {
   push:   "📲",
 };
 
-export default function NotificationPanel({ open, onClose }: NotificationPanelProps) {
+export default memo(function NotificationPanel({ open, onClose }: NotificationPanelProps) {
   const qc = useQueryClient();
   const ref = useClickOutside<HTMLDivElement>(onClose);
   const { data, isLoading } = useNotifications();
@@ -165,4 +165,4 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
       </div>
     </>
   );
-}
+});

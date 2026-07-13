@@ -7,6 +7,7 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db.models import Count, Avg, Sum, Q
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
@@ -43,6 +44,15 @@ class ReportingViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
         school = request.user.school
+        cache_key = f"dashboard_stats_{school.id}"
+
+        # Try cache first; returns None on miss or if Redis is unavailable
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        logger.debug("Dashboard stats cache miss for school %s", school.id)
+
         today = timezone.now().date()
 
         total_students = Student.objects.filter(school=school, is_active=True).count()
@@ -94,7 +104,7 @@ class ReportingViewSet(viewsets.ViewSet):
         )
         attendance_delta = attendance_pct - yesterday_pct
 
-        return Response({
+        result = {
             "total_students": total_students,
             "total_teachers": total_teachers,
             "total_classrooms": total_classrooms,
@@ -103,7 +113,18 @@ class ReportingViewSet(viewsets.ViewSet):
             "fees_outstanding": float(fees_outstanding),
             "student_delta_pct": round(student_delta, 1),
             "attendance_delta_pct": round(attendance_delta, 1),
-        })
+        }
+
+        cache.set(cache_key, result, 300)  # 5 minute TTL
+        return Response(result)
+
+    @action(detail=False, methods=["post"], url_path="refresh-dashboard")
+    def refresh_dashboard(self, request):
+        """Manually invalidate the dashboard-stats cache so next request rebuilds."""
+        cache_key = f"dashboard_stats_{request.user.school.id}"
+        cache.delete(cache_key)
+        logger.info("Dashboard stats cache invalidated by user %s", request.user.id)
+        return Response({"status": "refreshed"})
 
     @action(detail=False, methods=["get"], url_path="attendance-report")
     def attendance_report(self, request):

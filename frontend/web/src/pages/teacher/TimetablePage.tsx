@@ -41,13 +41,13 @@ export default function TeacherTimetablePage() {
       <div><h1 className="text-2xl font-bold text-slate-900">My Timetable</h1><p className="text-sm text-slate-500 mt-1">Weekly teaching schedule · {academicYear?.name}</p></div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {DAYS.map((day, idx) => (
-          <div key={day} className={`card ${idx === todayIdx ? "ring-2 ring-indigo-500 ring-offset-2" : ""}`}>
-            <div className="card-header">
+          <div key={day} className={`bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none ${idx === todayIdx ? "ring-2 ring-indigo-500 ring-offset-2" : ""}`}>
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
               <h2 className="text-sm font-bold text-slate-800">{day}</h2>
               {idx === todayIdx && <Badge color="indigo" dot>Today</Badge>}
               {idx !== todayIdx && <Badge color="slate">{byDay[day].length} periods</Badge>}
             </div>
-            <div className="card-body space-y-2">
+            <div className="p-5 space-y-2">
               {byDay[day].length === 0
                 ? <p className="text-xs text-slate-400 text-center py-3">No classes</p>
                 : byDay[day].map((s, i) => (

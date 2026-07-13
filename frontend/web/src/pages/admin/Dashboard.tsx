@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
 import { useAnnouncements } from "../../api/hooks";
-import { SkeletonDashboard } from "../../components/common";
+import { SkeletonDashboard, ErrorState } from "../../components/common";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ export default function AdminDashboard() {
   const { user } = useAuthStore();
   const today = dayjs().format("dddd, MMMM D YYYY");
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading, isError, error, refetch } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats"],
     queryFn: () => api.get("/reporting/dashboard-stats/"),
   });
@@ -119,6 +119,7 @@ export default function AdminDashboard() {
   const recentAnnouncements = announcements?.results.slice(0, 4) ?? [];
 
   if (isLoading) return <SkeletonDashboard />;
+  if (isError) return <ErrorState message={error?.message} onRetry={() => refetch()} />;
 
   return (
     <div className="space-y-6">

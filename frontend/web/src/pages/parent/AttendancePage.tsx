@@ -54,7 +54,7 @@ export default function ParentAttendancePage() {
       <div><h1 className="text-2xl font-bold text-slate-900">Attendance</h1><p className="text-sm text-slate-500 mt-1">Monitor your children&apos;s daily attendance</p></div>
 
       {/* Child + month selectors */}
-      <div className="card p-4 flex flex-wrap gap-4">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex flex-wrap gap-4">
         {childList.length > 1 && (
           <Select label="Child" value={childIdx} onChange={e => setChildIdx(Number(e.target.value))}
             options={childList.map((c: StudentListItem, i: number) => ({ value: i, label: c.full_name }))} className="w-52" />
@@ -64,7 +64,7 @@ export default function ParentAttendancePage() {
       </div>
 
       {child && (
-        <div className="card p-4 flex items-center gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-violet-100 flex items-center justify-center text-lg font-bold text-violet-700 flex-shrink-0">
             {child.full_name.split(" ").map((n: string)=>n[0]).join("").slice(0,2)}
           </div>
@@ -82,7 +82,7 @@ export default function ParentAttendancePage() {
               ["Late", report.late, "text-amber-600"],
               ["Rate", percent(report.percentage), attendanceColor(report.percentage)],
             ].map(([l,v,c])=>(
-              <div key={String(l)} className="card p-4 text-center">
+              <div key={String(l)} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 text-center">
                 <p className={`text-2xl font-bold ${c}`}>{v}</p>
                 <p className="text-xs text-slate-500 mt-1">{l}</p>
               </div>
@@ -96,9 +96,9 @@ export default function ParentAttendancePage() {
             </div>
           )}
 
-          <div className="card">
-            <div className="card-header"><h2 className="text-base font-semibold">{dayjs(`${year}-${String(month).padStart(2,"0")}-01`).format("MMMM YYYY")}</h2></div>
-            <div className="card-body">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">{dayjs(`${year}-${String(month).padStart(2,"0")}-01`).format("MMMM YYYY")}</h2></div>
+            <div className="p-5">
               <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-slate-500 mb-2">
                 {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><div key={d}>{d}</div>)}
               </div>

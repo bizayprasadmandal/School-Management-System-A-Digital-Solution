@@ -40,7 +40,7 @@ const { data: weekly, isLoading } = useQuery({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-bold text-slate-900">Timetable</h1><p className="text-sm text-slate-500 mt-0.5">Weekly class schedules</p></div>
       </div>
-      <div className="card p-4 flex flex-wrap gap-4">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex flex-wrap gap-4">
         <div className="flex-1 min-w-48">
           <Select label="Select Classroom" placeholder="Choose a class…" value={classroomId ?? ""}
             onChange={e=>setClassroomId(Number(e.target.value)||null)}
@@ -49,7 +49,7 @@ const { data: weekly, isLoading } = useQuery({
       </div>
       {isLoading && <SkeletonCard className="max-w-md mx-auto" />}
       {weekly && !isLoading && (
-        <div className="card overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
@@ -86,7 +86,7 @@ const { data: weekly, isLoading } = useQuery({
         </div>
       )}
       {!classroomId && !isLoading && (
-        <div className="card p-16 text-center text-slate-400"><p>Select a classroom to view its timetable</p></div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-16 text-center text-slate-400"><p>Select a classroom to view its timetable</p></div>
       )}
     </div>
   );

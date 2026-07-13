@@ -64,13 +64,13 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <div><h1 className="text-2xl font-bold text-slate-900">Settings</h1><p className="text-sm text-slate-500 mt-0.5">Configure your school&apos;s system preferences</p></div>
-      <div className="card">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
         <div className="border-b border-slate-100 px-6 flex overflow-x-auto">
           {TABS.map(t => <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab===t.id?"border-indigo-600 text-indigo-600":"border-transparent text-slate-500 hover:text-slate-800"}`}>{t.label}</button>)}
         </div>
 
         {activeTab === "school" && (
-          <div className="card-body max-w-2xl">
+          <div className="p-5 max-w-2xl">
             <h2 className="text-base font-semibold text-slate-800 mb-5">School Profile</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <Input label="School Name" error={errors.name?.message} {...register("name")} />
@@ -89,7 +89,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "academic" && (
-          <div className="card-body max-w-xl space-y-6">
+          <div className="p-5 max-w-xl space-y-6">
             <h2 className="text-base font-semibold text-slate-800">Academic Year Settings</h2>
             <Select label="Academic Year Start Month" options={MONTHS.map((m,i)=>({value:i+1,label:m}))} />
             <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
@@ -104,7 +104,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "notifications" && (
-          <div className="card-body max-w-xl space-y-4">
+          <div className="p-5 max-w-xl space-y-4">
             <h2 className="text-base font-semibold text-slate-800">Notification Channels</h2>
             {[
               { label: "Email Notifications", sub: "Send emails via SendGrid for important events", enabled: true },
@@ -125,7 +125,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "integrations" && (
-          <div className="card-body max-w-xl space-y-4">
+          <div className="p-5 max-w-xl space-y-4">
             <h2 className="text-base font-semibold text-slate-800">External Integrations</h2>
             {[
               { name: "Google Workspace", status: "connected", color: "green" as const },

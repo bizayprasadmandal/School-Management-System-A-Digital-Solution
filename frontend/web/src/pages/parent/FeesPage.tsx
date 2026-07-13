@@ -33,7 +33,7 @@ export default function ParentFeesPage() {
       <div><h1 className="text-2xl font-bold text-slate-900">Fee Management</h1><p className="text-sm text-slate-500 mt-1">Track fee invoices and payment history</p></div>
 
       {childList.length > 1 && (
-        <div className="card p-4 flex gap-2 overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex gap-2 overflow-x-auto">
           {childList.map((c: StudentListItem, i: number) => (
             <button key={c.id} onClick={()=>setChildIdx(i)}
               className={`flex-shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${i===childIdx?"bg-violet-600 text-white":"bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
@@ -52,7 +52,7 @@ export default function ParentFeesPage() {
                 { label:"Outstanding", value:currency(totalDue), icon:ClockIcon, color:totalDue>0?"text-red-600 bg-red-50":"text-slate-500 bg-slate-50" },
                 { label:"Invoices", value:invoices.length, icon:BanknotesIcon, color:"text-indigo-600 bg-indigo-50" },
               ].map(({label,value,icon:Icon,color})=>(
-                <div key={label} className="card p-4 flex items-center gap-3">
+                <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center gap-3">
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color.split(" ")[1]}`}><Icon className={`h-5 w-5 ${color.split(" ")[0]}`}/></div>
                   <div><p className={`text-xl font-bold ${color.split(" ")[0]}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>
                 </div>
@@ -66,8 +66,8 @@ export default function ParentFeesPage() {
               </div>
             )}
 
-            <div className="card">
-              <div className="card-header"><h2 className="text-base font-semibold">Invoice History</h2></div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Invoice History</h2></div>
               {invoices.length === 0
                 ? <div className="p-8"><EmptyState icon={BanknotesIcon} title="No invoices yet" description="Fee invoices for your child appear here." /></div>
                 : <DataTable

@@ -1,7 +1,7 @@
 /**
  * Admin Report Cards Page — generate and publish report cards per exam
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
@@ -15,6 +15,7 @@ export default function ReportCardsPage() {
   const qc = useQueryClient();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [publishConfirm, setPublishConfirm] = useState(false);
+  const [page, setPage] = useState(1);
   const { data: academicYear } = useCurrentAcademicYear();
 
   const { data: exams, isLoading: examsLoading } = useQuery({
@@ -24,8 +25,8 @@ export default function ReportCardsPage() {
   });
 
   const { data: reportCards, isLoading: rcLoading } = useQuery({
-    queryKey: ["admin-rc-list", selectedExam],
-    queryFn: () => api.get<any>(`/gradebook/report-cards/?page_size=50`),
+    queryKey: ["admin-rc-list", selectedExam, page],
+    queryFn: () => api.get<any>("/gradebook/report-cards/", { page_size: 50, page }),
     enabled: !!selectedExam,
   });
 
@@ -53,6 +54,8 @@ export default function ReportCardsPage() {
   const examList = exams?.results ?? [];
   const selected = examList.find((e: { id: string }) => e.id === selectedExam);
   const rcs = reportCards?.results ?? [];
+  // Reset to page 1 when switching exams
+  useEffect(() => { setPage(1); }, [selectedExam]);
 
   return (
     <div className="space-y-6">
@@ -65,13 +68,13 @@ export default function ReportCardsPage() {
       {examsLoading ? <div className="grid grid-cols-3 gap-3 p-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {examList.length === 0 ? (
-            <div className="col-span-3 card p-8 text-center text-slate-400">
+            <div className="col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-8 text-center text-slate-400">
               <DocumentTextIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
               <p>No exams found for {academicYear?.name}. Create exams first.</p>
             </div>
           ) : examList.map((exam: { id: string; name: string; status: string; exam_type_name: string; start_date: string; end_date: string; schedule_count: number }) => (
             <button key={exam.id} onClick={() => setSelectedExam(exam.id)}
-              className={`card p-4 text-left hover:border-indigo-300 transition-colors ${selectedExam === exam.id ? "border-indigo-500 ring-2 ring-indigo-500 ring-offset-1" : ""}`}>
+              className={`bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 text-left hover:border-indigo-300 transition-colors ${selectedExam === exam.id ? "border-indigo-500 ring-2 ring-indigo-500 ring-offset-1" : ""}`}>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <p className="text-sm font-bold text-slate-900">{exam.name}</p>
                 <Badge color={exam.status === "completed" ? "green" : exam.status === "ongoing" ? "amber" : "slate"}>
@@ -88,7 +91,7 @@ export default function ReportCardsPage() {
 
       {/* Action bar for selected exam */}
       {selected && (
-        <div className="card p-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center justify-between flex-wrap gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">{selected.name}</p>
             <p className="text-xs text-slate-500">Select an action for this exam</p>
@@ -111,8 +114,8 @@ export default function ReportCardsPage() {
 
       {/* Report cards table */}
       {selectedExam && (
-        <div className="card">
-          <div className="card-header">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
             <h2 className="text-base font-semibold">Report Cards — {selected?.name}</h2>
             <Badge color="slate">{reportCards?.count ?? 0} total</Badge>
           </div>            {rcLoading ? <SkeletonTable rows={6} cols={5} className="m-4" />
@@ -132,6 +135,7 @@ export default function ReportCardsPage() {
                     : <span className="text-slate-400 text-xs">Not ready</span> },
                 ]}
                 data={rcs as any[]} rowKey={r => r.id}
+                page={page} total={reportCards?.count ?? 0} pageSize={50} onPageChange={setPage}
               />
           }
         </div>

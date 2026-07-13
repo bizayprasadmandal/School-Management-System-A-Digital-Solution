@@ -33,9 +33,9 @@ export default function ParentChildrenPage() {
       <div><h1 className="text-2xl font-bold text-slate-900">My Children</h1><p className="text-sm text-slate-500 mt-1">{childList.length} {childList.length === 1 ? "child" : "children"} linked to your account</p></div>
 
       {childList.length === 0
-        ? <div className="card p-8"><EmptyState icon={UsersIcon} title="No children linked" description="Contact your school administrator to link your children to this parent account." /></div>
+        ? <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-8"><EmptyState icon={UsersIcon} title="No children linked" description="Contact your school administrator to link your children to this parent account." /></div>
         : childList.map((child: ParentChild) => (
-          <div key={child.id} className="card">
+          <div key={child.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
             <div className="p-5 flex flex-col sm:flex-row gap-5">
               <Avatar name={child.full_name} src={child.avatar} className="h-20 w-20 text-2xl flex-shrink-0" />
               <div className="flex-1 min-w-0">

@@ -2,7 +2,7 @@
  * StudentLayout — sidebar shell for students
  */
 
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
@@ -45,7 +45,7 @@ interface SidebarShellProps {
   toggleDark: () => void;
 }
 
-function SidebarShell({
+const SidebarShell = memo(function SidebarShell({
   nav, accent, open, setOpen, user, logout, navigate, unread, isDark, toggleDark,
 }: SidebarShellProps) {
   return (
@@ -129,11 +129,12 @@ function SidebarShell({
       </div>
     </div>
   );
-}
+});
 
 export function StudentLayout() {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const { data: unread = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();
@@ -162,7 +163,8 @@ const PARENT_NAV: NavItem[] = [
 
 export function ParentLayout() {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const { data: unread = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();

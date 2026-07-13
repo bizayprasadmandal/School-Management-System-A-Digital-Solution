@@ -4,7 +4,7 @@
 
 import React, { useState } from "react";
 import { PlusIcon, MegaphoneIcon, EyeIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { SkeletonCard } from "../../components/common";
+import { Button, Input, Select, Modal, SkeletonCard } from "../../components/common";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
@@ -45,71 +45,57 @@ function CreateAnnouncementModal({ onClose }: CreateModalProps) {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-slate-900 mb-5">New Announcement</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-medium text-slate-700 mb-1 block">Title *</label>
-            <input type="text" value={form.title} onChange={e => set("title", e.target.value)}
-              placeholder="Announcement title…"
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-700 mb-1 block">Content *</label>
-            <textarea rows={5} value={form.content} onChange={e => set("content", e.target.value)}
-              placeholder="Write your announcement here…"
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-slate-700 mb-1 block">Priority</label>
-              <select value={form.priority} onChange={e => set("priority", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">🚨 Urgent</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-slate-700 mb-1 block">Audience</label>
-              <select value={form.audience} onChange={e => set("audience", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {Object.entries(AUDIENCE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-4">
-            {[
-              { key: "send_push", label: "Send Push Notification" },
-              { key: "send_email", label: "Send Email" },
-            ].map(({ key, label }) => (
-              <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" checked={(form)[key as keyof typeof form] as boolean}
-                  onChange={e => set(key as keyof typeof form, e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                {label}
-              </label>
-            ))}
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="New Announcement"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={() => { set("is_draft", true); setTimeout(() => mutate(), 0); }}
+            disabled={isPending || !form.title}>Save Draft</Button>
+          <Button onClick={() => mutate()} loading={isPending} disabled={!form.title || !form.content}>
+            Publish Now
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Input label="Title *" value={form.title} onChange={e => set("title", e.target.value)}
+          placeholder="Announcement title…" />
+        <div>
+          <label className="text-xs font-medium text-slate-700 mb-1 block">Content *</label>
+          <textarea rows={5} value={form.content} onChange={e => set("content", e.target.value)}
+            placeholder="Write your announcement here…"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
         </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-            Cancel
-          </button>
-          <button onClick={() => { set("is_draft", true); setTimeout(() => mutate(), 0); }}
-            disabled={isPending || !form.title}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors">
-            Save Draft
-          </button>
-          <button onClick={() => mutate()} disabled={isPending || !form.title || !form.content}
-            className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors">
-            {isPending ? "Publishing…" : "Publish Now"}
-          </button>
+        <div className="grid grid-cols-2 gap-4">
+          <Select label="Priority" value={form.priority} onChange={e => set("priority", e.target.value)}
+            options={[
+              { value: "low", label: "Low" },
+              { value: "normal", label: "Normal" },
+              { value: "high", label: "High" },
+              { value: "urgent", label: "🚨 Urgent" },
+            ]} />
+          <Select label="Audience" value={form.audience} onChange={e => set("audience", e.target.value)}
+            options={Object.entries(AUDIENCE_LABELS).map(([v, l]) => ({ value: v, label: l }))} />
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {[
+            { key: "send_push", label: "Send Push Notification" },
+            { key: "send_email", label: "Send Email" },
+          ].map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={(form)[key as keyof typeof form] as boolean}
+                onChange={e => set(key as keyof typeof form, e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              {label}
+            </label>
+          ))}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -131,11 +117,9 @@ export default function AnnouncementsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Announcements</h1>
           <p className="text-sm text-slate-500 mt-0.5">Communicate with students, parents and staff</p>
         </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">
-          <PlusIcon className="h-4 w-4" />
+        <Button variant="primary" leftIcon={<PlusIcon className="h-4 w-4" />} onClick={() => setShowCreate(true)}>
           New Announcement
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -171,14 +155,15 @@ export default function AnnouncementsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                  <Button variant="ghost" size="sm">
                     <EyeIcon className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => {
-                    if (window.confirm("Delete this announcement?")) deleteMutation.mutate(a.id);
-                  }} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                  </Button>
+                  <Button variant="ghost" size="sm"
+                    onClick={() => {
+                      if (window.confirm("Delete this announcement?")) deleteMutation.mutate(a.id);
+                    }}>
                     <TrashIcon className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

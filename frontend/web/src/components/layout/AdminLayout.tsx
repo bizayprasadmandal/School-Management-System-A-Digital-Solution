@@ -2,7 +2,7 @@
  * AdminLayout — Sidebar + topbar shell for administrators
  */
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon,
@@ -56,15 +56,16 @@ const NAV_ITEMS: NavItem[] = [
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
     navigate("/login");
-  };
+  }, [logout, navigate]);
 
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
@@ -134,7 +135,7 @@ export default function AdminLayout() {
         <div className="border-t border-indigo-800 dark:border-indigo-900 p-4">
           <div className="flex items-center gap-3">
             {user?.avatar ? (
-              <img src={user.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+              <img src={user.avatar} alt="" loading="lazy" className="h-9 w-9 rounded-full object-cover" />
             ) : (
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white font-semibold text-sm">
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -198,7 +199,7 @@ export default function AdminLayout() {
             {/* Avatar */}
             <button className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
               {user?.avatar ? (
-                <img src={user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                <img src={user.avatar} alt="" loading="lazy" className="h-8 w-8 rounded-full object-cover" />
               ) : (
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">
                   {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -215,8 +216,10 @@ export default function AdminLayout() {
         <main className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
           <AnimatedOutlet />
         </main>
-            <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
         </div>
+
+        {/* Notification slide-in panel — fixed position, outside main content flow */}
+        <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       </div>
   );
 }
