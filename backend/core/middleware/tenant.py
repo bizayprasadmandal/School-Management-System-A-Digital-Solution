@@ -83,28 +83,3 @@ class TenantMiddleware:
                 return None
 
         return None
-
-
-class RequestLoggingMiddleware:
-    """Structured request/response logging for API calls."""
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        import time
-        start = time.monotonic()
-        response = self.get_response(request)
-        duration_ms = (time.monotonic() - start) * 1000
-
-        if request.path.startswith("/api/"):
-            user_id = str(request.user.id) if request.user.is_authenticated else "anonymous"
-            logger.info(
-                "API %s %s | status=%d | user=%s | %.1fms",
-                request.method,
-                request.path,
-                response.status_code,
-                user_id,
-                duration_ms,
-            )
-        return response

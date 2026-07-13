@@ -5,7 +5,7 @@ Auth Service — Django Admin registrations with custom displays
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, School, AuditLog, UserSession, PasswordResetToken
+from .models import User, School, AuditLog, UserSession, PasswordResetToken, EmailVerificationToken, TwoFactorBackupCode
 
 
 @admin.register(School)
@@ -47,6 +47,33 @@ class UserAdmin(BaseUserAdmin):
     def full_name(self, obj):
         return obj.full_name
     full_name.short_description = "Name"
+
+
+@admin.register(EmailVerificationToken)
+class EmailVerificationTokenAdmin(admin.ModelAdmin):
+    list_display = ["email", "user", "created_at", "expires_at", "used"]
+    list_filter = ["used"]
+    search_fields = ["email", "user__email"]
+    readonly_fields = ["id", "token", "created_at"]
+    ordering = ["-created_at"]
+
+    def has_add_permission(self, request): return False
+
+
+@admin.register(TwoFactorBackupCode)
+class TwoFactorBackupCodeAdmin(admin.ModelAdmin):
+    list_display = ["user", "hashed_code_short", "used", "created_at"]
+    list_filter = ["used"]
+    search_fields = ["user__email"]
+    readonly_fields = ["id", "hashed_code", "created_at"]
+    ordering = ["-created_at"]
+
+    def has_add_permission(self, request): return False
+    def has_change_permission(self, request, obj=None): return False
+
+    def hashed_code_short(self, obj):
+        return f"{obj.hashed_code[:12]}..."
+    hashed_code_short.short_description = "Code (hashed)"
 
 
 @admin.register(AuditLog)

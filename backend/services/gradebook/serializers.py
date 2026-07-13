@@ -117,6 +117,28 @@ class AssessmentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    MAX_FILE_SIZE_MB = 10
+
+    def validate_attachment(self, value):
+        if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise serializers.ValidationError(
+                f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB."
+            )
+        if value:
+            allowed_types = [
+                "application/pdf",
+                "image/jpeg", "image/png", "image/gif",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "text/plain",
+            ]
+            if value.content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    f"File type '{value.content_type}' is not allowed. "
+                    f"Allowed types: PDF, JPEG, PNG, GIF, DOC, DOCX, TXT."
+                )
+        return value
+
     def get_classroom_name(self, obj):
         return str(obj.assignment.classroom)
 

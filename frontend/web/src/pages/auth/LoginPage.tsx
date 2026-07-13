@@ -9,8 +9,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { EyeIcon, EyeSlashIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../api/client";
+import { QK } from "../../api/hooks";
+import { trackEvent } from "../../utils/analytics";
 import { Button, Input } from "../../components/common";
 import type { User, AuthTokens } from "../../types";
 
@@ -35,8 +38,11 @@ const ROLE_ROUTES: Record<string, string> = {
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -50,15 +56,71 @@ export default function LoginPage() {
 
   const { ref: emailRef, ...emailReg } = register("email");
 
-  const onSubmit = async (data: LoginForm) => {
+  const handleResend = async () => {
+    setResending(true);
     try {
-      const response = await api.post<{ user: User; access: string; refresh: string }>(
+      await api.post<{ detail: string }>("/auth/send-verification/");
+      trackEvent("verification_email_sent", { source: "login_page" });
+      toast.success("Verification email sent! Check your inbox.");
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error?.message ?? "Failed to send verification email.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const onSubmit = async (data: LoginForm) => {
+    // Reset verification banner on each submission attempt
+    setNeedsVerification(false);
+
+    try {
+      const response = await api.post<Record<string, unknown>>(
         "/auth/login/",
         { email: data.email, password: data.password }
       );
-      setAuth(response.user, { access: response.access, refresh: response.refresh });
-      const route = ROLE_ROUTES[response.user.role] ?? "/login";
-      toast.success(`Welcome back, ${response.user.first_name}!`);
+
+      // ── 2FA check ────────────────────────────────────────────
+      if (response.requires_2fa === true) {
+        navigate("/verify-2fa", {
+          state: {
+            user_id: response.user_id as string,
+            email: data.email,
+            backup_codes_remaining: response.backup_codes_remaining as number,
+          },
+          replace: true,
+        });
+        return;
+      }
+
+      const loginResult = response as unknown as {
+        user: User;
+        access: string;
+        refresh: string;
+      };
+
+      // ── Normal login ──────────────────────────────────────────
+      setAuth(loginResult.user, {
+        access: loginResult.access,
+        refresh: loginResult.refresh,
+      });
+
+      // Invalidate notification queries to pick up any in-app notifications
+      queryClient.invalidateQueries({ queryKey: QK.communication.notifications });
+      queryClient.invalidateQueries({ queryKey: QK.communication.unreadCount });
+
+      // Check if the user's email needs verification
+      if (!loginResult.user.email_verified) {
+        setNeedsVerification(true);
+        toast("Please verify your email to access all features.", {
+          icon: "📧",
+          duration: 6000,
+        });
+        return; // Stay on the login page, don't redirect
+      }
+
+      const route = ROLE_ROUTES[loginResult.user.role] ?? "/login";
+      toast.success(`Welcome back, ${loginResult.user.first_name}!`);
       navigate(route, { replace: true });
     } catch (err: unknown) {
       const error = err as { message?: string; status?: number };
@@ -166,6 +228,84 @@ export default function LoginPage() {
               {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+
+          {/* Email verification banner */}
+          {needsVerification && (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20 px-4 py-4">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="h-5 w-5 mt-0.5 shrink-0 text-amber-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                  />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    Email not verified
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    Some features are restricted until you verify your email
+                    address. Check your inbox or send a new verification link.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={resending}
+                    onClick={handleResend}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-100 dark:bg-amber-800/40 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-colors disabled:opacity-50"
+                  >
+                    {resending ? (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                          />
+                        </svg>
+                        Resend verification email
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Demo credentials hint */}
           <div className="mt-6 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 dark:border dark:border-indigo-800/50">

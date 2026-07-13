@@ -37,6 +37,30 @@ def admin_user(db, school):
 
 
 @pytest.fixture
+def unverified_user(db, school):
+    """User with email_verified=False (default factories have verified=True)."""
+    from tests.factories import UserFactory
+    return UserFactory(
+        school=school,
+        email="unverified-login@school.edu",
+        role="student",
+        email_verified=False,
+    )
+
+
+@pytest.fixture
+def verified_user(db, school):
+    """User with email_verified=True (explicit)."""
+    from tests.factories import UserFactory
+    return UserFactory(
+        school=school,
+        email="verified-login@school.edu",
+        role="student",
+        email_verified=True,
+    )
+
+
+@pytest.fixture
 def teacher_user(db, school):
     from tests.factories import TeacherUserFactory
     return TeacherUserFactory(school=school)
@@ -169,6 +193,65 @@ class TestAuthentication:
         response = api_client.post(AUTH_TOKEN_REFRESH, {"refresh": refresh_token})
         assert response.status_code == status.HTTP_200_OK
         assert "access" in response.data
+
+    # ── Email verification notification on login ─────────────────────
+
+    def test_login_unverified_creates_in_app_notification(self, api_client, unverified_user):
+        """
+        When an unverified user logs in, an in-app Notification record
+        should be created (via the Celery task, which runs synchronously
+        thanks to CELERY_TASK_ALWAYS_EAGER).
+        """
+        from services.communication.models import Notification
+
+        response = api_client.post(AUTH_LOGIN, {
+            "email": unverified_user.email,
+            "password": "TestPass@1234",
+        })
+        assert response.status_code == status.HTTP_200_OK
+
+        notif = Notification.objects.filter(
+            user=unverified_user, channel="in_app"
+        ).first()
+        assert notif is not None, "No in-app notification found after unverified login"
+        assert notif.title == "Email not verified"
+        assert "has not been verified" in notif.body
+        assert notif.reference_type == "email_verification"
+        assert notif.status == "sent"
+        assert notif.sent_at is not None
+
+    def test_login_unverified_notification_has_correct_body(self, api_client, unverified_user):
+        """The notification body educates the user on next steps."""
+        from services.communication.models import Notification
+
+        api_client.post(AUTH_LOGIN, {
+            "email": unverified_user.email,
+            "password": "TestPass@1234",
+        })
+
+        notif = Notification.objects.filter(
+            user=unverified_user, channel="in_app"
+        ).first()
+        assert notif is not None
+        assert "profile settings" in notif.body.lower()
+        assert "verification link" in notif.body.lower()
+
+    def test_login_verified_does_not_create_notification(self, api_client, verified_user):
+        """A user with email_verified=True should NOT get a notification on login."""
+        from services.communication.models import Notification
+
+        response = api_client.post(AUTH_LOGIN, {
+            "email": verified_user.email,
+            "password": "TestPass@1234",
+        })
+        assert response.status_code == status.HTTP_200_OK
+
+        notif_count = Notification.objects.filter(
+            user=verified_user, channel="in_app"
+        ).count()
+        assert notif_count == 0, (
+            f"Expected 0 notifications for verified login, got {notif_count}"
+        )
 
 
 # ─── Student Tests ─────────────────────────────────────────────────────────────

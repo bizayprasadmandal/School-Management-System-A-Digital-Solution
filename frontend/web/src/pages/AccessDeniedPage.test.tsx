@@ -33,6 +33,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     is_active: true,
     email_verified: true,
     two_factor_enabled: false,
+    backup_codes_remaining: null,
     notify_email: true,
     notify_sms: false,
     notify_push: true,

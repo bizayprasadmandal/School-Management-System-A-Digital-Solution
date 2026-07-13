@@ -1,0 +1,506 @@
+name: Load Test — PR Check
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infrastructure/load-tests/**'
+      - '.github/workflows/load-test-pr.yml'
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: 'Staging URL to test against (skip deploy)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  STAGING_URL:  ${{ inputs.staging_url || '' }}
+  SECRET_KEY:   loadtest-secret-key-2026
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════
+  #  STAGING DEPLOYMENT
+  #  Builds the PR's backend image and deploys it to the staging K8s cluster.
+  #  Only runs if staging kubeconfig is available (secrets set) AND no manual
+  #  staging URL was provided.
+  # ══════════════════════════════════════════════════════════════════════════
+  deploy-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    if: ${{ env.STAGING_URL == '' }}  # Skip when manual URL provided
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      deployed: ${{ steps.deploy.outputs.deployed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check staging kubeconfig available
+        id: check-kube
+        run: |
+          if [ -n "${{ secrets.KUBE_CONFIG_STAGING }}" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check-kube.outputs.available == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: steps.check-kube.outputs.available == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend image
+        if: steps.check-kube.outputs.available == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          file: infrastructure/docker/backend/Dockerfile
+          target: production
+          push: true
+          tags: ${{ env.BACKEND_IMAGE }}:${{ github.sha }},${{ env.BACKEND_IMAGE }}:pr-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: COMMIT_SHA=${{ github.sha }}
+
+      - name: Configure kubectl for staging
+        if: steps.check-kube.outputs.available == 'true'
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+
+      - name: Deploy to staging
+        id: deploy
+        if: steps.check-kube.outputs.available == 'true'
+        run: |
+          NAMESPACE="${NAMESPACE:-sms-staging}"
+          kubectl set image deployment/sms-backend \
+            backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            -n "$NAMESPACE"
+          kubectl rollout status deployment/sms-backend \
+            -n "$NAMESPACE" --timeout=5m
+          STAGING_URL=$(kubectl get ingress sms-ingress \
+            -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
+          if [ -n "$STAGING_URL" ]; then
+            echo "url=https://${STAGING_URL}/api/v1" >> $GITHUB_OUTPUT
+          else
+            echo "url=http://sms-backend-svc.${NAMESPACE}.svc.cluster.local:8000/api/v1" >> $GITHUB_OUTPUT
+          fi
+          echo "deployed=true" >> $GITHUB_OUTPUT
+          echo "Deployed ${{ github.sha }} to staging at ${STAGING_URL}"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  #  LOAD TESTS
+  #  Runs against the staging environment if deployed, or spins up a local
+  #  backend if not.  Environment is determined dynamically.
+  # ══════════════════════════════════════════════════════════════════════════
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [deploy-staging]
+    if: always()  # Run even if deploy-staging is skipped
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sms_loadtest
+          POSTGRES_USER: sms
+          POSTGRES_PASSWORD: sms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Determine test target ───────────────────────────────────────────
+      # Priority: 1) manual input, 2) deployed staging, 3) local backend
+      - name: Determine test target URL
+        id: target
+        run: |
+          if [ -n "${{ env.STAGING_URL }}" ]; then
+            echo "Using manual staging URL from workflow_dispatch"
+            echo "url=${{ env.STAGING_URL }}" >> $GITHUB_OUTPUT
+            echo "env_name=staging 🌐" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.deploy-staging.outputs.deployed }}" = "true" ]; then
+            echo "Using auto-deployed staging environment"
+            echo "url=${{ needs.deploy-staging.outputs.url }}" >> $GITHUB_OUTPUT
+            echo "env_name=staging 🚀" >> $GITHUB_OUTPUT
+          else
+            echo "Using local embedded backend"
+            echo "url=http://localhost:8000/api/v1" >> $GITHUB_OUTPUT
+            echo "env_name=local 🏠" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Local backend setup (skipped when testing against staging) ──────
+      - name: Set up Python (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python dependencies (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pyotp qrcode[pil]
+
+      - name: Wait for PostgreSQL (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U sms -d sms_loadtest && break
+            sleep 1
+          done
+
+      - name: Run database migrations (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        working-directory: backend
+        run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: postgresql://sms:sms@localhost:5432/sms_loadtest
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          DEBUG: 'True'
+
+      - name: Seed demo data (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        working-directory: backend
+        run: python manage.py seed_demo_data
+        env:
+          DATABASE_URL: postgresql://sms:sms@localhost:5432/sms_loadtest
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          DEBUG: 'True'
+
+      - name: Start backend server (local backend only)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8000/api/v1' }}
+        working-directory: backend
+        run: |
+          python manage.py runserver 0.0.0.0:8000 &
+          sleep 3
+          curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health/ready/ | grep -q 200 && echo "Backend ready" || echo "Backend health check failed"
+        env:
+          DATABASE_URL: postgresql://sms:sms@localhost:5432/sms_loadtest
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          DEBUG: 'True'
+          CELERY_TASK_ALWAYS_EAGER: 'True'
+          CELERY_TASK_EAGER_PROPAGATES: 'True'
+
+      # ── Staging health check ────────────────────────────────────────────
+      - name: Wait for staging to be ready
+        if: ${{ steps.target.outputs.url != 'http://localhost:8000/api/v1' }}
+        run: |
+          URL="${{ steps.target.outputs.url }}"
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${URL}/../health/ready/" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Staging ready"
+              break
+            fi
+            echo "Waiting for staging... attempt $i"
+            sleep 10
+          done
+
+      - name: Verify API login works
+        run: |
+          URL="${{ steps.target.outputs.url }}"
+          RESPONSE=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST "${URL}/auth/login/" \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@demo.edusphere.school","password":"Admin@1234"}')
+          [ "$RESPONSE" = "200" ] && echo "Login OK on $URL" || (echo "Login failed ($RESPONSE) on $URL" && exit 1)
+
+      - name: Install k6
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gnupg bc
+          sudo gpg --no-tty -k 0x4A5A5C08C0A6F87E 2>/dev/null || \
+            sudo gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys 0x4A5A5C08C0A6F87E
+          echo 'deb https://dl.k6.io/deb stable main' | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq k6
+          k6 version
+
+      # ── Smoke Test (required gate) ──────────────────────────────────────
+
+      - name: Run smoke.js smoke test
+        id: smoke-test
+        working-directory: infrastructure/load-tests
+        continue-on-error: false
+        run: |
+          k6 run --out json=/tmp/k6-smoke.json \
+            -e BASE_URL=${{ steps.target.outputs.url }} \
+            smoke.js 2>&1 | tee /tmp/k6-smoke.log
+
+      - name: Parse smoke.js results
+        id: smoke-results
+        run: |
+          CHECKS="N/A"; FAILED="N/A"
+          if [ -f /tmp/k6-smoke.json ]; then
+            PASSES=$(jq '.metrics.checks.values.passes' /tmp/k6-smoke.json 2>/dev/null || echo "0")
+            FAILS=$(jq '.metrics.checks.values.fails' /tmp/k6-smoke.json 2>/dev/null || echo "0")
+            TOTAL=$(( PASSES + FAILS ))
+            CHECKS="${PASSES}/${TOTAL}"
+            if [ "$TOTAL" -gt 0 ]; then
+              PCT=$(echo "scale=1; $PASSES * 100 / $TOTAL" | bc)
+              FAILED="${PCT}%"
+            else
+              FAILED="N/A"
+            fi
+          fi
+          echo "smoke_checks=$CHECKS" >> $GITHUB_OUTPUT
+          echo "smoke_failed=$FAILED" >> $GITHUB_OUTPUT
+
+      # ── Auth Load Test ──────────────────────────────────────────────────
+
+      - name: Run auth.js load test
+        id: auth-test
+        working-directory: infrastructure/load-tests
+        continue-on-error: true
+        run: |
+          k6 run --out json=/tmp/k6-auth.json \
+            -e BASE_URL=${{ steps.target.outputs.url }} \
+            auth.js 2>&1 | tee /tmp/k6-auth.log
+
+      - name: Parse auth.js results
+        id: auth-results
+        run: |
+          P95="N/A"; FAILED="N/A"; CHECKS="N/A"
+          if [ -f /tmp/k6-auth.json ]; then
+            P95=$(jq '.metrics.http_req_duration.values."p(95)"' /tmp/k6-auth.json 2>/dev/null || echo "N/A")
+            FAILED=$(jq '.metrics.http_req_failed.values.rate' /tmp/k6-auth.json 2>/dev/null || echo "N/A")
+            CHECKS=$(jq '.metrics.checks.values.passes' /tmp/k6-auth.json 2>/dev/null || echo "N/A")
+            if [ "$FAILED" != "N/A" ]; then
+              FAILED_PCT=$(echo "scale=2; $FAILED * 100" | bc)
+            else
+              FAILED_PCT="N/A"
+            fi
+          fi
+          echo "auth_p95=$P95" >> $GITHUB_OUTPUT
+          echo "auth_failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "auth_failed_pct=$FAILED_PCT" >> $GITHUB_OUTPUT
+          echo "auth_checks=$CHECKS" >> $GITHUB_OUTPUT
+
+      # ── Attendance Load Test ─────────────────────────────────────────────
+
+      - name: Run attendance.js load test
+        id: attendance-test
+        working-directory: infrastructure/load-tests
+        continue-on-error: true
+        run: |
+          k6 run --out json=/tmp/k6-attendance.json \
+            -e BASE_URL=${{ steps.target.outputs.url }} \
+            attendance.js 2>&1 | tee /tmp/k6-attendance.log
+
+      - name: Parse attendance.js results
+        id: attendance-results
+        run: |
+          P95="N/A"; FAILED="N/A"; CHECKS="N/A"
+          if [ -f /tmp/k6-attendance.json ]; then
+            P95=$(jq '.metrics.http_req_duration.values."p(95)"' /tmp/k6-attendance.json 2>/dev/null || echo "N/A")
+            FAILED=$(jq '.metrics.http_req_failed.values.rate' /tmp/k6-attendance.json 2>/dev/null || echo "N/A")
+            CHECKS=$(jq '.metrics.checks.values.passes' /tmp/k6-attendance.json 2>/dev/null || echo "N/A")
+            if [ "$FAILED" != "N/A" ]; then
+              FAILED_PCT=$(echo "scale=2; $FAILED * 100" | bc)
+            else
+              FAILED_PCT="N/A"
+            fi
+          fi
+          echo "attendance_p95=$P95" >> $GITHUB_OUTPUT
+          echo "attendance_failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "attendance_failed_pct=$FAILED_PCT" >> $GITHUB_OUTPUT
+          echo "attendance_checks=$CHECKS" >> $GITHUB_OUTPUT
+
+      # ── Gradebook Load Test ──────────────────────────────────────────────
+
+      - name: Run gradebook.js load test
+        id: gradebook-test
+        working-directory: infrastructure/load-tests
+        continue-on-error: true
+        run: |
+          k6 run --out json=/tmp/k6-gradebook.json \
+            -e BASE_URL=${{ steps.target.outputs.url }} \
+            gradebook.js 2>&1 | tee /tmp/k6-gradebook.log
+
+      - name: Parse gradebook.js results
+        id: gradebook-results
+        run: |
+          P95="N/A"; ERRORS="N/A"; CHECKS="N/A"
+          if [ -f /tmp/k6-gradebook.json ]; then
+            P95=$(jq '.metrics.gradebook_req_duration.values."p(95)"' /tmp/k6-gradebook.json 2>/dev/null || echo "N/A")
+            ERRORS=$(jq '.metrics.gradebook_errors.values.rate' /tmp/k6-gradebook.json 2>/dev/null || echo "N/A")
+            CHECKS=$(jq '.metrics.checks.values.passes' /tmp/k6-gradebook.json 2>/dev/null || echo "N/A")
+            if [ "$ERRORS" != "N/A" ]; then
+              ERRORS_PCT=$(echo "scale=2; $ERRORS * 100" | bc)
+            else
+              ERRORS_PCT="N/A"
+            fi
+          fi
+          echo "gradebook_p95=$P95" >> $GITHUB_OUTPUT
+          echo "gradebook_errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "gradebook_errors_pct=$ERRORS_PCT" >> $GITHUB_OUTPUT
+          echo "gradebook_checks=$CHECKS" >> $GITHUB_OUTPUT
+
+      # ── Summary & PR Comment ────────────────────────────────────────────
+
+      - name: Build load test summary
+        id: summary
+        run: |
+          summary_file="/tmp/k6-summary.md"
+          echo "## Load Test Results" > "$summary_file"
+          echo "" >> "$summary_file"
+          echo "**Environment:** ${{ steps.target.outputs.env_name }}" >> "$summary_file"
+          echo "**Endpoint:** ${{ steps.target.outputs.url }}" >> "$summary_file"
+          echo "" >> "$summary_file"
+          echo "| Script | P95 Response | Error Rate | Checks | Thresholds |" >> "$summary_file"
+          echo "|--------|-------------|------------|--------|------------|" >> "$summary_file"
+
+          # ── Smoke row ──
+          SMOKE_CHECKS="${{ steps.smoke-results.outputs.smoke_checks }}"
+          SMOKE_FAILED="${{ steps.smoke-results.outputs.smoke_failed }}"
+          if [ "$SMOKE_CHECKS" != "N/A" ] && [ -n "$SMOKE_CHECKS" ]; then
+            echo "| smoke.js (gate) | ✅ immediate | $SMOKE_FAILED | $SMOKE_CHECKS | ✅ All checks pass or ❌ blocked |" >> "$summary_file"
+          else
+            echo "| smoke.js (gate) | ❌ Failed to run | — | — | ❌ Deployment blocked |" >> "$summary_file"
+          fi
+
+          # ── Auth row ──
+          AUTH_P95="${{ steps.auth-results.outputs.auth_p95 }}"
+          AUTH_FAILED="${{ steps.auth-results.outputs.auth_failed }}"
+          AUTH_FAILED_PCT="${{ steps.auth-results.outputs.auth_failed_pct }}"
+          AUTH_CHECKS="${{ steps.auth-results.outputs.auth_checks }}"
+
+          if [ "$AUTH_P95" != "N/A" ] && [ -n "$AUTH_P95" ]; then
+            P95_OK=$(echo "$AUTH_P95 < 3.0" | bc)
+            RATE_OK=$(echo "$AUTH_FAILED < 0.05" | bc)
+            P95_ICON=$([ "$P95_OK" = "1" ] && echo "✅" || echo "❌")
+            RATE_ICON=$([ "$RATE_OK" = "1" ] && echo "✅" || echo "❌")
+            echo "| auth.js | $P95_ICON ${AUTH_P95}s | $RATE_ICON ${AUTH_FAILED_PCT}% | $AUTH_CHECKS | $P95_ICON P95 / $RATE_ICON Rate |" >> "$summary_file"
+          else
+            echo "| auth.js | ⚠️ Failed to parse | — | — | — |" >> "$summary_file"
+          fi
+
+          # ── Attendance row ──
+          ATT_P95="${{ steps.attendance-results.outputs.attendance_p95 }}"
+          ATT_FAILED="${{ steps.attendance-results.outputs.attendance_failed }}"
+          ATT_FAILED_PCT="${{ steps.attendance-results.outputs.attendance_failed_pct }}"
+          ATT_CHECKS="${{ steps.attendance-results.outputs.attendance_checks }}"
+
+          if [ "$ATT_P95" != "N/A" ] && [ -n "$ATT_P95" ]; then
+            P95_OK=$(echo "$ATT_P95 < 5.0" | bc)
+            RATE_OK=$(echo "$ATT_FAILED < 0.05" | bc)
+            P95_ICON=$([ "$P95_OK" = "1" ] && echo "✅" || echo "❌")
+            RATE_ICON=$([ "$RATE_OK" = "1" ] && echo "✅" || echo "❌")
+            echo "| attendance.js | $P95_ICON ${ATT_P95}s | $RATE_ICON ${ATT_FAILED_PCT}% | $ATT_CHECKS | $P95_ICON P95 / $RATE_ICON Rate |" >> "$summary_file"
+          else
+            echo "| attendance.js | ⚠️ Failed to parse | — | — | — |" >> "$summary_file"
+          fi
+
+          # ── Gradebook row ──
+          GB_P95="${{ steps.gradebook-results.outputs.gradebook_p95 }}"
+          GB_ERRORS="${{ steps.gradebook-results.outputs.gradebook_errors }}"
+          GB_ERRORS_PCT="${{ steps.gradebook-results.outputs.gradebook_errors_pct }}"
+          GB_CHECKS="${{ steps.gradebook-results.outputs.gradebook_checks }}"
+
+          if [ "$GB_P95" != "N/A" ] && [ -n "$GB_P95" ]; then
+            P95_OK=$(echo "$GB_P95 < 4.0" | bc)
+            RATE_OK=$(echo "$GB_ERRORS < 0.05" | bc)
+            P95_ICON=$([ "$P95_OK" = "1" ] && echo "✅" || echo "❌")
+            RATE_ICON=$([ "$RATE_OK" = "1" ] && echo "✅" || echo "❌")
+            echo "| gradebook.js | $P95_ICON ${GB_P95}s | $RATE_ICON ${GB_ERRORS_PCT}% | $GB_CHECKS | $P95_ICON P95 / $RATE_ICON Rate |" >> "$summary_file"
+          else
+            echo "| gradebook.js | Failed to parse | — | — | — |" >> "$summary_file"
+          fi
+
+          echo "" >> "$summary_file"
+          echo "---" >> "$summary_file"
+          echo "_Triggered by PR #${{ github.event.number }} — commit ${{ github.sha }}_ " >> "$summary_file"
+          echo "_Tested against: ${{ steps.target.outputs.env_name }}_ " >> "$summary_file"
+
+          cat "$summary_file"
+
+      - name: Comment PR with results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/k6-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      # ── Determine Overall Status ─────────────────────────────────────────
+
+      - name: Check thresholds
+        id: threshold-check
+        run: |
+          EXIT_CODE=0
+
+          # Smoke test gate
+          if [ "${{ steps.smoke-test.outcome }}" = "failure" ]; then
+            echo "❌ Smoke test failed — blocking deployment"
+            exit 1
+          fi
+
+          # auth.js thresholds
+          if [ -f /tmp/k6-auth.json ]; then
+            jq -e '.metrics.http_req_duration.values."p(95)" < 3.0' /tmp/k6-auth.json > /dev/null 2>&1 || \
+              { echo "❌ auth.js: P95 response time exceeded 3s"; EXIT_CODE=1; }
+            jq -e '.metrics.login_failures.values.rate < 0.05' /tmp/k6-auth.json > /dev/null 2>&1 || \
+              { echo "❌ auth.js: Login failure rate exceeded 5%"; EXIT_CODE=1; }
+          fi
+
+          # attendance.js thresholds
+          if [ -f /tmp/k6-attendance.json ]; then
+            jq -e '.metrics.http_req_duration.values."p(95)" < 5.0' /tmp/k6-attendance.json > /dev/null 2>&1 || \
+              { echo "❌ attendance.js: P95 response time exceeded 5s"; EXIT_CODE=1; }
+            jq -e '.metrics.http_req_failed.values.rate < 0.05' /tmp/k6-attendance.json > /dev/null 2>&1 || \
+              { echo "❌ attendance.js: Failure rate exceeded 5%"; EXIT_CODE=1; }
+          fi
+
+          # gradebook.js thresholds
+          if [ -f /tmp/k6-gradebook.json ]; then
+            jq -e '.metrics.gradebook_req_duration.values."p(95)" < 4.0' /tmp/k6-gradebook.json > /dev/null 2>&1 || \
+              { echo "❌ gradebook.js: P95 response time exceeded 4s"; EXIT_CODE=1; }
+            jq -e '.metrics.gradebook_errors.values.rate < 0.05' /tmp/k6-gradebook.json > /dev/null 2>&1 || \
+              { echo "❌ gradebook.js: Error rate exceeded 5%"; EXIT_CODE=1; }
+          fi
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ All load test thresholds passed"
+          fi
+          exit $EXIT_CODE

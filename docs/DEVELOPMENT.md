@@ -98,6 +98,41 @@ cd frontend/web && npm run type-check
 cd frontend/web && npm run lint
 ```
 
+## Load Testing
+
+> 📖 **Full load test documentation is at `infrastructure/load-tests/README.md`**
+
+k6 scripts simulate realistic user traffic against the API. Run them against
+your local stack after seeding demo data:
+
+```bash
+# Seed demo data (if not already done)
+docker compose exec backend python manage.py seed_demo_data
+
+# Run the auth load test
+cd infrastructure/load-tests
+k6 run auth.js
+
+# Run the attendance + fees load test
+k6 run attendance.js
+```
+
+Thresholds are configured to fail if P(95) response times exceed 3 seconds
+(auth) or 5 seconds (attendance).
+
+## Database Backup Verification
+
+> 📖 **Full backup docs are at `infrastructure/db/README.md`**
+
+After creating a `pg_dump` backup, verify its integrity:
+
+```bash
+./infrastructure/db/verify_backup.sh /path/to/backup.sql.gz
+```
+
+This restores the backup to a temporary database and validates row counts
+across 6 core tables.
+
 ## Code Structure Conventions
 
 ### Backend

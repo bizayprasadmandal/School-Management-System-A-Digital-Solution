@@ -74,6 +74,7 @@ MIDDLEWARE = [
     "axes.middleware.AxesMiddleware",
     "core.middleware.request_logging.RequestLoggingMiddleware",
     "core.middleware.tenant.TenantMiddleware",
+    "core.middleware.email_verification.EmailVerificationMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
@@ -138,6 +139,12 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# ─── Axes (Brute-force protection) ───────────────────────────────────────────
+
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=30)
+# Default lockout response renders a template; axes provides a built-in handler
+
 # ─── REST Framework ───────────────────────────────────────────────────────────
 
 REST_FRAMEWORK = {
@@ -199,6 +206,24 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-expired-tokens": {
+        "task": "services.auth.tasks.cleanup_expired_tokens",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
+    "cleanup-expired-verification-tokens": {
+        "task": "services.auth.tasks.cleanup_expired_verification_tokens",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
+    "notify-low-backup-codes": {
+        "task": "services.auth.tasks.notify_low_backup_codes",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
+}
+
 # ─── Storage (S3) ─────────────────────────────────────────────────────────────
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -247,12 +272,6 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = env("TIME_ZONE", default="UTC")
 USE_I18N = True
 USE_TZ = True
-
-# ─── Axes (Brute-force protection) ───────────────────────────────────────────
-
-AXES_FAILURE_LIMIT = 5
-AXES_COOLOFF_TIME = timedelta(minutes=30)
-AXES_LOCKOUT_CALLABLE = "core.middleware.axes_lockout_response"
 
 # ─── API Docs ─────────────────────────────────────────────────────────────────
 

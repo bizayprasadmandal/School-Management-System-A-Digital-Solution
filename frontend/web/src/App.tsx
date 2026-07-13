@@ -15,6 +15,7 @@ import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./store/authStore";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import RouteProgressBar from "./components/common/RouteProgressBar";
+import NotificationWebSocketSync from "./components/common/NotificationWebSocketSync";
 import type { UserRole } from "./types";
 
 // Lazy-loaded layouts
@@ -27,6 +28,8 @@ const ParentLayout   = React.lazy(() => import("./components/layout/ParentLayout
 const LoginPage           = React.lazy(() => import("./pages/auth/LoginPage"));
 const ForgotPasswordPage  = React.lazy(() => import("./pages/auth/ForgotPasswordPage"));
 const ResetPasswordPage   = React.lazy(() => import("./pages/auth/ResetPasswordPage"));
+const VerifyEmailPage     = React.lazy(() => import("./pages/auth/VerifyEmailPage"));
+const Verify2FALoginPage  = React.lazy(() => import("./pages/auth/Verify2FALoginPage"));
 
 // Admin pages
 const AdminDashboard      = React.lazy(() => import("./pages/admin/Dashboard"));
@@ -50,6 +53,10 @@ const TeacherGradebook    = React.lazy(() => import("./pages/teacher/GradebookPa
 const TeacherTimetable    = React.lazy(() => import("./pages/teacher/TimetablePage"));
 const TeacherMessages     = React.lazy(() => import("./pages/teacher/MessagesPage"));
 const TeacherLessonPlans  = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
+
+// Shared pages
+const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
+const Setup2FAPage            = React.lazy(() => import("./pages/shared/Setup2FAPage"));
 
 import { ErrorRoutes } from "./config/errorRoutes";
 
@@ -126,6 +133,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <NotificationWebSocketSync />
         <ErrorBoundary>
           <RouteProgressBar />
           <Suspense fallback={<PageLoader />}>
@@ -136,6 +144,12 @@ export default function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             </Route>
+
+            {/* ── Email verification (public, no auth needed) ── */}
+            <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+
+            {/* ── 2FA verification (step 2 of login, no auth yet) ── */}
+            <Route path="/verify-2fa" element={<Verify2FALoginPage />} />
 
             {/* ── Admin routes ──────────────────────────── */}
             <Route
@@ -156,6 +170,8 @@ export default function App() {
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="fees" element={<FeesPage />} />
                 <Route path="reports" element={<ReportsPage />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
@@ -168,6 +184,8 @@ export default function App() {
                 <Route path="gradebook" element={<TeacherGradebook />} />
                 <Route path="timetable" element={<TeacherTimetable />} />
                 <Route path="messages" element={<TeacherMessages />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="lesson-plans" element={<TeacherLessonPlans />} />
               </Route>
             </Route>
@@ -180,6 +198,8 @@ export default function App() {
                 <Route path="grades" element={<StudentGrades />} />
                 <Route path="timetable" element={<StudentTimetable />} />
                 <Route path="messages" element={<StudentMessages />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="fees" element={<StudentFees />} />
               </Route>
             </Route>
@@ -192,6 +212,8 @@ export default function App() {
                 <Route path="attendance" element={<ParentAttendance />} />
                 <Route path="grades" element={<ParentGrades />} />
                 <Route path="fees" element={<ParentFees />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="messages" element={<ParentMessages />} />
               </Route>
             </Route>

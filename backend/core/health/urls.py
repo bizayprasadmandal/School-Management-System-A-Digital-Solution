@@ -1,5 +1,5 @@
 """
-Health Check — Kubernetes liveness and readiness probes
+Health Check — Kubernetes liveness, readiness, and startup probes
 """
 
 from django.http import JsonResponse
@@ -20,7 +20,8 @@ def liveness(request):
 def readiness(request):
     """
     Readiness probe — Is the service ready to handle traffic?
-    Checks DB and Redis connectivity. Returns 503 if either is down.
+    Checks DB, Redis, and Celery worker connectivity.
+    Returns 503 if any dependency is down.
     """
     checks = {}
     healthy = True
@@ -30,7 +31,10 @@ def readiness(request):
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        checks["database"] = {"status": "ok", "latency_ms": round((time.monotonic() - db_start) * 1000, 1)}
+        checks["database"] = {
+            "status": "ok",
+            "latency_ms": round((time.monotonic() - db_start) * 1000, 1),
+        }
     except Exception as e:
         checks["database"] = {"status": "error", "detail": str(e)}
         healthy = False
@@ -42,17 +46,36 @@ def readiness(request):
         result = cache.get("health_check_ping")
         if result != "pong":
             raise ValueError("Cache returned unexpected value")
-        checks["cache"] = {"status": "ok", "latency_ms": round((time.monotonic() - redis_start) * 1000, 1)}
+        checks["cache"] = {
+            "status": "ok",
+            "latency_ms": round((time.monotonic() - redis_start) * 1000, 1),
+        }
     except Exception as e:
         checks["cache"] = {"status": "error", "detail": str(e)}
         healthy = False
 
+    # Celery worker check via ping
+    celery_start = time.monotonic()
+    try:
+        from celery import current_app
+        inspect = current_app.control.inspect()
+        ping_result = inspect.ping()
+        if ping_result:
+            checks["celery"] = {
+                "status": "ok",
+                "latency_ms": round((time.monotonic() - celery_start) * 1000, 1),
+                "workers": list(ping_result.keys()),
+            }
+        else:
+            checks["celery"] = {"status": "warning", "detail": "No Celery workers responded"}
+            healthy = False
+    except Exception as e:
+        checks["celery"] = {"status": "warning", "detail": str(e)}
+        # Celery is optional for HTTP service — don't mark unhealthy
+
     status_code = 200 if healthy else 503
     return JsonResponse(
-        {
-            "status": "ready" if healthy else "not_ready",
-            "checks": checks,
-        },
+        {"status": "ready" if healthy else "not_ready", "checks": checks},
         status=status_code,
     )
 
@@ -60,7 +83,6 @@ def readiness(request):
 def startup(request):
     """Startup probe — Has the app fully initialized?"""
     try:
-        # Verify migrations are applied
         from django.db.migrations.executor import MigrationExecutor
         executor = MigrationExecutor(connection)
         plan = executor.migration_plan(executor.loader.graph.leaf_nodes())

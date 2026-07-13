@@ -2,6 +2,8 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import AttendanceRecord, AttendanceLeave
 
+MAX_BULK_RECORDS = 50
+
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
@@ -21,7 +23,15 @@ class BulkAttendanceSerializer(serializers.Serializer):
     records = serializers.ListField(
         child=serializers.DictField(),
         allow_empty=False,
+        max_length=MAX_BULK_RECORDS,
     )
+
+    def validate_records(self, value):
+        if len(value) > MAX_BULK_RECORDS:
+            raise serializers.ValidationError(
+                f"Cannot record attendance for more than {MAX_BULK_RECORDS} students at once."
+            )
+        return value
 
     def validate_classroom_id(self, value):
         from services.students.models import Classroom

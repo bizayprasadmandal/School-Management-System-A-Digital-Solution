@@ -23,6 +23,7 @@ export interface User {
   is_active: boolean;
   email_verified: boolean;
   two_factor_enabled: boolean;
+  backup_codes_remaining: number | null;
   notify_email: boolean;
   notify_sms: boolean;
   notify_push: boolean;
@@ -333,6 +334,8 @@ export interface Notification {
   body: string;
   channel: "email" | "sms" | "push" | "in_app";
   status: "pending" | "sent" | "delivered" | "failed" | "read";
+  reference_type?: string;
+  reference_id?: string;
   created_at: string;
   read_at?: string;
 }
@@ -362,6 +365,11 @@ export interface Payment {
   receipt_number: string;
   paid_at?: string;
 }
+
+// ─── Notification reference types ─────────────────────────────────────────────
+
+/** Reference type for email-verification notifications */
+export const VERIFICATION_REF = "email_verification";
 
 // ─── Common ────────────────────────────────────────────────────────────────────
 

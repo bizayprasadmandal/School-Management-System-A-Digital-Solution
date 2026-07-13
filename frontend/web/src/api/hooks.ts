@@ -29,6 +29,7 @@ import type {
   User,
   AcademicYear,
 } from "../types";
+import { VERIFICATION_REF } from "../types";
 
 // ─── Query Key Factory ─────────────────────────────────────────────────────────
 
@@ -279,7 +280,7 @@ export function useNotifications() {
     queryKey: QK.communication.notifications,
     queryFn: () => api.get<PaginatedResponse<Notification>>("/communication/notifications/"),
     staleTime: 30_000,        // 30s — notification list is live
-    refetchInterval: 60_000,  // Poll every 60s instead of 30s
+    refetchInterval: 5 * 60 * 1000,  // 5 min — WebSocket provides real-time delivery
     gcTime: 5 * 60 * 1000,    // 5 min cache
   });
 }
@@ -295,6 +296,18 @@ export function useUnreadNotificationCount() {
     refetchInterval: 30_000,   // lightweight count — keep at 30s for responsive badge
     gcTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * Count of unread email-verification notifications — derived from the
+ * cached notifications list so it stays in sync without a separate fetch.
+ */
+export function useUnreadVerificationCount(): number {
+  const { data } = useNotifications();
+  if (!data?.results) return 0;
+  return data.results.filter(
+    (n) => n.reference_type === VERIFICATION_REF && !n.read_at
+  ).length;
 }
 
 export function useMarkNotificationRead() {

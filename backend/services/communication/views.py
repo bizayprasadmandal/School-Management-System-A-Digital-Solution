@@ -3,6 +3,7 @@ Communication Service — DRF Views for announcements, messages, notifications
 """
 
 from django.utils import timezone
+from django.db.models import Q, Count, Max, OuterRef, Subquery
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -145,11 +146,19 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="inbox")
     def inbox(self, request):
         """Latest message per conversation partner."""
-        from django.db.models import Q, Max
+        from django.db.models import Q, Count
         user = request.user
         messages = DirectMessage.objects.filter(
             Q(sender=user) | Q(recipient=user)
         ).order_by("-sent_at")
+
+        # Single query for unread counts per sender (avoids N+1 per partner)
+        unread_counts = DirectMessage.objects.filter(
+            recipient=user, status__in=["sent", "delivered"]
+        ).values("sender").annotate(count=Count("id"))
+        unread_map = {
+            str(item["sender"]): item["count"] for item in unread_counts
+        }
 
         seen_partners = set()
         threads = []
@@ -165,9 +174,7 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
                         "avatar": partner.avatar.url if partner.avatar else None,
                     },
                     "last_message": DirectMessageSerializer(msg).data,
-                    "unread_count": DirectMessage.objects.filter(
-                        sender=partner, recipient=user, status__in=["sent", "delivered"]
-                    ).count(),
+                    "unread_count": unread_map.get(str(partner.id), 0),
                 })
         return Response(threads)
 

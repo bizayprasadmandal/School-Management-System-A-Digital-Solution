@@ -84,6 +84,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email_verified = models.BooleanField(default=False)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_secret = models.CharField(max_length=32, blank=True)
+    backup_code_failed_attempts = models.PositiveSmallIntegerField(default=0)
+    backup_code_locked_until = models.DateTimeField(null=True, blank=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     date_joined = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -142,6 +144,53 @@ class PasswordResetToken(models.Model):
     @property
     def is_expired(self):
         return timezone.now() > self.expires_at
+
+
+class EmailVerificationToken(models.Model):
+    """Token for email verification — tied to a specific new email address."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_verification_tokens")
+    email = models.EmailField()
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "email_verification_tokens"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f"Verification for {self.email} — {'used' if self.used else 'pending'}"
+
+
+class TwoFactorBackupCode(models.Model):
+    """
+    One-time backup codes for 2FA recovery.
+    Each code is hashed with SHA-256 before storage.
+    Users get a set of codes during 2FA setup; each can be used once
+    to bypass TOTP verification during login.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="backup_codes"
+    )
+    hashed_code = models.CharField(max_length=64, db_index=True)
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "two_factor_backup_codes"
+        indexes = [
+            models.Index(fields=["user", "hashed_code"]),
+        ]
+
+    def __str__(self):
+        status = "used" if self.used else "active"
+        return f"Backup code for {self.user.email} ({status})"
 
 
 class AuditLog(models.Model):

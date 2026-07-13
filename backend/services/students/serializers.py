@@ -33,9 +33,13 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
 
 class StudentListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views."""
+    """Lightweight serializer for list views.
+
+    Uses the annotated `current_class_name` field from the ViewSet's
+    prefetch/annotate to avoid N+1 queries per student.
+    """
     full_name = serializers.SerializerMethodField()
-    current_class = serializers.SerializerMethodField()
+    current_class = serializers.CharField(source="current_class_name", read_only=True, default=None)
     email = serializers.EmailField(source="user.email", read_only=True)
     avatar = serializers.ImageField(source="user.avatar", read_only=True)
 
@@ -48,10 +52,6 @@ class StudentListSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return obj.user.full_name
-
-    def get_current_class(self, obj):
-        enrollment = obj.enrollments.filter(is_active=True).select_related("classroom").first()
-        return str(enrollment.classroom) if enrollment else None
 
 
 class StudentDetailSerializer(serializers.ModelSerializer):
@@ -85,6 +85,7 @@ class StudentCreateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     classroom_id = serializers.IntegerField(write_only=True)
+    MAX_BULK_SIZE = 200
 
     class Meta:
         model = Student
@@ -143,21 +144,12 @@ class StudentCreateSerializer(serializers.ModelSerializer):
 
 
 class GradeSerializer(serializers.ModelSerializer):
-    classroom_count = serializers.SerializerMethodField()
-    student_count = serializers.SerializerMethodField()
+    classroom_count = serializers.IntegerField(read_only=True)
+    student_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Grade
         fields = ["id", "name", "level", "description", "classroom_count", "student_count"]
-
-    def get_classroom_count(self, obj):
-        return obj.classrooms.count()
-
-    def get_student_count(self, obj):
-        return Student.objects.filter(
-            enrollments__classroom__grade=obj,
-            enrollments__is_active=True,
-        ).count()
 
 
 class ClassroomSerializer(serializers.ModelSerializer):
@@ -179,11 +171,32 @@ class ClassroomSerializer(serializers.ModelSerializer):
 
 class DocumentSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.CharField(source="uploaded_by.full_name", read_only=True)
+    MAX_FILE_SIZE_MB = 10
 
     class Meta:
         model = Document
         fields = ["id", "document_type", "title", "file", "uploaded_by_name", "uploaded_at", "notes"]
         read_only_fields = ["uploaded_by", "uploaded_at"]
+
+    def validate_file(self, value):
+        # File size validation
+        if value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise serializers.ValidationError(
+                f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB."
+            )
+        # File type validation — allow common document types
+        allowed_types = [
+            "application/pdf",
+            "image/jpeg", "image/png", "image/gif",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ]
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError(
+                f"File type '{value.content_type}' is not allowed. "
+                f"Allowed types: PDF, JPEG, PNG, GIF, DOC, DOCX."
+            )
+        return value
 
     def create(self, validated_data):
         validated_data["uploaded_by"] = self.context["request"].user

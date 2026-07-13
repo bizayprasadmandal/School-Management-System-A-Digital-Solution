@@ -106,6 +106,73 @@ def generate_report_cards_task(self, exam_id: str):
         raise self.retry(exc=exc)
 
 
+def compute_cumulative_gpa(student_id: str, school):
+    """
+    Compute cumulative GPA across all exams in the current academic year.
+    Uses exam_type weightage to calculate a weighted average.
+    """
+    from .models import Grade, Exam, ExamType
+    from services.students.models import AcademicYear
+
+    current_year = AcademicYear.objects.filter(
+        school=school, is_current=True
+    ).first()
+    if not current_year:
+        return None
+
+    # Get all grades for this student in current year with exam type info
+    grades = Grade.objects.filter(
+        student_id=student_id,
+        exam_schedule__exam__academic_year=current_year,
+    ).select_related("exam_schedule__exam__exam_type")
+
+    if not grades:
+        return None
+
+    # Group by exam type and compute weighted GPA
+    type_totals: dict[str, dict] = {}
+    for g in grades:
+        if g.marks_obtained is None or g.is_absent:
+            continue
+        exam_type = g.exam_schedule.exam.exam_type
+        pct = g.percentage
+        if pct is None:
+            continue
+        if exam_type.id not in type_totals:
+            type_totals[exam_type.id] = {
+                "weightage": exam_type.weightage,
+                "total_pct": Decimal("0"),
+                "count": 0,
+            }
+        type_totals[exam_type.id]["total_pct"] += Decimal(str(pct))
+        type_totals[exam_type.id]["count"] += 1
+
+    if not type_totals:
+        return None
+
+    # Weighted GPA: sum(subject_avg_pct × weightage) / sum(weightage)
+    weighted_sum = Decimal("0")
+    total_weight = Decimal("0")
+    for tid, data in type_totals.items():
+        avg_pct = data["total_pct"] / Decimal(str(data["count"]))
+        weighted_sum += avg_pct * data["weightage"]
+        total_weight += data["weightage"]
+
+    if total_weight == 0:
+        return None
+
+    cumulative_pct = weighted_sum / total_weight
+    # Convert percentage to GPA using grading scale or fallback
+    from .tasks import _compute_grade
+    _, gpa = _compute_grade(cumulative_pct, None)
+    return {
+        "cumulative_percentage": float(cumulative_pct),
+        "cumulative_gpa": float(gpa),
+        "exams_count": len(type_totals),
+        "grade_count": sum(d["count"] for d in type_totals.values()),
+    }
+
+
 def _compute_grade(pct: Decimal, scale):
     """Return (letter_grade, gpa_points) for a given percentage."""
     if scale is None:
@@ -237,42 +304,3 @@ def _generate_pdf(report_card, result, exam) -> io.BytesIO:
     except Exception as e:
         logger.error("PDF generation failed for report card %s: %s", report_card.id, e)
         return None
-
-
-@shared_task
-def generate_bulk_invoices(structure_id: int, academic_year_id: int):
-    """Generate fee invoices for all students in a grade."""
-    from services.fees.models import FeeStructure, FeeInvoice
-    from services.students.models import Enrollment
-    import uuid
-
-    structure = FeeStructure.objects.select_related("grade", "academic_year").get(id=structure_id)
-    enrollments = Enrollment.objects.filter(
-        classroom__grade=structure.grade,
-        academic_year_id=academic_year_id,
-        is_active=True,
-    ).select_related("student")
-
-    created = 0
-    for enrollment in enrollments:
-        due_date = structure.academic_year.start_date.replace(day=structure.due_day)
-        _, new = FeeInvoice.objects.get_or_create(
-            student=enrollment.student,
-            fee_structure=structure,
-            academic_year_id=academic_year_id,
-            defaults={
-                "invoice_number": f"INV-{uuid.uuid4().hex[:8].upper()}",
-                "due_date": due_date,
-                "base_amount": structure.amount,
-                "total_amount": structure.amount,
-                "status": "unpaid",
-            },
-        )
-        if new:
-            created += 1
-
-    logger.info(
-        "Generated %d invoices for structure %d, academic_year %d",
-        created, structure_id, academic_year_id,
-    )
-    return {"created": created, "structure_id": structure_id}

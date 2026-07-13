@@ -18,8 +18,21 @@ class Command(BaseCommand):
         parser.add_argument("--school-name", default="EduSphere Demo Academy", type=str)
         parser.add_argument("--students", default=120, type=int, help="Number of students to create")
         parser.add_argument("--flush", action="store_true", help="Delete existing demo data first")
+        parser.add_argument("--admin-password", default="", type=str, help="Admin password (default: Admin@1234)")
+        parser.add_argument("--teacher-password", default="", type=str, help="Teacher password (default: Teacher@1234)")
+        parser.add_argument("--student-password", default="", type=str, help="Student password (default: Student@1234)")
+        parser.add_argument("--parent-password", default="", type=str, help="Parent password (default: Parent@1234)")
 
     def handle(self, *args, **options):
+        DEFAULT_ADMIN_PWD = "Admin@1234"
+        DEFAULT_TEACHER_PWD = "Teacher@1234"
+        DEFAULT_STUDENT_PWD = "Student@1234"
+        DEFAULT_PARENT_PWD = "Parent@1234"
+
+        ADMIN_PWD = options.get("admin_password") or DEFAULT_ADMIN_PWD
+        TEACHER_PWD = options.get("teacher_password") or DEFAULT_TEACHER_PWD
+        STUDENT_PWD = options.get("student_password") or DEFAULT_STUDENT_PWD
+        PARENT_PWD = options.get("parent_password") or DEFAULT_PARENT_PWD
         from services.auth.models import School, User, UserRole
         from services.students.models import (
             AcademicYear, Grade, Classroom, Student, Guardian,
@@ -65,9 +78,10 @@ class Command(BaseCommand):
                 },
             )
             if _:
-                admin.set_password("Admin@1234")
+                admin.set_password(ADMIN_PWD)
+                admin.email_verified = True
                 admin.save()
-                self.stdout.write("  Admin: admin@demo.edusphere.school / Admin@1234")
+                self.stdout.write(f"  Admin: admin@demo.edusphere.school / {ADMIN_PWD}")
 
             # ── Grades ─────────────────────────────────────────────────────────
             grade_data = [
@@ -112,7 +126,8 @@ class Command(BaseCommand):
                     },
                 )
                 if created_u:
-                    u.set_password("Teacher@1234")
+                    u.set_password(TEACHER_PWD)
+                    u.email_verified = True
                     u.save()
                 tp, _ = TeacherProfile.objects.get_or_create(
                     user=u, school=school,
@@ -128,7 +143,7 @@ class Command(BaseCommand):
                     },
                 )
                 teachers.append(u)
-            self.stdout.write(f"  Teachers: {len(teachers)} created/found (password: Teacher@1234)")
+            self.stdout.write(f"  Teachers: {len(teachers)} created/found (password: {TEACHER_PWD})")
 
             # ── Classrooms ─────────────────────────────────────────────────────
             classrooms = {}
@@ -161,7 +176,8 @@ class Command(BaseCommand):
                     },
                 )
                 if created_u:
-                    su.set_password("Student@1234")
+                    su.set_password(STUDENT_PWD)
+                    su.email_verified = True
                     su.save()
 
                 dob = date(2010 - (i % 6), (i % 12) + 1, (i % 28) + 1)
@@ -193,7 +209,8 @@ class Command(BaseCommand):
                         },
                     )
                     if _:
-                        pu.set_password("Parent@1234")
+                        pu.set_password(PARENT_PWD)
+                        pu.email_verified = True
                         pu.save()
                     g, _ = Guardian.objects.get_or_create(
                         email=pu.email,
@@ -207,7 +224,7 @@ class Command(BaseCommand):
                     )
                     student_count += 1
 
-            self.stdout.write(f"  Students: {student_count} created (password: Student@1234)")
+            self.stdout.write(f"  Students: {student_count} created (password: {STUDENT_PWD})")
 
             # ── Fee Categories & Structures ────────────────────────────────────
             fee_cats = {
@@ -281,8 +298,8 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("\n✅ Demo school seeded successfully!"))
         self.stdout.write("\nLogin credentials:")
-        self.stdout.write(f"  Admin:   admin@demo.edusphere.school  / Admin@1234")
-        self.stdout.write(f"  Teacher: sarah.mitchell@demo.edusphere.school / Teacher@1234")
-        self.stdout.write(f"  Student: student001@demo.edusphere.school / Student@1234")
-        self.stdout.write(f"  Parent:  parent001@demo.edusphere.school  / Parent@1234")
+        self.stdout.write(f"  Admin:   admin@demo.edusphere.school  / {ADMIN_PWD}")
+        self.stdout.write(f"  Teacher: sarah.mitchell@demo.edusphere.school / {TEACHER_PWD}")
+        self.stdout.write(f"  Student: student001@demo.edusphere.school / {STUDENT_PWD}")
+        self.stdout.write(f"  Parent:  parent001@demo.edusphere.school  / {PARENT_PWD}")
         self.stdout.write(f"\nSchool subdomain: demo.localhost:8000")

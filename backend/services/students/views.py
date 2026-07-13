@@ -2,7 +2,10 @@
 Student Service — ViewSets with role-based access
 """
 
-from django.db.models import Q
+from django.utils import timezone
+from django.db.models import Q, OuterRef, Subquery
+from django.db.models.functions import Concat
+from django.db.models import Value, CharField
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,7 +13,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
-from .models import Student, Guardian, Enrollment, Grade, Classroom, Document
+from .models import Student, Guardian, Enrollment, Grade, Classroom, AcademicYear, Document
 from .serializers import (
     StudentListSerializer, StudentDetailSerializer, StudentCreateSerializer,
     GuardianSerializer, EnrollmentSerializer, GradeSerializer,
@@ -21,6 +24,8 @@ from core.permissions import (
     IsSchoolAdmin, IsTeacher, IsStudent, IsParent, IsSchoolMember,
 )
 from core.pagination import StandardResultsSetPagination
+
+MAX_PROMOTE_BATCH = 200
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -42,9 +47,21 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Annotate current classroom name (e.g. "Grade 5 A") on the active enrollment to avoid N+1
+        current_class_name_subquery = Enrollment.objects.filter(
+            student=OuterRef("pk"), is_active=True
+        ).annotate(
+            full_name=Concat(
+                "classroom__grade__name", Value(" "), "classroom__name",
+                output_field=CharField()
+            )
+        ).values("full_name")[:1]
+
         qs = Student.objects.filter(school=user.school).select_related(
             "user", "school"
-        ).prefetch_related("enrollments__classroom__grade")
+        ).prefetch_related("enrollments__classroom__grade").annotate(
+            current_class_name=Subquery(current_class_name_subquery)
+        )
 
         if user.role == "student":
             return qs.filter(user=user)
@@ -116,6 +133,17 @@ class StudentViewSet(viewsets.ModelViewSet):
             ]
         })
 
+    @extend_schema(summary="Get student's cumulative GPA")
+    @action(detail=True, methods=["get"], url_path="cumulative-gpa")
+    def cumulative_gpa(self, request, pk=None):
+        """Compute cumulative weighted GPA across all exams in the current academic year."""
+        student = self.get_object()
+        from services.gradebook.tasks import compute_cumulative_gpa
+        result = compute_cumulative_gpa(str(student.id), student.school)
+        if result is None:
+            return Response({"detail": "No grades found for current academic year."}, status=404)
+        return Response(result)
+
     @extend_schema(summary="Promote students to next grade")
     @action(detail=False, methods=["post"], url_path="promote")
     def promote(self, request):
@@ -130,9 +158,18 @@ class StudentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Enforce bulk size limit
+        if len(student_ids) > MAX_PROMOTE_BATCH:
+            return Response(
+                {"error": f"Cannot promote more than {MAX_PROMOTE_BATCH} students at once."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         from django.db import transaction
         promoted = []
         with transaction.atomic():
+            # Lock target classroom row to prevent race conditions
+            classroom = Classroom.objects.select_for_update().get(id=target_classroom_id)
             for sid in student_ids:
                 try:
                     student = Student.objects.get(id=sid, school=request.user.school)
@@ -143,7 +180,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                         old_enrollment.save()
                     new_enrollment = Enrollment.objects.create(
                         student=student,
-                        classroom_id=target_classroom_id,
+                        classroom=classroom,
                         academic_year_id=academic_year_id,
                         promoted_from=old_enrollment,
                     )
@@ -164,6 +201,106 @@ class StudentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save(student=student)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(summary="Restore a soft-deleted (inactive) student")
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, pk=None):
+        """Restore an inactive student back to active status."""
+        student = self.get_object()
+        if not student.is_active:
+            student.is_active = True
+            student.save(update_fields=["is_active"])
+            # Also reactivate user account and enrollments
+            if student.user and not student.user.is_active:
+                student.user.is_active = True
+                student.user.save(update_fields=["is_active"])
+            student.enrollments.filter(is_active=False).update(is_active=True)
+            return Response({"detail": f"Student {student.admission_number} restored."})
+        return Response({"detail": "Student is already active."}, status=400)
+
+    @extend_schema(summary="Import students from CSV")
+    @action(detail=False, methods=["post"], url_path="import-csv")
+    def import_csv(self, request):
+        """
+        Bulk-import students from CSV data.
+        Expected CSV columns (header row required):
+        first_name, last_name, email, admission_number, date_of_birth,
+        gender, classroom_name, address, city, state, country, password
+        """
+        import csv
+        import io
+        from django.db import transaction
+        from services.auth.models import User, UserRole
+
+        csv_text = request.data.get("csv_data", "")
+        if not csv_text:
+            return Response({"error": "csv_data field is required."}, status=400)
+
+        reader = csv.DictReader(io.StringIO(csv_text))
+        max_records = int(request.data.get("max_records", 100))
+        row_count = 0
+        imported = 0
+        errors = []
+
+        school = request.user.school
+        current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        if not current_year:
+            return Response({"error": "No current academic year set."}, status=400)
+
+        with transaction.atomic():
+            for row_num, row in enumerate(reader, start=2):
+                if row_count >= max_records:
+                    errors.append(f"Row {row_num}: Max records ({max_records}) reached, skipping remaining")
+                    break
+                try:
+                    email = row.get("email", "").strip().lower()
+                    if User.objects.filter(email=email).exists():
+                        errors.append(f"Row {row_num}: email '{email}' already exists")
+                        continue
+
+                    password = row.get("password", "Student@1234")
+                    classroom_name = row.get("classroom_name", "").strip()
+                    classroom = Classroom.objects.filter(
+                        school=school, name=classroom_name
+                    ).first()
+                    if not classroom:
+                        errors.append(f"Row {row_num}: classroom '{classroom_name}' not found")
+                        continue
+
+                    user = User.objects.create_user(
+                        email=email,
+                        password=password,
+                        first_name=row.get("first_name", "").strip(),
+                        last_name=row.get("last_name", "").strip(),
+                        role=UserRole.STUDENT,
+                        school=school,
+                    )
+                    student = Student.objects.create(
+                        user=user,
+                        school=school,
+                        admission_number=row.get("admission_number", "").strip(),
+                        date_of_birth=row.get("date_of_birth", "").strip(),
+                        gender=row.get("gender", "M").strip().upper(),
+                        address=row.get("address", "").strip(),
+                        city=row.get("city", "").strip(),
+                        state=row.get("state", "").strip(),
+                        country=row.get("country", "").strip(),
+                        admission_date=timezone.now().date(),
+                    )
+                    Enrollment.objects.create(
+                        student=student,
+                        classroom=classroom,
+                        academic_year=current_year,
+                    )
+                    imported += 1
+                    row_count += 1
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)[:100]}")
+
+        return Response({
+            "imported": imported,
+            "errors": errors[:20],  # Limit error reporting
+        })
 
 
 class ClassroomViewSet(viewsets.ModelViewSet):
@@ -196,7 +333,18 @@ class GradeViewSet(viewsets.ModelViewSet):
     ordering = ["level"]
 
     def get_queryset(self):
-        return Grade.objects.filter(school=self.request.user.school)
+        from django.db.models import Count
+        # Annotate counts directly on the queryset to avoid N+1 per grade
+        return Grade.objects.filter(
+            school=self.request.user.school
+        ).annotate(
+            classroom_count=Count("classrooms", distinct=True),
+            student_count=Count(
+                "classrooms__enrollments",
+                filter=Q(classrooms__enrollments__is_active=True),
+                distinct=True,
+            ),
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

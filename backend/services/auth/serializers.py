@@ -30,13 +30,37 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+class SendEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False, help_text="Email to verify. Defaults to the authenticated user's email if omitted.")
+
+    def validate_email(self, value):
+        user = self.context["request"].user
+        if value and value.lower() != user.email:
+            raise serializers.ValidationError("You can only verify your own email address.")
+        if user.email_verified:
+            raise serializers.ValidationError("Email is already verified.")
+        return value or user.email
+
+
+class ConfirmEmailVerificationSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True, help_text="The verification token sent to your email.")
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
+    backup_codes_remaining = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "email", "first_name", "last_name", "phone",
             "avatar", "role", "is_active", "email_verified",
-            "two_factor_enabled", "notify_email", "notify_sms", "notify_push",
+            "two_factor_enabled", "backup_codes_remaining",
+            "notify_email", "notify_sms", "notify_push",
             "date_joined",
         ]
         read_only_fields = ["id", "email", "role", "is_active", "email_verified", "date_joined"]
+
+    def get_backup_codes_remaining(self, obj):
+        if not obj.two_factor_enabled:
+            return None
+        return obj.backup_codes.filter(used=False).count()

@@ -74,9 +74,24 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active", "qualification", "department"]
 
     def get_queryset(self):
-        return TeacherProfile.objects.filter(
+        from services.students.models import AcademicYear
+        current_year = AcademicYear.objects.filter(
+            school=self.request.user.school, is_current=True
+        ).first()
+        qs = TeacherProfile.objects.filter(
             school=self.request.user.school
         ).select_related("user")
+        # Prefetch current year's assignments to avoid N+1 in serializer
+        if current_year:
+            from services.academics.models import TeacherAssignment
+            from django.db.models import Prefetch
+            qs = qs.prefetch_related(Prefetch(
+                "user__assignments",
+                queryset=TeacherAssignment.objects.filter(
+                    academic_year=current_year
+                ).select_related("subject", "classroom__grade", "academic_year"),
+            ))
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

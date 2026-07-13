@@ -13,4 +13,17 @@ urlpatterns = [
     path("change-password/",         views.ChangePasswordView.as_view(),       name="change_password"),
     path("password-reset/",          views.RequestPasswordResetView.as_view(), name="password_reset"),
     path("password-reset/confirm/",  views.ConfirmPasswordResetView.as_view(), name="password_reset_confirm"),
+
+    # 2FA
+    path("setup-2fa/",               views.Setup2FAView.as_view(),             name="setup_2fa"),
+    path("verify-2fa/",              views.Verify2FAView.as_view(),            name="verify_2fa"),
+    path("disable-2fa/",             views.Disable2FAView.as_view(),           name="disable_2fa"),
+    path("verify-2fa-login/",        views.Verify2FALoginView.as_view(),       name="verify_2fa_login"),
+
+    # Email Verification
+    path("send-verification/",       views.SendEmailVerificationView.as_view(),    name="send_verification"),
+    path("verify-email/",            views.ConfirmEmailVerificationView.as_view(), name="confirm_verification"),
+
+    # 2FA Backup Codes
+    path("regenerate-backup-codes/", views.RegenerateBackupCodesView.as_view(),    name="regenerate_backup_codes"),
 ]

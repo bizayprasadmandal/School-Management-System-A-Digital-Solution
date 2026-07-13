@@ -55,15 +55,24 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def get_current_assignments(self, obj):
-        from services.students.models import AcademicYear
-        current_year = AcademicYear.objects.filter(
-            school=obj.school, is_current=True
-        ).first()
-        if not current_year:
-            return []
+        """Return current-year teaching assignments for this teacher.
+
+        Uses the prefetched `user__assignments` queryset from the ViewSet
+        (via `.all()`) to avoid N+1 queries. The Prefetch in the ViewSet
+        already filters to the current academic year.
+        """
+        assignments = obj.user.assignments.all()
+        if not assignments:
+            from services.students.models import AcademicYear
+            current_year = AcademicYear.objects.filter(
+                school=obj.school, is_current=True
+            ).first()
+            if not current_year:
+                return []
+            assignments = obj.user.assignments.filter(academic_year=current_year)
         return TeacherAssignmentSerializer(
-            obj.user.assignments.filter(academic_year=current_year),
-            many=True,
+            assignments, many=True,
+            context=self.context,
         ).data
 
 

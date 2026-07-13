@@ -22,6 +22,16 @@ AUTH_PROFILE = url("auth/profile/")
 AUTH_CHANGE_PASSWORD = url("auth/change-password/")
 AUTH_PASSWORD_RESET = url("auth/password-reset/")
 AUTH_PASSWORD_RESET_CONFIRM = url("auth/password-reset/confirm/")
+AUTH_SEND_VERIFICATION = url("auth/send-verification/")
+AUTH_CONFIRM_VERIFICATION = url("auth/verify-email/")
+
+# ─── 2FA ──────────────────────────────────────────────────────────────────────
+
+AUTH_SETUP_2FA = url("auth/setup-2fa/")
+AUTH_VERIFY_2FA = url("auth/verify-2fa/")
+AUTH_DISABLE_2FA = url("auth/disable-2fa/")
+AUTH_VERIFY_2FA_LOGIN = url("auth/verify-2fa-login/")
+AUTH_REGENERATE_BACKUP_CODES = url("auth/regenerate-backup-codes/")
 
 # ─── Students ─────────────────────────────────────────────────────────────────
 

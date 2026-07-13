@@ -1,0 +1,122 @@
+# ─── Prometheus Recording & Alert Rules — Database Backup Monitoring
+#
+# These rules consume metrics exported by the node_exporter textfile collector
+# script at infrastructure/db/backup_metrics.sh.  Apply them to Prometheus
+# by adding this file to rule_files in the prometheus config, e.g.:
+#
+#   rule_files:
+#     - "/etc/prometheus/rules/*.yml"
+#
+groups:
+  - name: sms_backup_monitoring
+    interval: 1m
+    rules:
+
+      # ── Recording Rules ──────────────────────────────────────────────────
+
+      # Normalised backup age (converts hours to a 0-1 score for dashboard
+      # gauges).  1.0 = fresh backup (< 1 hour), 0.0 = no backup or very old.
+      - record: job:sms_backup_freshness:ratio
+        expr: |
+          clamp_max(
+            clamp_min(
+              1.0 - (sms_backup_age_hours / 24.0),
+              0.0
+            ),
+            1.0
+          )
+
+      # Estimated daily backup size growth (7-day rate of change)
+      - record: job:sms_backup_growth_bytes_per_day:rate
+        expr: |
+          deriv(sms_backup_size_bytes[7d])
+
+      # ── Alert Rules ──────────────────────────────────────────────────────
+
+      # P1: No recent backup exists
+      - alert: BackupMissing
+        expr: sms_backup_age_hours > 36
+        for: 5m
+        labels:
+          severity: critical
+          pagerduty: p1
+        annotations:
+          summary: "No recent database backup (last backup {{ $value | humanizeDuration }} ago)"
+          description: |
+            The latest database backup is {{ $value }} hours old.
+            Threshold is 36 hours.  Check the backup cron job on {{ $labels.instance }}.
+            Runbook: https://github.com/your-org/sms/infrastructure/db/README.md
+
+      # P2: Backup verification has not succeeded recently
+      - alert: BackupVerificationStale
+        expr: sms_backup_verify_status == 0
+        for: 3h
+        labels:
+          severity: warning
+          pagerduty: p2
+        annotations:
+          summary: "Backup verification has not succeeded in the last 2 hours"
+          description: |
+            The sms_backup_verify_status metric is 0, meaning verification
+            either failed or hasn't run recently.  Check the verify cron job
+            and inspect /var/log/sms-backup-verify.log on the backup host.
+
+      # P2: Backup size dropped significantly (possible corruption or empty dump)
+      - alert: BackupSizeAnomaly
+        expr: |
+          sms_backup_size_bytes < 1000000
+          and
+          sms_backup_age_hours < 2
+        for: 5m
+        labels:
+          severity: warning
+          pagerduty: p2
+        annotations:
+          summary: "Latest backup is suspiciously small (< 1 MB)"
+          description: |
+            The most recent backup is only {{ $value | humanizeBytes }}.
+            This could indicate a corrupt or empty pg_dump.  Verify manually:
+            /opt/sms/infrastructure/db/verify_backup.sh /backups/sms-daily-$(date +%Y-%m-%d).sql.gz
+
+      # P2: Backup count is zero (backup job stopped)
+      - alert: BackupJobStopped
+        expr: sms_backup_count == 0
+        for: 10m
+        labels:
+          severity: warning
+          pagerduty: p2
+        annotations:
+          summary: "No backup files found in the backup directory"
+          description: |
+            The backup directory {{ $labels.instance }}:/backups contains
+            zero backup files.  The daily backup job may have stopped.
+            Check the cron scheduler and disk space.
+
+      # P3: Backup retention may be too short (oldest backup < 30 days)
+      - alert: BackupRetentionTooShort
+        expr: sms_backup_oldest_days < 30
+        for: 24h
+        labels:
+          severity: info
+          pagerduty: p3
+        annotations:
+          summary: "Backup retention period is less than 30 days"
+          description: |
+            The oldest backup is only {{ $value }} days old.
+            Target retention is 90 days.  Check the prune cron job
+            and backup retention configuration.
+
+      # P3: Backup file size growth rate warning
+      - alert: BackupGrowthAccelerating
+        expr: |
+          job:sms_backup_growth_bytes_per_day:rate > 50000000
+        for: 7d
+        labels:
+          severity: info
+          pagerduty: p3
+        annotations:
+          summary: "Backup size growing faster than 50 MB/day"
+          description: |
+            Backup size is increasing at {{ $value | humanizeBytes }}/day.
+            Projected annual growth: {{ $value * 365 | humanizeBytes }}.
+            Review database cleanup and archiving strategy.

@@ -146,19 +146,37 @@ kubectl patch hpa sms-backend-hpa -n sms \
 
 ## Backup & Recovery
 
+> 💡 **Full documentation for backup verification, automated strategy, PITR, and
+> disaster recovery runbooks is available at `infrastructure/db/README.md`.**
+
 ### Database Backup
 ```bash
 # Manual backup (RDS has automated daily backups)
 aws rds create-db-snapshot \
   --db-instance-identifier edusphere-sms-postgres \
   --db-snapshot-identifier manual-backup-$(date +%Y%m%d)
+
+# Also generate a portable pg_dump backup for off-site storage:
+pg_dump -h localhost -U sms -d sms_db --no-owner --compress=9 \
+  -f /backups/sms-manual-$(date +%Y%m%d).sql.gz
 ```
 
-### Restore from Backup
+### Verify Backup Integrity
+Always verify a backup after creating it (see `infrastructure/db/README.md`):
+
+```bash
+./infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
+```
+
+### Restore from Snapshot
 ```bash
 aws rds restore-db-instance-from-db-snapshot \
   --db-instance-identifier edusphere-sms-postgres-restored \
   --db-snapshot-identifier manual-backup-20241115
+
+# Then verify the restored instance has the expected data:
+PGHOST=restored-instance.aws.com \
+  ./infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
 ```
 
 ## Troubleshooting

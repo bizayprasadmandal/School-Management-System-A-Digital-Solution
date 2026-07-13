@@ -2,12 +2,14 @@
  * Admin Settings Page — school profile, academic year, user management
  */
 import React, { useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "../../store/authStore";
 import { Button, Input, Select, Badge } from "../../components/common";
 import { useTitle } from "../../hooks";
+import EmailVerificationActions from "../../components/common/EmailVerificationActions";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 
@@ -25,18 +27,28 @@ type SchoolForm = z.infer<typeof schoolSchema>;
 
 const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Los_Angeles","America/Toronto","Europe/London","Europe/Paris","Asia/Kolkata","Asia/Dhaka","Asia/Kathmandu","Asia/Dubai","Africa/Nairobi","Australia/Sydney"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-type TabKey = "school" | "academic" | "notifications" | "integrations";
+type TabKey = "school" | "academic" | "notifications" | "integrations" | "security";
 const TABS: {id: TabKey; label: string}[] = [
   {id:"school",label:"School Profile"},
   {id:"academic",label:"Academic Settings"},
   {id:"notifications",label:"Notifications"},
   {id:"integrations",label:"Integrations"},
+  {id:"security",label:"Security"},
 ];
 
 export default function SettingsPage() {
   useTitle("Settings");
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<TabKey>("school");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    // Support ?tab=security for deep-linking from sidebar verification dot
+    const tabParam = searchParams.get("tab");
+    if (tabParam && TABS.some((t) => t.id === tabParam)) {
+      return tabParam as TabKey;
+    }
+    return "school";
+  });
   const [saving, setSaving] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<SchoolForm>({
@@ -121,6 +133,142 @@ export default function SettingsPage() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === "security" && (
+          <div className="p-5 max-w-xl space-y-6">
+            <h2 className="text-base font-semibold text-slate-800">Account Security</h2>
+
+            {/* Email Verification */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                      Email Verification
+                    </h3>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        user?.email_verified
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-1.5 w-1.5 rounded-full ${
+                          user?.email_verified ? "bg-green-500" : "bg-amber-500"
+                        }`}
+                      />
+                      {user?.email_verified ? "Verified" : "Not Verified"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {user?.email}
+                  </p>
+                  {!user?.email_verified && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      Verify your email to unlock all features and receive
+                      important notifications.
+                    </p>
+                  )}
+                  {user?.email_verified && (
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                      Your email is verified. You have full access to all
+                      features.
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="shrink-0">
+                  <EmailVerificationActions />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Info */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                Account Information
+              </h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-400">Email</dt>
+                  <dd className="text-slate-800 dark:text-slate-200 font-medium">{user?.email}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-400">Role</dt>
+                  <dd className="text-slate-800 dark:text-slate-200 font-medium capitalize">
+                    {user?.role?.replace("_", " ")}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-400">Joined</dt>
+                  <dd className="text-slate-800 dark:text-slate-200 font-medium">
+                    {user?.date_joined
+                      ? new Date(user.date_joined).toLocaleDateString()
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <dt className="text-slate-500 dark:text-slate-400">Two-Factor Auth</dt>
+                  <dd className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      user?.two_factor_enabled
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                    }`}>
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        user?.two_factor_enabled ? "bg-green-500" : "bg-slate-400"
+                      }`} />
+                      {user?.two_factor_enabled ? "Enabled" : "Not configured"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate("../setup-2fa", { relative: "path" })}
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                    >
+                      {user?.two_factor_enabled ? "Manage" : "Configure"}
+                    </button>
+                  </dd>
+                </div>
+                {user?.two_factor_enabled && user?.backup_codes_remaining !== null && (
+                  <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <dt className="text-slate-500 dark:text-slate-400 text-sm">Backup codes remaining</dt>
+                    <dd className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          user.backup_codes_remaining <= 2
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : user.backup_codes_remaining <= 5
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-1.5 w-1.5 rounded-full ${
+                            user.backup_codes_remaining <= 2
+                              ? "bg-red-500"
+                              : user.backup_codes_remaining <= 5
+                                ? "bg-amber-500"
+                                : "bg-green-500"
+                          }`}
+                        />
+                        {user.backup_codes_remaining} / 8
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => navigate("../setup-2fa", { relative: "path" })}
+                        className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                      >
+                        Regenerate
+                      </button>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
           </div>
         )}
 

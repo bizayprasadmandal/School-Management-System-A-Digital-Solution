@@ -1,13 +1,11 @@
 """Development settings — hot reload, debug toolbar, verbose logging."""
-# Explicit imports from base instead of star import to avoid # noqa
-import sys
-from .base import (
+
+from .base import *  # noqa: F403, F401 — Django settings require wildcard import
+
+from .base import (  # noqa: F811 — explicit re-import for IDE/type-checker convenience
     INSTALLED_APPS as BASE_INSTALLED_APPS,
     MIDDLEWARE as BASE_MIDDLEWARE,
     REST_FRAMEWORK as BASE_REST_FRAMEWORK,
-    CELERY_TASK_ALWAYS_EAGER as BASE_CELERY_EAGER,
-    CELERY_TASK_EAGER_PROPAGATES as BASE_CELERY_PROPAGATES,
-    *  # noqa: F403 — wildcard needed for Django settings convention
 )
 
 DEBUG = True
@@ -37,3 +35,10 @@ LOGGING = {
         "django.db.backends": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
+
+# ─── Email Verification Enforcement ────────────────────────────────────────────
+
+# Enable enforcement locally so developers can test the full verification flow.
+# Demo users seeded via seed_demo_data have email_verified=True by default.
+EMAIL_VERIFICATION_ENFORCED = True
+

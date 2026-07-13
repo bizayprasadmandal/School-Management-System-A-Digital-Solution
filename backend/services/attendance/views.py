@@ -138,6 +138,78 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             "records": AttendanceRecordSerializer(records, many=True).data,
         })
 
+    @action(detail=False, methods=["get"], url_path="streak")
+    def streak(self, request):
+        """
+        Compute a student's attendance streak — consecutive days present
+        leading up to today. Accepts student_id as query param.
+        Returns the current streak length and the
+        longest streak within the current academic year.
+        """
+        from services.students.models import AcademicYear, Student as StudentModel
+
+        student_id = request.query_params.get("student_id")
+        if not student_id:
+            return Response({"error": "student_id is required"}, status=400)
+
+        try:
+            student = StudentModel.objects.get(id=student_id, school=request.user.school)
+        except StudentModel.DoesNotExist:
+            return Response({"error": "Student not found"}, status=404)
+
+        current_year = AcademicYear.objects.filter(
+            school=student.school, is_current=True
+        ).first()
+
+        records_qs = AttendanceRecord.objects.filter(
+            student=student
+        ).order_by("-date")
+
+        if current_year:
+            records_qs = records_qs.filter(
+                date__gte=current_year.start_date,
+                date__lte=current_year.end_date,
+            )
+
+        records = list(records_qs.values("date", "status"))
+        if not records:
+            return Response({"current_streak": 0, "longest_streak": 0})
+
+        # Current streak (consecutive from today backward)
+        today = timezone.now().date()
+        current_streak = 0
+        for r in records:
+            if r["status"] in ("P", "L"):
+                expected_date = today - timedelta(days=current_streak)
+                if r["date"] == expected_date:
+                    current_streak += 1
+                else:
+                    break
+            else:
+                break
+
+        # Longest streak (scan forward)
+        sorted_asc = sorted(records, key=lambda x: x["date"])
+        longest_streak = 0
+        temp_streak = 0
+        prev_date = None
+        for r in sorted_asc:
+            if r["status"] in ("P", "L"):
+                if prev_date is None or r["date"] == prev_date + timedelta(days=1):
+                    temp_streak += 1
+                else:
+                    temp_streak = 1
+                longest_streak = max(longest_streak, temp_streak)
+                prev_date = r["date"]
+            else:
+                temp_streak = 0
+                prev_date = None
+
+        return Response({
+            "current_streak": current_streak,
+            "longest_streak": longest_streak,
+        })
+
 
 class AttendanceLeaveViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceLeaveSerializer

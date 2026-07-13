@@ -1,0 +1,37 @@
+# ─── Grafana Dashboard Providers ──────────────────────────────────────────────
+#
+# This file tells Grafana where to find provisioned dashboards.
+# Mount it at /etc/grafana/provisioning/dashboards/dashboards.yaml
+#
+# The corresponding dashboard JSON files are in infrastructure/monitoring/grafana/dashboards/
+# and should be mounted at /etc/grafana/provisioning/dashboards/json/
+#
+# To apply via ConfigMap, include this file as:
+#   data:
+#     dashboards.yaml: |  (the content below)
+# And each dashboard .json file under a subdirectory or with a unique key.
+
+apiVersion: 1
+
+providers:
+  - name: "SMS Backup Dashboards"
+    orgId: 1
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      # Dashboards are stored in the same directory as the provider config,
+      # mounted from a single ConfigMap (flat key namespace).
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+
+  - name: "SMS Default Dashboards"
+    orgId: 1
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

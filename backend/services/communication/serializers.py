@@ -21,6 +21,28 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "created_at", "published_at", "view_count"]
 
+    MAX_FILE_SIZE_MB = 10
+
+    def validate_attachment(self, value):
+        if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise serializers.ValidationError(
+                f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB."
+            )
+        if value:
+            allowed_types = [
+                "application/pdf",
+                "image/jpeg", "image/png", "image/gif",
+                "text/plain",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ]
+            if value.content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    f"File type '{value.content_type}' is not allowed. "
+                    f"Allowed types: PDF, JPEG, PNG, GIF, TXT, DOC, DOCX."
+                )
+        return value
+
     def get_is_read(self, obj):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
@@ -51,6 +73,26 @@ class DirectMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You cannot message yourself.")
         if value.school != request.user.school:
             raise serializers.ValidationError("Recipient must be in the same school.")
+        return value
+
+    MAX_FILE_SIZE_MB = 10
+
+    def validate_attachment(self, value):
+        if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise serializers.ValidationError(
+                f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB."
+            )
+        if value:
+            allowed_types = [
+                "application/pdf",
+                "image/jpeg", "image/png", "image/gif",
+                "text/plain",
+            ]
+            if value.content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    f"File type '{value.content_type}' is not allowed. "
+                    f"Allowed types: PDF, JPEG, PNG, GIF, TXT."
+                )
         return value
 
     def create(self, validated_data):

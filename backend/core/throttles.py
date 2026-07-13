@@ -30,4 +30,14 @@ class AuthPasswordResetConfirmThrottle(AnonRateThrottle):
     scope = "auth_password_reset_confirm"
 
 
+class AuthVerify2FALoginThrottle(AnonRateThrottle):
+    """
+    Limit 2FA verification (TOTP + backup code) attempts to 5 per minute per IP.
+    This complements the per-account backup-code lockout (3 failed before 30min ban)
+    by adding a per-IP rate limit before the request reaches the business logic.
+    """
+    rate = "5/minute"
+    scope = "auth_verify_2fa_login"
+
+
 

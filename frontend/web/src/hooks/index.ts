@@ -123,7 +123,7 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
 export function useNotificationSocket(onNewNotification?: (notif: { id: string; title: string; body: string; created_at: string; read_at: string | null }) => void) {
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const { send } = useWebSocket("/ws/notifications/", {
+  const { send, status } = useWebSocket("/ws/notifications/", {
     onMessage: (data) => {
       if (data.type === "notification") onNewNotification?.(data.notification as { id: string; title: string; body: string; created_at: string; read_at: string | null });
       if (data.type === "unread_count") setUnreadCount(data.count as number);
@@ -134,7 +134,7 @@ export function useNotificationSocket(onNewNotification?: (notif: { id: string; 
     send({ type: "mark_read", notification_id: notificationId });
   }, [send]);
 
-  return { unreadCount, markRead };
+  return { unreadCount, markRead, status };
 }
 
 // ─── useChatSocket ────────────────────────────────────────────────────────────

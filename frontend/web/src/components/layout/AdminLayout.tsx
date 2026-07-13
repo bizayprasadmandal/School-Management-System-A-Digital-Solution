@@ -18,16 +18,18 @@ import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  BellIcon,
   BuildingLibraryIcon,
   DocumentChartBarIcon,
   SunIcon,
   MoonIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
-import { useUnreadNotificationCount } from "../../api/hooks";
+import NotificationBell from "../../components/common/NotificationBell";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
+import EmailVerificationBanner from "../../components/common/EmailVerificationBanner";
+import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBanner";
+import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import clsx from "clsx";
 import NotificationPanel from "./NotificationPanel";
 
@@ -59,7 +61,6 @@ export default function AdminLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const { data: unreadCount = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();
 
   const handleLogout = useCallback(() => {
@@ -142,7 +143,23 @@ export default function AdminLayout() {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">{user?.full_name}</p>
+              <p className="text-sm font-medium text-white truncate flex items-center gap-1.5">
+                {user?.full_name}
+                {user && (
+                  user.email_verified ? (
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0 bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"
+                      title="Email verified"
+                    />
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate("/admin/settings?tab=security"); }}
+                      className="inline-block h-2 w-2 rounded-full shrink-0 bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)] cursor-pointer hover:bg-amber-300 transition-colors"
+                      title="Verify now"
+                    />
+                  )
+                )}
+              </p>
               <p className="text-xs text-indigo-300 dark:text-indigo-400 capitalize">{user?.role?.replace("_", " ")}</p>
             </div>
             <button
@@ -183,37 +200,35 @@ export default function AdminLayout() {
               )}
             </button>
 
-            {/* Notifications bell */}
-            <button
-              className="relative rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors"
-              onClick={() => setNotifOpen(v => !v)}
-            >
-              <BellIcon className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+            {/* Email verification badge */}
+            {user && !user.email_verified && (
+              <button
+                onClick={() => navigate("/admin/verify-email")}
+                title="Email not verified — click to verify"
+                className="relative rounded-lg p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                {/* Small exclamation dot */}
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
+                  !
                 </span>
-              )}
-            </button>
+              </button>
+            )}
 
-            {/* Avatar */}
-            <button className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" loading="lazy" className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">
-                  {user?.first_name?.[0]}{user?.last_name?.[0]}
-                </div>
-              )}
-              <span className="hidden md:block text-sm font-medium text-slate-700 dark:text-slate-300">
-                {user?.first_name}
-              </span>
-            </button>
+            {/* Notifications bell */}
+            <NotificationBell onClick={() => setNotifOpen(v => !v)} />
+
+            {/* Avatar with dropdown */}
+            <UserMenuDropdown verifyEmailPath="/admin/verify-email" profilePath="/admin/settings?tab=security" />
           </div>
         </header>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
+          <EmailVerificationBanner />
+          <BackupCodeWarningBanner managePath="/admin/setup-2fa" />
           <AnimatedOutlet />
         </main>
         </div>

@@ -7,13 +7,16 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
   CalendarDaysIcon, ChatBubbleLeftRightIcon, BanknotesIcon,
-  AcademicCapIcon, Bars3Icon, XMarkIcon, BellIcon,
+  AcademicCapIcon, Bars3Icon, XMarkIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
-import { useUnreadNotificationCount } from "../../api/hooks";
+import NotificationBell from "../../components/common/NotificationBell";
 import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
+import EmailVerificationBanner from "../../components/common/EmailVerificationBanner";
+import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBanner";
+import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import type { User } from "../../types";
 
@@ -40,13 +43,14 @@ interface SidebarShellProps {
   user: User | null;
   logout: () => void;
   navigate: (path: string) => void;
-  unread: number;
   isDark: boolean;
   toggleDark: () => void;
+  verifyEmailPath?: string;
 }
 
 const SidebarShell = memo(function SidebarShell({
-  nav, accent, open, setOpen, user, logout, navigate, unread, isDark, toggleDark,
+  nav, accent, open, setOpen, user, logout, navigate, isDark, toggleDark,
+  verifyEmailPath,
 }: SidebarShellProps) {
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
@@ -90,7 +94,23 @@ const SidebarShell = memo(function SidebarShell({
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white font-semibold text-sm">
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
-            <p className="flex-1 text-sm font-medium text-white truncate">{user?.first_name}</p>
+            <p className="flex-1 text-sm font-medium text-white truncate flex items-center gap-1.5">
+              {user?.first_name}
+              {user && (
+                user.email_verified ? (
+                  <span
+                    className="inline-block h-2 w-2 rounded-full shrink-0 bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"
+                    title="Email verified"
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (verifyEmailPath) navigate(verifyEmailPath); }}
+                    className="inline-block h-2 w-2 rounded-full shrink-0 bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)] cursor-pointer hover:bg-amber-300 transition-colors"
+                    title="Verify now"
+                  />
+                )
+              )}
+            </p>
             <button onClick={() => { logout(); navigate("/login"); }} className="text-white/50 hover:text-white">
               <ArrowRightOnRectangleIcon className="h-5 w-5" />
             </button>
@@ -113,17 +133,29 @@ const SidebarShell = memo(function SidebarShell({
             >
               {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
             </button>
-            <button className="relative rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
-              <BellIcon className="h-5 w-5" />
-              {unread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                  {unread > 9 ? "9+" : unread}
+            {/* Email verification badge */}
+            {user && !user.email_verified && verifyEmailPath && (
+              <button
+                onClick={() => navigate(verifyEmailPath)}
+                title="Email not verified — click to verify"
+                className="relative rounded-lg p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
+                  !
                 </span>
-              )}
-            </button>
+              </button>
+            )}
+
+            <NotificationBell onClick={() => {}} />
+            <UserMenuDropdown verifyEmailPath={verifyEmailPath} />
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
+          <EmailVerificationBanner />
+          <BackupCodeWarningBanner managePath="/student/setup-2fa" />
           <AnimatedOutlet />
         </main>
       </div>
@@ -136,14 +168,14 @@ export function StudentLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const { data: unread = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
       nav={STUDENT_NAV} accent="bg-blue-800" open={open}
       setOpen={setOpen} user={user} logout={logout}
-      navigate={navigate} unread={unread}
+      navigate={navigate}
       isDark={isDark} toggleDark={toggleDark}
+      verifyEmailPath="/student/verify-email"
     />
   );
 }
@@ -166,14 +198,14 @@ export function ParentLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const { data: unread = 0 } = useUnreadNotificationCount();
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
       nav={PARENT_NAV} accent="bg-violet-800" open={open}
       setOpen={setOpen} user={user} logout={logout}
-      navigate={navigate} unread={unread}
+      navigate={navigate}
       isDark={isDark} toggleDark={toggleDark}
+      verifyEmailPath="/parent/verify-email"
     />
   );
 }

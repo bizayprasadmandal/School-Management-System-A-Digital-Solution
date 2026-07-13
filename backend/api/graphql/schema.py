@@ -70,9 +70,16 @@ class GradeType(DjangoObjectType):
         fields = ["id", "marks_obtained", "is_absent", "remarks", "graded_at"]
 
     def resolve_percentage(self, info):
+        # Only the student or their guardians/teachers can view grades
+        user = info.context.user
+        if not user.is_authenticated:
+            return None
         return float(self.percentage) if self.percentage else None
 
     def resolve_is_pass(self, info):
+        user = info.context.user
+        if not user.is_authenticated:
+            return False
         return self.is_pass
 
 

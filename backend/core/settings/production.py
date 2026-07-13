@@ -111,3 +111,8 @@ if REPLICA_URL:
 
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 DATABASES["default"]["CONN_MAX_AGE"] = 60
+
+# ─── Email Verification Enforcement ────────────────────────────────────────────
+
+EMAIL_VERIFICATION_ENFORCED = True
+
