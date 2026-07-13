@@ -266,6 +266,17 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@school.edu")
 
+# ─── SMS (Twilio) ─────────────────────────────────────────────────────────────
+
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+TWILIO_PHONE_NUMBER = env("TWILIO_PHONE_NUMBER", default="")
+TWILIO_MESSAGING_SERVICE_SID = env("TWILIO_MESSAGING_SERVICE_SID", default="")
+
+# ─── Push Notifications (Firebase FCM) ───────────────────────────────────────
+
+FIREBASE_CREDENTIALS = env("FIREBASE_CREDENTIALS", default="")
+
 # ─── Internationalization ─────────────────────────────────────────────────────
 
 LANGUAGE_CODE = "en-us"

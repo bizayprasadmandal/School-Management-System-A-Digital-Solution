@@ -168,11 +168,16 @@ def send_sms_notification(self, user_id: str, body: str):
 
         from twilio.rest import Client
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            body=body,
-            from_=settings.TWILIO_PHONE_NUMBER,
-            to=user.phone,
-        )
+
+        # Prefer messaging service SID (handles regulatory compliance);
+        # fall back to direct phone number for simpler setups.
+        kwargs = {"body": body, "to": user.phone}
+        if settings.TWILIO_MESSAGING_SERVICE_SID:
+            kwargs["messaging_service_sid"] = settings.TWILIO_MESSAGING_SERVICE_SID
+        else:
+            kwargs["from_"] = settings.TWILIO_PHONE_NUMBER
+
+        message = client.messages.create(**kwargs)
 
         from .models import Notification
         Notification.objects.create(
@@ -197,7 +202,16 @@ def send_push_notification(self, user_id: str, title: str, body: str,
     """Send Firebase FCM push notification."""
     try:
         from services.auth.models import User
-        import firebase_admin
+        from core.firebase import get_firebase_app
+
+        app = get_firebase_app()
+        if app is None:
+            logger.warning(
+                "Push notification skipped for user %s — Firebase not configured",
+                user_id,
+            )
+            return
+
         from firebase_admin import messaging
 
         user = User.objects.get(id=user_id)
