@@ -504,7 +504,7 @@ export function useAcademicYears() {
 export function useStudentAssessments(studentId?: string) {
   return useQuery({
     queryKey: ["assessments", "student", studentId],
-    queryFn: () => api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/"),
+    queryFn: () => api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/", { student: studentId }),
     enabled: !!studentId,
     staleTime: 2 * 60 * 1000,
   });
