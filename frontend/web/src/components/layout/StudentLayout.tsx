@@ -47,11 +47,12 @@ interface SidebarShellProps {
   isDark: boolean;
   toggleDark: () => void;
   verifyEmailPath?: string;
+  backupCodePath?: string;
 }
 
 const SidebarShell = memo(function SidebarShell({
   nav, accent, open, setOpen, user, logout, navigate, isDark, toggleDark,
-  verifyEmailPath,
+  verifyEmailPath, backupCodePath,
 }: SidebarShellProps) {
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
@@ -156,7 +157,7 @@ const SidebarShell = memo(function SidebarShell({
         </header>
         <main className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
           <EmailVerificationBanner />
-          <BackupCodeWarningBanner managePath="/student/setup-2fa" />
+          <BackupCodeWarningBanner managePath={backupCodePath ?? "/student/setup-2fa"} />
           <AnimatedOutlet />
         </main>
       </div>
@@ -207,6 +208,7 @@ export function ParentLayout() {
       navigate={navigate}
       isDark={isDark} toggleDark={toggleDark}
       verifyEmailPath="/parent/verify-email"
+      backupCodePath="/parent/setup-2fa"
     />
   );
 }

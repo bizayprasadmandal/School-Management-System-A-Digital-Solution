@@ -77,6 +77,7 @@ const ParentAttendance    = React.lazy(() => import("./pages/parent/AttendancePa
 const ParentGrades        = React.lazy(() => import("./pages/parent/GradesPage"));
 const ParentFees          = React.lazy(() => import("./pages/parent/FeesPage"));
 const ParentMessages      = React.lazy(() => import("./pages/parent/MessagesPage"));
+const ParentSettings      = React.lazy(() => import("./pages/parent/SettingsPage"));
 
 // ─── React Query client ───────────────────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export default function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="messages" element={<ParentMessages />} />
+                <Route path="settings" element={<ParentSettings />} />
               </Route>
             </Route>
 
