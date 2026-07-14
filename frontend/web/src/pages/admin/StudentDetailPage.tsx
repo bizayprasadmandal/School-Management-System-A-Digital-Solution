@@ -3,8 +3,8 @@
  */
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeftIcon, PencilIcon } from "@heroicons/react/24/outline";
-import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent } from "../../api/hooks";
+import { ArrowLeftIcon, PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent, useUpdateStudent } from "../../api/hooks";
 import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard, Input, Select } from "../../components/common";
 import { fmt, currency, percent, attendanceColor, FEE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
@@ -17,7 +17,10 @@ export default function StudentDetailPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const isNew = id === "new";
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
   const { data: student, isLoading } = useStudent(isNew ? "" : id!);
+  const updateStudent = useUpdateStudent(id!);
   const { data: attendance } = useStudentAttendanceSummary(isNew ? "" : id!);
   const { data: invoicesData } = useStudentInvoices(isNew ? "" : id!);
   const { data: reportCardsData } = useReportCards(isNew ? "" : id!);
@@ -39,7 +42,41 @@ export default function StudentDetailPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800"><ArrowLeftIcon className="h-4 w-4" /> Back</button>
-        <Button variant="primary" leftIcon={<PencilIcon className="h-4 w-4" />} onClick={() => navigate(`/admin/students/${id}/edit`)}>Edit Student</Button>
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="primary" leftIcon={<CheckIcon className="h-4 w-4" />} loading={updateStudent.isPending}
+                onClick={async () => {
+                  try {
+                    await updateStudent.mutateAsync(editForm as any);
+                    toast.success("Student updated!");
+                    setIsEditing(false);
+                  } catch (err: any) { toast.error(err?.message ?? "Update failed"); }
+                }}>
+                Save
+              </Button>
+              <Button variant="secondary" onClick={() => setIsEditing(false)} leftIcon={<XMarkIcon className="h-4 w-4" />}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" leftIcon={<PencilIcon className="h-4 w-4" />}
+              onClick={() => {
+                setEditForm({
+                  address: student.address || "",
+                  city: student.city || "",
+                  nationality: student.nationality || "",
+                  phone: student.phone || "",
+                  emergency_contact_name: student.emergency_contact_name || "",
+                  emergency_contact_phone: student.emergency_contact_phone || "",
+                  medical_conditions: student.medical_conditions || "",
+                });
+                setIsEditing(true);
+              }}>
+              Edit Student
+            </Button>
+          )}
+        </div>
       </div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
         <div className="p-6 flex flex-col sm:flex-row gap-5">
@@ -65,7 +102,34 @@ export default function StudentDetailPage() {
       </div>
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none"><div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Personal Information</h2></div><div className="p-5 space-y-3">{[["Nationality",student.nationality],["Phone",student.phone||"—"],["Address",`${student.address}, ${student.city}`],["Admission Date",fmt.date(student.admission_date)]].map(([l,v])=><div key={l} className="flex justify-between text-sm"><span className="text-slate-500 font-medium">{l}</span><span className="text-slate-800">{v}</span></div>)}</div></div>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
+              <h2 className="text-base font-semibold">Personal Information</h2>
+              {!isEditing && (
+                <button onClick={() => { setEditForm({ address: student.address || "", city: student.city || "", nationality: student.nationality || "", phone: student.phone || "", emergency_contact_name: student.emergency_contact_name || "", emergency_contact_phone: student.emergency_contact_phone || "", medical_conditions: student.medical_conditions || "", }); setIsEditing(true); }} className="text-xs text-indigo-600 font-medium hover:underline">Edit</button>
+              )}
+            </div>
+            <div className="p-5 space-y-3">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <Input label="Phone" value={editForm.phone || ""} onChange={e => setEditForm(f => ({...f, phone: e.target.value}))} />
+                  <Input label="Address" value={editForm.address || ""} onChange={e => setEditForm(f => ({...f, address: e.target.value}))} />
+                  <Input label="City" value={editForm.city || ""} onChange={e => setEditForm(f => ({...f, city: e.target.value}))} />
+                  <Input label="Nationality" value={editForm.nationality || ""} onChange={e => setEditForm(f => ({...f, nationality: e.target.value}))} />
+                  <Input label="Emergency Contact" value={editForm.emergency_contact_name || ""} onChange={e => setEditForm(f => ({...f, emergency_contact_name: e.target.value}))} />
+                  <Input label="Emergency Phone" value={editForm.emergency_contact_phone || ""} onChange={e => setEditForm(f => ({...f, emergency_contact_phone: e.target.value}))} />
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Medical Conditions</label>
+                    <textarea rows={2} value={editForm.medical_conditions || ""} onChange={e => setEditForm(f => ({...f, medical_conditions: e.target.value}))}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                  </div>
+                </div>
+              ) : (
+                <>{[["Nationality",student.nationality],["Phone",student.phone||"—"],["Address",`${student.address}, ${student.city}`],["Emergency Contact",student.emergency_contact_name||"—"],["Admission Date",fmt.date(student.admission_date)]].map(([l,v])=><div key={l} className="flex justify-between text-sm"><span className="text-slate-500 font-medium">{l}</span><span className="text-slate-800">{v}</span></div>)}
+                </>
+              )}
+            </div>
+          </div>
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none"><div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Guardians</h2></div><div className="p-5 space-y-3">{student.guardians?.length===0?<p className="text-sm text-slate-400 text-center py-6">No guardians</p>:student.guardians?.map((sg,i)=><div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50"><Avatar name={sg.guardian.full_name} size="sm" /><div><p className="text-sm font-semibold">{sg.guardian.full_name}</p><p className="text-xs text-slate-500">{sg.guardian.email}</p></div>{sg.is_primary_contact&&<Badge color="indigo" dot>Primary</Badge>}</div>)}</div></div>
         </div>
       )}
