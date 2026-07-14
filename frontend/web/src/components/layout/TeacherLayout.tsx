@@ -7,7 +7,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
   CalendarDaysIcon, ChatBubbleLeftRightIcon, DocumentTextIcon,
-  AcademicCapIcon, Bars3Icon, XMarkIcon,
+  AcademicCapIcon, Bars3Icon, XMarkIcon, UsersIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
@@ -27,6 +27,7 @@ const NAV = [
   { label: "Timetable",    to: "/teacher/timetable",     icon: CalendarDaysIcon },
   { label: "Messages",     to: "/teacher/messages",      icon: ChatBubbleLeftRightIcon },
   { label: "Lesson Plans", to: "/teacher/lesson-plans",  icon: DocumentTextIcon },
+  { label: "Conferences",  to: "/teacher/conferences",   icon: UsersIcon },
 ];
 
 export default function TeacherLayout() {

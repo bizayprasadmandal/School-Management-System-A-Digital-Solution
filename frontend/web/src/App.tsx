@@ -45,6 +45,10 @@ const AnnouncementsPage   = React.lazy(() => import("./pages/admin/Announcements
 const FeesPage            = React.lazy(() => import("./pages/admin/FeesPage"));
 const SettingsPage        = React.lazy(() => import("./pages/admin/SettingsPage"));
 const ReportsPage         = React.lazy(() => import("./pages/admin/ReportsPage"));
+const EventsCalendarPage  = React.lazy(() => import("./pages/admin/EventsCalendarPage"));
+const BehaviorPage        = React.lazy(() => import("./pages/admin/BehaviorPage"));
+const LibraryPage         = React.lazy(() => import("./pages/admin/LibraryPage"));
+const AdminConferences    = React.lazy(() => import("./pages/admin/ConferencesPage"));
 
 // Teacher pages
 const TeacherDashboard      = React.lazy(() => import("./pages/teacher/Dashboard"));
@@ -54,6 +58,7 @@ const TeacherAssignments    = React.lazy(() => import("./pages/teacher/Assignmen
 const TeacherTimetable      = React.lazy(() => import("./pages/teacher/TimetablePage"));
 const TeacherMessages       = React.lazy(() => import("./pages/teacher/MessagesPage"));
 const TeacherLessonPlans    = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
+const TeacherConferences     = React.lazy(() => import("./pages/teacher/ConferencesPage"));
 
 // Shared pages
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
@@ -78,6 +83,7 @@ const ParentGrades        = React.lazy(() => import("./pages/parent/GradesPage")
 const ParentFees          = React.lazy(() => import("./pages/parent/FeesPage"));
 const ParentMessages      = React.lazy(() => import("./pages/parent/MessagesPage"));
 const ParentSettings      = React.lazy(() => import("./pages/parent/SettingsPage"));
+const ParentConferences    = React.lazy(() => import("./pages/parent/ConferencesPage"));
 
 // ─── React Query client ───────────────────────────────────────────────────────
 
@@ -176,6 +182,10 @@ export default function App() {
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
+                <Route path="events" element={<EventsCalendarPage />} />
+                <Route path="behavior" element={<BehaviorPage />} />
+                <Route path="library" element={<LibraryPage />} />
+                <Route path="conferences" element={<AdminConferences />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
@@ -191,6 +201,7 @@ export default function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="lesson-plans" element={<TeacherLessonPlans />} />
+                <Route path="conferences" element={<TeacherConferences />} />
               </Route>
             </Route>
 
@@ -220,6 +231,7 @@ export default function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="messages" element={<ParentMessages />} />
+                <Route path="conferences" element={<ParentConferences />} />
                 <Route path="settings" element={<ParentSettings />} />
               </Route>
             </Route>

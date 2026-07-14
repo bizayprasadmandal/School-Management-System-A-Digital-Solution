@@ -9,6 +9,7 @@ import {
   CalendarDaysIcon, ChatBubbleLeftRightIcon, BanknotesIcon,
   AcademicCapIcon, Bars3Icon, XMarkIcon, DocumentTextIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
+  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -192,6 +193,7 @@ const PARENT_NAV: NavItem[] = [
   { label: "Attendance", to: "/parent/attendance",  icon: ClipboardDocumentCheckIcon },
   { label: "Grades",     to: "/parent/grades",      icon: BookOpenIcon },
   { label: "Fees",       to: "/parent/fees",         icon: BanknotesIcon },
+  { label: "Conferences",to: "/parent/conferences",  icon: VideoCameraIcon },
   { label: "Messages",   to: "/parent/messages",    icon: ChatBubbleLeftRightIcon },
 ];
 
