@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import {
   BanknotesIcon, CheckCircleIcon, ClockIcon,
-  ExclamationCircleIcon,
+  ExclamationCircleIcon, ReceiptPercentIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -15,6 +15,7 @@ import {
   Button, Badge, Modal, DataTable, Input, Select, EmptyState,
 } from "../../components/common";
 import type { Column, BadgeColor } from "../../components/common";
+import PaymentHistoryModal from "../../components/common/PaymentHistoryModal";
 import dayjs from "dayjs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
@@ -113,6 +114,7 @@ export default function FeesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [payingInvoice, setPayingInvoice] = useState<FeeInvoice | null>(null);
+  const [historyInvoice, setHistoryInvoice] = useState<FeeInvoice | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fees", "all-invoices", statusFilter, search],
@@ -177,13 +179,27 @@ export default function FeesPage() {
     },
     {
       key: "action",
-      header: "Action",
+      header: "Actions",
       render: (inv) => (
-        ["unpaid", "overdue", "partial"].includes(inv.status) ? (
-          <Button variant="ghost" size="sm" onClick={() => setPayingInvoice(inv)}>
-            Record Payment
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setHistoryInvoice(inv)}
+            leftIcon={<ReceiptPercentIcon className="h-3.5 w-3.5" />}
+          >
+            Payments
           </Button>
-        ) : null
+          {["unpaid", "overdue", "partial"].includes(inv.status) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPayingInvoice(inv)}
+            >
+              Record
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -263,6 +279,15 @@ export default function FeesPage() {
 
       {payingInvoice && (
         <RecordPaymentModal invoice={payingInvoice} onClose={() => setPayingInvoice(null)} />
+      )}
+
+      {historyInvoice && (
+        <PaymentHistoryModal
+          invoiceId={historyInvoice.id}
+          invoiceNumber={historyInvoice.invoice_number}
+          open={!!historyInvoice}
+          onClose={() => setHistoryInvoice(null)}
+        />
       )}
     </div>
   );

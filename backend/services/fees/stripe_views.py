@@ -22,6 +22,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from .models import FeeInvoice, Payment
+from core.permissions import IsSchoolAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -257,3 +258,110 @@ def _handle_payment_failed(payment_intent):
     payment.save(update_fields=["status", "gateway_response"])
 
     logger.warning("Payment failed: %s — %s", pi_id, payment.gateway_response.get("error"))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def refund_payment(request):
+    """
+    Refund a successful Stripe payment.
+
+    Request body:
+      payment_id (str): UUID of the Payment record to refund
+      reason (str, optional): Reason for the refund
+
+    Only school admins can initiate refunds.
+    Only successful online payments can be refunded.
+    """
+    # Check admin permission
+    if request.user.role not in ("school_admin", "super_admin"):
+        return Response({"detail": "Only school administrators can issue refunds."}, status=403)
+
+    payment_id = request.data.get("payment_id")
+    reason = request.data.get("reason", "")
+
+    if not payment_id:
+        return Response({"detail": "payment_id is required."}, status=400)
+
+    try:
+        payment = Payment.objects.get(
+            id=payment_id,
+            invoice__student__school=request.user.school,
+        )
+    except Payment.DoesNotExist:
+        return Response({"detail": "Payment not found."}, status=404)
+
+    # Validate the payment can be refunded
+    if payment.status != Payment.Status.SUCCESSFUL:
+        return Response(
+            {"detail": f"Payment status is '{payment.status}' — can only refund successful payments."},
+            status=400,
+        )
+
+    if payment.payment_method != "online" or not payment.transaction_id:
+        return Response(
+            {"detail": "Only online/Stripe payments can be refunded via this endpoint. For cash/bank payments, record a reversal manually."},
+            status=400,
+        )
+
+    try:
+        # Process the refund via Stripe
+        refund = stripe.Refund.create(
+            payment_intent=payment.transaction_id,
+            reason="requested_by_customer",
+            metadata={
+                "payment_id": str(payment.id),
+                "invoice_number": payment.invoice.invoice_number,
+                "refunded_by": request.user.full_name,
+                "reason": reason,
+            },
+        )
+
+        from django.db import transaction as db_transaction
+
+        with db_transaction.atomic():
+            # Lock the invoice row
+            invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
+
+            # Update the payment record
+            payment.status = Payment.Status.REFUNDED
+            payment.notes = f"{payment.notes}\nRefunded by {request.user.full_name}: {reason}" if payment.notes else f"Refunded by {request.user.full_name}: {reason}"
+            payment.gateway_response = {
+                **(payment.gateway_response or {}),
+                "refund_id": refund.id,
+                "refund_amount": refund.amount,
+                "refund_status": refund.status,
+                "refund_reason": reason,
+            }
+            payment.save(update_fields=["status", "notes", "gateway_response"])
+
+            # Revert the invoice paid_amount and status
+            invoice.paid_amount -= payment.amount
+            if invoice.paid_amount <= 0:
+                invoice.paid_amount = 0
+                invoice.status = FeeInvoice.Status.UNPAID
+            elif invoice.paid_amount < invoice.total_amount:
+                invoice.status = FeeInvoice.Status.PARTIAL
+            else:
+                invoice.status = FeeInvoice.Status.PAID
+            invoice.save(update_fields=["paid_amount", "status"])
+
+        logger.info(
+            "Payment refunded: %s on invoice %s ($%.2f) — refund_id=%s",
+            payment.transaction_id, invoice.invoice_number, payment.amount, refund.id,
+        )
+
+        return Response({
+            "detail": "Payment refunded successfully.",
+            "refund_id": refund.id,
+            "amount": float(payment.amount),
+            "invoice_status": invoice.status,
+        })
+
+    except stripe.error.StripeError as e:
+        error_msg = e.user_message or str(e)
+        logger.error("Stripe refund failed for payment %s: %s", payment_id, error_msg)
+        return Response(
+            {"detail": f"Refund failed: {error_msg}"},
+            status=502,
+        )

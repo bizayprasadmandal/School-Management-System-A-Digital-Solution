@@ -61,14 +61,18 @@ class FeeInvoiceSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="invoice.student.user.full_name", read_only=True)
+    student_admission_number = serializers.CharField(source="invoice.student.admission_number", read_only=True)
     invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    collected_by_name = serializers.CharField(source="collected_by.full_name", read_only=True, default=None)
 
     class Meta:
         model = Payment
         fields = [
             "id", "invoice", "invoice_number", "student_name",
-            "amount", "payment_method", "status", "transaction_id",
-            "receipt_number", "paid_at", "notes", "created_at",
+            "student_admission_number", "amount", "payment_method",
+            "status", "transaction_id", "gateway_response",
+            "receipt_number", "paid_at", "collected_by_name",
+            "notes", "created_at",
         ]
         read_only_fields = ["id", "receipt_number", "status", "paid_at", "created_at"]
 

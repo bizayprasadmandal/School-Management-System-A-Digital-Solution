@@ -15,5 +15,6 @@ urlpatterns = [
     path("", include(router.urls)),
     # Stripe payment integration
     path("stripe/create-payment-intent/", stripe_views.create_payment_intent, name="stripe-create-payment-intent"),
+    path("stripe/refund/", stripe_views.refund_payment, name="stripe-refund"),
     path("stripe/webhook/", stripe_views.stripe_webhook, name="stripe-webhook"),
 ]

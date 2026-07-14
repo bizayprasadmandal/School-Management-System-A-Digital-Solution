@@ -404,11 +404,19 @@ export interface FeeInvoice {
 export interface Payment {
   id: string;
   invoice: string;
+  invoice_number: string;
+  student_name: string;
+  student_admission_number: string;
   amount: number;
   payment_method: string;
   status: "pending" | "successful" | "failed" | "refunded";
+  transaction_id: string;
+  gateway_response: Record<string, unknown>;
   receipt_number: string;
+  collected_by_name?: string;
   paid_at?: string;
+  notes?: string;
+  created_at: string;
 }
 
 // ─── Notification reference types ─────────────────────────────────────────────
