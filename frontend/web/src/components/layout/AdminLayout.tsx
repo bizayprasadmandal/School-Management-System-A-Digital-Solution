@@ -24,6 +24,7 @@ import {
   MoonIcon,
   ExclamationTriangleIcon,
   VideoCameraIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Examinations",   to: "/admin/exams",        icon: BookOpenIcon },
   { label: "Report Cards",   to: "/admin/report-cards", icon: DocumentChartBarIcon },
   { label: "Announcements",  to: "/admin/announcements",icon: MegaphoneIcon },
+  { label: "Bulk Messages",  to: "/admin/bulk-messages",icon: PaperAirplaneIcon },
   { label: "Fee Management", to: "/admin/fees",         icon: BanknotesIcon },
   { label: "Event Calendar", to: "/admin/events",       icon: CalendarDaysIcon },
   { label: "Library",        to: "/admin/library",      icon: BookOpenIcon },

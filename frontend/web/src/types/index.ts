@@ -348,6 +348,13 @@ export interface Announcement {
   content: string;
   priority: "low" | "normal" | "high" | "urgent";
   audience: "all" | "teachers" | "students" | "parents" | "staff";
+  send_email?: boolean;
+  send_sms?: boolean;
+  send_push?: boolean;
+  is_draft?: boolean;
+  target_grades?: number[];
+  target_classrooms?: number[];
+  created_by_name?: string;
   created_at: string;
   published_at?: string;
   view_count: number;

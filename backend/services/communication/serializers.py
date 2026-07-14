@@ -15,6 +15,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "content", "priority", "audience",
             "send_email", "send_sms", "send_push",
+            "target_grades", "target_classrooms",
             "published_at", "expires_at", "is_draft",
             "view_count", "created_by_name", "created_at", "is_read",
             "attachment",

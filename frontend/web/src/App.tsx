@@ -49,6 +49,7 @@ const EventsCalendarPage  = React.lazy(() => import("./pages/admin/EventsCalenda
 const BehaviorPage        = React.lazy(() => import("./pages/admin/BehaviorPage"));
 const LibraryPage         = React.lazy(() => import("./pages/admin/LibraryPage"));
 const AdminConferences    = React.lazy(() => import("./pages/admin/ConferencesPage"));
+const BulkMessagesPage    = React.lazy(() => import("./pages/admin/BulkMessagesPage"));
 
 // Teacher pages
 const TeacherDashboard      = React.lazy(() => import("./pages/teacher/Dashboard"));
@@ -186,6 +187,7 @@ export default function App() {
                 <Route path="behavior" element={<BehaviorPage />} />
                 <Route path="library" element={<LibraryPage />} />
                 <Route path="conferences" element={<AdminConferences />} />
+                <Route path="bulk-messages" element={<BulkMessagesPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
