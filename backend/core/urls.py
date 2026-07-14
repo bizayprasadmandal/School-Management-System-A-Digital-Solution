@@ -33,6 +33,7 @@ urlpatterns = [
     path(API_V1 + "behavior/", include("services.behavior.urls", namespace="behavior_v1")),
     path(API_V1 + "library/", include("services.library.urls", namespace="library_v1")),
     path(API_V1 + "conferences/", include("services.conferences.urls", namespace="conferences_v1")),
+    path(API_V1 + "hr/", include("services.hr.urls", namespace="hr_v1")),
 
     # ── GraphQL ──────────────────────────────────────────────────────────────
     path("graphql/", csrf_exempt(JWTAuthenticatedGraphQLView.as_view(graphiql=settings.DEBUG))),
