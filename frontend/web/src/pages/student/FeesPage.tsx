@@ -1,62 +1,266 @@
-import React from "react";
-import { BanknotesIcon, CheckCircleIcon, ClockIcon } from "@heroicons/react/24/outline";
+/**
+ * Student Fees Page — View fee invoices and pay online with Stripe
+ */
+
+import React, { useState } from "react";
+import {
+  BanknotesIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  CreditCardIcon,
+} from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
-import { Badge, DataTable, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
+import { Badge, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
+import PayFeeModal from "../../components/common/PayFeeModal";
 import { currency, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
+import type { FeeInvoice } from "../../types";
 
 export default function StudentFeesPage() {
   useTitle("My Fees");
-  const { data: profile } = useQuery({ queryKey:["student-me-fees"], queryFn:()=>api.get<any>("/students/me/") });
-  const { data: invData, isLoading, isError, refetch } = useStudentInvoices(profile?.id ?? "");
-  const invoices = invData?.results ?? [];
-  const totalDue = invoices.filter(i=>["unpaid","overdue","partial"].includes(i.status)).reduce((s,i)=>s+Number(i.outstanding_amount),0);
-  const totalPaid = invoices.reduce((s,i)=>s+Number(i.paid_amount),0);
 
-  if (isLoading) return <div className="p-4"><SkeletonCard /></div>;
-  if (isError) return <ErrorState onRetry={() => refetch()} />;
+  const [payingInvoice, setPayingInvoice] = useState<FeeInvoice | null>(null);
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["student-me-fees"],
+    queryFn: () => api.get<{ id: string }>("/students/me/"),
+  });
+
+  const {
+    data: invData,
+    isLoading: invLoading,
+    isError,
+    refetch,
+  } = useStudentInvoices(profile?.id ?? "");
+
+  const invoices = invData?.results ?? [];
+  const isLoading = profileLoading || invLoading;
+
+  const totalDue = invoices
+    .filter((i) => ["unpaid", "overdue", "partial"].includes(i.status))
+    .reduce((s, i) => s + Number(i.outstanding_amount), 0);
+
+  const totalPaid = invoices.reduce(
+    (s, i) => s + Number(i.paid_amount),
+    0,
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 rounded-lg bg-slate-200 animate-pulse" />
+        <div className="grid grid-cols-3 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonCard />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-4">
+        <ErrorState
+          title="Failed to load fee data"
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-slate-900">My Fees</h1><p className="text-sm text-slate-500 mt-1">Payment history and outstanding balances</p></div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">My Fees</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Payment history and outstanding balances
+        </p>
+      </div>
+
+      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label:"Total Paid", value:currency(totalPaid), icon:CheckCircleIcon, color:"text-green-600 bg-green-50" },
-          { label:"Outstanding", value:currency(totalDue), icon:ClockIcon, color:totalDue>0?"text-red-600 bg-red-50":"text-slate-600 bg-slate-50" },
-          { label:"Total Invoices", value:invoices.length, icon:BanknotesIcon, color:"text-indigo-600 bg-indigo-50" },
-        ].map(({label,value,icon:Icon,color})=>(
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center gap-4">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color.split(" ")[1]}`}><Icon className={`h-5 w-5 ${color.split(" ")[0]}`}/></div>
-            <div><p className={`text-xl font-bold ${color.split(" ")[0]}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>
+          {
+            label: "Total Paid",
+            value: currency(totalPaid),
+            icon: CheckCircleIcon,
+            color: "text-green-600 bg-green-50",
+          },
+          {
+            label: "Outstanding",
+            value: currency(totalDue),
+            icon: ClockIcon,
+            color:
+              totalDue > 0
+                ? "text-red-600 bg-red-50"
+                : "text-slate-500 bg-slate-50",
+          },
+          {
+            label: "Invoices",
+            value: invoices.length,
+            icon: BanknotesIcon,
+            color: "text-indigo-600 bg-indigo-50",
+          },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div
+            key={label}
+            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3"
+          >
+            <div
+              className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                color.split(" ")[1]
+              }`}
+            >
+              <Icon className={`h-5 w-5 ${color.split(" ")[0]}`} />
+            </div>
+            <div>
+              <p className={`text-xl font-bold ${color.split(" ")[0]}`}>
+                {value}
+              </p>
+              <p className="text-xs text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Outstanding alert */}
       {totalDue > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
-          <div><p className="text-sm font-semibold text-amber-800">You have outstanding fees</p><p className="text-xs text-amber-600 mt-0.5">Please pay {currency(totalDue)} to avoid late penalties.</p></div>
-          <span className="text-lg font-bold text-amber-800">{currency(totalDue)}</span>
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Outstanding Balance
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Please pay {currency(totalDue)} to avoid late penalties.
+            </p>
+          </div>
+          <span className="text-lg font-bold text-amber-800">
+            {currency(totalDue)}
+          </span>
         </div>
       )}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Invoice History</h2></div>
-        {invoices.length === 0
-          ? <div className="p-8"><EmptyState icon={BanknotesIcon} title="No invoices yet" description="Your fee invoices will appear here." /></div>
-          : <DataTable
-              columns={[
-                { key:"invoice_number", header:"Invoice", render:r=><span className="font-mono text-xs">{r.invoice_number}</span> },
-                { key:"due_date", header:"Due", render:r=>{const od=dayjs(r.due_date).isBefore(dayjs())&&r.status!=="paid"; return <span className={od?"text-red-600 font-medium":""}>{fmt.date(r.due_date)}</span>;} },
-                { key:"total_amount", header:"Total", render:r=>currency(r.total_amount) },
-                { key:"paid_amount", header:"Paid", render:r=><span className="text-green-600">{currency(r.paid_amount)}</span> },
-                { key:"outstanding_amount", header:"Due", render:r=><span className={Number(r.outstanding_amount)>0?"text-red-600 font-semibold":"text-slate-400"}>{currency(r.outstanding_amount)}</span> },
-                { key:"status", header:"Status", render:r=>{const s=FEE_STATUS[r.status];return<Badge color={s?.color??"slate"}>{s?.label??r.status}</Badge>;} },
-              ]}
-              data={invoices} rowKey={r=>r.id}
+
+      {/* Invoice history */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Invoice History</h2>
+        </div>
+
+        {invoices.length === 0 ? (
+          <div className="p-8">
+            <EmptyState
+              icon={BanknotesIcon}
+              title="No invoices yet"
+              description="Your fee invoices will appear here once generated."
             />
-        }
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50">
+                <tr>
+                  {[
+                    "Invoice #",
+                    "Due Date",
+                    "Total",
+                    "Paid",
+                    "Outstanding",
+                    "Status",
+                    "",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 bg-white">
+                {invoices.map((inv: FeeInvoice) => {
+                  const isOverdue =
+                    dayjs(inv.due_date).isBefore(dayjs()) &&
+                    inv.status !== "paid";
+                  const canPay = ["unpaid", "overdue", "partial"].includes(
+                    inv.status,
+                  );
+                  const s = FEE_STATUS[inv.status];
+                  return (
+                    <tr
+                      key={inv.id}
+                      className="hover:bg-slate-50/60 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-sm font-mono text-slate-700">
+                        {inv.invoice_number}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-sm ${
+                          isOverdue
+                            ? "text-red-600 font-medium"
+                            : "text-slate-600"
+                        }`}
+                      >
+                        {fmt.date(inv.due_date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">
+                        {currency(inv.total_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-green-600">
+                        {currency(inv.paid_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {Number(inv.outstanding_amount) > 0 ? (
+                          <span className="text-red-600 font-semibold">
+                            {currency(inv.outstanding_amount)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <Badge color={s?.color ?? "slate"}>
+                          {s?.label ?? inv.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {canPay ? (
+                          <button
+                            onClick={() => setPayingInvoice(inv)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:bg-indigo-800"
+                          >
+                            <CreditCardIcon className="h-3.5 w-3.5" />
+                            Pay Now
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Stripe Payment Modal */}
+      {payingInvoice && (
+        <PayFeeModal
+          invoice={payingInvoice}
+          open={!!payingInvoice}
+          onClose={() => setPayingInvoice(null)}
+          onSuccess={() => {
+            setPayingInvoice(null);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
