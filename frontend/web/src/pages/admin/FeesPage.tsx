@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import {
   BanknotesIcon, CheckCircleIcon, ClockIcon,
   ExclamationCircleIcon, ReceiptPercentIcon, DocumentPlusIcon,
+  AcademicCapIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -17,6 +18,7 @@ import {
 import type { Column, BadgeColor } from "../../components/common";
 import PaymentHistoryModal from "../../components/common/PaymentHistoryModal";
 import GenerateInvoicesModal from "../../components/common/GenerateInvoicesModal";
+import ScholarshipsPanel from "../../components/common/ScholarshipsPanel";
 import dayjs from "dayjs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
@@ -111,7 +113,10 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
   );
 }
 
+type FeeTab = "invoices" | "scholarships";
+
 export default function FeesPage() {
+  const [tab, setTab] = useState<FeeTab>("invoices");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [payingInvoice, setPayingInvoice] = useState<FeeInvoice | null>(null);
@@ -208,17 +213,40 @@ export default function FeesPage() {
 
   return (
     <div className="space-y-5">
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+        {[
+          { key: "invoices" as FeeTab, label: "Invoices", icon: BanknotesIcon },
+          { key: "scholarships" as FeeTab, label: "Scholarships", icon: AcademicCapIcon },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              tab === key
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Fee Management</h1>
           <p className="text-sm text-slate-500 mt-0.5">Track invoices, payments and outstanding balances</p>
         </div>
-        <Button
-          onClick={() => setShowGenerateModal(true)}
-          leftIcon={<DocumentPlusIcon className="h-4 w-4" />}
-        >
-          Generate Invoices
-        </Button>
+        {tab === "invoices" && (
+          <Button
+            onClick={() => setShowGenerateModal(true)}
+            leftIcon={<DocumentPlusIcon className="h-4 w-4" />}
+          >
+            Generate Invoices
+          </Button>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -241,67 +269,73 @@ export default function FeesPage() {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-48">
-          <Input
-            type="search"
-            placeholder="Search student name or invoice…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <Select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          options={[
-            { value: "all", label: "All Status" },
-            { value: "unpaid", label: "Unpaid" },
-            { value: "paid", label: "Paid" },
-            { value: "overdue", label: "Overdue" },
-            { value: "partial", label: "Partial" },
-            { value: "waived", label: "Waived" },
-          ]}
-        />
-      </div>
+      {tab === "invoices" && (
+        <>
+          {/* Filters */}
+          <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-48">
+              <Input
+                type="search"
+                placeholder="Search student name or invoice…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              options={[
+                { value: "all", label: "All Status" },
+                { value: "unpaid", label: "Unpaid" },
+                { value: "paid", label: "Paid" },
+                { value: "overdue", label: "Overdue" },
+                { value: "partial", label: "Partial" },
+                { value: "waived", label: "Waived" },
+              ]}
+            />
+          </div>
 
-      {/* Invoices table */}
-      {!isLoading && invoices.length === 0 ? (
-        <div className="rounded-xl bg-white shadow-sm border border-slate-100">
-          <EmptyState
-            icon={BanknotesIcon}
-            title="No invoices found"
+          {/* Invoices table */}
+          {!isLoading && invoices.length === 0 ? (
+            <div className="rounded-xl bg-white shadow-sm border border-slate-100">
+              <EmptyState
+                icon={BanknotesIcon}
+                title="No invoices found"
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+              <DataTable<FeeInvoice>
+                columns={columns}
+                data={invoices}
+                loading={isLoading}
+                rowKey={(inv) => inv.id}
+              />
+            </div>
+          )}
+
+          {payingInvoice && (
+            <RecordPaymentModal invoice={payingInvoice} onClose={() => setPayingInvoice(null)} />
+          )}
+
+          {historyInvoice && (
+            <PaymentHistoryModal
+              invoiceId={historyInvoice.id}
+              invoiceNumber={historyInvoice.invoice_number}
+              open={!!historyInvoice}
+              onClose={() => setHistoryInvoice(null)}
+            />
+          )}
+
+          <GenerateInvoicesModal
+            open={showGenerateModal}
+            onClose={() => setShowGenerateModal(false)}
           />
-        </div>
-      ) : (
-        <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
-          <DataTable<FeeInvoice>
-            columns={columns}
-            data={invoices}
-            loading={isLoading}
-            rowKey={(inv) => inv.id}
-          />
-          {/* Fees page shows no pagination currently — left as-is */}
-        </div>
+        </>
       )}
 
-      {payingInvoice && (
-        <RecordPaymentModal invoice={payingInvoice} onClose={() => setPayingInvoice(null)} />
-      )}
+      {tab === "scholarships" && <ScholarshipsPanel />}
 
-      {historyInvoice && (
-        <PaymentHistoryModal
-          invoiceId={historyInvoice.id}
-          invoiceNumber={historyInvoice.invoice_number}
-          open={!!historyInvoice}
-          onClose={() => setHistoryInvoice(null)}
-        />
-      )}
-
-      <GenerateInvoicesModal
-        open={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
-      />
     </div>
   );
 }

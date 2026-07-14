@@ -21,6 +21,7 @@ import type {
   FeeInvoice,
   Payment,
   FeeStructure,
+  Scholarship,
   Classroom,
   GradeLevel,
   Subject,
@@ -362,6 +363,41 @@ export function useFeeStructures() {
     queryKey: ["fee-structures"],
     queryFn: () => api.get<PaginatedResponse<FeeStructure>>("/fees/structures/"),
     staleTime: 5 * 60 * 1000,               // 5 min — structures change infrequently
+  });
+}
+
+export function useScholarships() {
+  return useQuery({
+    queryKey: ["scholarships"],
+    queryFn: () => api.get<PaginatedResponse<Scholarship>>("/fees/scholarships/"),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useCreateScholarship() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<Scholarship> & { student: string; academic_year: number }) =>
+      api.post<Scholarship>("/fees/scholarships/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scholarships"] }),
+  });
+}
+
+export function useUpdateScholarship() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<Scholarship> & { id: string }) =>
+      api.patch<Scholarship>(`/fees/scholarships/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scholarships"] }),
+  });
+}
+
+export function useToggleScholarship() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      api.patch<Scholarship>(`/fees/scholarships/${id}/`, { is_active }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scholarships"] }),
   });
 }
 

@@ -401,6 +401,21 @@ export interface FeeStructure {
 
 // ─── Fees ────────────────────────────────────────────────────────────────────
 
+export interface Scholarship {
+  id: string;
+  student: string;
+  student_name: string;
+  academic_year: number;
+  name: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  applies_to_categories: number[];
+  reason: string;
+  approved_by: number;
+  approved_by_name: string;
+  is_active: boolean;
+}
+
 export interface FeeInvoice {
   id: string;
   invoice_number: string;
