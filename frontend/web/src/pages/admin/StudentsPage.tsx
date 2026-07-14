@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   MagnifyingGlassIcon, PlusIcon, FunnelIcon,
-  ArrowDownTrayIcon, EyeIcon, PencilIcon,
+  ArrowDownTrayIcon, ArrowUpTrayIcon, EyeIcon, PencilIcon,
 } from "@heroicons/react/24/outline";
 import { useStudents, useGradeLevels } from "../../api/hooks";
 import { downloadFromUrl } from "../../utils";
@@ -18,6 +18,7 @@ import {
   DataTable,
 } from "../../components/common";
 import type { Column } from "../../components/common";
+import ImportCsvModal from "../../components/common/ImportCsvModal";
 
 const GENDER_LABELS: Record<string, string> = { M: "Male", F: "Female", O: "Other" };
 
@@ -29,6 +30,7 @@ export default function StudentsPage() {
   const [isActive, setIsActive] = useState<boolean | undefined>(true);
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const { data: gradesData } = useGradeLevels();
   const [grade, setGrade] = useState<number | undefined>();
@@ -123,6 +125,9 @@ export default function StudentsPage() {
           <p className="text-sm text-slate-500 mt-0.5">{total.toLocaleString()} total students</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="secondary" size="md" leftIcon={<ArrowUpTrayIcon className="h-4 w-4" />} onClick={() => setShowImport(true)}>
+            Import CSV
+          </Button>
           <Button variant="secondary" size="md" leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={handleExport}>
             Export CSV
           </Button>
@@ -217,6 +222,15 @@ export default function StudentsPage() {
           onPageChange={setPage}
         />
       </div>
+
+      <ImportCsvModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        endpoint="/students/import-csv/"
+        invalidateQueries={[["students"]]}
+        helpText={`first_name,last_name,email,admission_number,date_of_birth,gender,classroom_name,address,city,state,country,password
+John,Doe,john@example.com,ADM001,2010-05-15,M,Grade 5 A,123 Main St,New York,NY,USA,Student@1234`}
+      />
     </div>
   );
 }

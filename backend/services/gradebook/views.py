@@ -141,6 +141,108 @@ class GradeViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=False, methods=["get"], url_path="export-csv")
+    def export_csv(self, request):
+        """Export grades for a given exam as CSV."""
+        import csv
+        exam_id = request.query_params.get("exam_id")
+        if not exam_id:
+            return Response({"error": "exam_id query parameter is required."}, status=400)
+
+        user = self.request.user
+        grades = Grade.objects.filter(
+            exam_schedule__exam_id=exam_id,
+            student__school=user.school,
+        ).select_related(
+            "student__user", "exam_schedule__subject", "exam_schedule__exam"
+        ).order_by("student__user__first_name", "exam_schedule__subject__name")
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="grades_exam_{exam_id}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Admission No", "Student Name", "Subject",
+            "Marks Obtained", "Max Marks", "Percentage",
+            "Is Absent", "Remarks",
+        ])
+
+        for g in grades:
+            writer.writerow([
+                g.student.admission_number,
+                g.student.user.full_name,
+                g.exam_schedule.subject.name,
+                g.marks_obtained if g.marks_obtained is not None else "",
+                g.exam_schedule.max_marks,
+                f"{g.percentage:.2f}" if g.percentage is not None else "",
+                "Yes" if g.is_absent else "No",
+                g.remarks or "",
+            ])
+
+        return response
+
+    @action(detail=False, methods=["post"], url_path="import-csv")
+    def import_csv(self, request):
+        """
+        Import grades from CSV data.
+        Expected CSV columns (header row required):
+        admission_number, exam_schedule_id, marks_obtained, is_absent, remarks
+        """
+        import csv
+        import io
+
+        csv_text = request.data.get("csv_data", "")
+        if not csv_text:
+            return Response({"error": "csv_data field is required."}, status=400)
+
+        from .models import ExamSchedule
+
+        reader = csv.DictReader(io.StringIO(csv_text))
+        imported = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                admission_number = row.get("admission_number", "").strip()
+                exam_schedule_id = row.get("exam_schedule_id", "").strip()
+                marks_raw = row.get("marks_obtained", "").strip()
+
+                if not admission_number or not exam_schedule_id:
+                    errors.append(f"Row {row_num}: admission_number and exam_schedule_id are required")
+                    continue
+
+                schedule = ExamSchedule.objects.get(id=exam_schedule_id)
+                student = schedule.exam.school.students.filter(
+                    admission_number=admission_number
+                ).first()
+                if not student:
+                    errors.append(f"Row {row_num}: student with admission '{admission_number}' not found")
+                    continue
+
+                marks_obtained = Decimal(marks_raw) if marks_raw else None
+                is_absent = row.get("is_absent", "").strip().lower() in ("yes", "true", "1")
+
+                grade, created = Grade.objects.update_or_create(
+                    student=student,
+                    exam_schedule=schedule,
+                    defaults={
+                        "marks_obtained": marks_obtained,
+                        "is_absent": is_absent,
+                        "remarks": row.get("remarks", "").strip(),
+                        "graded_by": request.user,
+                    },
+                )
+                imported += 1
+            except ExamSchedule.DoesNotExist:
+                errors.append(f"Row {row_num}: exam_schedule_id '{row.get('exam_schedule_id')}' not found")
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)[:100]}")
+
+        return Response({
+            "imported": imported,
+            "errors": errors[:20],
+        })
+
 
 class AssessmentViewSet(viewsets.ModelViewSet):
     serializer_class = AssessmentSerializer
