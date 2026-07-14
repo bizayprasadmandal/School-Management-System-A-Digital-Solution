@@ -464,6 +464,22 @@ export interface Payment {
   created_at: string;
 }
 
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+
+export interface AuditLogEntry {
+  id: string;
+  user: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  changes: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string;
+  timestamp: string;
+}
+
 // ─── Notification reference types ─────────────────────────────────────────────
 
 /** Reference type for email-verification notifications */

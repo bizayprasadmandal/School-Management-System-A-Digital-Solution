@@ -15,6 +15,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin
+
 from core.throttles import (
     AuthLoginAnonThrottle,
     AuthPasswordResetThrottle,
@@ -25,7 +32,9 @@ from core.throttles import (
 import hashlib
 import logging
 from .models import User, PasswordResetToken, AuditLog, TwoFactorBackupCode
-from .serializers import CustomTokenObtainPairSerializer, UserProfileSerializer
+from .serializers import (
+    CustomTokenObtainPairSerializer, UserProfileSerializer, AuditLogSerializer
+)
 from services.communication.services import send_in_app_notification
 
 logger = logging.getLogger(__name__)
@@ -610,6 +619,25 @@ class RegenerateBackupCodesView(APIView):
             "backup_codes": backup_codes,
             "detail": "New backup codes generated. Previous codes are no longer valid.",
         })
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only audit log — admins can search, filter, and export.
+    """
+    serializer_class = AuditLogSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["action", "resource_type", "user"]
+    search_fields = ["action", "resource_type", "resource_id", "user__full_name", "user__email"]
+    ordering = ["-timestamp"]
+    ordering_fields = ["timestamp", "action"]
+
+    def get_queryset(self):
+        return AuditLog.objects.filter(
+            school=self.request.user.school
+        ).select_related("user")
 
 
 @api_view(["GET"])
