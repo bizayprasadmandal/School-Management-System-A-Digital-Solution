@@ -25,6 +25,7 @@ import {
   ExclamationTriangleIcon,
   VideoCameraIcon,
   PaperAirplaneIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -60,6 +61,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Behavior",       to: "/admin/behavior",     icon: ExclamationTriangleIcon },
   { label: "Conferences",    to: "/admin/conferences",  icon: VideoCameraIcon },
   { label: "Analytics",      to: "/admin/reports",      icon: ChartBarIcon },
+  { label: "Audit Log",       to: "/admin/audit-logs",   icon: ShieldExclamationIcon },
   { label: "Settings",       to: "/admin/settings",     icon: Cog6ToothIcon },
 ];
 

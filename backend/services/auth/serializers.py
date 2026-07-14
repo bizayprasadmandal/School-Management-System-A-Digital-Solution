@@ -1,7 +1,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
-from .models import User, School
+from .models import User, School, AuditLog
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -44,6 +44,20 @@ class SendEmailVerificationSerializer(serializers.Serializer):
 
 class ConfirmEmailVerificationSerializer(serializers.Serializer):
     token = serializers.CharField(required=True, help_text="The verification token sent to your email.")
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True, default=None)
+    user_email = serializers.EmailField(source="user.email", read_only=True, default=None)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id", "school", "user", "user_name", "user_email",
+            "action", "resource_type", "resource_id", "changes",
+            "ip_address", "user_agent", "timestamp",
+        ]
+        read_only_fields = fields
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
