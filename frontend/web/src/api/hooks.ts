@@ -20,6 +20,7 @@ import type {
   Notification,
   FeeInvoice,
   Payment,
+  FeeCategory,
   FeeStructure,
   Scholarship,
   Classroom,
@@ -398,6 +399,66 @@ export function useToggleScholarship() {
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
       api.patch<Scholarship>(`/fees/scholarships/${id}/`, { is_active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scholarships"] }),
+  });
+}
+
+// ─── Fee Categories & Structures ──────────────────────────────────────────────
+
+export function useFeeCategories() {
+  return useQuery({
+    queryKey: ["fee-categories"],
+    queryFn: () => api.get<FeeCategory[]>("/fees/categories/"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateFeeCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<FeeCategory>) => api.post<FeeCategory>("/fees/categories/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-categories"] }),
+  });
+}
+
+export function useUpdateFeeCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<FeeCategory> & { id: number }) =>
+      api.patch<FeeCategory>(`/fees/categories/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-categories"] }),
+  });
+}
+
+export function useDeleteFeeCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/fees/categories/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-categories"] }),
+  });
+}
+
+export function useCreateFeeStructure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<FeeStructure>) => api.post<FeeStructure>("/fees/structures/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-structures"] }),
+  });
+}
+
+export function useUpdateFeeStructure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<FeeStructure> & { id: number }) =>
+      api.patch<FeeStructure>(`/fees/structures/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-structures"] }),
+  });
+}
+
+export function useDeleteFeeStructure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/fees/structures/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fee-structures"] }),
   });
 }
 

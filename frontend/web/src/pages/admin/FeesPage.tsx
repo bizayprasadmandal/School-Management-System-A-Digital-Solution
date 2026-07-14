@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import {
   BanknotesIcon, CheckCircleIcon, ClockIcon,
   ExclamationCircleIcon, ReceiptPercentIcon, DocumentPlusIcon,
-  AcademicCapIcon,
+  AcademicCapIcon, TagIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -19,6 +19,8 @@ import type { Column, BadgeColor } from "../../components/common";
 import PaymentHistoryModal from "../../components/common/PaymentHistoryModal";
 import GenerateInvoicesModal from "../../components/common/GenerateInvoicesModal";
 import ScholarshipsPanel from "../../components/common/ScholarshipsPanel";
+import FeeCategoriesPanel from "../../components/common/FeeCategoriesPanel";
+import FeeStructuresPanel from "../../components/common/FeeStructuresPanel";
 import dayjs from "dayjs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
@@ -113,7 +115,7 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
   );
 }
 
-type FeeTab = "invoices" | "scholarships";
+type FeeTab = "invoices" | "scholarships" | "categories";
 
 export default function FeesPage() {
   const [tab, setTab] = useState<FeeTab>("invoices");
@@ -217,6 +219,7 @@ export default function FeesPage() {
       <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-fit">
         {[
           { key: "invoices" as FeeTab, label: "Invoices", icon: BanknotesIcon },
+          { key: "categories" as FeeTab, label: "Categories", icon: TagIcon },
           { key: "scholarships" as FeeTab, label: "Scholarships", icon: AcademicCapIcon },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -332,6 +335,14 @@ export default function FeesPage() {
             onClose={() => setShowGenerateModal(false)}
           />
         </>
+      )}
+
+      {tab === "categories" && (
+        <div className="space-y-8">
+          <FeeCategoriesPanel />
+          <hr className="border-slate-200 dark:border-slate-700" />
+          <FeeStructuresPanel />
+        </div>
       )}
 
       {tab === "scholarships" && <ScholarshipsPanel />}

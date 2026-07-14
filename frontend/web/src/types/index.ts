@@ -385,6 +385,15 @@ export interface Notification {
   read_at?: string;
 }
 
+export interface FeeCategory {
+  id: number;
+  name: string;
+  description: string;
+  is_mandatory: boolean;
+  is_recurring: boolean;
+  recurrence: "monthly" | "quarterly" | "annual" | "one_time";
+}
+
 export interface FeeStructure {
   id: number;
   grade: number;
