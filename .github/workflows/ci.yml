@@ -42,6 +42,9 @@ jobs:
         working-directory: frontend/web
       - run: npm run lint
         working-directory: frontend/web
+      - name: Run frontend tests
+        working-directory: frontend/web
+        run: npx react-scripts test --watchAll=false --passWithNoTests
 
   docker-build:
     needs: [backend-test, frontend-test]

@@ -75,6 +75,7 @@ MIDDLEWARE = [
     "core.middleware.request_logging.RequestLoggingMiddleware",
     "core.middleware.tenant.TenantMiddleware",
     "core.middleware.email_verification.EmailVerificationMiddleware",
+    "core.middleware.session_timeout.SessionTimeoutMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
