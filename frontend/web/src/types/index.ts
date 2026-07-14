@@ -385,6 +385,20 @@ export interface Notification {
   read_at?: string;
 }
 
+export interface FeeStructure {
+  id: number;
+  grade: number;
+  grade_name: string;
+  fee_category: number;
+  category_name: string;
+  academic_year: number;
+  academic_year_name: string;
+  amount: number;
+  due_day: number;
+  late_fee_per_day: number;
+  is_active: boolean;
+}
+
 // ─── Fees ────────────────────────────────────────────────────────────────────
 
 export interface FeeInvoice {

@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import {
   BanknotesIcon, CheckCircleIcon, ClockIcon,
-  ExclamationCircleIcon, ReceiptPercentIcon,
+  ExclamationCircleIcon, ReceiptPercentIcon, DocumentPlusIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -16,6 +16,7 @@ import {
 } from "../../components/common";
 import type { Column, BadgeColor } from "../../components/common";
 import PaymentHistoryModal from "../../components/common/PaymentHistoryModal";
+import GenerateInvoicesModal from "../../components/common/GenerateInvoicesModal";
 import dayjs from "dayjs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
@@ -115,6 +116,7 @@ export default function FeesPage() {
   const [search, setSearch] = useState("");
   const [payingInvoice, setPayingInvoice] = useState<FeeInvoice | null>(null);
   const [historyInvoice, setHistoryInvoice] = useState<FeeInvoice | null>(null);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fees", "all-invoices", statusFilter, search],
@@ -211,6 +213,12 @@ export default function FeesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Fee Management</h1>
           <p className="text-sm text-slate-500 mt-0.5">Track invoices, payments and outstanding balances</p>
         </div>
+        <Button
+          onClick={() => setShowGenerateModal(true)}
+          leftIcon={<DocumentPlusIcon className="h-4 w-4" />}
+        >
+          Generate Invoices
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -289,6 +297,11 @@ export default function FeesPage() {
           onClose={() => setHistoryInvoice(null)}
         />
       )}
+
+      <GenerateInvoicesModal
+        open={showGenerateModal}
+        onClose={() => setShowGenerateModal(false)}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import type {
   Notification,
   FeeInvoice,
   Payment,
+  FeeStructure,
   Classroom,
   GradeLevel,
   Subject,
@@ -352,6 +353,23 @@ export function useRecordPayment() {
   return useMutation({
     mutationFn: (data: { invoice_id: string; amount: number; payment_method: string }) =>
       api.post<Payment>("/fees/payments/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fees"] }),
+  });
+}
+
+export function useFeeStructures() {
+  return useQuery({
+    queryKey: ["fee-structures"],
+    queryFn: () => api.get<PaginatedResponse<FeeStructure>>("/fees/structures/"),
+    staleTime: 5 * 60 * 1000,               // 5 min — structures change infrequently
+  });
+}
+
+export function useBulkGenerateInvoices() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { fee_structure_id: number; academic_year_id: number }) =>
+      api.post<{ detail: string; task_id: string }>("/fees/invoices/bulk-generate/", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fees"] }),
   });
 }
