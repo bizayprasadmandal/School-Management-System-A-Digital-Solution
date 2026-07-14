@@ -100,6 +100,19 @@ export interface Subject {
   credit_hours: number;
 }
 
+export interface TeacherAssignment {
+  id: number;
+  teacher: number;
+  teacher_name: string;
+  subject: number;
+  subject_name: string;
+  classroom: number;
+  classroom_name: string;
+  academic_year: number;
+  academic_year_name: string;
+  is_primary: boolean;
+}
+
 // ─── Students ────────────────────────────────────────────────────────────────
 
 export type Gender = "M" | "F" | "O";
@@ -265,6 +278,38 @@ export interface ReportCard {
   pdf_url?: string;
   pdf_file?: string;
   published_at?: string;
+}
+
+// ─── Assessments (Homework / Quizzes / Projects) ───────────────────────────────
+
+export type AssessmentType = "homework" | "quiz" | "project" | "classwork" | "lab";
+
+export interface Assessment {
+  id: number;
+  assignment: number;
+  subject_name: string;
+  classroom_name: string;
+  title: string;
+  assessment_type: AssessmentType;
+  due_date: string;
+  max_marks: number;
+  description: string;
+  attachment?: string;
+  created_at: string;
+}
+
+export interface AssessmentSubmission {
+  id: number;
+  assessment: number;
+  assessment_title: string;
+  student: string;
+  student_name: string;
+  marks_obtained?: number;
+  percentage?: number;
+  submitted_at?: string;
+  file?: string;
+  remarks: string;
+  is_late: boolean;
 }
 
 // ─── Timetable ────────────────────────────────────────────────────────────────

@@ -47,12 +47,13 @@ const SettingsPage        = React.lazy(() => import("./pages/admin/SettingsPage"
 const ReportsPage         = React.lazy(() => import("./pages/admin/ReportsPage"));
 
 // Teacher pages
-const TeacherDashboard    = React.lazy(() => import("./pages/teacher/Dashboard"));
-const TeacherAttendance   = React.lazy(() => import("./pages/teacher/AttendancePage"));
-const TeacherGradebook    = React.lazy(() => import("./pages/teacher/GradebookPage"));
-const TeacherTimetable    = React.lazy(() => import("./pages/teacher/TimetablePage"));
-const TeacherMessages     = React.lazy(() => import("./pages/teacher/MessagesPage"));
-const TeacherLessonPlans  = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
+const TeacherDashboard      = React.lazy(() => import("./pages/teacher/Dashboard"));
+const TeacherAttendance     = React.lazy(() => import("./pages/teacher/AttendancePage"));
+const TeacherGradebook      = React.lazy(() => import("./pages/teacher/GradebookPage"));
+const TeacherAssignments    = React.lazy(() => import("./pages/teacher/AssignmentsPage"));
+const TeacherTimetable      = React.lazy(() => import("./pages/teacher/TimetablePage"));
+const TeacherMessages       = React.lazy(() => import("./pages/teacher/MessagesPage"));
+const TeacherLessonPlans    = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
 
 // Shared pages
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
@@ -61,12 +62,13 @@ const Setup2FAPage            = React.lazy(() => import("./pages/shared/Setup2FA
 import { ErrorRoutes } from "./config/errorRoutes";
 
 // Student pages
-const StudentDashboard    = React.lazy(() => import("./pages/student/Dashboard"));
-const StudentAttendance   = React.lazy(() => import("./pages/student/AttendancePage"));
-const StudentGrades       = React.lazy(() => import("./pages/student/GradesPage"));
-const StudentTimetable    = React.lazy(() => import("./pages/student/TimetablePage"));
-const StudentMessages     = React.lazy(() => import("./pages/student/MessagesPage"));
-const StudentFees         = React.lazy(() => import("./pages/student/FeesPage"));
+const StudentDashboard      = React.lazy(() => import("./pages/student/Dashboard"));
+const StudentAttendance     = React.lazy(() => import("./pages/student/AttendancePage"));
+const StudentGrades         = React.lazy(() => import("./pages/student/GradesPage"));
+const StudentAssignments    = React.lazy(() => import("./pages/student/AssignmentsPage"));
+const StudentTimetable      = React.lazy(() => import("./pages/student/TimetablePage"));
+const StudentMessages       = React.lazy(() => import("./pages/student/MessagesPage"));
+const StudentFees           = React.lazy(() => import("./pages/student/FeesPage"));
 
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
@@ -166,6 +168,7 @@ export default function App() {
                 <Route path="timetable" element={<TimetablePage />} />
                 <Route path="attendance" element={<AttendancePage />} />
                 <Route path="exams" element={<ExamsPage />} />
+                <Route path="assignments" element={<TeacherAssignments />} />
                 <Route path="report-cards" element={<ReportCardsPage />} />
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="fees" element={<FeesPage />} />
@@ -196,6 +199,7 @@ export default function App() {
                 <Route index element={<StudentDashboard />} />
                 <Route path="attendance" element={<StudentAttendance />} />
                 <Route path="grades" element={<StudentGrades />} />
+                <Route path="assignments" element={<StudentAssignments />} />
                 <Route path="timetable" element={<StudentTimetable />} />
                 <Route path="messages" element={<StudentMessages />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />

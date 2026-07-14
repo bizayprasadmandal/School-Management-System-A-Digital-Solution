@@ -84,6 +84,26 @@ export default function Verify2FALoginPage() {
     }
   }, [userId, navigate]);
 
+  // ── Complete login after successful 2FA verification ────────────────────
+
+  const _completeLogin = useCallback(
+    (response: { access: string; refresh: string; user: User }) => {
+      setAuth(response.user, {
+        access: response.access,
+        refresh: response.refresh,
+      });
+
+      queryClient.invalidateQueries({ queryKey: QK.communication.notifications });
+      queryClient.invalidateQueries({ queryKey: QK.communication.unreadCount });
+
+      const route = ROLE_ROUTES[response.user.role] ?? "/login";
+      trackEvent("2fa_login_completed", { role: response.user.role });
+      toast.success(`Welcome back, ${response.user.first_name}!`);
+      navigate(route, { replace: true });
+    },
+    [setAuth, navigate, queryClient]
+  );
+
   // ── Verify TOTP code ─────────────────────────────────────────────────────
 
   const handleTOTPVerify = useCallback(async () => {
@@ -172,26 +192,6 @@ export default function Verify2FALoginPage() {
       setIsSubmitting(false);
     }
   }, [backupCode, userId, _completeLogin]);
-
-  // ── Complete login after successful 2FA verification ────────────────────
-
-  const _completeLogin = useCallback(
-    (response: { access: string; refresh: string; user: User }) => {
-      setAuth(response.user, {
-        access: response.access,
-        refresh: response.refresh,
-      });
-
-      queryClient.invalidateQueries({ queryKey: QK.communication.notifications });
-      queryClient.invalidateQueries({ queryKey: QK.communication.unreadCount });
-
-      const route = ROLE_ROUTES[response.user.role] ?? "/login";
-      trackEvent("2fa_login_completed", { role: response.user.role });
-      toast.success(`Welcome back, ${response.user.first_name}!`);
-      navigate(route, { replace: true });
-    },
-    [setAuth, navigate, queryClient]
-  );
 
   // ── TOTP code input handlers ────────────────────────────────────────────
 

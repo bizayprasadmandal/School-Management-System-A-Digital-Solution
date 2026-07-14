@@ -7,7 +7,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
   CalendarDaysIcon, ChatBubbleLeftRightIcon, BanknotesIcon,
-  AcademicCapIcon, Bars3Icon, XMarkIcon,
+  AcademicCapIcon, Bars3Icon, XMarkIcon, DocumentTextIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
@@ -21,12 +21,13 @@ import { useDarkMode } from "../../hooks/useDarkMode";
 import type { User } from "../../types";
 
 const STUDENT_NAV = [
-  { label: "Dashboard",  to: "/student",            icon: HomeIcon },
-  { label: "Attendance", to: "/student/attendance", icon: ClipboardDocumentCheckIcon },
-  { label: "My Grades",  to: "/student/grades",     icon: BookOpenIcon },
-  { label: "Timetable",  to: "/student/timetable",  icon: CalendarDaysIcon },
-  { label: "Messages",   to: "/student/messages",   icon: ChatBubbleLeftRightIcon },
-  { label: "Fees",       to: "/student/fees",        icon: BanknotesIcon },
+  { label: "Dashboard",  to: "/student",               icon: HomeIcon },
+  { label: "Attendance", to: "/student/attendance",    icon: ClipboardDocumentCheckIcon },
+  { label: "My Grades",  to: "/student/grades",        icon: BookOpenIcon },
+  { label: "Assignments",to: "/student/assignments",   icon: DocumentTextIcon },
+  { label: "Timetable",  to: "/student/timetable",     icon: CalendarDaysIcon },
+  { label: "Messages",   to: "/student/messages",      icon: ChatBubbleLeftRightIcon },
+  { label: "Fees",       to: "/student/fees",           icon: BanknotesIcon },
 ];
 
 interface NavItem {

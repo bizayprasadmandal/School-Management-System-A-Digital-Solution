@@ -23,11 +23,14 @@ import type {
   Classroom,
   GradeLevel,
   Subject,
+  TeacherAssignment,
   TimetableSlot,
   SchoolEvent,
   Exam,
   User,
   AcademicYear,
+  Assessment,
+  AssessmentSubmission,
 } from "../types";
 import { VERIFICATION_REF } from "../types";
 
@@ -381,6 +384,74 @@ export function useAcademicYears() {
   });
 }
 
+// ─── Assessments ─────────────────────────────────────────────────────────────
+
+export function useStudentAssessments(studentId?: string) {
+  return useQuery({
+    queryKey: ["assessments", "student", studentId],
+    queryFn: () => api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/"),
+    enabled: !!studentId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useStudentSubmissions(studentId?: string) {
+  return useQuery({
+    queryKey: ["submissions", "student", studentId],
+    queryFn: () => api.get<PaginatedResponse<AssessmentSubmission>>("/gradebook/submissions/"),
+    enabled: !!studentId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useTeacherAssessments() {
+  return useQuery({
+    queryKey: ["assessments", "teacher"],
+    queryFn: () => api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/"),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useCreateAssessment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: FormData) => api.upload<Assessment>("/gradebook/assessments/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assessments"] }),
+  });
+}
+
+export function useSubmitAssessment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: FormData) => api.upload<AssessmentSubmission>("/gradebook/submissions/", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["submissions"] });
+      qc.invalidateQueries({ queryKey: ["assessments"] });
+    },
+  });
+}
+
+export function useGradeSubmission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, marks_obtained, remarks }: { id: number; marks_obtained: number; remarks?: string }) =>
+      api.patch<AssessmentSubmission>(`/gradebook/submissions/${id}/`, { marks_obtained, remarks }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["submissions"] }),
+  });
+}
+
+export function useAssignmentSubmissions(assessmentId?: number) {
+  return useQuery({
+    queryKey: ["submissions", "assessment", assessmentId],
+    queryFn: () =>
+      api.get<PaginatedResponse<AssessmentSubmission>>("/gradebook/submissions/", {
+        assessment: assessmentId,
+      }),
+    enabled: !!assessmentId,
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useCurrentAcademicYear() {
   return useQuery({
     queryKey: QK.academicYears.current,
@@ -389,6 +460,14 @@ export function useCurrentAcademicYear() {
         .get<PaginatedResponse<AcademicYear>>("/students/academic-years/", { is_current: true })
         .then((r) => r.results[0] ?? null),
     staleTime: 30 * 60 * 1000,               // 30 min — changes once a year
+  });
+}
+
+export function useTeacherAssignmentList() {
+  return useQuery({
+    queryKey: ["teacher-assignments", "my"],
+    queryFn: () => api.get<TeacherAssignment[]>("/academics/assignments/my-assignments/"),
+    staleTime: 10 * 60 * 1000,
   });
 }
 

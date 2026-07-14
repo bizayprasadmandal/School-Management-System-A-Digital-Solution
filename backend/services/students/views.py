@@ -218,6 +218,20 @@ class StudentViewSet(viewsets.ModelViewSet):
             return Response({"detail": f"Student {student.admission_number} restored."})
         return Response({"detail": "Student is already active."}, status=400)
 
+    @extend_schema(summary="Get current user's student profile")
+    @action(detail=False, methods=["get"], url_path="me")
+    def me(self, request):
+        """Return the student profile linked to the current authenticated user."""
+        try:
+            student = Student.objects.get(user=request.user, school=request.user.school)
+            serializer = StudentDetailSerializer(student, context={"request": request})
+            return Response(serializer.data)
+        except Student.DoesNotExist:
+            return Response(
+                {"detail": "No student profile found for this user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
     @extend_schema(summary="Import students from CSV")
     @action(detail=False, methods=["post"], url_path="import-csv")
     def import_csv(self, request):

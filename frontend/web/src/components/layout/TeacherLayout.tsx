@@ -20,12 +20,13 @@ import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import { useDarkMode } from "../../hooks/useDarkMode";
 
 const NAV = [
-  { label: "Dashboard",    to: "/teacher",              icon: HomeIcon },
-  { label: "Attendance",   to: "/teacher/attendance",   icon: ClipboardDocumentCheckIcon },
-  { label: "Gradebook",    to: "/teacher/gradebook",    icon: BookOpenIcon },
-  { label: "Timetable",    to: "/teacher/timetable",    icon: CalendarDaysIcon },
-  { label: "Messages",     to: "/teacher/messages",     icon: ChatBubbleLeftRightIcon },
-  { label: "Lesson Plans", to: "/teacher/lesson-plans", icon: DocumentTextIcon },
+  { label: "Dashboard",    to: "/teacher",               icon: HomeIcon },
+  { label: "Attendance",   to: "/teacher/attendance",    icon: ClipboardDocumentCheckIcon },
+  { label: "Gradebook",    to: "/teacher/gradebook",     icon: BookOpenIcon },
+  { label: "Assignments",  to: "/teacher/assignments",   icon: DocumentTextIcon },
+  { label: "Timetable",    to: "/teacher/timetable",     icon: CalendarDaysIcon },
+  { label: "Messages",     to: "/teacher/messages",      icon: ChatBubbleLeftRightIcon },
+  { label: "Lesson Plans", to: "/teacher/lesson-plans",  icon: DocumentTextIcon },
 ];
 
 export default function TeacherLayout() {
