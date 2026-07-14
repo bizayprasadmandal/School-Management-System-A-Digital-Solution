@@ -5,6 +5,7 @@ Gradebook Service — Views for exams, grades, assessments, report cards
 import io
 import logging
 from decimal import Decimal
+from uuid import UUID
 from django.db import transaction
 from django.http import FileResponse
 from django.utils import timezone
@@ -190,7 +191,11 @@ class ReportCardViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(student__guardians__user=user, status__in=["published", "sent"])
         student_id = self.request.query_params.get("student")
         if student_id:
-            qs = qs.filter(student_id=student_id)
+            try:
+                UUID(student_id, version=4)
+                qs = qs.filter(student_id=student_id)
+            except (ValueError, AttributeError):
+                pass  # silently ignore invalid UUID strings
         return qs.select_related("student__user", "exam")
 
     @action(detail=True, methods=["get"], url_path="download-pdf")

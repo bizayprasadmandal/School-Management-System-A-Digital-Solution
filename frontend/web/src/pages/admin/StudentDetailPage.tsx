@@ -4,10 +4,11 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeftIcon, PencilIcon } from "@heroicons/react/24/outline";
-import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards } from "../../api/hooks";
-import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard } from "../../components/common";
+import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent } from "../../api/hooks";
+import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard, Input, Select } from "../../components/common";
 import { fmt, currency, percent, attendanceColor, FEE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
+import toast from "react-hot-toast";
 
 type Tab = "overview" | "attendance" | "grades" | "fees";
 
@@ -15,11 +16,16 @@ export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const { data: student, isLoading } = useStudent(id!);
-  const { data: attendance } = useStudentAttendanceSummary(id!);
-  const { data: invoicesData } = useStudentInvoices(id!);
-  const { data: reportCardsData } = useReportCards(id!);
-  useTitle(student?.full_name ?? "Student Profile");
+  const isNew = id === "new";
+  const { data: student, isLoading } = useStudent(isNew ? "" : id!);
+  const { data: attendance } = useStudentAttendanceSummary(isNew ? "" : id!);
+  const { data: invoicesData } = useStudentInvoices(isNew ? "" : id!);
+  const { data: reportCardsData } = useReportCards(isNew ? "" : id!);
+  useTitle(isNew ? "Add Student" : (student?.full_name ?? "Student Profile"));
+
+  if (isNew) {
+    return <CreateStudentForm onSaved={(newId) => navigate(`/admin/students/${newId}`, { replace: true })} />;
+  }
 
   if (isLoading) return <SkeletonCard className="max-w-2xl mx-auto mt-6" />;
   if (!student) return <div className="text-center py-32 text-slate-400"><p className="text-lg font-semibold">Student not found</p><Link to="/admin/students" className="text-indigo-600 text-sm mt-2 inline-block">Back to students</Link></div>;
@@ -72,6 +78,84 @@ export default function StudentDetailPage() {
       {activeTab === "fees" && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none"><div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700"><h2 className="text-base font-semibold">Invoices</h2>{totalFeesDue>0&&<Badge color="red" dot>Due: {currency(totalFeesDue)}</Badge>}</div><DataTable columns={[{key:"invoice_number",header:"Invoice #",render:r=><span className="font-mono text-xs">{r.invoice_number}</span>},{key:"due_date",header:"Due",render:r=>fmt.date(r.due_date)},{key:"total_amount",header:"Total",render:r=>currency(r.total_amount)},{key:"paid_amount",header:"Paid",render:r=><span className="text-green-600">{currency(r.paid_amount)}</span>},{key:"outstanding_amount",header:"Outstanding",render:r=><span className={Number(r.outstanding_amount)>0?"text-red-600 font-semibold":"text-slate-400"}>{currency(r.outstanding_amount)}</span>},{key:"status",header:"Status",render:r=>{const s=FEE_STATUS[r.status];return<Badge color={s?.color??"slate"}>{s?.label??r.status}</Badge>;}}]} data={invoices} rowKey={r=>r.id} emptyMessage="No invoices" /></div>
       )}
+    </div>
+  );
+}
+
+// ─── Create Student Form ───────────────────────────────────────────────────────
+
+function CreateStudentForm({ onSaved }: { onSaved: (id: string) => void }) {
+  const navigate = useNavigate();
+  const createStudent = useCreateStudent();
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    date_of_birth: "",
+    gender: "",
+    admission_number: "",
+    address: "",
+    city: "",
+    nationality: "",
+    phone: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([key, val]) => {
+        if (val) fd.append(key, val);
+      });
+      const result = await createStudent.mutateAsync(fd);
+      toast.success(`Student ${result.full_name} created!`);
+      onSaved(result.id);
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error?.message ?? "Failed to create student.");
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-5">
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1">
+          <ArrowLeftIcon className="h-4 w-4" /> Back
+        </button>
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h1 className="text-xl font-bold text-slate-900 mb-6">Add New Student</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="First Name" name="first_name" value={form.first_name} onChange={handleChange} required />
+            <Input label="Last Name" name="last_name" value={form.last_name} onChange={handleChange} required />
+          </div>
+          <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Date of Birth" name="date_of_birth" type="date" value={form.date_of_birth} onChange={handleChange} required />
+            <Select label="Gender" name="gender" value={form.gender} onChange={(e) => handleChange({ target: { name: "gender", value: e.target.value } })} options={[{value:"M",label:"Male"},{value:"F",label:"Female"},{value:"O",label:"Other"}]} placeholder="Select gender" />
+          </div>
+          <Input label="Admission Number" name="admission_number" value={form.admission_number} onChange={handleChange} required />
+          <Input label="Phone" name="phone" value={form.phone} onChange={handleChange} />
+          <Input label="Address" name="address" value={form.address} onChange={handleChange} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="City" name="city" value={form.city} onChange={handleChange} />
+            <Input label="Nationality" name="nationality" value={form.nationality} onChange={handleChange} />
+          </div>
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button type="submit" loading={createStudent.isPending} disabled={createStudent.isPending}>
+              {createStudent.isPending ? "Creating…" : "Create Student"}
+            </Button>
+            <Button variant="secondary" type="button" onClick={() => navigate("/admin/students")}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

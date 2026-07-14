@@ -29,6 +29,7 @@ flower==2.0.1
 
 # Security
 cryptography==42.0.5
+pyotp==2.9.0
 django-ratelimit==4.1.0
 django-axes==6.4.0
 
@@ -70,6 +71,7 @@ isort==5.13.2
 django-extensions==3.2.3
 
 # WSGI/ASGI servers
+daphne==4.0.0
 gunicorn==21.2.0
 uvicorn==0.29.0
 uvicorn[standard]==0.29.0
