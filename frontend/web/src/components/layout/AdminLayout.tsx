@@ -29,6 +29,7 @@ import {
   BriefcaseIcon,
   TruckIcon,
   CubeIcon,
+  BuildingOffice2Icon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -67,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "HR & Payroll",      to: "/admin/hr",            icon: BriefcaseIcon },
   { label: "Transportation",    to: "/admin/transport",      icon: TruckIcon },
   { label: "Inventory & Store",  to: "/admin/inventory",      icon: CubeIcon },
+  { label: "Hostel",              to: "/admin/hostel",         icon: BuildingOffice2Icon },
   { label: "Audit Log",         to: "/admin/audit-logs",     icon: ShieldExclamationIcon },
   { label: "Settings",       to: "/admin/settings",     icon: Cog6ToothIcon },
 ];

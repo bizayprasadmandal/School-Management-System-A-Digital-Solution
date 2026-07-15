@@ -54,6 +54,7 @@ const AuditLogsPage       = React.lazy(() => import("./pages/admin/AuditLogsPage
 const HRPage               = React.lazy(() => import("./pages/admin/HRPage"));
 const TransportationPage = React.lazy(() => import("./pages/admin/TransportationPage"));
 const InventoryPage = React.lazy(() => import("./pages/admin/InventoryPage"));
+const HostelPage = React.lazy(() => import("./pages/admin/HostelPage"));
 
 // Teacher pages
 const TeacherDashboard      = React.lazy(() => import("./pages/teacher/Dashboard"));
@@ -195,6 +196,7 @@ export default function App() {
                 <Route path="hr" element={<HRPage />} />
                 <Route path="transport" element={<TransportationPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
+                <Route path="hostel" element={<HostelPage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
