@@ -30,6 +30,11 @@ import {
   TruckIcon,
   CubeIcon,
   BuildingOffice2Icon,
+  TrophyIcon,
+  HeartIcon,
+  GlobeAltIcon,
+  DocumentTextIcon,
+  // Cafeteria uses existing BookOpenIcon
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -69,6 +74,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Transportation",    to: "/admin/transport",      icon: TruckIcon },
   { label: "Inventory & Store",  to: "/admin/inventory",      icon: CubeIcon },
   { label: "Hostel",              to: "/admin/hostel",         icon: BuildingOffice2Icon },
+  { label: "Sports",               to: "/admin/sports",          icon: TrophyIcon },
+  { label: "Health",               to: "/admin/health",          icon: HeartIcon },
+  { label: "Alumni",               to: "/admin/alumni",          icon: GlobeAltIcon },
+  { label: "Cafeteria",            to: "/admin/cafeteria",       icon: BookOpenIcon },
+  { label: "Admissions",           to: "/admin/admissions",      icon: DocumentTextIcon },
   { label: "Audit Log",         to: "/admin/audit-logs",     icon: ShieldExclamationIcon },
   { label: "Settings",       to: "/admin/settings",     icon: Cog6ToothIcon },
 ];

@@ -37,6 +37,11 @@ urlpatterns = [
     path(API_V1 + "transport/", include("services.transportation.urls", namespace="transport_v1")),
     path(API_V1 + "inventory/", include("services.inventory.urls", namespace="inventory_v1")),
     path(API_V1 + "hostel/", include("services.hostel.urls", namespace="hostel_v1")),
+    path(API_V1 + "sports/", include("services.sports.urls", namespace="sports_v1")),
+    path(API_V1 + "health/", include("services.health_clinic.urls", namespace="health_v1")),
+    path(API_V1 + "alumni/", include("services.alumni.urls", namespace="alumni_v1")),
+    path(API_V1 + "cafeteria/", include("services.cafeteria.urls", namespace="cafeteria_v1")),
+    path(API_V1 + "admissions/", include("services.admissions.urls", namespace="admissions_v1")),
 
     # ── GraphQL ──────────────────────────────────────────────────────────────
     path("graphql/", csrf_exempt(JWTAuthenticatedGraphQLView.as_view(graphiql=settings.DEBUG))),
