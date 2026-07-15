@@ -44,6 +44,7 @@ const ReportCardsPage     = React.lazy(() => import("./pages/admin/ReportCardsPa
 const AnnouncementsPage   = React.lazy(() => import("./pages/admin/AnnouncementsPage"));
 const FeesPage            = React.lazy(() => import("./pages/admin/FeesPage"));
 const SettingsPage        = React.lazy(() => import("./pages/admin/SettingsPage"));
+const ZoomIntegrationPage = React.lazy(() => import("./pages/admin/ZoomIntegrationPage"));
 const ReportsPage         = React.lazy(() => import("./pages/admin/ReportsPage"));
 const EventsCalendarPage  = React.lazy(() => import("./pages/admin/EventsCalendarPage"));
 const BehaviorPage        = React.lazy(() => import("./pages/admin/BehaviorPage"));
@@ -85,6 +86,7 @@ const StudentAssignments    = React.lazy(() => import("./pages/student/Assignmen
 const StudentTimetable      = React.lazy(() => import("./pages/student/TimetablePage"));
 const StudentMessages       = React.lazy(() => import("./pages/student/MessagesPage"));
 const StudentFees           = React.lazy(() => import("./pages/student/FeesPage"));
+const StudentConferences    = React.lazy(() => import("./pages/student/ConferencesPage"));
 
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
@@ -208,6 +210,7 @@ export default function App() {
                 <Route path="cafeteria" element={<CafeteriaPage />} />
                 <Route path="admissions" element={<AdmissionsPage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
+                <Route path="zoom-integration" element={<ZoomIntegrationPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
@@ -239,6 +242,7 @@ export default function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="fees" element={<StudentFees />} />
+                <Route path="conferences" element={<StudentConferences />} />
               </Route>
             </Route>
 

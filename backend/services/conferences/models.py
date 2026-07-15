@@ -14,7 +14,16 @@ class ConferenceSlot(models.Model):
     is_booked = models.BooleanField(default=False)
     booked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="booked_slots")
     notes = models.TextField(blank=True)
+
+    # Zoom meeting integration
+    zoom_meeting_id = models.CharField(max_length=64, blank=True, default="", help_text="Zoom meeting ID")
+    zoom_join_url = models.URLField(blank=True, default="", help_text="Zoom join link for participants")
+    zoom_start_url = models.URLField(blank=True, default="", help_text="Zoom start link for host")
+    zoom_password = models.CharField(max_length=32, blank=True, default="", help_text="Zoom meeting password")
+    is_zoom_created = models.BooleanField(default=False, help_text="Whether a Zoom meeting has been created for this slot")
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "conference_slots"

@@ -1,11 +1,12 @@
 /**
  * Admin Settings Page — school profile, academic year, user management
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { Button, Input, Select, Badge } from "../../components/common";
 import { useTitle } from "../../hooks";
@@ -24,6 +25,64 @@ const schoolSchema = z.object({
 });
 
 type SchoolForm = z.infer<typeof schoolSchema>;
+
+// ─── Integrations Tab ──────────────────────────────────────────────────────────
+
+function IntegrationsTab() {
+  const navigate = useNavigate();
+
+  // Dynamically check Zoom connection status
+  const { data: zoomStatus } = useQuery<{ status: string; detail: string }>({
+    queryKey: ["zoom-connection-status"],
+    queryFn: () => api.get("/conferences/zoom/connection/"),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const zoomConnected = zoomStatus?.status === "connected";
+
+  const integrations = [
+    { name: "Google Workspace", status: "connected" as const, color: "green" as const, description: "Email & calendar sync" },
+    { name: "Microsoft 365", status: "disconnected" as const, color: "slate" as const, description: "Office integration" },
+    {
+      name: "Zoom",
+      status: zoomConnected ? ("connected" as const) : ("disconnected" as const),
+      color: zoomConnected ? ("green" as const) : ("slate" as const),
+      description: "Video conferencing (Server-to-Server OAuth)",
+      configPath: "/admin/zoom-integration",
+    },
+    { name: "Stripe", status: "disconnected" as const, color: "slate" as const, description: "Payment processing" },
+    { name: "Twilio", status: "disconnected" as const, color: "slate" as const, description: "SMS notifications" },
+    { name: "Firebase", status: "disconnected" as const, color: "slate" as const, description: "Push notifications" },
+  ];
+
+  return (
+    <div className="p-5 max-w-xl space-y-4">
+      <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">External Integrations</h2>
+      {integrations.map(({ name, status, color, description, configPath }) => (
+        <div key={name} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
+              {name[0]}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{description}</p>
+              <Badge color={color} dot>{status}</Badge>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => configPath && navigate(configPath)}
+          >
+            {configPath ? "Configure" : status === "connected" ? "Configure" : "Connect"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Los_Angeles","America/Toronto","Europe/London","Europe/Paris","Asia/Kolkata","Asia/Dhaka","Asia/Kathmandu","Asia/Dubai","Africa/Nairobi","Australia/Sydney"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -273,25 +332,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "integrations" && (
-          <div className="p-5 max-w-xl space-y-4">
-            <h2 className="text-base font-semibold text-slate-800">External Integrations</h2>
-            {[
-              { name: "Google Workspace", status: "connected", color: "green" as const },
-              { name: "Microsoft 365", status: "disconnected", color: "slate" as const },
-              { name: "Zoom", status: "connected", color: "green" as const },
-              { name: "Stripe Payments", status: "connected", color: "green" as const },
-              { name: "Twilio SMS", status: "disconnected", color: "slate" as const },
-              { name: "Firebase Push", status: "connected", color: "green" as const },
-            ].map(({ name, status, color }) => (
-              <div key={name} className="flex items-center justify-between p-4 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{name[0]}</div>
-                  <div><p className="text-sm font-semibold text-slate-800">{name}</p><Badge color={color} dot>{status}</Badge></div>
-                </div>
-                <Button variant="secondary" size="sm">{status === "connected" ? "Configure" : "Connect"}</Button>
-              </div>
-            ))}
-          </div>
+          <IntegrationsTab />
         )}
       </div>
     </div>

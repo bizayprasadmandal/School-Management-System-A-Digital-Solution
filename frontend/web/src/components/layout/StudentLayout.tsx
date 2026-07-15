@@ -27,6 +27,7 @@ const STUDENT_NAV = [
   { label: "My Grades",  to: "/student/grades",        icon: BookOpenIcon },
   { label: "Assignments",to: "/student/assignments",   icon: DocumentTextIcon },
   { label: "Timetable",  to: "/student/timetable",     icon: CalendarDaysIcon },
+  { label: "Conferences",to: "/student/conferences",   icon: VideoCameraIcon },
   { label: "Messages",   to: "/student/messages",      icon: ChatBubbleLeftRightIcon },
   { label: "Fees",       to: "/student/fees",           icon: BanknotesIcon },
 ];

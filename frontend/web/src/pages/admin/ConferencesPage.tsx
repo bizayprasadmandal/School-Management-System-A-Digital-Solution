@@ -1,4 +1,5 @@
-/** Conference Scheduler — Admin view for managing parent-teacher conference slots */
+/** Conference Scheduler — Admin view for managing parent-teacher conference slots
+ *  with Zoom meeting integration. */
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,9 +7,10 @@ import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 import {
   PlusIcon, CalendarDaysIcon, PencilIcon, TrashIcon, XCircleIcon,
+  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Modal, EmptyState } from "../../components/common";
+import { Button, Modal, EmptyState, Badge } from "../../components/common";
 
 interface ConferenceSlot {
   id: string;
@@ -21,6 +23,25 @@ interface ConferenceSlot {
   end_time: string;
   is_booked: boolean;
   notes: string;
+  // Zoom fields (populated after migration)
+  zoom_meeting_id?: string;
+  zoom_join_url?: string;
+  zoom_start_url?: string;
+  zoom_password?: string;
+  is_zoom_created?: boolean;
+}
+
+interface ZoomMeetingResponse {
+  detail: string;
+  meeting?: {
+    id: string;
+    topic: string;
+    join_url: string;
+    start_url: string;
+    password: string;
+    duration: number;
+    start_time: string;
+  };
 }
 
 function SlotFormModal({ open, onClose, slot, onSaved }: {
@@ -136,6 +157,28 @@ export default function ConferencesPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["conference-slots"] }); toast.success("Booking cancelled"); },
   });
 
+  // ─── Zoom Meeting Mutations ──────────────────────────────────────────────
+
+  const createZoomMut = useMutation({
+    mutationFn: (slotId: string) =>
+      api.post<ZoomMeetingResponse>(`/conferences/conference-slots/${slotId}/create-zoom/`),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["conference-slots"] });
+      toast.success(data.detail || "Zoom meeting created!");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to create Zoom meeting"),
+  });
+
+  const deleteZoomMut = useMutation({
+    mutationFn: (slotId: string) =>
+      api.post<{ detail: string }>(`/conferences/conference-slots/${slotId}/delete-zoom/`),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["conference-slots"] });
+      toast.success(data.detail || "Zoom meeting removed");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to delete Zoom meeting"),
+  });
+
   const booked = slots.filter(s => s.is_booked);
   const available = slots.filter(s => !s.is_booked);
 
@@ -169,44 +212,108 @@ export default function ConferencesPage() {
       ) : (
         <div className="space-y-2">
           {slots.map(slot => (
-            <div key={slot.id} className={`bg-white dark:bg-slate-800 rounded-xl border p-4 flex items-center justify-between transition-shadow hover:shadow-sm ${
+            <div key={slot.id} className={`bg-white dark:bg-slate-800 rounded-xl border p-4 transition-shadow hover:shadow-sm ${
               slot.is_booked ? "border-indigo-200 dark:border-indigo-800" : "border-slate-200 dark:border-slate-700"
             }`}>
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-center w-16">
-                  <span className="text-lg font-bold text-slate-900 dark:text-white">{slot.start_time}</span>
-                  <span className="text-xs text-slate-400">—{slot.end_time}</span>
+              {/* Main row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-center w-16">
+                    <span className="text-lg font-bold text-slate-900 dark:text-white">{slot.start_time}</span>
+                    <span className="text-xs text-slate-400">—{slot.end_time}</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-white">{slot.teacher_name}</p>
+                    {slot.is_booked ? (
+                      <p className="text-sm text-indigo-600 dark:text-indigo-400">Booked by {slot.student_name}</p>
+                    ) : (
+                      <p className="text-sm text-green-600 dark:text-green-400">Available</p>
+                    )}
+                    {slot.notes && <p className="text-xs text-slate-400 mt-0.5">{slot.notes}</p>}
+                    {/* Zoom status badge */}
+                    {slot.is_zoom_created && (
+                      <div className="mt-1"><Badge color="green" dot>Zoom meeting ready</Badge></div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-slate-900 dark:text-white">{slot.teacher_name}</p>
+                <div className="flex gap-2 flex-shrink-0">
                   {slot.is_booked ? (
-                    <p className="text-sm text-indigo-600 dark:text-indigo-400">
-                      Booked by {slot.student_name}
-                    </p>
+                    <>
+                      {/* Zoom actions */}
+                      {slot.is_zoom_created ? (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={slot.zoom_join_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                          >
+                            <VideoCameraIcon className="h-3.5 w-3.5" />
+                            Join
+                          </a>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => { if (confirm("Remove the Zoom meeting for this slot?")) deleteZoomMut.mutate(slot.id); }}
+                            loading={deleteZoomMut.isPending}
+                            title="Delete Zoom meeting"
+                          >
+                            <TrashIcon className="h-4 w-4 mr-1" /> Remove Zoom
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => createZoomMut.mutate(slot.id)}
+                          loading={createZoomMut.isPending}
+                        >
+                          <VideoCameraIcon className="h-4 w-4 mr-1" /> Zoom
+                        </Button>
+                      )}
+                      <Button size="sm" variant="secondary" onClick={() => cancelMut.mutate(slot.id)} loading={cancelMut.isPending}>
+                        <XCircleIcon className="h-4 w-4 mr-1" /> Cancel
+                      </Button>
+                    </>
                   ) : (
-                    <p className="text-sm text-green-600 dark:text-green-400">Available</p>
+                    <>
+                      <button onClick={() => { setEditing(slot); setShowForm(true); }}
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => { if (confirm("Delete this slot?")) deleteMut.mutate(slot.id); }}
+                        className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30">
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </>
                   )}
-                  {slot.notes && <p className="text-xs text-slate-400 mt-0.5">{slot.notes}</p>}
                 </div>
               </div>
-              <div className="flex gap-2">
-                {slot.is_booked ? (
-                  <Button size="sm" variant="secondary" onClick={() => cancelMut.mutate(slot.id)} loading={cancelMut.isPending}>
-                    <XCircleIcon className="h-4 w-4 mr-1" /> Cancel
-                  </Button>
-                ) : (
-                  <>
-                    <button onClick={() => { setEditing(slot); setShowForm(true); }}
-                      className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => { if (confirm("Delete this slot?")) deleteMut.mutate(slot.id); }}
-                      className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30">
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
-              </div>
+
+              {/* Zoom meeting details */}
+              {slot.is_zoom_created && slot.zoom_join_url && (
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                      <VideoCameraIcon className="h-4 w-4" />
+                      <span>ID: <span className="font-mono text-slate-700 dark:text-slate-300">{slot.zoom_meeting_id}</span></span>
+                    </div>
+                    {slot.zoom_password && (
+                      <div className="text-slate-500 dark:text-slate-400">
+                        Pass: <span className="font-mono text-slate-700 dark:text-slate-300">{slot.zoom_password}</span>
+                      </div>
+                    )}
+                    <a
+                      href={slot.zoom_start_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold text-xs"
+                    >
+                      Start meeting →
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

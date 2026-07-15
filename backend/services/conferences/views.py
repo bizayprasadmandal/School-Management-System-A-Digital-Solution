@@ -1,10 +1,26 @@
-"""Conference Scheduler — CRUD for parent-teacher conference slots."""
+"""
+Conference Scheduler — CRUD for parent-teacher conference slots
+with Zoom meeting integration via Server-to-Server OAuth.
+"""
+
+import logging
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.conf import settings
 from .models import ConferenceSlot
-from .serializers import ConferenceSlotSerializer, ConferenceSlotCreateUpdateSerializer
+from .serializers import (
+    ConferenceSlotSerializer,
+    ConferenceSlotCreateUpdateSerializer,
+    ZoomSettingsSerializer,
+)
+from . import zoom_service
+
+logger = logging.getLogger(__name__)
+
+
+ADMIN_ROLES = ("school_admin", "super_admin", "admin")
 
 
 class IsAdminOrTeacherOrReadStudentParent(permissions.BasePermission):
@@ -13,7 +29,7 @@ class IsAdminOrTeacherOrReadStudentParent(permissions.BasePermission):
         return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role in ("admin", "teacher"):
+        if request.user.role in ADMIN_ROLES or request.user.role == "teacher":
             return True
         if request.user.role == "parent":
             return obj.student and obj.student.guardians.filter(email=request.user.email).exists()
@@ -23,7 +39,7 @@ class IsAdminOrTeacherOrReadStudentParent(permissions.BasePermission):
 
 
 class ConferenceSlotViewSet(viewsets.ModelViewSet):
-    """Manage parent-teacher conference time slots."""
+    """Manage parent-teacher conference time slots with optional Zoom meetings."""
     serializer_class = ConferenceSlotSerializer
     permission_classes = [IsAdminOrTeacherOrReadStudentParent]
     filterset_fields = ["teacher", "student", "is_booked", "date"]
@@ -40,7 +56,7 @@ class ConferenceSlotViewSet(viewsets.ModelViewSet):
         qs = ConferenceSlot.objects.select_related(
             "teacher", "student__user"
         )
-        if user.role == "admin":
+        if user.role in ADMIN_ROLES:
             return qs.filter(school=user.school)
         elif user.role == "teacher":
             return qs.filter(teacher=user)
@@ -51,7 +67,11 @@ class ConferenceSlotViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        slot = serializer.save(school=self.request.user.school)
+        # Auto-create Zoom meeting if requested
+        create_zoom = serializer.validated_data.get("create_zoom_meeting", False)
+        if create_zoom and (self.request.user.role in ADMIN_ROLES or self.request.user.role == "teacher"):
+            self._auto_create_zoom(slot)
 
     @action(detail=True, methods=["post"])
     def book(self, request, pk=None):
@@ -93,3 +113,231 @@ class ConferenceSlotViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Slot must be booked first."}, status=status.HTTP_400_BAD_REQUEST)
         slot.delete()
         return Response({"detail": "Conference completed and slot released."})
+
+    def _auto_create_zoom(self, slot):
+        """Auto-create a Zoom meeting for a slot when create_zoom_meeting=True.
+        This is called from perform_create; failures are logged but not raised
+        so slot creation still succeeds even if Zoom is unavailable."""
+        try:
+            from datetime import datetime, timedelta
+            start_dt = datetime.combine(slot.date, slot.start_time)
+            end_dt = datetime.combine(slot.date, slot.end_time)
+            start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            duration_min = max(1, int((end_dt - start_dt).total_seconds() / 60))
+
+            topic = (
+                f"Parent-Teacher Conference: {slot.teacher.full_name} & {slot.student.user.full_name}"
+                if slot.student
+                else f"Conference with {slot.teacher.full_name}"
+            )
+
+            meeting = zoom_service.create_meeting(
+                topic=topic,
+                start_time=start_iso,
+                duration_minutes=duration_min,
+            )
+
+            if meeting:
+                slot.zoom_meeting_id = str(meeting.get("id", ""))
+                slot.zoom_join_url = meeting.get("join_url", "")
+                slot.zoom_start_url = meeting.get("start_url", "")
+                slot.zoom_password = meeting.get("password", "")
+                slot.is_zoom_created = True
+                slot.save(update_fields=[
+                    "zoom_meeting_id", "zoom_join_url", "zoom_start_url",
+                    "zoom_password", "is_zoom_created",
+                ])
+        except Exception as e:
+            logger.warning("Failed to auto-create Zoom meeting for slot %s: %s", slot.id, e)
+
+    # ─── Zoom Integration Actions ──────────────────────────────────────────
+
+    @action(detail=True, methods=["post"], url_path="create-zoom")
+    def create_zoom_meeting(self, request, pk=None):
+        """
+        Create a Zoom meeting for this conference slot.
+        The meeting topic defaults to the slot description.
+        """
+        slot = self.get_object()
+
+        if not slot.is_booked:
+            return Response(
+                {"detail": "Slot must be booked before creating a Zoom meeting."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Build start_time in ISO 8601
+        from datetime import datetime as dt
+        start_dt = dt.combine(slot.date, slot.start_time)
+        start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Calculate duration from start/end times
+        from datetime import datetime, timedelta
+        end_dt = datetime.combine(slot.date, slot.end_time)
+        duration_min = max(1, int((end_dt - start_dt).total_seconds() / 60))
+
+        topic = request.data.get(
+            "topic",
+            f"Parent-Teacher Conference: {slot.teacher.full_name} & {slot.student.user.full_name}"
+            if slot.student else
+            f"Conference with {slot.teacher.full_name}",
+        )
+        password = request.data.get("password", None)
+        duration = request.data.get("duration_minutes", duration_min)
+
+        meeting = zoom_service.create_meeting(
+            topic=topic,
+            start_time=start_iso,
+            duration_minutes=duration,
+            password=password,
+        )
+
+        if not meeting:
+            return Response(
+                {"detail": "Failed to create Zoom meeting. Check Zoom credentials."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # Save Zoom details to the slot
+        slot.zoom_meeting_id = str(meeting.get("id", ""))
+        slot.zoom_join_url = meeting.get("join_url", "")
+        slot.zoom_start_url = meeting.get("start_url", "")
+        slot.zoom_password = meeting.get("password", "")
+        slot.is_zoom_created = True
+        slot.save()
+
+        return Response({
+            "detail": "Zoom meeting created successfully",
+            "meeting": {
+                "id": slot.zoom_meeting_id,
+                "topic": topic,
+                "join_url": slot.zoom_join_url,
+                "start_url": slot.zoom_start_url,
+                "password": slot.zoom_password,
+                "duration": duration,
+                "start_time": start_iso,
+            },
+        })
+
+    @action(detail=True, methods=["post"], url_path="delete-zoom")
+    def delete_zoom_meeting(self, request, pk=None):
+        """Delete the Zoom meeting associated with this slot."""
+        slot = self.get_object()
+        if not slot.is_zoom_created or not slot.zoom_meeting_id:
+            return Response(
+                {"detail": "No Zoom meeting to delete for this slot."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        success = zoom_service.delete_meeting(slot.zoom_meeting_id)
+
+        # Clear Zoom fields regardless (the meeting may have been deleted externally)
+        slot.zoom_meeting_id = ""
+        slot.zoom_join_url = ""
+        slot.zoom_start_url = ""
+        slot.zoom_password = ""
+        slot.is_zoom_created = False
+        slot.save()
+
+        if not success:
+            return Response(
+                {"detail": "Deleted local Zoom reference. The meeting may have already been removed from Zoom."},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response({"detail": "Zoom meeting deleted successfully."})
+
+
+# ─── Zoom Integration Management Views ────────────────────────────────────────
+
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAdminUser
+
+
+class ZoomConnectionView(APIView):
+    """
+    GET: Check current Zoom connection status.
+    POST: Update Zoom OAuth credentials and test connection.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """Return current Zoom connection status."""
+        is_configured = bool(
+            getattr(settings, "ZOOM_ACCOUNT_ID", "")
+            and getattr(settings, "ZOOM_CLIENT_ID", "")
+            and getattr(settings, "ZOOM_CLIENT_SECRET", "")
+        )
+
+        if not is_configured:
+            return Response({
+                "status": "disconnected",
+                "detail": "Zoom credentials not configured. Provide Account ID, Client ID, and Client Secret.",
+                "user": None,
+            })
+
+        # Test the connection
+        result = zoom_service.check_connection()
+        return Response(result)
+
+    def post(self, request):
+        """
+        Set Zoom credentials (stored in env / settings) and test the connection.
+        Note: In production, credentials should be set via environment variables.
+        This endpoint allows admins to test connectivity.
+        """
+        serializer = ZoomSettingsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # For Docker/containerized deployments, we can't easily persist env vars.
+        # Instead, we test the provided credentials and return success/failure.
+        account_id = serializer.validated_data["account_id"]
+        client_id = serializer.validated_data["client_id"]
+        client_secret = serializer.validated_data["client_secret"]
+
+        # Save original settings to restore after test
+        orig_account_id = getattr(settings, "ZOOM_ACCOUNT_ID", "")
+        orig_client_id = getattr(settings, "ZOOM_CLIENT_ID", "")
+        orig_client_secret = getattr(settings, "ZOOM_CLIENT_SECRET", "")
+
+        # Temporarily set on Django settings for testing
+        settings.ZOOM_ACCOUNT_ID = account_id
+        settings.ZOOM_CLIENT_ID = client_id
+        settings.ZOOM_CLIENT_SECRET = client_secret
+
+        # Clear cached token so it picks up new credentials
+        from django.core.cache import cache
+        cache.delete(zoom_service.CACHE_KEY_TOKEN)
+
+        result = zoom_service.check_connection()
+
+        # Restore original settings
+        settings.ZOOM_ACCOUNT_ID = orig_account_id
+        settings.ZOOM_CLIENT_ID = orig_client_id
+        settings.ZOOM_CLIENT_SECRET = orig_client_secret
+
+        if result.get("status") == "connected":
+            return Response({
+                "status": "success",
+                "detail": "Zoom credentials are valid and connection is working!",
+                "user": result.get("user"),
+            })
+        else:
+            return Response(
+                {"detail": result.get("detail", "Failed to connect with provided credentials.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class ZoomMeetingsListView(APIView):
+    """
+    GET: List upcoming Zoom meetings (admin only — Zoom API is account-level).
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """Fetch upcoming Zoom meetings from Zoom API."""
+        meetings = zoom_service.list_meetings()
+        return Response({"meetings": meetings})

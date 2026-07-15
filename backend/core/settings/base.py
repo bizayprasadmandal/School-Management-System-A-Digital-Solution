@@ -290,6 +290,12 @@ TWILIO_MESSAGING_SERVICE_SID = env("TWILIO_MESSAGING_SERVICE_SID", default="")
 
 FIREBASE_CREDENTIALS = env("FIREBASE_CREDENTIALS", default="")
 
+# ─── Zoom (Video Conferencing) ────────────────────────────────────────────────
+
+ZOOM_ACCOUNT_ID = env("ZOOM_ACCOUNT_ID", default="")
+ZOOM_CLIENT_ID = env("ZOOM_CLIENT_ID", default="")
+ZOOM_CLIENT_SECRET = env("ZOOM_CLIENT_SECRET", default="")
+
 # ─── Stripe (Payment Gateway) ─────────────────────────────────────────────────
 
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")

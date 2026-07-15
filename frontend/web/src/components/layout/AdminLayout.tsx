@@ -79,6 +79,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Alumni",               to: "/admin/alumni",          icon: GlobeAltIcon },
   { label: "Cafeteria",            to: "/admin/cafeteria",       icon: BookOpenIcon },
   { label: "Admissions",           to: "/admin/admissions",      icon: DocumentTextIcon },
+  { label: "Zoom Integration",  to: "/admin/zoom-integration", icon: VideoCameraIcon },
   { label: "Audit Log",         to: "/admin/audit-logs",     icon: ShieldExclamationIcon },
   { label: "Settings",       to: "/admin/settings",     icon: Cog6ToothIcon },
 ];
