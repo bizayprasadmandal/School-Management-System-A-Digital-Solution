@@ -1,247 +1,140 @@
 /**
- * Mobile API Service — Centralized HTTP client with JWT auth, token refresh,
- * and request/response interceptors for the EduSphere mobile app.
+ * Mobile API Service — Unifies the HTTP client from api/client.ts with
+ * organized, typed endpoint modules for every SMS backend service.
+ *
+ * Screens should import from this file instead of making raw endpoint calls.
+ *
+ * Usage:
+ *   import { mobileApi, studentApi, attendanceApi } from "../../services/api";
+ *   const { data } = await studentApi.me();
+ *   const { data } = await attendanceApi.studentReport(id, month, year);
  */
 
-import axios, {
-  AxiosInstance,
-  AxiosError,
-  InternalAxiosRequestConfig,
-} from "axios";
-import { useAuthStore } from "../hooks/useAuthStore";
+// Re-export the typed HTTP helper (mobileApi.get / post / patch / etc.)
+// This is the same instance from api/client.ts with JWT interceptors + refresh.
+export { mobileApi, mobileApiClient } from "../api/client";
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+import { mobileApiClient } from "../api/client";
 
-/** Axios instance pre-configured with base URL and JSON headers. */
-const api: AxiosInstance = axios.create({
-  baseURL: API_BASE,
-  headers: { "Content-Type": "application/json" },
-  timeout: 15_000,
-});
-
-// ─── Request interceptor: inject JWT access token ──────────────────────────
-
-api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const { tokens } = useAuthStore.getState();
-    if (tokens?.access) {
-      config.headers.Authorization = `Bearer ${tokens.access}`;
-    }
-    return config;
-  },
-  (error: AxiosError) => Promise.reject(error),
-);
-
-// ─── Response interceptor: auto-refresh on 401 ─────────────────────────────
-
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (err: unknown) => void;
-}> = [];
-
-function processQueue(error: unknown, token: string | null = null): void {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else if (token) resolve(token);
-  });
-  failedQueue = [];
-}
-
-api.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
-
-    // Only attempt refresh on 401 and if we haven't already retried
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    if (isRefreshing) {
-      // Queue requests while refresh is in flight
-      return new Promise<string>((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      }).then((token) => {
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest);
-      });
-    }
-
-    originalRequest._retry = true;
-    isRefreshing = true;
-
-    try {
-      const { tokens } = useAuthStore.getState();
-      if (!tokens?.refresh) {
-        throw new Error("No refresh token available");
-      }
-
-      const { data } = await axios.post(`${API_BASE}/auth/token/refresh/`, {
-        refresh: tokens.refresh,
-      });
-
-      const newAccessToken = data.access;
-      useAuthStore.getState().setAuth(
-        useAuthStore.getState().user,
-        { access: newAccessToken, refresh: tokens.refresh },
-      );
-
-      processQueue(null, newAccessToken);
-      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-      return api(originalRequest);
-    } catch (refreshError) {
-      processQueue(refreshError, null);
-      useAuthStore.getState().logout();
-      return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
-    }
-  },
-);
-
-// ─── Auth endpoints ──────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post("/auth/login/", { email, password }),
+    mobileApiClient.post("/auth/login/", { email, password }).then((r) => r.data),
 
-  refresh: (refreshToken: string) =>
-    api.post("/auth/token/refresh/", { refresh: refreshToken }),
+  me: () => mobileApiClient.get("/auth/me/").then((r) => r.data),
 
-  logout: (refreshToken: string) =>
-    api.post("/auth/logout/", { refresh: refreshToken }),
-
-  me: () => api.get("/auth/me/"),
+  profile: () => mobileApiClient.get("/auth/profile/").then((r) => r.data),
 
   updateProfile: (data: Record<string, unknown>) =>
-    api.patch("/auth/profile/", data),
+    mobileApiClient.patch("/auth/profile/", data).then((r) => r.data),
 
   changePassword: (oldPassword: string, newPassword: string) =>
-    api.post("/auth/change-password/", {
-      old_password: oldPassword,
-      new_password: newPassword,
-    }),
-
-  setup2FA: () => api.post("/auth/setup-2fa/"),
-
-  verify2FA: (code: string) =>
-    api.post("/auth/verify-2fa/", { code }),
+    mobileApiClient
+      .post("/auth/change-password/", { old_password: oldPassword, new_password: newPassword })
+      .then((r) => r.data),
 };
 
-// ─── Student endpoints ───────────────────────────────────────────────────────
+// ─── Students ─────────────────────────────────────────────────────────────────
 
 export const studentApi = {
+  me: () => mobileApiClient.get("/students/me/").then((r) => r.data),
+
   list: (params?: Record<string, unknown>) =>
-    api.get("/students/", { params }),
+    mobileApiClient.get("/students/", { params }).then((r) => r.data),
 
-  detail: (id: string) => api.get(`/students/${id}/`),
+  detail: (id: string) =>
+    mobileApiClient.get(`/students/${id}/`).then((r) => r.data),
 
-  attendanceSummary: (id: string) =>
-    api.get(`/students/${id}/attendance-summary/`),
-
-  myDashboard: () => api.get("/students/my-dashboard/"),
+  attendanceSummary: (id: string, academicYearId?: number) =>
+    mobileApiClient
+      .get(`/students/${id}/attendance-summary/`, {
+        params: { academic_year: academicYearId },
+      })
+      .then((r) => r.data),
 };
 
-// ─── Attendance endpoints ────────────────────────────────────────────────────
+// ─── Attendance ───────────────────────────────────────────────────────────────
 
 export const attendanceApi = {
-  bulkRecord: (data: Record<string, unknown>) =>
-    api.post("/attendance/bulk-record/", data),
+  studentReport: (studentId: string, month: number, year: number) =>
+    mobileApiClient
+      .get("/attendance/student-report/", {
+        params: { student_id: studentId, month, year },
+      })
+      .then((r) => r.data),
 
   classroomSummary: (classroomId: number, date: string) =>
-    api.get("/attendance/classroom-summary/", {
-      params: { classroom_id: classroomId, date },
-    }),
-
-  studentReport: (studentId: string, month: number, year: number) =>
-    api.get("/attendance/student-report/", {
-      params: { student_id: studentId, month, year },
-    }),
+    mobileApiClient
+      .get("/attendance/classroom-summary/", {
+        params: { classroom_id: classroomId, date },
+      })
+      .then((r) => r.data),
 
   streak: (studentId: string) =>
-    api.get("/attendance/streak/", {
-      params: { student_id: studentId },
-    }),
+    mobileApiClient
+      .get("/attendance/streak/", { params: { student_id: studentId } })
+      .then((r) => r.data),
 };
 
-// ─── Gradebook endpoints ─────────────────────────────────────────────────────
+// ─── Gradebook ────────────────────────────────────────────────────────────────
 
 export const gradebookApi = {
+  reportCards: (studentId: string) =>
+    mobileApiClient
+      .get("/gradebook/report-cards/", { params: { student: studentId } })
+      .then((r) => r.data),
+
   exams: (params?: Record<string, unknown>) =>
-    api.get("/gradebook/exams/", { params }),
-
-  grades: (params?: Record<string, unknown>) =>
-    api.get("/gradebook/grades/", { params }),
-
-  submitBulk: (data: Record<string, unknown>) =>
-    api.post("/gradebook/grades/bulk/", data),
-
-  reportCards: (params?: Record<string, unknown>) =>
-    api.get("/gradebook/report-cards/", { params }),
+    mobileApiClient.get("/gradebook/exams/", { params }).then((r) => r.data),
 
   leaderboard: (examId: string) =>
-    api.get(`/gradebook/exams/${examId}/leaderboard/`),
+    mobileApiClient.get(`/gradebook/exams/${examId}/leaderboard/`).then((r) => r.data),
 };
 
-// ─── Timetable endpoints ─────────────────────────────────────────────────────
+// ─── Timetable ────────────────────────────────────────────────────────────────
 
 export const timetableApi = {
-  slots: (params?: Record<string, unknown>) =>
-    api.get("/timetable/slots/", { params }),
-
-  mySchedule: () => api.get("/timetable/my-schedule/"),
+  mySchedule: () =>
+    mobileApiClient.get("/timetable/my-schedule/").then((r) => r.data),
 
   events: (params?: Record<string, unknown>) =>
-    api.get("/timetable/events/", { params }),
+    mobileApiClient.get("/timetable/events/", { params }).then((r) => r.data),
 
-  upcomingEvents: () => api.get("/timetable/events/upcoming/"),
+  upcomingEvents: () =>
+    mobileApiClient.get("/timetable/events/upcoming/").then((r) => r.data),
 };
 
-// ─── Communication endpoints ─────────────────────────────────────────────────
+// ─── Communication ────────────────────────────────────────────────────────────
 
 export const communicationApi = {
-  announcements: (params?: Record<string, unknown>) =>
-    api.get("/communication/announcements/", { params }),
-
   notifications: (params?: Record<string, unknown>) =>
-    api.get("/communication/notifications/", { params }),
+    mobileApiClient.get("/communication/notifications/", { params }).then((r) => r.data),
 
-  unreadCount: () => api.get("/communication/notifications/unread-count/"),
+  unreadCount: () =>
+    mobileApiClient.get("/communication/notifications/unread-count/").then((r) => r.data),
 
-  markAllRead: () => api.post("/communication/notifications/mark-all-read/"),
+  markAllRead: () =>
+    mobileApiClient.post("/communication/notifications/mark-all-read/").then((r) => r.data),
 
-  messages: (params?: Record<string, unknown>) =>
-    api.get("/communication/messages/", { params }),
-
-  sendMessage: (recipient: string, content: string) =>
-    api.post("/communication/messages/", { recipient, content }),
+  inbox: () => mobileApiClient.get("/communication/messages/inbox/").then((r) => r.data),
 
   conversation: (userId: string) =>
-    api.get(`/communication/messages/conversation/${userId}/`),
-
-  inbox: () => api.get("/communication/messages/inbox/"),
+    mobileApiClient.get(`/communication/messages/conversation/${userId}/`).then((r) => r.data),
 };
 
-// ─── Fees endpoints ──────────────────────────────────────────────────────────
+// ─── Fees ─────────────────────────────────────────────────────────────────────
 
 export const feesApi = {
-  invoices: (params?: Record<string, unknown>) =>
-    api.get("/fees/invoices/", { params }),
-
-  payments: (params?: Record<string, unknown>) =>
-    api.get("/fees/payments/", { params }),
-
-  recordPayment: (data: Record<string, unknown>) =>
-    api.post("/fees/payments/", data),
+  invoices: (studentId: string) =>
+    mobileApiClient
+      .get("/fees/invoices/", { params: { student: studentId } })
+      .then((r) => r.data),
 };
 
-// ─── Dashboard endpoints ─────────────────────────────────────────────────────
+// ─── Classrooms / Structure ──────────────────────────────────────────────────
 
-export const dashboardApi = {
-  stats: () => api.get("/reporting/dashboard-stats/"),
+export const structureApi = {
+  classrooms: (params?: Record<string, unknown>) =>
+    mobileApiClient.get("/students/classrooms/", { params }).then((r) => r.data),
 };
-
-export default api;
