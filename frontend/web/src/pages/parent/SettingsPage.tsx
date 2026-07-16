@@ -19,6 +19,7 @@ import { useAuthStore as useAuthStoreFromModule } from "../../store/authStore";
 
 export default function ParentSettingsPage() {
   useTitle("Settings");
+  const authStore = useAuthStoreFromModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: profile, isLoading } = useProfile();
@@ -209,7 +210,7 @@ export default function ParentSettingsPage() {
           variant="danger"
           size="sm"
           onClick={() => {
-            useAuthStoreFromModule().logout();
+            authStore.logout();
             navigate("/login");
           }}
           leftIcon={<ArrowRightOnRectangleIcon className="h-4 w-4" />}

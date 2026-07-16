@@ -297,7 +297,7 @@ export default function VerifyEmailSettingsPage() {
                         {remaining === 0
                           ? "You have no backup codes left. Generate new ones immediately."
                           : remaining <= 2
-                            ? "You're running low on backup codes. Generate new ones soon."
+                            ? "You are running low on backup codes. Generate new ones soon."
                             : "Consider generating new backup codes to ensure you always have a recovery option."}
                       </p>
                     </div>

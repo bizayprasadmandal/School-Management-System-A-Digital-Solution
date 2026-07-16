@@ -12,7 +12,7 @@ import {
   ArrowPathIcon, ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Modal, EmptyState, Badge } from "../../components/common";
+import { Button, Modal, EmptyState } from "../../components/common";
 import { useTitle } from "../../hooks";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -116,15 +116,6 @@ const STATUS_COLORS: Record<string, string> = {
   partially_received: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   received: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   cancelled: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-};
-
-const MOVEMENT_TYPE_LABELS: Record<string, string> = {
-  purchase: "Purchase (Inbound)",
-  issue: "Issue (Outbound)",
-  adjustment: "Adjustment",
-  return: "Return (Inbound)",
-  transfer: "Transfer",
-  damage: "Damage / Write-off",
 };
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -986,7 +977,7 @@ function OrderFormModal({
             </Button>
           </div>
           {lineItems.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-4">No items added yet. Click "Add Item" to add line items.</p>
+            <p className="text-xs text-slate-400 text-center py-4">No items added yet. Click &quot;Add Item&quot; to add line items.</p>
           )}
           <div className="space-y-2">
             {lineItems.map((li, idx) => (

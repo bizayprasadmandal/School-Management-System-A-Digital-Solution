@@ -7,15 +7,13 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   VideoCameraIcon,
-  CheckCircleIcon,
-  XCircleIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
   LinkIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, Input, Badge, Modal } from "../../components/common";
+import { Button, Badge, Modal } from "../../components/common";
 
 interface ZoomConnectionStatus {
   status: "connected" | "disconnected" | "error";
@@ -156,7 +154,7 @@ export default function ZoomIntegrationPage() {
             <div className="flex gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Zoom's New OAuth Credentials</p>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Zoom&apos;s New OAuth Credentials</p>
                 <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                   Zoom no longer provides API Key &amp; Secret. Create a <strong>Server-to-Server OAuth</strong> app in the
                   Zoom Marketplace to get your Account ID, Client ID, and Client Secret.
