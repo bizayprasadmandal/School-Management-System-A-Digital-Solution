@@ -10,6 +10,9 @@ import duration from "dayjs/plugin/duration";
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
+// ─── i18n — Internationalization ────────────────────────────────────────────
+import "./i18n";
+
 import App from "./App";
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);

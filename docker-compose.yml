@@ -80,6 +80,7 @@ services:
       - TWILIO_PHONE_NUMBER=
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
+      - SENTRY_DSN=
     volumes:
       - ./backend:/app
       - media_files:/app/media
@@ -106,6 +107,7 @@ services:
       - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
       - REDIS_URL=redis://redis:6379/0
       - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
+      - SENTRY_DSN=
     volumes:
       - ./backend:/app
     depends_on:
@@ -130,6 +132,7 @@ services:
       - TWILIO_PHONE_NUMBER=
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
+      - SENTRY_DSN=
     volumes:
       - ./backend:/app
     depends_on:
