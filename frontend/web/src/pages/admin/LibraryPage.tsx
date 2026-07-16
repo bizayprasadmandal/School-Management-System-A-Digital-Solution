@@ -78,14 +78,14 @@ function BookFormModal({ open, onClose, book, onSaved }: {
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title *</label>
             <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author *</label>
             <input value={form.author} onChange={e => setForm(p => ({ ...p, author: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ISBN</label>
@@ -167,7 +167,7 @@ function CheckoutFormModal({ open, onClose, onSaved }: {
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Book *</label>
           <input value={bookSearch} onChange={e => { setBookSearch(e.target.value); setBookId(""); }}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" placeholder="Search book..." />
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" placeholder="Search book..." required />
           {bookSearch.length >= 2 && !bookId && books.length > 0 && (
             <div className="mt-1 border border-slate-200 rounded-lg bg-white dark:bg-slate-800 shadow-lg max-h-32 overflow-y-auto">
               {books.map((b: any) => (
@@ -180,7 +180,7 @@ function CheckoutFormModal({ open, onClose, onSaved }: {
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Student *</label>
           <input value={studentSearch} onChange={e => { setStudentSearch(e.target.value); setStudentId(""); }}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" placeholder="Search student..." />
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" placeholder="Search student..." required />
           {studentSearch.length >= 2 && !studentId && students.length > 0 && (
             <div className="mt-1 border border-slate-200 rounded-lg bg-white dark:bg-slate-800 shadow-lg max-h-32 overflow-y-auto">
               {students.map((s: any) => (

@@ -615,7 +615,7 @@ function ItemFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">SKU</label>
@@ -731,7 +731,7 @@ function CategoryFormModal({
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
           <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
@@ -790,7 +790,7 @@ function SupplierFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Contact Person</label>
@@ -807,7 +807,7 @@ function SupplierFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone *</label>
             <input value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
         </div>
         <div>
@@ -953,7 +953,7 @@ function OrderFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Order # *</label>
             <input value={form.order_number} onChange={(e) => setForm(p => ({ ...p, order_number: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200 font-mono" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200 font-mono" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Supplier</label>

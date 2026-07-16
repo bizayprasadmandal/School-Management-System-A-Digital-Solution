@@ -160,7 +160,7 @@ export const api = {
     apiClient.delete<T>(url).then((r) => r.data),
 
   upload: <T>(url: string, formData: FormData) =>
-    apiClient
-      .post<T>(url, formData, { headers: { "Content-Type": "multipart/form-data" } })
-      .then((r) => r.data),
+    // Don't set Content-Type manually — axios detects FormData and sets the
+    // correct multipart/form-data header WITH the boundary param automatically.
+    apiClient.post<T>(url, formData).then((r) => r.data),
 };

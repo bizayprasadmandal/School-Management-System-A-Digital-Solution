@@ -610,19 +610,19 @@ function EmployeeFormModal({
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email *</label>
           <input value={form.user_email} onChange={(e) => setForm((p) => ({ ...p, user_email: e.target.value }))}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200"
-            placeholder="employee@school.edu" disabled={isEdit} />
+            placeholder="employee@school.edu" disabled={isEdit} required />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Employee ID *</label>
             <input value={form.employee_id} onChange={(e) => setForm((p) => ({ ...p, employee_id: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" disabled={isEdit} />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" disabled={isEdit} required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Designation *</label>
             <input value={form.designation} onChange={(e) => setForm((p) => ({ ...p, designation: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200"
-              placeholder="e.g. Senior Teacher" />
+              placeholder="e.g. Senior Teacher" required />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -648,7 +648,7 @@ function EmployeeFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Joining Date *</label>
             <input type="date" value={form.joining_date} onChange={(e) => setForm((p) => ({ ...p, joining_date: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
@@ -703,7 +703,7 @@ function DepartmentFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Code</label>
@@ -770,7 +770,7 @@ function SalaryStructureFormModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" />
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Designation</label>
@@ -868,7 +868,7 @@ function LeaveRequestFormModal({
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Employee *</label>
           <select value={form.employee} onChange={(e) => setForm((p) => ({ ...p, employee: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required>
             <option value="">Select employee...</option>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.user_name} ({e.employee_id})</option>)}
           </select>

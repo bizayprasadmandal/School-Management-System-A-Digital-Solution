@@ -96,11 +96,11 @@ function CreateAssessmentModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Title *</label>
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Chapter 5 Homework" className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" />
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Chapter 5 Homework" className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" required />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Class & Subject *</label>
-              <select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value ? Number(e.target.value) : "")} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200">
+              <select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value ? Number(e.target.value) : "")} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" required>
                 <option value="">Select a class and subject…</option>
                 {assignments.map((a: TeacherAssignment) => (
                   <option key={a.id} value={a.id}>{a.subject_name} — {a.classroom_name}</option>
@@ -109,13 +109,13 @@ function CreateAssessmentModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Type *</label>
-              <select value={type} onChange={(e) => setType(e.target.value as AssessmentType)} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200">
+              <select value={type} onChange={(e) => setType(e.target.value as AssessmentType)} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" required>
                 {ASSESSMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Due Date *</label>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" />
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-slate-200" required />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Max Marks</label>

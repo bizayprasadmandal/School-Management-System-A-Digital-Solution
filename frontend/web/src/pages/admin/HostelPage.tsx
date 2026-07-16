@@ -556,7 +556,7 @@ function HostelFormModal({ open, onClose, hostel, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required /></div>
           <div><label className="block text-sm font-medium mb-1">Code</label>
             <input value={form.code} onChange={(e) => setForm(p => ({ ...p, code: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200 font-mono" /></div>
@@ -626,13 +626,13 @@ function RoomFormModal({ open, onClose, room, hostels, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Hostel *</label>
             <select value={form.hostel} onChange={(e) => setForm(p => ({ ...p, hostel: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required>
               <option value="">Select...</option>
               {hostels.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
             </select></div>
           <div><label className="block text-sm font-medium mb-1">Room # *</label>
             <input value={form.room_number} onChange={(e) => setForm(p => ({ ...p, room_number: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required /></div>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div><label className="block text-sm font-medium mb-1">Floor</label>
@@ -689,13 +689,13 @@ function AllocationFormModal({ open, onClose, students, rooms, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Student *</label>
             <select value={form.student} onChange={(e) => setForm(p => ({ ...p, student: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required>
               <option value="">Select...</option>
               {students.map((s) => <option key={s.id} value={s.id}>{s.user_name}</option>)}
             </select></div>
           <div><label className="block text-sm font-medium mb-1">Room *</label>
             <select value={form.room} onChange={(e) => setForm(p => ({ ...p, room: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required>
               <option value="">Select...</option>
               {rooms.map((r) => <option key={r.id} value={r.id}>{r.hostel_name} - {r.room_number} ({r.available_beds} free)</option>)}
             </select></div>
@@ -750,7 +750,7 @@ function FeeFormModal({ open, onClose, fee, hostels, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Name *</label>
             <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required /></div>
           <div><label className="block text-sm font-medium mb-1">Hostel</label>
             <select value={form.hostel} onChange={(e) => setForm(p => ({ ...p, hostel: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
@@ -761,7 +761,7 @@ function FeeFormModal({ open, onClose, fee, hostels, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Amount *</label>
             <input type="number" min={0} value={form.amount} onChange={(e) => setForm(p => ({ ...p, amount: Number(e.target.value) }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required /></div>
           <div><label className="block text-sm font-medium mb-1">Billing Cycle</label>
             <select value={form.billing_cycle} onChange={(e) => setForm(p => ({ ...p, billing_cycle: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
@@ -806,7 +806,7 @@ function VisitorFormModal({ open, onClose, hostels, students, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium mb-1">Visitor Name *</label>
             <input value={form.visitor_name} onChange={(e) => setForm(p => ({ ...p, visitor_name: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required /></div>
           <div><label className="block text-sm font-medium mb-1">Phone</label>
             <input value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" /></div>
@@ -820,7 +820,7 @@ function VisitorFormModal({ open, onClose, hostels, students, onSaved }: {
             </select></div>
           <div><label className="block text-sm font-medium mb-1">Student *</label>
             <select value={form.student_visited} onChange={(e) => setForm(p => ({ ...p, student_visited: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200">
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200" required>
               <option value="">Select...</option>
               {students.map((s) => <option key={s.id} value={s.id}>{s.user_name}</option>)}
             </select></div>

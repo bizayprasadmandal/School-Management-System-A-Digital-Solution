@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeftIcon, PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent, useUpdateStudent } from "../../api/hooks";
+import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent, useUpdateStudent, useClassrooms } from "../../api/hooks";
 import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard, Input, Select } from "../../components/common";
 import { fmt, currency, percent, attendanceColor, FEE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
@@ -151,17 +151,24 @@ export default function StudentDetailPage() {
 function CreateStudentForm({ onSaved }: { onSaved: (id: string) => void }) {
   const navigate = useNavigate();
   const createStudent = useCreateStudent();
+  const { data: classroomsData, isLoading: classroomsLoading } = useClassrooms();
+  const classrooms = classroomsData?.results ?? [];
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
     email: "",
+    password: "Student@1234",
     date_of_birth: "",
     gender: "",
     admission_number: "",
+    classroom_id: "",
     address: "",
     city: "",
+    state: "",
+    country: "",
     nationality: "",
     phone: "",
+    admission_date: new Date().toISOString().split("T")[0],
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
@@ -170,6 +177,11 @@ function CreateStudentForm({ onSaved }: { onSaved: (id: string) => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate required fields
+    if (!form.first_name || !form.last_name || !form.email || !form.admission_number || !form.date_of_birth || !form.gender || !form.classroom_id || !form.address || !form.city || !form.state) {
+      toast.error("Please fill in all required fields (marked with *).");
+      return;
+    }
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([key, val]) => {
@@ -179,8 +191,13 @@ function CreateStudentForm({ onSaved }: { onSaved: (id: string) => void }) {
       toast.success(`Student ${result.full_name} created!`);
       onSaved(result.id);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      toast.error(error?.message ?? "Failed to create student.");
+      const error = err as { message?: string; fieldErrors?: Record<string, string[]> };
+      if (error?.fieldErrors) {
+        const firstFieldError = Object.values(error.fieldErrors).flat()[0];
+        toast.error(firstFieldError || error.message || "Failed to create student.");
+      } else {
+        toast.error(error?.message ?? "Failed to create student.");
+      }
     }
   };
 
@@ -204,12 +221,33 @@ function CreateStudentForm({ onSaved }: { onSaved: (id: string) => void }) {
             <Select label="Gender" name="gender" value={form.gender} onChange={(e) => handleChange({ target: { name: "gender", value: e.target.value } })} options={[{value:"M",label:"Male"},{value:"F",label:"Female"},{value:"O",label:"Other"}]} placeholder="Select gender" />
           </div>
           <Input label="Admission Number" name="admission_number" value={form.admission_number} onChange={handleChange} required />
+          <Input
+            label="Default Password"
+            name="password"
+            type="text"
+            value={form.password}
+            onChange={handleChange}
+            hint="Student can change this after first login."
+          />
+          <Select
+            label="Classroom *"
+            name="classroom_id"
+            value={form.classroom_id}
+            onChange={(e) => handleChange({ target: { name: "classroom_id", value: e.target.value } })}
+            options={classrooms.map((c) => ({ value: c.id, label: c.grade_name ? `${c.grade_name} ${c.name}` : c.name }))}
+            placeholder={classroomsLoading ? "Loading classrooms…" : "Select classroom"}
+          />
           <Input label="Phone" name="phone" value={form.phone} onChange={handleChange} />
-          <Input label="Address" name="address" value={form.address} onChange={handleChange} />
+          <Input label="Address" name="address" value={form.address} onChange={handleChange} required />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="City" name="city" value={form.city} onChange={handleChange} />
+            <Input label="City" name="city" value={form.city} onChange={handleChange} required />
+            <Input label="State *" name="state" value={form.state} onChange={handleChange} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Country" name="country" value={form.country} onChange={handleChange} />
             <Input label="Nationality" name="nationality" value={form.nationality} onChange={handleChange} />
           </div>
+          <Input label="Admission Date" name="admission_date" type="date" value={form.admission_date} onChange={handleChange} />
           <div className="flex gap-3 pt-4 border-t border-slate-100">
             <Button type="submit" loading={createStudent.isPending} disabled={createStudent.isPending}>
               {createStudent.isPending ? "Creating…" : "Create Student"}
