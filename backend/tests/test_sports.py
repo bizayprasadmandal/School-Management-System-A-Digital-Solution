@@ -8,7 +8,7 @@ from tests.url_helpers import API_PREFIX
 
 SPORTS_SPORTS = f"{API_PREFIX}/sports/sports/"
 SPORTS_TEAMS = f"{API_PREFIX}/sports/teams/"
-SPORTS_MEMBERS = f"{API_PREFIX}/sports/members/"
+SPORTS_MEMBERS = f"{API_PREFIX}/sports/team-members/"
 SPORTS_EVENTS = f"{API_PREFIX}/sports/events/"
 SPORTS_ACHIEVEMENTS = f"{API_PREFIX}/sports/achievements/"
 
@@ -52,7 +52,7 @@ class TestSports:
         payload = {
             "name": "Basketball",
             "description": "Indoor basketball",
-            "max_players_per_team": 5,
+            "max_players": 5,
         }
         r = admin_client.post(SPORTS_SPORTS, payload, format="json")
         assert r.status_code == status.HTTP_201_CREATED
@@ -62,14 +62,14 @@ class TestSports:
         from services.sports.models import Sport
         Sport.objects.create(
             school=school, name="Football",
-            max_players_per_team=11,
+            max_players=11,
         )
         r = admin_client.get(SPORTS_SPORTS)
         assert r.status_code == status.HTTP_200_OK
         assert r.data["count"] >= 1
 
     def test_teacher_cannot_create_sport(self, teacher_client):
-        payload = {"name": "Tennis", "max_players_per_team": 2}
+        payload = {"name": "Tennis", "max_players": 2}
         r = teacher_client.post(SPORTS_SPORTS, payload, format="json")
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
@@ -81,7 +81,7 @@ class TestSports:
         admin_a = AdminUserFactory(school=school_a)
         Sport.objects.create(
             school=school_b, name="Secret Sport",
-            max_players_per_team=5,
+            max_players=5,
         )
         client = APIClient()
         client.force_authenticate(user=admin_a)
@@ -97,7 +97,7 @@ class TestTeams:
         from services.sports.models import Sport
         sport = Sport.objects.create(
             school=school, name="Basketball",
-            max_players_per_team=5,
+            max_players=5,
         )
         payload = {
             "sport": sport.id,
@@ -112,7 +112,7 @@ class TestTeams:
         from services.sports.models import Sport, Team
         sport = Sport.objects.create(
             school=school, name="Volleyball",
-            max_players_per_team=6,
+            max_players=6,
         )
         Team.objects.create(school=school, sport=sport, name="Spartans")
         r = admin_client.get(f"{SPORTS_TEAMS}?sport={sport.id}")
@@ -130,14 +130,13 @@ class TestTeamMembers:
         pupil = StudentFactory(school=school)
         sport = Sport.objects.create(
             school=school, name="Cricket",
-            max_players_per_team=11,
+            max_players=11,
         )
         team = Team.objects.create(school=school, sport=sport, name="Tigers")
         payload = {
             "team": team.id,
             "student": pupil.id,
-            "position": "Batsman",
-            "jersey_number": 7,
+            "role": "member",
         }
         r = admin_client.post(SPORTS_MEMBERS, payload, format="json")
         assert r.status_code == status.HTTP_201_CREATED
@@ -151,7 +150,7 @@ class TestSportEvents:
         from services.sports.models import Sport
         sport = Sport.objects.create(
             school=school, name="Athletics",
-            max_players_per_team=1,
+            max_players=1,
         )
         payload = {
             "sport": sport.id,
@@ -167,7 +166,7 @@ class TestSportEvents:
         from services.sports.models import Sport, SportEvent
         sport = Sport.objects.create(
             school=school, name="Swimming",
-            max_players_per_team=4,
+            max_players=4,
         )
         SportEvent.objects.create(
             school=school, sport=sport,
@@ -187,10 +186,10 @@ class TestSportAchievements:
         pupil = StudentFactory(school=school)
         payload = {
             "student": pupil.id,
-            "achievement_type": "gold_medal",
+            "title": "Gold Medal - 100m Sprint",
             "description": "First place in 100m sprint",
-            "date_achieved": date.today().isoformat(),
-            "competition_name": "Inter-School Athletics",
+            "position": "1st Place",
+            "awarded_date": date.today().isoformat(),
         }
         r = admin_client.post(SPORTS_ACHIEVEMENTS, payload, format="json")
         assert r.status_code == status.HTTP_201_CREATED
@@ -201,9 +200,9 @@ class TestSportAchievements:
         pupil = StudentFactory(school=school)
         SportAchievement.objects.create(
             school=school, student=pupil,
-            achievement_type="participation",
+            title="Participation - Relay",
             description="Participated in relay",
-            date_achieved=date.today(),
+            awarded_date=date.today(),
         )
         r = admin_client.get(SPORTS_ACHIEVEMENTS)
         assert r.status_code == status.HTTP_200_OK

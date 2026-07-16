@@ -63,7 +63,12 @@ services:
       target: development
     container_name: sms_backend
     restart: unless-stopped
-    command: python manage.py runserver 0.0.0.0:8000
+    # Use daphne — the Channels-native ASGI server with proper WebSocket support.
+    # Uvicorn's websockets implementation has a known compatibility issue with
+    # Django Channels: it auto-accepts the WebSocket handshake before the ASGI
+    # app calls accept(), causing 'Expected websocket.send or close, got accept'.
+    # Daphne handles the ASGI WebSocket protocol correctly end-to-end.
+    command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     environment:
       - DEBUG=True
       - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db

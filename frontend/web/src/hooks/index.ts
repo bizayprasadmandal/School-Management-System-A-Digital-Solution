@@ -60,7 +60,15 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
   const retryRef = useRef(0);
   const mountedRef = useRef(true);
   const [status, setStatus] = useState<WSStatus>("disconnected");
-  const { onMessage, onConnect, onDisconnect, reconnectDelay = 3000, maxRetries = 5 } = options;
+
+  // Use refs to hold latest callbacks WITHOUT creating new connect() on each render.
+  // When onMessage/onConnect/onDisconnect are inline functions (common in React),
+  // they get a new reference every render. If these are in the useCallback dep
+  // array of connect(), then connect() is recreated every render, causing the
+  // useEffect cleanup to close the WS and immediately reopen it — producing
+  // the "WebSocket is closed before the connection is established" error.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const WS_BASE = process.env.REACT_APP_WS_URL?.replace(/^http/, "ws") ?? "ws://localhost:8000";
 
@@ -74,29 +82,32 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
     ws.onopen = () => {
       retryRef.current = 0;
       setStatus("connected");
-      onConnect?.();
+      optionsRef.current.onConnect?.();
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        onMessage?.(data);
+        optionsRef.current.onMessage?.(data);
       } catch {
-        onMessage?.(event.data);
+        optionsRef.current.onMessage?.(event.data);
       }
     };
 
     ws.onclose = () => {
       setStatus("disconnected");
-      onDisconnect?.();
-      if (mountedRef.current && retryRef.current < maxRetries) {
+      optionsRef.current.onDisconnect?.();
+      if (mountedRef.current && retryRef.current < (optionsRef.current.maxRetries ?? 5)) {
         retryRef.current += 1;
-        setTimeout(connect, reconnectDelay * retryRef.current);
+        setTimeout(connect, (optionsRef.current.reconnectDelay ?? 3000) * retryRef.current);
       }
     };
 
     ws.onerror = () => setStatus("error");
-  }, [path, tokens?.access, WS_BASE, onMessage, onConnect, onDisconnect, reconnectDelay, maxRetries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: intentionally NOT including callback refs in deps — they're accessed
+    // via optionsRef which is stable across renders.
+  }, [path, tokens?.access, WS_BASE]);
 
   const send = useCallback((data: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
