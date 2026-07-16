@@ -80,7 +80,7 @@ services:
       - TWILIO_PHONE_NUMBER=
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
-      - SENTRY_DSN=
+      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
     volumes:
       - ./backend:/app
       - media_files:/app/media
@@ -107,7 +107,7 @@ services:
       - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
       - REDIS_URL=redis://redis:6379/0
       - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
-      - SENTRY_DSN=
+      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
     volumes:
       - ./backend:/app
     depends_on:
@@ -132,7 +132,7 @@ services:
       - TWILIO_PHONE_NUMBER=
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
-      - SENTRY_DSN=
+      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
     volumes:
       - ./backend:/app
     depends_on:
