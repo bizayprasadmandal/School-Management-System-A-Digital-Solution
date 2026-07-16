@@ -1,4 +1,4 @@
-"""Hostel / Accommodation Management — Hostels, rooms, beds, allocations, fees, visitors."""
+"""Hostel / Accommodation Management — Hostels, rooms, allocations, fees, visitors."""
 
 import uuid
 from decimal import Decimal
@@ -58,9 +58,8 @@ class Hostel(models.Model):
 
     @property
     def occupied_beds(self):
-        from django.db.models import Count
         return HostelAllocation.objects.filter(
-            bed__room__hostel=self, is_active=True
+            room__hostel=self, status=HostelAllocation.Status.ACTIVE
         ).count()
 
     @property
@@ -100,7 +99,7 @@ class HostelRoom(models.Model):
 
     @property
     def occupied_beds(self):
-        return self.allocations.filter(is_active=True).count()
+        return self.allocations.filter(status=HostelAllocation.Status.ACTIVE).count()
 
     @property
     def available_beds(self):
