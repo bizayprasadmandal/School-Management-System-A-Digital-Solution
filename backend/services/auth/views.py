@@ -150,7 +150,7 @@ class LoginView(TokenObtainPairView):
                     "detail": "2FA is enabled. Please provide your TOTP code via /auth/verify-2fa/",
                 }, status=200)
 
-            user.last_login_ip = self._get_ip(request)
+            user.last_login_ip = _get_client_ip(request)
             user.save(update_fields=["last_login_ip"])
             AuditLog.objects.create(
                 school=user.school,
@@ -158,7 +158,7 @@ class LoginView(TokenObtainPairView):
                 action="login",
                 resource_type="user",
                 resource_id=str(user.id),
-                ip_address=self._get_ip(request),
+                ip_address=_get_client_ip(request),
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
 
@@ -177,8 +177,6 @@ class LoginView(TokenObtainPairView):
 
         return response
 
-    def _get_ip(self, request):
-        return _get_client_ip(request)
 
 
 class LogoutView(APIView):
@@ -472,7 +470,7 @@ class SendEmailVerificationView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        email = serializer.validated_data["email"]
+        email = serializer.validated_data.get("email") or user.email
 
         # Invalidate any existing unused tokens for this user
         EmailVerificationToken.objects.filter(
@@ -515,7 +513,7 @@ class SendEmailVerificationView(APIView):
             action="send_verification_email",
             resource_type="user",
             resource_id=str(user.id),
-            ip_address=self._get_ip(request),
+            ip_address=_get_client_ip(request),
         )
 
         return Response({
@@ -579,7 +577,7 @@ class ConfirmEmailVerificationView(APIView):
             action="confirm_email_verification",
             resource_type="user",
             resource_id=str(user.id),
-            ip_address=self._get_ip(request),
+            ip_address=_get_client_ip(request),
         )
 
         return Response({
