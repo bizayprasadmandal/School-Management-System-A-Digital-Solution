@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
 import { Badge, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
-import NepaliPayModal from "../../components/common/NepaliPayModal";
+import PayFeePickerModal from "../../components/common/PayFeePickerModal";
 import { npr, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
@@ -249,9 +249,9 @@ export default function StudentFeesPage() {
         )}
       </div>
 
-      {/* Nepali Payment Modal */}
+      {/* Unified Payment Modal — Stripe, Khalti, or eSewa */}
       {payingInvoice && (
-        <NepaliPayModal
+        <PayFeePickerModal
           invoice={payingInvoice}
           open={!!payingInvoice}
           onClose={() => setPayingInvoice(null)}
