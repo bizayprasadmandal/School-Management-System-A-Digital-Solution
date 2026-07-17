@@ -60,7 +60,7 @@ export default function PaymentCallbackPage() {
 
     const verifyPayment = async () => {
       try {
-        let payload: Record<string, string> = { gateway };
+        const payload: Record<string, string> = { gateway };
 
         if (gateway === "khalti") {
           const pidx = searchParams.get("pidx") || "";
