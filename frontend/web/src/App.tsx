@@ -88,6 +88,9 @@ const StudentMessages       = React.lazy(() => import("./pages/student/MessagesP
 const StudentFees           = React.lazy(() => import("./pages/student/FeesPage"));
 const StudentConferences    = React.lazy(() => import("./pages/student/ConferencesPage"));
 
+// Payment callback page
+const PaymentCallbackPage   = React.lazy(() => import("./pages/fees/PaymentCallbackPage"));
+
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
 const ParentChildren      = React.lazy(() => import("./pages/parent/ChildrenPage"));
@@ -169,6 +172,9 @@ export default function App() {
 
             {/* ── Email verification (public, no auth needed) ── */}
             <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+
+            {/* ── Payment callback (public — receives gateway redirect) ── */}
+            <Route path="/fees/callback" element={<PaymentCallbackPage />} />
 
             {/* ── 2FA verification (step 2 of login, no auth yet) ── */}
             <Route path="/verify-2fa" element={<Verify2FALoginPage />} />

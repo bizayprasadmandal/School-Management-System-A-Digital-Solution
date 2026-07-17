@@ -106,8 +106,10 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
             { value: "bank_transfer", label: "Bank Transfer" },
             { value: "card", label: "Card" },
             { value: "cheque", label: "Cheque" },
-            { value: "online", label: "Online Gateway" },
-            { value: "mobile", label: "Mobile Money" },
+          { value: "online", label: "Online Gateway" },
+          { value: "mobile", label: "Mobile Money" },
+          { value: "khalti", label: "Khalti" },
+          { value: "esewa", label: "eSewa" },
           ]}
         />
       </div>

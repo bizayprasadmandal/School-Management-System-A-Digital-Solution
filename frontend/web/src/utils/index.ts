@@ -31,6 +31,10 @@ export const MONTHS = ["January","February","March","April","May","June","July",
 export const currency = (amount: number | string, symbol = "$") =>
   `${symbol}${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** NPR currency formatting — uses ₹ equivalent or Rs. symbol */
+export const npr = (amount: number | string) =>
+  `Rs. ${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 export const percent = (value: number, decimals = 1) =>
   `${value.toFixed(decimals)}%`;
 

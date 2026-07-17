@@ -89,6 +89,8 @@ class Payment(models.Model):
         CHEQUE = "cheque", "Cheque"
         ONLINE = "online", "Online Gateway"
         MOBILE = "mobile", "Mobile Money"
+        KHALTI = "khalti", "Khalti"
+        ESEWA = "esewa", "eSewa"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"

@@ -1,5 +1,5 @@
 /**
- * Student Fees Page — View fee invoices and pay online with Stripe
+ * Student Fees Page — View fee invoices and pay online with Nepali gateways
  */
 
 import React, { useState } from "react";
@@ -13,8 +13,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
 import { Badge, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
-import PayFeeModal from "../../components/common/PayFeeModal";
-import { currency, FEE_STATUS, fmt } from "../../utils";
+import NepaliPayModal from "../../components/common/NepaliPayModal";
+import { npr, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import dayjs from "dayjs";
 import type { FeeInvoice } from "../../types";
@@ -88,13 +88,13 @@ export default function StudentFeesPage() {
         {[
           {
             label: "Total Paid",
-            value: currency(totalPaid),
+            value: npr(totalPaid),
             icon: CheckCircleIcon,
             color: "text-green-600 bg-green-50",
           },
           {
             label: "Outstanding",
-            value: currency(totalDue),
+            value: npr(totalDue),
             icon: ClockIcon,
             color:
               totalDue > 0
@@ -137,11 +137,11 @@ export default function StudentFeesPage() {
               Outstanding Balance
             </p>
             <p className="text-xs text-amber-600 mt-0.5">
-              Please pay {currency(totalDue)} to avoid late penalties.
+              Please pay {npr(totalDue)} to avoid late penalties.
             </p>
           </div>
           <span className="text-lg font-bold text-amber-800">
-            {currency(totalDue)}
+            {npr(totalDue)}
           </span>
         </div>
       )}
@@ -210,15 +210,15 @@ export default function StudentFeesPage() {
                         {fmt.date(inv.due_date)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
-                        {currency(inv.total_amount)}
+                        {npr(inv.total_amount)}
                       </td>
                       <td className="px-4 py-3 text-sm text-green-600">
-                        {currency(inv.paid_amount)}
+                        {npr(inv.paid_amount)}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {Number(inv.outstanding_amount) > 0 ? (
                           <span className="text-red-600 font-semibold">
-                            {currency(inv.outstanding_amount)}
+                            {npr(inv.outstanding_amount)}
                           </span>
                         ) : (
                           <span className="text-slate-400">—</span>
@@ -249,9 +249,9 @@ export default function StudentFeesPage() {
         )}
       </div>
 
-      {/* Stripe Payment Modal */}
+      {/* Nepali Payment Modal */}
       {payingInvoice && (
-        <PayFeeModal
+        <NepaliPayModal
           invoice={payingInvoice}
           open={!!payingInvoice}
           onClose={() => setPayingInvoice(null)}

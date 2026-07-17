@@ -40,6 +40,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cheque: "Cheque",
   online: "Online Gateway",
   mobile: "Mobile Money",
+  khalti: "Khalti",
+  esewa: "eSewa",
 };
 
 function RefundConfirmModal({

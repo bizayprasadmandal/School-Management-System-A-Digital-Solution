@@ -302,6 +302,13 @@ STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 
+# ─── Nepali Payment Gateways ─────────────────────────────────────────────────
+
+KHALTI_SECRET_KEY = env("KHALTI_SECRET_KEY", default="")
+KHALTI_MERCHANT_ID = env("KHALTI_MERCHANT_ID", default="")
+ESEWA_MERCHANT_CODE = env("ESEWA_MERCHANT_CODE", default="")
+ESEWA_SECRET_KEY = env("ESEWA_SECRET_KEY", default="")
+
 # ─── Internationalization ─────────────────────────────────────────────────────
 
 LANGUAGE_CODE = "en-us"

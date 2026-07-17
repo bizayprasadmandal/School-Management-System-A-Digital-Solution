@@ -1,12 +1,12 @@
 /**
- * Parent Fees Page — view fee invoices and pay online with Stripe
+ * Parent Fees Page — view fee invoices and pay online with Nepali gateways
  */
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Badge, Button, EmptyState, SkeletonCard } from "../../components/common";
-import PayFeeModal from "../../components/common/PayFeeModal";
-import { currency, FEE_STATUS, fmt } from "../../utils";
+import NepaliPayModal from "../../components/common/NepaliPayModal";
+import { npr, FEE_STATUS, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import type { StudentListItem, FeeInvoice, PaginatedResponse } from "../../types";
 import {
@@ -82,13 +82,13 @@ export default function ParentFeesPage() {
             {[
               {
                 label: "Total Paid",
-                value: currency(totalPaid),
+                value: npr(totalPaid),
                 icon: CheckCircleIcon,
                 color: "text-green-600 bg-green-50",
               },
               {
                 label: "Outstanding",
-                value: currency(totalDue),
+                value: npr(totalDue),
                 icon: ClockIcon,
                 color:
                   totalDue > 0
@@ -129,8 +129,7 @@ export default function ParentFeesPage() {
                 Payment Required
               </p>
               <p className="text-xs text-amber-700 mt-0.5">
-                {currency(totalDue)} outstanding. Pay online securely with your
-                credit/debit card.
+                {npr(totalDue)} outstanding. Pay online with Khalti or eSewa.
               </p>
             </div>
           )}
@@ -192,15 +191,15 @@ export default function ParentFeesPage() {
                             {fmt.date(inv.due_date)}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-700">
-                            {currency(inv.total_amount)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-green-600">
-                            {currency(inv.paid_amount)}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {Number(inv.outstanding_amount) > 0 ? (
-                              <span className="text-red-600 font-semibold">
-                                {currency(inv.outstanding_amount)}
+                        {npr(inv.total_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-green-600">
+                        {npr(inv.paid_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {Number(inv.outstanding_amount) > 0 ? (
+                          <span className="text-red-600 font-semibold">
+                            {npr(inv.outstanding_amount)}
                               </span>
                             ) : (
                               <span className="text-slate-400">—</span>
@@ -233,20 +232,18 @@ export default function ParentFeesPage() {
             )}
           </div>
         </>
-      )}
-
-      {/* Stripe Payment Modal */}
-      {payingInvoice && (
-        <PayFeeModal
-          invoice={payingInvoice}
-          open={!!payingInvoice}
-          onClose={() => setPayingInvoice(null)}
-          onSuccess={() => {
-            qc.invalidateQueries({ queryKey: ["parent-child-inv", child?.id] });
-            setPayingInvoice(null);
-          }}
-        />
-      )}
+      )}              {/* Nepali Payment Modal */}
+              {payingInvoice && (
+                <NepaliPayModal
+                  invoice={payingInvoice}
+                  open={!!payingInvoice}
+                  onClose={() => setPayingInvoice(null)}
+                  onSuccess={() => {
+                    qc.invalidateQueries({ queryKey: ["parent-child-inv", child?.id] });
+                    setPayingInvoice(null);
+                  }}
+                />
+              )}
     </div>
   );
 }
