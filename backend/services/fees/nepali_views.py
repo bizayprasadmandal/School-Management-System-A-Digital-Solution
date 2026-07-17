@@ -171,7 +171,9 @@ def _initiate_khalti(invoice, amount, return_url, request):
         # We can't know if the Khalti session is still valid, so just proceed with new one
         # Cancel the old one conceptually by marking it failed
         existing.status = Payment.Status.FAILED
-        existing.gateway_response = {**existing.gateway_response or {}, "superseded": True}
+        gw_resp = existing.gateway_response or {}
+        gw_resp["superseded"] = True
+        existing.gateway_response = gw_resp
         existing.save(update_fields=["status", "gateway_response"])
 
     purchase_order_id = f"INV-{invoice.invoice_number}-{uuid.uuid4().hex[:6].upper()}"
@@ -240,7 +242,9 @@ def _initiate_esewa(invoice, amount, return_url, request):
     ).first()
     if existing:
         existing.status = Payment.Status.FAILED
-        existing.gateway_response = {**existing.gateway_response or {}, "superseded": True}
+        gw_resp = existing.gateway_response or {}
+        gw_resp["superseded"] = True
+        existing.gateway_response = gw_resp
         existing.save(update_fields=["status", "gateway_response"])
 
     transaction_uuid = f"{uuid.uuid4().hex[:12].upper()}"

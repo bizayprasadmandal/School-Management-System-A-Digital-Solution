@@ -6,12 +6,12 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { Button, Input, Select, Badge } from "../../components/common";
 import { useTitle } from "../../hooks";
 import EmailVerificationActions from "../../components/common/EmailVerificationActions";
 import toast from "react-hot-toast";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 
 const schoolSchema = z.object({
@@ -27,6 +27,127 @@ const schoolSchema = z.object({
 type SchoolForm = z.infer<typeof schoolSchema>;
 
 // ─── Integrations Tab ──────────────────────────────────────────────────────────
+
+function ToggleSwitch({
+  enabled,
+  onChange,
+  loading,
+}: {
+  enabled: boolean;
+  onChange: (v: boolean) => void;
+  loading: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => !loading && onChange(!enabled)}
+      disabled={loading}
+      className={`h-6 w-11 rounded-full relative flex-shrink-0 transition-colors ${
+        loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+      } ${enabled ? "bg-indigo-500" : "bg-slate-300"}`}
+    >
+      <span
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+          enabled ? "right-0.5" : "left-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+function PaymentGatewaysSection() {
+  const qc = useQueryClient();
+
+  const { data: gatewayConfig, isLoading } = useQuery<{
+    stripe_enabled: boolean;
+    khalti_enabled: boolean;
+    esewa_enabled: boolean;
+  }>({
+    queryKey: ["gateway-config"],
+    queryFn: () => api.get("/fees/gateway-config/"),
+    staleTime: 30_000,
+  });
+
+  const updateConfig = useMutation({
+    mutationFn: (data: Record<string, boolean>) =>
+      api.post("/fees/gateway-config/", data),
+    onSuccess: () => {
+      toast.success("Payment gateway settings updated");
+      qc.invalidateQueries({ queryKey: ["gateway-config"] });
+      qc.invalidateQueries({ queryKey: ["enabled-gateways"] });
+    },
+    onError: () => toast.error("Failed to update gateway settings"),
+  });
+
+  const gateways = [
+    {
+      key: "stripe_enabled" as const,
+      name: "Stripe",
+      icon: "💳",
+      description: "Accept international credit/debit card payments (Visa, Mastercard, Amex)",
+      enabled: gatewayConfig?.stripe_enabled ?? true,
+    },
+    {
+      key: "khalti_enabled" as const,
+      name: "Khalti",
+      icon: "💰",
+      description: "Accept payments via Khalti wallet, Mobile Banking, and cards",
+      enabled: gatewayConfig?.khalti_enabled ?? false,
+    },
+    {
+      key: "esewa_enabled" as const,
+      name: "eSewa",
+      icon: "🏦",
+      description: "Accept payments via eSewa wallet and connected bank accounts",
+      enabled: gatewayConfig?.esewa_enabled ?? false,
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          Payment Gateways
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Enable or disable online payment methods for students and parents.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {gateways.map(({ key, name, icon, description, enabled }) => (
+            <div
+              key={key}
+              className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800"
+            >
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {name}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {description}
+                  </p>
+                </div>
+              </div>
+              <ToggleSwitch
+                enabled={enabled}
+                onChange={(v) => updateConfig.mutate({ [key]: v })}
+                loading={updateConfig.isPending}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function IntegrationsTab() {
   const navigate = useNavigate();
@@ -51,35 +172,43 @@ function IntegrationsTab() {
       description: "Video conferencing (Server-to-Server OAuth)",
       configPath: "/admin/zoom-integration",
     },
-    { name: "Stripe", status: "disconnected" as const, color: "slate" as const, description: "Payment processing" },
     { name: "Twilio", status: "disconnected" as const, color: "slate" as const, description: "SMS notifications" },
     { name: "Firebase", status: "disconnected" as const, color: "slate" as const, description: "Push notifications" },
   ];
 
   return (
-    <div className="p-5 max-w-xl space-y-4">
-      <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">External Integrations</h2>
-      {integrations.map(({ name, status, color, description, configPath }) => (
-        <div key={name} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
-              {name[0]}
+    <div className="p-5 max-w-xl space-y-8">
+      {/* External Integrations */}
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">External Integrations</h2>
+        {integrations.map(({ name, status, color, description, configPath }) => (
+          <div key={name} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
+                {name[0]}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{description}</p>
+                <Badge color={color} dot>{status}</Badge>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{description}</p>
-              <Badge color={color} dot>{status}</Badge>
-            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => configPath && navigate(configPath)}
+            >
+              {configPath ? "Configure" : status === "connected" ? "Configure" : "Connect"}
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => configPath && navigate(configPath)}
-          >
-            {configPath ? "Configure" : status === "connected" ? "Configure" : "Connect"}
-          </Button>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* Separator */}
+      <hr className="border-slate-200 dark:border-slate-700" />
+
+      {/* Payment Gateways */}
+      <PaymentGatewaysSection />
     </div>
   );
 }

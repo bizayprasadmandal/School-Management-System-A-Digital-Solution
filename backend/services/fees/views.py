@@ -12,10 +12,11 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
-from .models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship
+from .models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship, PaymentGatewayConfig
 from .serializers import (
     FeeCategorySerializer, FeeStructureSerializer,
     FeeInvoiceSerializer, PaymentSerializer, ScholarshipSerializer,
+    PaymentGatewayConfigSerializer,
 )
 from core.permissions import IsSchoolMember, IsSchoolAdmin
 from core.pagination import StandardResultsSetPagination
@@ -251,3 +252,62 @@ class ScholarshipViewSet(viewsets.ModelViewSet):
             school=self.request.user.school,
             approved_by=self.request.user,
         )
+
+
+class GatewayConfigView(viewsets.ViewSet):
+    """
+    View for managing which payment gateways are enabled for the school.
+
+    GET  /fees/gateway-config/       — get current config
+    POST /fees/gateway-config/       — update config (admin only)
+    GET  /fees/gateway-config/enabled/  — public list of enabled gateways
+    """
+
+    def get_config(self, request):
+        """Get or create the config for the user's school."""
+        config, _ = PaymentGatewayConfig.objects.get_or_create(
+            school=request.user.school
+        )
+        return config
+
+    def list(self, request):
+        """GET /fees/gateway-config/ — return current config."""
+        config = self.get_config(request)
+        serializer = PaymentGatewayConfigSerializer(config)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """PUT /fees/gateway-config/ — update config (admin only).
+
+        Uses POST for simplicity (API tooling doesn't always support PUT with forms).
+        Method name 'create' maps to POST via DefaultRouter.
+        """
+        if request.user.role not in ("school_admin", "super_admin"):
+            return Response({"detail": "Only school administrators can update gateway settings."}, status=403)
+
+        config = self.get_config(request)
+        serializer = PaymentGatewayConfigSerializer(
+            config, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def enabled(self, request):
+        """
+        GET /fees/gateway-config/enabled/
+        Public endpoint — returns list of enabled gateways for the user's school.
+        Used by the frontend to show/hide gateway options in the payment picker.
+        """
+        config, _ = PaymentGatewayConfig.objects.get_or_create(
+            school=request.user.school
+        )
+        gateways = []
+        if config.stripe_enabled:
+            gateways.append({"id": "stripe", "name": "Credit / Debit Card", "description": "Visa, Mastercard, Amex via Stripe", "icon": "💳"})
+        if config.khalti_enabled:
+            gateways.append({"id": "khalti", "name": "Khalti", "description": "Khalti wallet, Mobile Banking, or Cards", "icon": "💰"})
+        if config.esewa_enabled:
+            gateways.append({"id": "esewa", "name": "eSewa", "description": "eSewa wallet or connected bank accounts", "icon": "🏦"})
+        return Response(gateways)

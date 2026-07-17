@@ -22,4 +22,12 @@ urlpatterns = [
     path("nepali/initiate/", nepali_views.initiate_payment, name="nepali-initiate"),
     path("nepali/verify/", nepali_views.verify_payment, name="nepali-verify"),
     path("nepali/refund/", nepali_views.refund_nepali_payment, name="nepali-refund"),
+    # Payment gateway configuration (per-school enable/disable)
+    path("gateway-config/", views.GatewayConfigView.as_view({
+        "get": "list",
+        "post": "create",
+    }), name="gateway-config"),
+    path("gateway-config/enabled/", views.GatewayConfigView.as_view({
+        "get": "enabled",
+    }), name="gateway-config-enabled"),
 ]

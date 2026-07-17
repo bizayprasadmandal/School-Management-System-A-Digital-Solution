@@ -134,3 +134,32 @@ class Scholarship(models.Model):
 
     class Meta:
         db_table = "scholarships"
+
+
+class PaymentGatewayConfig(models.Model):
+    """
+    Per-school configuration for which payment gateways are enabled.
+    Only one config row per school.
+    """
+    school = models.OneToOneField(
+        School, on_delete=models.CASCADE,
+        related_name="payment_gateway_config",
+        primary_key=True,
+    )
+    stripe_enabled = models.BooleanField(default=True, help_text="Enable Stripe (credit/debit card) payments")
+    khalti_enabled = models.BooleanField(default=False, help_text="Enable Khalti wallet payments")
+    esewa_enabled = models.BooleanField(default=False, help_text="Enable eSewa wallet payments")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "payment_gateway_config"
+
+    def __str__(self):
+        enabled = []
+        if self.stripe_enabled:
+            enabled.append("Stripe")
+        if self.khalti_enabled:
+            enabled.append("Khalti")
+        if self.esewa_enabled:
+            enabled.append("eSewa")
+        return f"{self.school.code}: {', '.join(enabled) or 'No gateways enabled'}"

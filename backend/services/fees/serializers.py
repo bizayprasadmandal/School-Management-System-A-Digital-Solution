@@ -3,7 +3,7 @@ Fees Service — Serializers
 """
 
 from rest_framework import serializers
-from .models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship
+from .models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship, PaymentGatewayConfig
 
 
 class FeeCategorySerializer(serializers.ModelSerializer):
@@ -98,3 +98,9 @@ class ScholarshipSerializer(serializers.ModelSerializer):
             "approved_by", "approved_by_name", "is_active",
         ]
         read_only_fields = ["id", "approved_by"]
+
+
+class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentGatewayConfig
+        fields = ["stripe_enabled", "khalti_enabled", "esewa_enabled"]
