@@ -4,6 +4,7 @@
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 interface Props {
@@ -29,6 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("[ErrorBoundary]", error, errorInfo.componentStack);
+    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
     this.props.onError?.(error, errorInfo);
   }
 
