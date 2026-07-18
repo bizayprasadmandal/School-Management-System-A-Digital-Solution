@@ -86,7 +86,13 @@ services:
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
       - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
-      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      # ─── Gmail SMTP (real email delivery) ───────────────────────────────
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_HOST_USER=${GMAIL_USER}
+      - EMAIL_HOST_PASSWORD=${GMAIL_APP_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${GMAIL_USER}
     volumes:
       - ./backend:/app
       - media_files:/app/media
@@ -114,7 +120,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
       - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
-      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      # ─── Gmail SMTP (real email delivery) ───────────────────────────────
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_HOST_USER=${GMAIL_USER}
+      - EMAIL_HOST_PASSWORD=${GMAIL_APP_PASSWORD}
+      - EMAIL_USE_TLS=True
+      - DEFAULT_FROM_EMAIL=${GMAIL_USER}
     volumes:
       - ./backend:/app
     depends_on:
@@ -140,7 +153,6 @@ services:
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
       - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
-      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
     volumes:
       - ./backend:/app
     depends_on:
