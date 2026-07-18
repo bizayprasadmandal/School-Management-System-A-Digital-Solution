@@ -255,6 +255,10 @@ AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = "private"
 
+# ─── Frontend URL (used in emails etc.) ────────────────────────────────────
+
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
+
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 
 CORS_ALLOWED_ORIGINS = env.list(

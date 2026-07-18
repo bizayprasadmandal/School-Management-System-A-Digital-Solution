@@ -253,10 +253,13 @@ class RequestPasswordResetView(APIView):
             )
             # Send email async
             from services.communication.tasks import send_email_notification
+            from django.conf import settings
+            frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+            reset_url = request.data.get("reset_url", f"{frontend_url}/reset-password/{token_str}")
             send_email_notification.delay(
                 user_id=str(user.id),
                 subject="Password Reset Request",
-                body=f"Click here to reset your password: {request.data.get('reset_url', 'https://app.edusphere.school')}/reset-password/{token_str}",
+                body=f"Click here to reset your password: {reset_url}",
             )
         except User.DoesNotExist:
             pass
@@ -486,10 +489,12 @@ class SendEmailVerificationView(APIView):
             expires_at=timezone.now() + timedelta(hours=24),
         )
 
-        # Build verification link
+        # Build verification link — default to frontend URL
+        from django.conf import settings
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         base_url = request.data.get(
             "verification_base_url",
-            request.build_absolute_uri("/").rstrip("/"),
+            frontend_url,
         )
         verify_url = f"{base_url}/verify-email/{token_str}"
 

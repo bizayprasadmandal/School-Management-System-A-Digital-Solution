@@ -80,6 +80,7 @@ services:
       - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      - FRONTEND_URL=http://localhost:3000
       - TWILIO_ACCOUNT_SID=
       - TWILIO_AUTH_TOKEN=
       - TWILIO_PHONE_NUMBER=
@@ -128,6 +129,7 @@ services:
       - EMAIL_HOST_PASSWORD=${GMAIL_APP_PASSWORD}
       - EMAIL_USE_TLS=True
       - DEFAULT_FROM_EMAIL=${GMAIL_USER}
+      - FRONTEND_URL=http://localhost:3000
     volumes:
       - ./backend:/app
     depends_on:
