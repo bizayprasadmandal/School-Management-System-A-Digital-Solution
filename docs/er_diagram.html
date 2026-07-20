@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SMS — Entity Relationship Diagram</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; }
+header { padding: 20px 30px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 20px; font-weight: 600; }
+header .subtitle { color: #8b949e; font-size: 13px; }
+header .legend { display: flex; gap: 16px; font-size: 12px; align-items: center; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+#mynetwork { width: 100%; height: calc(100vh - 70px); }
+.vis-network:focus { outline: none; }
+.tooltip { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; font-size: 12px; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); pointer-events: none; display: none; z-index: 1000; }
+.tooltip.visible { display: block; }
+.tooltip h3 { color: #f0f6fc; margin-bottom: 4px; font-size: 14px; }
+.tooltip p { color: #8b949e; margin-bottom: 2px; }
+.controls { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 10; }
+.controls button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.controls button:hover { background: #30363d; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏫 School Management System — ER Diagram</h1>
+    <div class="subtitle">20 services · 60+ entities · Multi-tenant RBAC architecture</div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#0f3460"></div> Auth/Core</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#16213e"></div> Students</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2d6a4f"></div> Fees</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0d7377"></div> Gradebook</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#5a189a"></div> Attendance</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e07a5f"></div> Academics</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e63946"></div> Transport</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3d405b"></div> HR</div>
+  </div>
+</header>
+
+<div id="mynetwork"></div>
+<div class="tooltip" id="tooltip"><h3 id="tt-title"></h3><p id="tt-fields"></p><p id="tt-rels"></p></div>
+<div class="controls">
+  <button onclick="zoomIn()">➕ Zoom In</button>
+  <button onclick="zoomOut()">➖ Zoom Out</button>
+  <button onclick="fitView()">📐 Fit</button>
+</div>
+
+<script>
+// ── Color Palette ──────────────────────────────────────────────────────
+const COLORS = {
+  auth:        { bg: '#0f3460', border: '#1a5276', text: '#fff' },    // Dark blue
+  students:    { bg: '#16213e', border: '#1b2d5e', text: '#fff' },    // Navy
+  academics:   { bg: '#e07a5f', border: '#c96a4f', text: '#fff' },    // Coral
+  gradebook:   { bg: '#0d7377', border: '#0a5a5e', text: '#fff' },    // Teal
+  fees:        { bg: '#2d6a4f', border: '#1e4d38', text: '#fff' },    // Green
+  attendance:  { bg: '#5a189a', border: '#3c0c6c', text: '#fff' },    // Purple
+  timetable:   { bg: '#f4a261', border: '#d48a4f', text: '#fff' },    // Orange
+  hr:          { bg: '#3d405b', border: '#2c2e45', text: '#fff' },    // Slate
+  communication: { bg: '#52796f', border: '#3d5a50', text: '#fff' },  // Sage
+  transport:   { bg: '#e63946', border: '#b71d29', text: '#fff' },    // Red
+  inventory:   { bg: '#f4a261', border: '#d48a4f', text: '#fff' },    // Orange
+  hostel:      { bg: '#264653', border: '#1a3338', text: '#fff' },    // Dark green
+  sports:      { bg: '#2a9d8f', border: '#1e7a6f', text: '#fff' },    // Teal green
+  health:      { bg: '#e76f51', border: '#c95a3f', text: '#fff' },    // Burnt orange
+  library:     { bg: '#9c89b8', border: '#7a6a96', text: '#fff' },    // Purple
+  conferences: { bg: '#b56576', border: '#934f5e', text: '#fff' },    // Rose
+  behavior:    { bg: '#6c584c', border: '#4f3e36', text: '#fff' },    // Brown
+  admissions:  { bg: '#1d3557', border: '#14253d', text: '#fff' },    // Navy
+  alumni:      { bg: '#457b9d', border: '#31607a', text: '#fff' },    // Steel blue
+  cafeteria:   { bg: '#bc6c25', border: '#9a5620', text: '#fff' },    // Brown
+};
+
+// ── Node Groups ────────────────────────────────────────────────────────
+function node(id, label, group, fields, relationships) {
+  return { id, label, group, fields: fields || [], relationships: relationships || [] };
+}
+
+function edge(from, to, label, dashes) {
+  return [from, to, label || '', dashes || false];
+}
+
+// Define all nodes
+const nodes = [
+  // ── AUTH / CORE ─────────────────────────────────────────────
+  node('School', 'School', 'auth', ['code (unique)', 'subdomain (unique)', 'name', 'is_active', 'subscription_tier']),
+  node('User', 'User', 'auth', ['role: super_admin | school_admin | teacher | student | parent', 'email (unique)', 'email_verified', 'two_factor_enabled', 'last_login_ip']),
+  node('UserSession', 'UserSession', 'auth', ['refresh_token_jti', 'device_info', 'ip_address', 'is_active']),
+  node('AuditLog', 'AuditLog', 'auth', ['action', 'resource_type', 'resource_id', 'changes (JSON)', 'ip_address']),
+  node('PasswordResetToken', 'PasswordResetToken', 'auth', ['token', 'expires_at', 'used']),
+  node('EmailVerificationToken', 'EmailVerificationToken', 'auth', ['token', 'email', 'expires_at', 'used']),
+  node('TwoFactorBackupCode', 'TwoFactorBackupCode', 'auth', ['hashed_code', 'used']),
+
+  // ── STUDENTS ────────────────────────────────────────────
+  node('AcademicYear', 'AcademicYear', 'students', ['name (2024-2025)', 'start_date', 'end_date', 'is_current']),
+  node('Grade', 'Grade', 'students', ['name (Grade 1-12)', 'level']),
+  node('Classroom', 'Classroom', 'students', ['name (3A, 3B)', 'capacity', 'room_number']),
+  node('Student', 'Student', 'students', ['admission_number (unique)', 'roll_number', 'date_of_birth', 'gender', 'is_active']),
+  node('Guardian', 'Guardian', 'students', ['first_name', 'last_name', 'email', 'phone', 'is_primary']),
+  node('StudentGuardian', 'StudentGuardian', 'students', ['relationship', 'is_primary_contact', 'portal_access']),
+  node('Enrollment', 'Enrollment', 'students', ['status: active | graduated | withdrawn', 'is_active']),
+  node('Document', 'Document', 'students', ['document_type', 'title', 'file']),
+
+  // ── ACADEMICS ──────────────────────────────────────────────
+  node('Subject', 'Subject', 'academics', ['name', 'code (unique)', 'is_core', 'max_marks']),
+  node('TeacherAssignment', 'TeacherAssignment', 'academics', ['is_primary']),
+  node('TeacherProfile', 'TeacherProfile', 'academics', ['employee_id (unique)', 'qualification', 'specialization', 'department']),
+  node('LessonPlan', 'LessonPlan', 'academics', ['title', 'topic', 'date', 'duration_mins']),
+
+  // ── ATTENDANCE ──────────────────────────────────────────
+  node('AttendanceRecord', 'AttendanceRecord', 'attendance', ['date', 'status: P|A|L|E|H', 'notified_guardian']),
+  node('PeriodAttendance', 'PeriodAttendance', 'attendance', ['date', 'period_number', 'status']),
+  node('AttendanceLeave', 'AttendanceLeave', 'attendance', ['leave_type', 'from_date', 'to_date', 'reason', 'status']),
+
+  // ── GRADEBOOK ──────────────────────────────────────────────
+  node('GradingScale', 'GradingScale', 'gradebook', ['name', 'is_default']),
+  node('GradingScaleEntry', 'GradingScaleEntry', 'gradebook', ['grade_letter (A+, B, ...)', 'min_percentage', 'grade_point']),
+  node('ExamType', 'ExamType', 'gradebook', ['name', 'weightage (%)', 'is_terminal']),
+  node('Exam', 'Exam', 'gradebook', ['name (Midterm, Final)', 'start_date', 'end_date', 'status']),
+  node('ExamSchedule', 'ExamSchedule', 'gradebook', ['date', 'start_time', 'end_time', 'venue', 'max_marks']),
+  node('ExamGrade', 'Grade (Exam)', 'gradebook', ['marks_obtained', 'is_absent', 'is_pass', 'remarks']),
+  node('Assessment', 'Assessment', 'gradebook', ['title', 'type: homework|quiz|project', 'due_date', 'max_marks']),
+  node('AssessmentSubmission', 'AssessmentSubmission', 'gradebook', ['marks_obtained', 'submitted_at', 'file', 'is_late']),
+  node('ReportCard', 'ReportCard', 'gradebook', ['percentage', 'gpa', 'rank_in_class', 'status', 'pdf_file']),
+
+  // ── FEES ──────────────────────────────────────────────
+  node('FeeCategory', 'FeeCategory', 'fees', ['name (Tuition, Transport...)', 'is_mandatory', 'recurrence']),
+  node('FeeStructure', 'FeeStructure', 'fees', ['amount', 'due_day', 'late_fee_per_day']),
+  node('FeeInvoice', 'FeeInvoice', 'fees', ['invoice_number (unique)', 'due_date', 'total_amount', 'paid_amount', 'status']),
+  node('Payment', 'Payment', 'fees', ['amount', 'method: cash|card|online|khalti|esewa', 'status', 'receipt_number']),
+  node('Scholarship', 'Scholarship', 'fees', ['name', 'discount_type: % | fixed', 'discount_value', 'reason']),
+  node('PaymentGatewayConfig', 'PaymentGatewayConfig', 'fees', ['stripe_enabled', 'khalti_enabled', 'esewa_enabled']),
+
+  // ── TIMETABLE ────────────────────────────────────────────
+  node('Period', 'Period', 'timetable', ['name', 'period_number', 'start_time', 'end_time', 'is_break']),
+  node('TimetableSlot', 'TimetableSlot', 'timetable', ['day_of_week']),
+  node('SchoolEvent', 'SchoolEvent', 'timetable', ['title', 'description', 'start_datetime', 'end_datetime', 'event_type']),
+
+  // ── HR ──────────────────────────────────────────
+  node('Department', 'Department', 'hr', ['name', 'code', 'head_of_dept']),
+  node('Employee', 'Employee', 'hr', ['employee_id', 'designation', 'joining_date']),
+  node('SalaryStructure', 'SalaryStructure', 'hr', ['title', 'basic_pay', 'allowances', 'deductions']),
+  node('EmployeeSalary', 'EmployeeSalary', 'hr', ['effective_from', 'is_active']),
+  node('Payslip', 'Payslip', 'hr', ['month', 'year', 'gross_pay', 'net_pay']),
+  node('LeaveRequest', 'LeaveRequest', 'hr', ['leave_type', 'from_date', 'to_date', 'reason', 'status']),
+
+  // ── TRANSPORT ─────────────────────────────────────────
+  node('Vehicle', 'Vehicle', 'transport', ['registration_number', 'type', 'capacity', 'make']),
+  node('Driver', 'Driver', 'transport', ['license_number', 'phone']),
+  node('Route', 'Route', 'transport', ['name', 'start_point', 'end_point', 'distance', 'fare_amount']),
+  node('RouteStop', 'RouteStop', 'transport', ['name', 'stop_order', 'latitude', 'longitude']),
+  node('StudentRoute', 'StudentRoute', 'transport', ['pickup_stop', 'dropoff_stop', 'fare', 'is_active']),
+  node('VehicleMaintenance', 'VehicleMaintenance', 'transport', ['maintenance_type', 'cost', 'service_date', 'next_service']),
+
+  // ── INVENTORY ────────────────────────────────────────────
+  node('Category', 'Category', 'inventory', ['name', 'description']),
+  node('Supplier', 'Supplier', 'inventory', ['name', 'contact_person', 'email', 'phone']),
+  node('InventoryItem', 'InventoryItem', 'inventory', ['name', 'sku', 'quantity', 'unit_price', 'reorder_level']),
+  node('StockMovement', 'StockMovement', 'inventory', ['quantity', 'movement_type', 'reference']),
+  node('PurchaseOrder', 'PurchaseOrder', 'inventory', ['order_number', 'status', 'total_amount']),
+  node('PurchaseOrderItem', 'PurchaseOrderItem', 'inventory', ['quantity', 'unit_price', 'total_price']),
+
+  // ── HOSTEL ─────────────────────────────────────────────
+  node('Hostel', 'Hostel', 'hostel', ['name', 'type (boys/girls)', 'warden_name']),
+  node('HostelRoom', 'HostelRoom', 'hostel', ['room_number', 'capacity', 'occupied', 'fee_per_bed']),
+  node('HostelAllocation', 'HostelAllocation', 'hostel', ['check_in', 'check_out', 'is_active']),
+  node('HostelFee', 'HostelFee', 'hostel', ['fee_type', 'amount', 'due_date', 'paid']),
+  node('HostelVisitor', 'HostelVisitor', 'hostel', ['visitor_name', 'relationship', 'visit_date']),
+
+  // ── SPORTS ─────────────────────────────────────────────
+  node('Sport', 'Sport', 'sports', ['name', 'equipment_required']),
+  node('Team', 'Team', 'sports', ['name', 'age_group', 'gender']),
+  node('TeamMember', 'TeamMember', 'sports', ['role (captain/vice_captain/member)', 'status']),
+  node('SportEvent', 'SportEvent', 'sports', ['name', 'event_type', 'location', 'start_date']),
+  node('SportAchievement', 'SportAchievement', 'sports', ['achievement_type', 'title', 'rank']),
+
+  // ── HEALTH ─────────────────────────────────────────────
+  node('HealthRecord', 'HealthRecord', 'health', ['blood_group', 'allergies', 'chronic_conditions']),
+  node('NurseVisit', 'NurseVisit', 'health', ['symptoms', 'diagnosis', 'treatment', 'medication']),
+  node('Immunization', 'Immunization', 'health', ['vaccine_name', 'date_given', 'dose_number', 'next_due']),
+  node('MedicationLog', 'MedicationLog', 'health', ['medication_name', 'dosage', 'frequency', 'start_date']),
+
+  // ── LIBRARY ────────────────────────────────────────────
+  node('Book', 'Book', 'library', ['title', 'author', 'isbn', 'total_copies', 'available_copies']),
+  node('Checkout', 'Checkout', 'library', ['checked_out', 'due_date', 'returned_date', 'status']),
+
+  // ── CONFERENCES ─────────────────────────────────────────
+  node('ConferenceSlot', 'ConferenceSlot', 'conferences', ['date', 'start_time', 'end_time', 'status', 'mode (online/inperson)']),
+
+  // ── BEHAVIOR ─────────────────────────────────────────
+  node('Incident', 'Incident', 'behavior', ['incident_type', 'description', 'date', 'severity', 'action_taken']),
+  node('Referral', 'Referral', 'behavior', ['reason', 'referral_type', 'notes', 'status']),
+
+  // ── ADMISSIONS ─────────────────────────────────────────
+  node('EnrollmentIntake', 'EnrollmentIntake', 'admissions', ['name', 'start_date', 'end_date', 'capacity', 'is_open']),
+  node('Application', 'Application', 'admissions', ['applicant_name', 'email', 'status', 'decision_date']),
+  node('ApplicationDocument', 'ApplicationDocument', 'admissions', ['document_type', 'file']),
+  node('ApplicationReview', 'ApplicationReview', 'admissions', ['rating', 'comments', 'decision']),
+
+  // ── ALUMNI ──────────────────────────────────────────
+  node('AlumniProfile', 'AlumniProfile', 'alumni', ['graduation_year', 'current_occupation', 'organization']),
+  node('AlumniEvent', 'AlumniEvent', 'alumni', ['name', 'event_type', 'location', 'date']),
+  node('AlumniDonation', 'AlumniDonation', 'alumni', ['amount', 'donation_type', 'payment_method']),
+  node('AlumniChapter', 'AlumniChapter', 'alumni', ['name', 'city', 'country']),
+
+  // ── CAFETERIA ──────────────────────────────────────────
+  node('MealMenu', 'MealMenu', 'cafeteria', ['day_of_week', 'meal_type', 'main_item', 'side_item', 'price']),
+  node('MealPlan', 'MealPlan', 'cafeteria', ['name', 'description', 'price_per_period', 'is_active']),
+  node('MealBooking', 'MealBooking', 'cafeteria', ['booking_date', 'meal_type', 'status']),
+  node('DietaryRestriction', 'DietaryRestriction', 'cafeteria', ['restriction_type', 'allergen', 'notes']),
+];
+
+// ── Edges (relationships) ──────────────────────────────────────────────
+const edges = [
+  // Auth
+  edge('School', 'User', '1:N'),
+  edge('School', 'AuditLog', '1:N'),
+  edge('User', 'UserSession', '1:N'),
+  edge('User', 'PasswordResetToken', '1:N'),
+  edge('User', 'EmailVerificationToken', '1:N'),
+  edge('User', 'TwoFactorBackupCode', '1:N'),
+  edge('User', 'AuditLog', '1:N'),
+
+  // Students
+  edge('School', 'AcademicYear', '1:N'),
+  edge('School', 'Grade', '1:N'),
+  edge('School', 'Classroom', '1:N'),
+  edge('School', 'Student', '1:N'),
+  edge('Grade', 'Classroom', '1:N'),
+  edge('AcademicYear', 'Classroom', '1:N'),
+  edge('User', 'Student', '1:1'),
+  edge('User', 'Guardian', '1:1'),
+  edge('User', 'Classroom', '1:N', true, '(class_teacher)'),
+  edge('Student', 'Enrollment', '1:N'),
+  edge('Classroom', 'Enrollment', '1:N'),
+  edge('AcademicYear', 'Enrollment', '1:N'),
+  edge('Student', 'StudentGuardian', '1:N'),
+  edge('Guardian', 'StudentGuardian', '1:N'),
+  edge('Student', 'Document', '1:N'),
+
+  // Academics
+  edge('School', 'Subject', '1:N'),
+  edge('School', 'TeacherProfile', '1:N'),
+  edge('User', 'TeacherProfile', '1:1'),
+  edge('User', 'TeacherAssignment', '1:N'),
+  edge('Grade', 'Subject', '1:N'),
+  edge('Subject', 'TeacherAssignment', '1:N'),
+  edge('Classroom', 'TeacherAssignment', '1:N'),
+  edge('AcademicYear', 'TeacherAssignment', '1:N'),
+  edge('TeacherAssignment', 'LessonPlan', '1:N'),
+
+  // Attendance
+  edge('Student', 'AttendanceRecord', '1:N'),
+  edge('Classroom', 'AttendanceRecord', '1:N'),
+  edge('AcademicYear', 'AttendanceRecord', '1:N'),
+  edge('Student', 'PeriodAttendance', '1:N'),
+  edge('TeacherAssignment', 'PeriodAttendance', '1:N'),
+  edge('Student', 'AttendanceLeave', '1:N'),
+
+  // Gradebook
+  edge('School', 'GradingScale', '1:N'),
+  edge('School', 'ExamType', '1:N'),
+  edge('School', 'Exam', '1:N'),
+  edge('GradingScale', 'GradingScaleEntry', '1:N'),
+  edge('AcademicYear', 'Exam', '1:N'),
+  edge('ExamType', 'Exam', '1:N'),
+  edge('Exam', 'ExamSchedule', '1:N'),
+  edge('Subject', 'ExamSchedule', '1:N'),
+  edge('Classroom', 'ExamSchedule', '1:N'),
+  edge('ExamSchedule', 'ExamGrade', '1:N'),
+  edge('Student', 'ExamGrade', '1:N'),
+  edge('TeacherAssignment', 'Assessment', '1:N'),
+  edge('Assessment', 'AssessmentSubmission', '1:N'),
+  edge('Student', 'AssessmentSubmission', '1:N'),
+  edge('Student', 'ReportCard', '1:N'),
+  edge('Exam', 'ReportCard', '1:N'),
+  edge('AcademicYear', 'ReportCard', '1:N'),
+
+  // Fees
+  edge('School', 'FeeCategory', '1:N'),
+  edge('School', 'FeeStructure', '1:N'),
+  edge('School', 'Scholarship', '1:N'),
+  edge('School', 'PaymentGatewayConfig', '1:1'),
+  edge('AcademicYear', 'FeeStructure', '1:N'),
+  edge('AcademicYear', 'FeeInvoice', '1:N'),
+  edge('AcademicYear', 'Scholarship', '1:N'),
+  edge('Grade', 'FeeStructure', '1:N'),
+  edge('FeeCategory', 'FeeStructure', '1:N'),
+  edge('FeeCategory', 'Scholarship', 'M:N'),
+  edge('FeeStructure', 'FeeInvoice', '1:N'),
+  edge('Student', 'FeeInvoice', '1:N'),
+  edge('Student', 'Scholarship', '1:N'),
+  edge('FeeInvoice', 'Payment', '1:N'),
+
+  // Timetable
+  edge('School', 'Period', '1:N'),
+  edge('School', 'SchoolEvent', '1:N'),
+  edge('Classroom', 'TimetableSlot', '1:N'),
+  edge('Period', 'TimetableSlot', '1:N'),
+  edge('Subject', 'TimetableSlot', '1:N'),
+  edge('User', 'TimetableSlot', '1:N'),
+  edge('AcademicYear', 'TimetableSlot', '1:N'),
+
+  // HR
+  edge('School', 'Department', '1:N'),
+  edge('School', 'Employee', '1:N'),
+  edge('School', 'SalaryStructure', '1:N'),
+  edge('User', 'Employee', '1:1'),
+  edge('Department', 'SalaryStructure', '1:N'),
+  edge('Employee', 'EmployeeSalary', '1:N'),
+  edge('SalaryStructure', 'EmployeeSalary', '1:N'),
+  edge('EmployeeSalary', 'Payslip', '1:N'),
+  edge('Employee', 'LeaveRequest', '1:N'),
+
+  // Transport
+  edge('School', 'Vehicle', '1:N'),
+  edge('School', 'Driver', '1:N'),
+  edge('School', 'Route', '1:N'),
+  edge('Route', 'RouteStop', '1:N'),
+  edge('Route', 'StudentRoute', '1:N'),
+  edge('Student', 'StudentRoute', '1:N'),
+  edge('AcademicYear', 'StudentRoute', '1:N'),
+  edge('Vehicle', 'VehicleMaintenance', '1:N'),
+
+  // Inventory
+  edge('School', 'Category', '1:N'),
+  edge('School', 'Supplier', '1:N'),
+  edge('School', 'InventoryItem', '1:N'),
+  edge('Category', 'InventoryItem', '1:N'),
+  edge('InventoryItem', 'StockMovement', '1:N'),
+  edge('Supplier', 'PurchaseOrder', '1:N'),
+  edge('PurchaseOrder', 'PurchaseOrderItem', '1:N'),
+  edge('InventoryItem', 'PurchaseOrderItem', '1:N'),
+
+  // Hostel
+  edge('School', 'Hostel', '1:N'),
+  edge('Hostel', 'HostelRoom', '1:N'),
+  edge('HostelRoom', 'HostelAllocation', '1:N'),
+  edge('Student', 'HostelAllocation', '1:N'),
+  edge('AcademicYear', 'HostelAllocation', '1:N'),
+  edge('HostelAllocation', 'HostelFee', '1:N'),
+  edge('HostelAllocation', 'HostelVisitor', '1:N'),
+
+  // Sports
+  edge('School', 'Sport', '1:N'),
+  edge('School', 'Team', '1:N'),
+  edge('School', 'SportAchievement', '1:N'),
+  edge('Sport', 'Team', '1:N'),
+  edge('Team', 'TeamMember', '1:N'),
+  edge('Student', 'TeamMember', '1:N'),
+  edge('Team', 'SportEvent', '1:N'),
+  edge('Team', 'SportAchievement', '1:N'),
+  edge('Student', 'SportAchievement', '1:N'),
+
+  // Health
+  edge('Student', 'HealthRecord', '1:1'),
+  edge('School', 'HealthRecord', '1:N'),
+  edge('HealthRecord', 'NurseVisit', '1:N'),
+  edge('HealthRecord', 'Immunization', '1:N'),
+  edge('HealthRecord', 'MedicationLog', '1:N'),
+  edge('Student', 'NurseVisit', '1:N'),
+
+  // Library
+  edge('School', 'Book', '1:N'),
+  edge('Book', 'Checkout', '1:N'),
+  edge('Student', 'Checkout', '1:N'),
+
+  // Conferences
+  edge('User', 'ConferenceSlot', '1:N', true, '(teacher)'),
+  edge('Student', 'ConferenceSlot', '1:N'),
+  edge('User', 'ConferenceSlot', '1:N', true, '(booked_by)'),
+
+  // Behavior
+  edge('Student', 'Incident', '1:N'),
+  edge('School', 'Incident', '1:N'),
+  edge('Student', 'Referral', '1:N'),
+  edge('School', 'Referral', '1:N'),
+
+  // Admissions
+  edge('School', 'EnrollmentIntake', '1:N'),
+  edge('Grade', 'EnrollmentIntake', '1:N'),
+  edge('AcademicYear', 'EnrollmentIntake', '1:N'),
+  edge('EnrollmentIntake', 'Application', '1:N'),
+  edge('Application', 'ApplicationDocument', '1:N'),
+  edge('Application', 'ApplicationReview', '1:N'),
+
+  // Alumni
+  edge('User', 'AlumniProfile', '1:1'),
+  edge('School', 'AlumniProfile', '1:N'),
+  edge('School', 'AlumniEvent', '1:N'),
+  edge('School', 'AlumniDonation', '1:N'),
+  edge('School', 'AlumniChapter', '1:N'),
+  edge('AlumniProfile', 'AlumniDonation', '1:N'),
+
+  // Cafeteria
+  edge('School', 'MealMenu', '1:N'),
+  edge('School', 'MealPlan', '1:N'),
+  edge('Student', 'MealBooking', '1:N'),
+  edge('MealPlan', 'MealBooking', '1:N'),
+  edge('Student', 'DietaryRestriction', '1:N'),
+];
+
+// ── Construct vis-network ──────────────────────────────────────────────
+const nodeData = nodes.map(n => ({
+  id: n.id,
+  label: n.id,
+  title: `<b>${n.id}</b>`,
+  group: n.group,
+  shape: 'box',
+  margin: { top: 8, right: 12, bottom: 8, left: 12 },
+  font: { color: '#fff', size: 11, face: 'Segoe UI, sans-serif', strokeWidth: 0 },
+  borderWidth: 2,
+  size: 20,
+}));
+
+const edgeData = edges.map(e => ({
+  from: e[0], to: e[1],
+  label: e[2] || '',
+  dashes: e[3] || false,
+  arrows: 'to',
+  width: 1.2,
+  color: { color: '#484f58', highlight: '#58a6ff', hover: '#58a6ff' },
+  font: { color: '#8b949e', size: 9, align: 'middle', strokeWidth: 2, strokeColor: '#0d1117' },
+  smooth: { type: 'curvedCW', roundness: 0.15 },
+  arrowStrikethrough: false,
+}));
+
+const groupStyles = {};
+for (const [key, c] of Object.entries(COLORS)) {
+  groupStyles[key] = {
+    shape: 'box',
+    color: { background: c.bg, border: c.border, highlight: { background: c.bg, border: '#58a6ff' } },
+    font: { color: c.text, size: 11 },
+  };
+}
+
+const container = document.getElementById('mynetwork');
+const data = { nodes: new vis.DataSet(nodeData), edges: new vis.DataSet(edgeData) };
+const options = {
+  autoResize: true,
+  groups: groupStyles,
+  edges: {
+    smooth: { type: 'curvedCW', roundness: 0.15 },
+  },
+  physics: {
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -40,
+      centralGravity: 0.005,
+      springLength: 180,
+      springConstant: 0.04,
+      damping: 0.5,
+    },
+    stabilization: { iterations: 300 },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 200,
+    navigationButtons: false,
+    keyboard: true,
+  },
+  layout: { improvedLayout: true },
+};
+
+const network = new vis.Network(container, data, options);
+
+// ── Controls ───────────────────────────────────────────────────────────
+function zoomIn() { const s = network.getScale(); network.moveTo({ scale: s * 1.3 }); }
+function zoomOut() { const s = network.getScale(); network.moveTo({ scale: s / 1.3 }); }
+function fitView() { network.fit({ animation: true }); }
+
+// ── Tooltip on click ──────────────────────────────────────────────────
+network.on('click', function(params) {
+  const tooltip = document.getElementById('tooltip');
+  if (params.nodes.length > 0) {
+    const nid = params.nodes[0];
+    const n = nodes.find(x => x.id === nid);
+    if (n) {
+      document.getElementById('tt-title').textContent = n.id;
+      document.getElementById('tt-fields').textContent = 'Fields: ' + (n.fields.length ? n.fields.join(' · ') : '-');
+      const rels = edges.filter(e => e[0] === nid || e[1] === nid);
+      const relStr = rels.map(r => `${r[0]} → ${r[1]}${r[2] ? ' ('+r[2]+')' : ''}`).join('  ·  ');
+      document.getElementById('tt-rels').textContent = relStr ? 'Relations: ' + relStr : '';
+      tooltip.classList.add('visible');
+      tooltip.style.left = (params.pointer.DOM.x + 15) + 'px';
+      tooltip.style.top = (params.pointer.DOM.y + 15) + 'px';
+      return;
+    }
+  }
+  tooltip.classList.remove('visible');
+});
+
+// Click outside to hide tooltip
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#mynetwork')) {
+    document.getElementById('tooltip').classList.remove('visible');
+  }
+});
+
+console.log('ER Diagram loaded: ' + nodes.length + ' entities, ' + edges.length + ' relationships');
+</script>
+</body>
+</html>

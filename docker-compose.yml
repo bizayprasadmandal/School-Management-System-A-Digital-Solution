@@ -205,6 +205,21 @@ services:
     depends_on:
       - backend
 
+  # ─── Adminer (Web-based DB GUI) ────────────────────────────────────────────
+  adminer:
+    image: adminer:4.8.1
+    container_name: sms_adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_DB: sms_db
+      ADMINER_DEFAULT_USER: sms
+      ADMINER_DEFAULT_PASSWORD: sms_password
+
   # ─── Nginx Reverse Proxy ───────────────────────────────────────────────────
   nginx:
     image: nginx:1.25-alpine
