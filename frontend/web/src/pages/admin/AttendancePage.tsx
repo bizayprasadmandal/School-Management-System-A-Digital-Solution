@@ -2,6 +2,7 @@
  * Admin Attendance Page — school-wide attendance overview with per-classroom drill-down
  */
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
@@ -15,6 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function AdminAttendancePage() {
   useTitle("Attendance");
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [selectedClassroom, setSelectedClassroom] = useState<number | undefined>();
   const [page, setPage] = useState(1);
@@ -138,6 +140,7 @@ export default function AdminAttendancePage() {
               rowKey={r => r.id}
               emptyMessage="No attendance records for this classroom today"
               page={page} total={records?.count ?? 0} pageSize={100} onPageChange={setPage}
+              onRowClick={(r) => navigate(`/admin/students/${r.student_id}`)}
             />
         )}
         {!selectedClassroom && (

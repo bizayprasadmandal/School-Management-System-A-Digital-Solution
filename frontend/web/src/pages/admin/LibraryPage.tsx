@@ -1,13 +1,14 @@
 /** Library Management — Book catalog, checkout/return, fine tracking */
 
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 import {
   PlusIcon, MagnifyingGlassIcon, BookOpenIcon,
   ArrowLeftOnRectangleIcon, ArrowRightOnRectangleIcon,
-  PencilIcon, XCircleIcon,
+  PencilIcon, XCircleIcon, ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import { Button, Modal, EmptyState } from "../../components/common";
@@ -205,6 +206,7 @@ function CheckoutFormModal({ open, onClose, onSaved }: {
 }
 
 export default function LibraryPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"catalog" | "checkouts">("catalog");
   const [search, setSearch] = useState("");
   const [showBookForm, setShowBookForm] = useState(false);
@@ -313,13 +315,15 @@ export default function LibraryPage() {
           ) : (
             <div className="grid grid-cols-3 gap-4">
               {filteredBooks.map(book => (
-                <div key={book.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={book.id}
+                  onClick={() => { setEditingBook(book); setShowBookForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <BookOpenIcon className="h-5 w-5 text-indigo-500" />
                       <span className="text-xs text-slate-400">{book.category || "General"}</span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                       <button onClick={() => { setEditingBook(book); setShowBookForm(true); }}
                         className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <PencilIcon className="h-3.5 w-3.5" />
@@ -330,7 +334,7 @@ export default function LibraryPage() {
                       </button>
                     </div>
                   </div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white truncate">{book.title}</h3>
+                  <h3 className="font-semibold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{book.title}</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{book.author}</p>
                   {book.isbn && <p className="text-xs text-slate-400 mt-1 font-mono">ISBN: {book.isbn}</p>}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">

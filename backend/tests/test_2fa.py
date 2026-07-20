@@ -454,8 +454,14 @@ class TestBackupCodeLockout:
                 "user_id": str(user.id),
                 "code": f"WRONG-{i:05d}",
             })
-            assert r.status_code == status.HTTP_400_BAD_REQUEST
-            assert "remaining" in r.data["detail"].lower()
+            # First 2 attempts return 400 with remaining count;
+            # the 3rd triggers the lockout and returns 429
+            if i < 3:
+                assert r.status_code == status.HTTP_400_BAD_REQUEST
+                assert "remaining" in r.data["detail"].lower()
+            else:
+                assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                assert "locked out" in r.data["detail"].lower()
 
         user.refresh_from_db()
         assert user.backup_code_failed_attempts == 3

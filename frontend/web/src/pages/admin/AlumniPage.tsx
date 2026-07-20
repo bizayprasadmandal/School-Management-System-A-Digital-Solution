@@ -71,11 +71,12 @@ function ProfilesTab({
           {filtered.map(p => (
             <div
               key={p.id}
-              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow"
+              onClick={() => onEdit(p)}
+              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-semibold text-slate-900 dark:text-white">{p.user_name}</p>
+                  <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{p.user_name}</p>
                   <p className="text-xs text-slate-400">
                     {p.graduation_year}
                     {p.occupation ? "  ·  " + p.occupation : ""}
@@ -86,7 +87,7 @@ function ProfilesTab({
                     {p.country ? ", " + p.country : ""}
                   </p>
                 </div>
-                <div className="flex gap-1 ml-4 flex-shrink-0">
+                <div className="flex gap-1 ml-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => onEdit(p)}
                     className="text-xs text-indigo-600 font-medium hover:text-indigo-800"
@@ -199,18 +200,19 @@ function ChaptersTab({
         chapters.map(c => (
           <div
             key={c.id}
-            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow"
+            onClick={() => onEdit(c)}
+            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">{c.name}</p>
+                <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{c.name}</p>
                 <p className="text-xs text-slate-400">
                   {c.city}
                   {c.country ? ", " + c.country : ""}
                   {c.president_name ? "  ·  Head: " + c.president_name : ""}
                 </p>
               </div>
-              <div className="flex gap-1 ml-4 flex-shrink-0">
+              <div className="flex gap-1 ml-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
                 <span
                   className={
                     "text-xs font-medium px-2 py-0.5 rounded " +

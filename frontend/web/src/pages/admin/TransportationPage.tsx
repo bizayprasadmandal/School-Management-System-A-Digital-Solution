@@ -362,10 +362,12 @@ export default function TransportationPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredVehicles.map((v) => (
-                <div key={v.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={v.id}
+                  onClick={() => { setEditingVehicle(v); setShowVehicleForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{v.plate_number}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{v.plate_number}</p>
                       <p className="text-xs text-slate-400">{v.vehicle_type_display} {v.model_name && `· ${v.model_name}`} {v.year && `(${v.year})`}</p>
                     </div>
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[v.status]}`}>
@@ -386,7 +388,7 @@ export default function TransportationPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingVehicle(v); setShowVehicleForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { if (confirm("Delete this vehicle?")) deleteVehicle.mutate(v.id); }}
@@ -409,10 +411,12 @@ export default function TransportationPage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {drivers.map((d) => (
-                <div key={d.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={d.id}
+                  onClick={() => { setEditingDriver(d); setShowDriverForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{d.full_name}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{d.full_name}</p>
                       <p className="text-xs text-slate-400">{d.phone_number} {d.email && `· ${d.email}`}</p>
                     </div>
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[d.status]}`}>
@@ -423,7 +427,7 @@ export default function TransportationPage() {
                     {d.license_number && <p>License: {d.license_number} {d.license_expiry && `(exp: ${dayjs(d.license_expiry).format("MMM D, YYYY")})`}</p>}
                     {d.employee_name && <p>HR Link: {d.employee_name}</p>}
                   </div>
-                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingDriver(d); setShowDriverForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { if (confirm("Delete this driver?")) deleteDriver.mutate(d.id); }}
@@ -446,11 +450,13 @@ export default function TransportationPage() {
           ) : (
             <div className="space-y-4">
               {filteredRoutes.map((r) => (
-                <div key={r.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-3">
+                <div key={r.id}
+                  onClick={() => { setEditingRoute(r); setShowRouteForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
+                  <div className="flex items-start justify-between mb-3" onClick={e => e.stopPropagation()}>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-slate-900 dark:text-white">{r.name}</p>
+                        <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{r.name}</p>
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${r.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                           {r.is_active ? "Active" : "Inactive"}
                         </span>
@@ -487,7 +493,7 @@ export default function TransportationPage() {
                     <p className="text-xs text-slate-400 mb-2">📅 {r.operating_days.split(",").map(d => d.trim().charAt(0).toUpperCase() + d.trim().slice(1)).join(", ")}</p>
                   )}
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingRoute(r); setShowRouteForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { setSelectedRoute(r.id); setShowStopForm(true); }}
@@ -546,11 +552,13 @@ export default function TransportationPage() {
           ) : (
             <div className="space-y-3">
               {maintenance.map((m) => (
-                <div key={m.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={m.id}
+                  onClick={() => { setEditingMaintenance(m); setShowMaintenanceForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-slate-900 dark:text-white">{m.vehicle_plate}</p>
+                        <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{m.vehicle_plate}</p>
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[m.status]}`}>{m.status_display}</span>
                         <span className="text-xs text-slate-400">{m.maintenance_type_display}</span>
                       </div>
@@ -562,7 +570,7 @@ export default function TransportationPage() {
                       {m.description && <p className="text-xs text-slate-400 mt-1">{m.description}</p>}
                       {m.vendor_name && <p className="text-xs text-slate-400">Vendor: {m.vendor_name}</p>}
                     </div>
-                    <button onClick={() => { setEditingMaintenance(m); setShowMaintenanceForm(true); }}
+                    <button onClick={(e) => { e.stopPropagation(); setEditingMaintenance(m); setShowMaintenanceForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium ml-4">Edit</button>
                   </div>
                 </div>

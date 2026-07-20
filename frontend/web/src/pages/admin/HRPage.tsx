@@ -326,7 +326,9 @@ export default function HRPage() {
           ) : (
             <div className="grid gap-3">
               {filteredEmployees.map((emp) => (
-                <div key={emp.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={emp.id}
+                  onClick={() => { setEditingEmployee(emp); setShowEmployeeForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -334,14 +336,14 @@ export default function HRPage() {
                         <span className="text-xs text-slate-400">{emp.employee_id}</span>
                         <span className="text-xs text-slate-400">{EMPLOYMENT_LABELS[emp.employment_type]}</span>
                       </div>
-                      <p className="font-medium text-slate-900 dark:text-white">{emp.user_name}</p>
+                      <p className="font-medium text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{emp.user_name}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{emp.designation} {emp.department_name ? `· ${emp.department_name}` : ""}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                         <span>📅 Joined {dayjs(emp.joining_date).format("MMM D, YYYY")}</span>
                         {emp.current_salary && <span>💰 ${Number(emp.current_salary.net_salary).toLocaleString()}/mo</span>}
                       </div>
                     </div>
-                    <div className="flex gap-1 ml-4">
+                    <div className="flex gap-1 ml-4" onClick={e => e.stopPropagation()}>
                       <button onClick={() => { setEditingEmployee(emp); setShowEmployeeForm(true); }}
                         className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">
                         <PencilIcon className="h-4 w-4" />
@@ -368,10 +370,12 @@ export default function HRPage() {
             </div>
           ) : (
             departments.map((dept) => (
-              <div key={dept.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+              <div key={dept.id}
+                onClick={() => { setEditingDept(dept); setShowDeptForm(true); }}
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{dept.name}</p>
+                    <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{dept.name}</p>
                     {dept.code && <p className="text-xs text-slate-400 font-mono">{dept.code}</p>}
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded ${dept.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
@@ -383,7 +387,7 @@ export default function HRPage() {
                   <span>{dept.employee_count} employees</span>
                   <span>Head: {dept.head_name || "—"}</span>
                 </div>
-                <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { setEditingDept(dept); setShowDeptForm(true); }}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                   <button onClick={() => { if (confirm("Delete department?")) deleteDept.mutate(dept.id); }}

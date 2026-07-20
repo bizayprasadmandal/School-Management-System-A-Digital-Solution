@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { PlusIcon, BuildingLibraryIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useClassrooms, useGradeLevels, useCurrentAcademicYear } from "../../api/hooks";
 import { Button, Badge, DataTable, Select, Spinner, EmptyState, SkeletonTable, Modal, Input } from "../../components/common";
@@ -42,6 +43,7 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
 
 export default function ClassroomsPage() {
   useTitle("Classrooms");
+  const navigate = useNavigate();
   const [gradeFilter, setGradeFilter] = useState<number|undefined>();
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
@@ -85,6 +87,7 @@ export default function ClassroomsPage() {
               ]}
               data={classrooms} rowKey={r=>r.id}
               page={page} total={classroomsData?.count ?? 0} pageSize={25} onPageChange={setPage}
+              onRowClick={(r) => navigate(`/admin/students?classroom=${r.id}`)}
             />
         }
       </div>

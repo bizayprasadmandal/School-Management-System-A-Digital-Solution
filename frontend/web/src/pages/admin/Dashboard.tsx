@@ -3,6 +3,7 @@
  */
 
 import React from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
   UsersIcon,
   AcademicCapIcon,
@@ -11,6 +12,7 @@ import {
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -72,12 +74,14 @@ interface StatCardProps {
   color: string;
   delta?: number;
   deltaLabel?: string;
+  to?: string;
 }
 
-function StatCard({ label, value, icon: Icon, color, delta, deltaLabel }: StatCardProps) {
+function StatCard({ label, value, icon: Icon, color, delta, deltaLabel, to }: StatCardProps) {
   const isPositive = delta !== undefined && delta >= 0;
-  return (
-    <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+  const navigate = useNavigate();
+  const content = (
+    <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700 h-full">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
@@ -102,11 +106,21 @@ function StatCard({ label, value, icon: Icon, color, delta, deltaLabel }: StatCa
       )}
     </div>
   );
+
+  if (to) {
+    return (
+      <button onClick={() => navigate(to)} className="text-left w-full group cursor-pointer">
+        {content}
+      </button>
+    );
+  }
+  return content;
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const today = dayjs().format("dddd, MMMM D YYYY");
 
@@ -140,12 +154,14 @@ export default function AdminDashboard() {
           color="bg-indigo-500"
           delta={stats?.student_delta_pct}
           deltaLabel="vs last month"
+          to="/admin/students"
         />
         <StatCard
           label="Teachers"
           value={stats?.total_teachers?.toLocaleString() ?? "—"}
           icon={AcademicCapIcon}
           color="bg-violet-500"
+          to="/admin/teachers"
         />
         <StatCard
           label="Today's Attendance"
@@ -158,12 +174,14 @@ export default function AdminDashboard() {
           }
           delta={stats?.attendance_delta_pct}
           deltaLabel="vs yesterday"
+          to="/admin/attendance"
         />
         <StatCard
           label="Fees Collected (Month)"
           value={stats ? `$${(stats.fees_collected_month / 1000).toFixed(0)}K` : "—"}
           icon={BanknotesIcon}
           color="bg-blue-500"
+          to="/admin/fees"
         />
       </div>
 
@@ -250,28 +268,39 @@ export default function AdminDashboard() {
 
         {/* Recent announcements */}
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Recent Announcements</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Recent Announcements</h2>
+            <Link to="/admin/announcements" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5">
+              View all <ChevronRightIcon className="h-3 w-3" />
+            </Link>
+          </div>
           {recentAnnouncements.length === 0 ? (
             <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No announcements yet</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {recentAnnouncements.map((a) => (
-                <li key={a.id} className="flex items-start gap-3">
-                  <span
-                    className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-                      a.priority === "urgent"
-                        ? "bg-red-500"
-                        : a.priority === "high"
-                        ? "bg-amber-500"
-                        : "bg-indigo-400"
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{a.title}</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
-                      {dayjs(a.created_at).fromNow()}
-                    </p>
-                  </div>
+                <li key={a.id}>
+                  <Link
+                    to="/admin/announcements"
+                    className="flex items-start gap-3 rounded-lg px-2 py-2 -mx-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                  >
+                    <span
+                      className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
+                        a.priority === "urgent"
+                          ? "bg-red-500"
+                          : a.priority === "high"
+                          ? "bg-amber-500"
+                          : "bg-indigo-400"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{a.title}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        {dayjs(a.created_at).fromNow()}
+                      </p>
+                    </div>
+                    <ChevronRightIcon className="h-4 w-4 text-slate-300 dark:text-slate-600 flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -281,17 +310,20 @@ export default function AdminDashboard() {
 
       {/* Outstanding fees alert */}
       {stats && stats.fees_outstanding > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-4">
-          <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              Outstanding Fees Alert
-            </p>
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              ${stats.fees_outstanding.toLocaleString()} in unpaid fees. Consider sending payment reminders.
-            </p>
+        <button onClick={() => navigate("/admin/fees")} className="w-full text-left">
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-4 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer group">
+            <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Outstanding Fees Alert
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                ${stats.fees_outstanding.toLocaleString()} in unpaid fees. Consider sending payment reminders.
+              </p>
+            </div>
+            <ChevronRightIcon className="h-5 w-5 text-amber-400 flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-        </div>
+        </button>
       )}
     </div>
   );

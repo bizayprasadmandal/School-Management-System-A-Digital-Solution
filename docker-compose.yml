@@ -71,13 +71,13 @@ services:
     command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     environment:
       - DEBUG=True
-      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
-      - REDIS_URL=redis://redis:6379/0
-      - AWS_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_ACCESS_KEY_ID=sms_admin
-      - AWS_SECRET_ACCESS_KEY=sms_minio_password
-      - AWS_STORAGE_BUCKET_NAME=sms-documents
-      - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
+      - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
       - FRONTEND_URL=http://localhost:3000
@@ -86,7 +86,7 @@ services:
       - TWILIO_PHONE_NUMBER=
       - TWILIO_MESSAGING_SERVICE_SID=
       - FIREBASE_CREDENTIALS=
-      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
+      - SENTRY_DSN=${SENTRY_DSN}
       # ─── Gmail SMTP (real email delivery) ───────────────────────────────
       - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
       - EMAIL_HOST=smtp.gmail.com
@@ -117,10 +117,10 @@ services:
     restart: unless-stopped
     command: celery -A core worker -l info -c 4 -Q default,notifications,reports
     environment:
-      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
-      - REDIS_URL=redis://redis:6379/0
-      - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
-      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
       # ─── Gmail SMTP (real email delivery) ───────────────────────────────
       - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
       - EMAIL_HOST=smtp.gmail.com
@@ -146,15 +146,15 @@ services:
     restart: unless-stopped
     command: celery -A core beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
-      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
-      - REDIS_URL=redis://redis:6379/0
-      - "SECRET_KEY=u65k#*yl4$&bvrg@dj#isx%p3wy-w07_#m*xey25$yc%d5h$b^"
-      - TWILIO_ACCOUNT_SID=
-      - TWILIO_AUTH_TOKEN=
-      - TWILIO_PHONE_NUMBER=
-      - TWILIO_MESSAGING_SERVICE_SID=
-      - FIREBASE_CREDENTIALS=
-      - SENTRY_DSN=https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
     volumes:
       - ./backend:/app
     depends_on:
@@ -171,8 +171,8 @@ services:
     restart: unless-stopped
     command: celery -A core flower --port=5555
     environment:
-      - DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
     volumes:
       - ./backend:/app
     ports:

@@ -95,12 +95,15 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   placeholder?: string;
 }
 
-export function Select({ label, error, options, placeholder, className, id, ...props }: SelectProps) {
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select({
+  label, error, options, placeholder, className, id, ...props
+}, ref) {
   const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label htmlFor={selectId} className="text-xs font-semibold text-slate-700">{label}</label>}
       <select
+        ref={ref}
         id={selectId}
         className={clsx(
           "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 appearance-none cursor-pointer",
@@ -116,7 +119,7 @@ export function Select({ label, error, options, placeholder, className, id, ...p
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
-}
+});
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 

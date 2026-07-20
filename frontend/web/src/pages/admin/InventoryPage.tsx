@@ -307,10 +307,12 @@ export default function InventoryPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
-                <div key={item.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={item.id}
+                  onClick={() => { setEditingItem(item); setShowItemForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">{item.name}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{item.name}</p>
                       <p className="text-xs text-slate-400 truncate">{item.sku} {item.unit_display && `· ${item.unit_display}`}</p>
                     </div>
                     {item.is_low_stock && (
@@ -334,7 +336,7 @@ export default function InventoryPage() {
                     {item.location && <p>📍 {item.location}</p>}
                     {item.minimum_stock > 0 && <p>⚠️ Min: {item.minimum_stock} / Max: {item.maximum_stock}</p>}
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingItem(item); setShowItemForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { setStockItem(item); setShowStockModal(true); }}
@@ -358,10 +360,12 @@ export default function InventoryPage() {
             </div>
           ) : (
             categories.map((c) => (
-              <div key={c.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+              <div key={c.id}
+                onClick={() => { setEditingCategory(c); setShowCategoryForm(true); }}
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{c.name}</p>
+                    <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{c.name}</p>
                     {c.description && <p className="text-xs text-slate-400 mt-0.5">{c.description}</p>}
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded ${c.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
@@ -369,7 +373,7 @@ export default function InventoryPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">{c.item_count} item{c.item_count !== 1 ? "s" : ""}</p>
-                <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { setEditingCategory(c); setShowCategoryForm(true); }}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                   <button onClick={() => { if (confirm("Delete category?")) deleteCategory.mutate(c.id); }}
@@ -388,10 +392,12 @@ export default function InventoryPage() {
             <div className="sm:col-span-2"><EmptyState icon={TruckIcon} title="No suppliers" description="Add your first supplier" /></div>
           ) : (
             suppliers.map((s) => (
-              <div key={s.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+              <div key={s.id}
+                onClick={() => { setEditingSupplier(s); setShowSupplierForm(true); }}
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{s.name}</p>
+                    <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{s.name}</p>
                     <p className="text-xs text-slate-400">{s.contact_person && `${s.contact_person} · `}{s.phone}</p>
                   </div>
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[s.status]}`}>{s.status_display}</span>
@@ -399,7 +405,7 @@ export default function InventoryPage() {
                 {s.email && <p className="text-xs text-slate-400">📧 {s.email}</p>}
                 {s.payment_terms && <p className="text-xs text-slate-400">💳 {s.payment_terms}</p>}
                 {s.address && <p className="text-xs text-slate-400 mt-1">{s.address}</p>}
-                <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { setEditingSupplier(s); setShowSupplierForm(true); }}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                   <button onClick={() => { if (confirm("Delete supplier?")) deleteSupplier.mutate(s.id); }}

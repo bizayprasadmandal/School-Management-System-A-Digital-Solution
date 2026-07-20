@@ -315,6 +315,7 @@ export default function FeesPage() {
                 data={invoices}
                 loading={isLoading}
                 rowKey={(inv) => inv.id}
+                onRowClick={(inv) => setPayingInvoice(inv)}
               />
             </div>
           )}

@@ -293,10 +293,12 @@ export default function HostelPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
               {filteredHostels.map((h) => (
-                <div key={h.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={h.id}
+                  onClick={() => { setEditingHostel(h); setShowHostelForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{h.name}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{h.name}</p>
                       <p className="text-xs text-slate-400">{h.code && `${h.code} · `}{h.gender_display}</p>
                     </div>
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[h.status]}`}>{h.status_display}</span>
@@ -320,7 +322,7 @@ export default function HostelPage() {
                     {h.phone && <p>📞 {h.phone}</p>}
                     {h.amenities && <p>🎯 {h.amenities}</p>}
                   </div>
-                  <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingHostel(h); setShowHostelForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { if (confirm("Delete hostel?")) deleteHostel.mutate(h.id); }}
@@ -342,10 +344,12 @@ export default function HostelPage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filteredRooms.map((r) => (
-                <div key={r.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={r.id}
+                  onClick={() => { setEditingRoom(r); setShowRoomForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{r.room_number}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{r.room_number}</p>
                       <p className="text-xs text-slate-400">{r.hostel_name} · Floor {r.floor} · {r.room_type_display}</p>
                     </div>
                     {!r.is_active && <span className="text-xs text-slate-400">Inactive</span>}
@@ -358,7 +362,7 @@ export default function HostelPage() {
                   <div className="text-xs text-slate-400">
                     {r.monthly_fee > 0 && <p>💰 ${Number(r.monthly_fee).toLocaleString()}/mo</p>}
                   </div>
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingRoom(r); setShowRoomForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                     <button onClick={() => { if (confirm("Delete room?")) deleteRoom.mutate(r.id); }}
@@ -425,10 +429,12 @@ export default function HostelPage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {fees.map((f) => (
-                <div key={f.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                <div key={f.id}
+                  onClick={() => { setEditingFee(f); setShowFeeForm(true); }}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{f.name}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{f.name}</p>
                       <p className="text-xs text-slate-400">{f.hostel_name}</p>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded ${f.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
@@ -444,7 +450,7 @@ export default function HostelPage() {
                       {f.includes_wifi && <span className="text-indigo-600">📶 WiFi</span>}
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setEditingFee(f); setShowFeeForm(true); }}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">Edit</button>
                   </div>

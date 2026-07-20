@@ -277,7 +277,9 @@ export default function BehaviorPage() {
               {filtered.map(inc => {
                 const StatusIcon = STATUS_ICONS[inc.status] || ClockIcon;
                 return (
-                  <div key={inc.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+                  <div key={inc.id}
+                    onClick={() => { setEditing(inc); setShowForm(true); }}
+                    className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -287,7 +289,7 @@ export default function BehaviorPage() {
                           </span>
                           <span className="text-xs text-slate-400">{inc.incident_type}</span>
                         </div>
-                        <p className="font-medium text-slate-900 dark:text-white">{inc.student_name}</p>
+                        <p className="font-medium text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{inc.student_name}</p>
                         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{inc.description}</p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                           <span>📅 {dayjs(inc.occurred_at).format("MMM D, YYYY h:mm A")}</span>
@@ -295,7 +297,7 @@ export default function BehaviorPage() {
                           <span>👤 {inc.reported_by_name}</span>
                         </div>
                       </div>
-                      <div className="flex gap-1 ml-4">
+                      <div className="flex gap-1 ml-4" onClick={e => e.stopPropagation()}>
                         <button onClick={() => { setEditing(inc); setShowForm(true); }}
                           className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">
                           <PencilIcon className="h-4 w-4" />

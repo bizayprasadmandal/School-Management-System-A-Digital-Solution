@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MagnifyingGlassIcon, PlusIcon, AcademicCapIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -55,6 +56,7 @@ function CreateTeacherModal({ onClose }: { onClose: () => void }) {
 
 export default function TeachersPage() {
   useTitle("Teachers");
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
@@ -103,6 +105,11 @@ export default function TeachersPage() {
               ]}
               data={teachers as any[]} rowKey={r=>r.id}
               page={page} total={data?.count ?? 0} pageSize={25} onPageChange={setPage}
+              onRowClick={(r) => {
+                navigate(`/admin/teachers`, {
+                  state: { selectedTeacherId: r.id },
+                });
+              }}
             />
         }
       </div>

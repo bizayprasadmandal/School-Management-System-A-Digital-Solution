@@ -2,6 +2,7 @@
  * Admin Report Cards Page — generate and publish report cards per exam
  */
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
@@ -12,6 +13,7 @@ import { useTitle } from "../../hooks";
 import { DocumentTextIcon, RocketLaunchIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 export default function ReportCardsPage() {
   useTitle("Report Cards");
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [publishConfirm, setPublishConfirm] = useState(false);
@@ -136,6 +138,7 @@ export default function ReportCardsPage() {
                 ]}
                 data={rcs as any[]} rowKey={r => r.id}
                 page={page} total={reportCards?.count ?? 0} pageSize={50} onPageChange={setPage}
+                onRowClick={(r) => navigate(`/admin/students/${r.student_id}`)}
               />
           }
         </div>

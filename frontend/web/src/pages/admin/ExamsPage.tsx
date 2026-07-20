@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Exam } from "../../types";
 import { api } from "../../api/client";
@@ -7,7 +8,7 @@ import type { BadgeColor } from "../../components/common";
 import { useCurrentAcademicYear } from "../../api/hooks";
 import { fmt, downloadFromUrl } from "../../utils";
 import { useTitle } from "../../hooks";
-import { PlusIcon, ArrowUpTrayIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import ImportCsvModal from "../../components/common/ImportCsvModal";
@@ -49,6 +50,7 @@ function CreateExamModal({ onClose }: { onClose: () => void }) {
 
 export default function ExamsPage() {
   useTitle("Examinations");
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [exportingExamId, setExportingExamId] = useState<string | null>(null);
@@ -89,9 +91,11 @@ export default function ExamsPage() {
         : <div className="space-y-3">
             {exams.length === 0 ? <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-12 text-center text-slate-400">No exams scheduled for this academic year.</div>
               : exams.map((e: { id: string; name: string; exam_type_name: string; start_date: string; end_date: string; schedule_count: number; status: string }) => (
-                <div key={e.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center justify-between gap-4">
+                <div key={e.id}
+                  onClick={() => navigate(`/admin/exams`, { state: { selectedExamId: e.id, selectedExamName: e.name } })}
+                  className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex items-center justify-between gap-4 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{e.name}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{e.name}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{e.exam_type_name} · {fmt.date(e.start_date)} – {fmt.date(e.end_date)} · {e.schedule_count} subjects</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -99,12 +103,13 @@ export default function ExamsPage() {
                       variant="ghost"
                       size="sm"
                       leftIcon={<ArrowDownTrayIcon className="h-3.5 w-3.5" />}
-                      onClick={() => handleExportGrades(e.id)}
+                      onClick={(ev) => { ev.stopPropagation(); handleExportGrades(e.id); }}
                       loading={exportingExamId === e.id}
                     >
                       Export
                     </Button>
                     <Badge color={STATUS_COLOR[e.status] ?? "slate"}>{e.status}</Badge>
+                    <ChevronRightIcon className="h-4 w-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>
               ))

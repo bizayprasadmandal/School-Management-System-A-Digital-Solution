@@ -101,6 +101,7 @@ function CreateAnnouncementModal({ onClose }: CreateModalProps) {
 
 export default function AnnouncementsPage() {
   const [showCreate, setShowCreate] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data, isLoading } = useAnnouncements();
   const announcements = data?.results ?? [];
   const qc = useQueryClient();
@@ -132,9 +133,13 @@ export default function AnnouncementsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {announcements.map(a => (
-            <div key={a.id} className="rounded-xl bg-white p-5 shadow-sm border border-slate-100 hover:border-slate-200 transition-colors">
-              <div className="flex items-start justify-between gap-4">
+          {announcements.map(a => {
+            const isExpanded = expandedId === a.id;
+            return (
+            <div key={a.id}
+              onClick={() => setExpandedId(isExpanded ? null : a.id)}
+              className="rounded-xl bg-white p-5 shadow-sm border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group">
+              <div className="flex items-start justify-between gap-4" onClick={e => e.stopPropagation()}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase ${PRIORITY_COLORS[a.priority]}`}>
@@ -147,19 +152,23 @@ export default function AnnouncementsPage() {
                       <span className="text-xs text-green-600 font-medium">✓ Published</span>
                     )}
                   </div>
-                  <h3 className="text-base font-semibold text-slate-900 leading-snug">{a.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{a.content}</p>
+                  <h3 className="text-base font-semibold text-slate-900 leading-snug group-hover:text-indigo-600 transition-colors">{a.title}</h3>
+                  <p className={`text-sm text-slate-500 mt-1 ${isExpanded ? "" : "line-clamp-2"}`}>{a.content}</p>
                   <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
                     <span>{dayjs(a.created_at).format("MMM D, YYYY [at] h:mm A")}</span>
                     <span>{a.view_count} views</span>
+                    <span className="text-indigo-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isExpanded ? "Click to collapse" : "Click to expand"}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : a.id); }}>
                     <EyeIcon className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="sm"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (window.confirm("Delete this announcement?")) deleteMutation.mutate(a.id);
                     }}>
                     <TrashIcon className="h-4 w-4" />
@@ -167,7 +176,8 @@ export default function AnnouncementsPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
