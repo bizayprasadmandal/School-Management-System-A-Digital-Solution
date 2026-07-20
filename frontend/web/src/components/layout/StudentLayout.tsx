@@ -9,7 +9,9 @@ import {
   CalendarDaysIcon, ChatBubbleLeftRightIcon, BanknotesIcon,
   AcademicCapIcon, Bars3Icon, XMarkIcon, DocumentTextIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
-  VideoCameraIcon,
+  VideoCameraIcon, ChartBarIcon, Cog6ToothIcon,
+  MegaphoneIcon, ExclamationTriangleIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -185,6 +187,90 @@ export function StudentLayout() {
 }
 
 export default StudentLayout;
+
+// ─── Accountant Layout ────────────────────────────────────────────────────────
+
+const ACCOUNTANT_NAV: NavItem[] = [
+  { label: "Dashboard",      to: "/accountant",           icon: HomeIcon },
+  { label: "Fee Management", to: "/accountant/fees",       icon: BanknotesIcon },
+  { label: "Reports",        to: "/accountant/reports",    icon: ChartBarIcon },
+  { label: "Conferences",    to: "/accountant/conferences",icon: VideoCameraIcon },
+  { label: "Settings",       to: "/accountant/settings",   icon: Cog6ToothIcon },
+];
+
+export function AccountantLayout() {
+  const [open, setOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const [isDark, toggleDark] = useDarkMode();
+  return (
+    <SidebarShell
+      nav={ACCOUNTANT_NAV} accent="bg-amber-800" open={open}
+      setOpen={setOpen} user={user} logout={logout}
+      navigate={navigate}
+      isDark={isDark} toggleDark={toggleDark}
+      verifyEmailPath="/accountant/verify-email"
+      backupCodePath="/accountant/setup-2fa"
+    />
+  );
+}
+
+// ─── Librarian Layout ─────────────────────────────────────────────────────────
+
+const LIBRARIAN_NAV: NavItem[] = [
+  { label: "Dashboard",    to: "/librarian",            icon: HomeIcon },
+  { label: "Library",      to: "/librarian/library",    icon: BookOpenIcon },
+  { label: "Announcements",to: "/librarian/announcements", icon: MegaphoneIcon },
+  { label: "Settings",     to: "/librarian/settings",   icon: Cog6ToothIcon },
+];
+
+export function LibrarianLayout() {
+  const [open, setOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const [isDark, toggleDark] = useDarkMode();
+  return (
+    <SidebarShell
+      nav={LIBRARIAN_NAV} accent="bg-teal-800" open={open}
+      setOpen={setOpen} user={user} logout={logout}
+      navigate={navigate}
+      isDark={isDark} toggleDark={toggleDark}
+      verifyEmailPath="/librarian/verify-email"
+      backupCodePath="/librarian/setup-2fa"
+    />
+  );
+}
+
+// ─── Counselor Layout ─────────────────────────────────────────────────────────
+
+const COUNSELOR_NAV: NavItem[] = [
+  { label: "Dashboard",       to: "/counselor",              icon: HomeIcon },
+  { label: "Appointments",    to: "/counselor/appointments", icon: CalendarDaysIcon },
+  { label: "Referrals",       to: "/counselor/referrals",    icon: UserGroupIcon },
+  { label: "Behavior",        to: "/counselor/behavior",     icon: ExclamationTriangleIcon },
+  { label: "Announcements",   to: "/counselor/announcements",icon: MegaphoneIcon },
+  { label: "Settings",        to: "/counselor/settings",     icon: Cog6ToothIcon },
+];
+
+export function CounselorLayout() {
+  const [open, setOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const [isDark, toggleDark] = useDarkMode();
+  return (
+    <SidebarShell
+      nav={COUNSELOR_NAV} accent="bg-pink-800" open={open}
+      setOpen={setOpen} user={user} logout={logout}
+      navigate={navigate}
+      isDark={isDark} toggleDark={toggleDark}
+      verifyEmailPath="/counselor/verify-email"
+      backupCodePath="/counselor/setup-2fa"
+    />
+  );
+}
 
 // ─── Parent Layout ─────────────────────────────────────────────────────────────
 

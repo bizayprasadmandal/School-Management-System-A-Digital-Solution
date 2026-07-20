@@ -20,10 +20,13 @@ import NotificationWebSocketSync from "./components/common/NotificationWebSocket
 import type { UserRole } from "./types";
 
 // Lazy-loaded layouts
-const AdminLayout    = React.lazy(() => import("./components/layout/AdminLayout"));
-const TeacherLayout  = React.lazy(() => import("./components/layout/TeacherLayout"));
-const StudentLayout  = React.lazy(() => import("./components/layout/StudentLayout"));
-const ParentLayout   = React.lazy(() => import("./components/layout/ParentLayout"));
+const AdminLayout        = React.lazy(() => import("./components/layout/AdminLayout"));
+const TeacherLayout      = React.lazy(() => import("./components/layout/TeacherLayout"));
+const StudentLayout      = React.lazy(() => import("./components/layout/StudentLayout"));
+const ParentLayout       = React.lazy(() => import("./components/layout/ParentLayout"));
+const AccountantLayout   = React.lazy(() => import("./components/layout/AccountantLayout"));
+const LibrarianLayout    = React.lazy(() => import("./components/layout/LibrarianLayout"));
+const CounselorLayout    = React.lazy(() => import("./components/layout/CounselorLayout"));
 
 // Auth pages
 const LoginPage           = React.lazy(() => import("./pages/auth/LoginPage"));
@@ -90,7 +93,16 @@ const StudentFees           = React.lazy(() => import("./pages/student/FeesPage"
 const StudentConferences    = React.lazy(() => import("./pages/student/ConferencesPage"));
 
 // Payment callback page
-const PaymentCallbackPage   = React.lazy(() => import("./pages/fees/PaymentCallbackPage"));
+const PaymentCallbackPage = React.lazy(() => import("./pages/fees/PaymentCallbackPage"));
+
+// Accountant pages
+const AccountantDashboard = React.lazy(() => import("./pages/accountant/Dashboard"));
+
+// Librarian pages
+const LibrarianDashboard  = React.lazy(() => import("./pages/librarian/Dashboard"));
+
+// Counselor pages
+const CounselorDashboard  = React.lazy(() => import("./pages/counselor/Dashboard"));
 
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
@@ -99,7 +111,7 @@ const ParentAttendance    = React.lazy(() => import("./pages/parent/AttendancePa
 const ParentGrades        = React.lazy(() => import("./pages/parent/GradesPage"));
 const ParentFees          = React.lazy(() => import("./pages/parent/FeesPage"));
 const ParentMessages      = React.lazy(() => import("./pages/parent/MessagesPage"));
-const ParentSettings      = React.lazy(() => import("./pages/parent/SettingsPage"));
+const ParentSettings = React.lazy(() => import("./pages/parent/SettingsPage"));
 const ParentConferences    = React.lazy(() => import("./pages/parent/ConferencesPage"));
 
 // ─── React Query client ───────────────────────────────────────────────────────
@@ -137,6 +149,9 @@ function RedirectIfAuth() {
   if (role === "teacher") return <Navigate to="/teacher" replace />;
   if (role === "student") return <Navigate to="/student" replace />;
   if (role === "parent") return <Navigate to="/parent" replace />;
+  if (role === "accountant") return <Navigate to="/accountant" replace />;
+  if (role === "librarian") return <Navigate to="/librarian" replace />;
+  if (role === "counselor") return <Navigate to="/counselor" replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -183,7 +198,7 @@ function App() {
             {/* ── Admin routes ──────────────────────────── */}
             <Route
               element={
-                <RequireAuth allowedRoles={["super_admin", "school_admin", "accountant"]} />
+                <RequireAuth allowedRoles={["super_admin", "school_admin"]} />
               }
             >
               <Route path="/admin" element={<AdminLayout />}>
@@ -266,6 +281,45 @@ function App() {
                 <Route path="messages" element={<ParentMessages />} />
                 <Route path="conferences" element={<ParentConferences />} />
                 <Route path="settings" element={<ParentSettings />} />
+              </Route>
+            </Route>
+
+            {/* ── Accountant routes ──────────────────────── */}
+            <Route element={<RequireAuth allowedRoles={["accountant"]} />}>
+              <Route path="/accountant" element={<AccountantLayout />}>
+                <Route index element={<AccountantDashboard />} />
+                <Route path="fees" element={<FeesPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="conferences" element={<AdminConferences />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+
+            {/* ── Librarian routes ───────────────────────── */}
+            <Route element={<RequireAuth allowedRoles={["librarian"]} />}>
+              <Route path="/librarian" element={<LibrarianLayout />}>
+                <Route index element={<LibrarianDashboard />} />
+                <Route path="library" element={<LibraryPage />} />
+                <Route path="announcements" element={<AnnouncementsPage />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+
+            {/* ── Counselor routes ───────────────────────── */}
+            <Route element={<RequireAuth allowedRoles={["counselor"]} />}>
+              <Route path="/counselor" element={<CounselorLayout />}>
+                <Route index element={<CounselorDashboard />} />
+                <Route path="appointments" element={<EventsCalendarPage />} />
+                <Route path="referrals" element={<BehaviorPage />} />
+                <Route path="behavior" element={<BehaviorPage />} />
+                <Route path="announcements" element={<AnnouncementsPage />} />
+                <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
+                <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
 
