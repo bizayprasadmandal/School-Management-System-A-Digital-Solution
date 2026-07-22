@@ -7,11 +7,13 @@ import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { api } from "../../api/client";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
-import { Badge, Select, DataTable, SkeletonChart, SkeletonTable } from "../../components/common";
+import { Button, Badge, Select, DataTable, SkeletonChart, SkeletonTable } from "../../components/common";
 import type { BadgeColor } from "../../components/common";
 import { percent, attendanceColor, fmt } from "../../utils";
+import { toCsv, downloadCsv } from "../../utils";
+import toast from "react-hot-toast";
 import { useTitle } from "../../hooks";
-import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 export default function AdminAttendancePage() {
@@ -49,6 +51,27 @@ export default function AdminAttendancePage() {
     enabled: !!selectedClassroom,
   });
 
+  const handleExportAttendance = () => {
+    if (!records?.results?.length) {
+      toast.error("No attendance data to export");
+      return;
+    }
+    const cols = [
+      { key: "student_name", label: "Student" },
+      { key: "status", label: "Status" },
+      { key: "remarks", label: "Remarks" },
+    ];
+    const statusLabels: Record<string, string> = { P: "Present", A: "Absent", L: "Late", E: "Excused", H: "Half Day" };
+    const rows = (records?.results ?? []).map((r: any) => ({
+      student_name: r.student_name,
+      status: statusLabels[r.status] ?? r.status,
+      remarks: r.remarks ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, `attendance-${selectedDate}.csv`);
+    toast.success("Attendance CSV exported");
+  };
+
   // Reset to page 1 when switching classroom or date
   useEffect(() => { setPage(1); }, [selectedClassroom, selectedDate]);
 
@@ -71,6 +94,15 @@ export default function AdminAttendancePage() {
           <p className="text-sm text-slate-500 mt-0.5">School-wide attendance monitoring</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleExportAttendance}
+            leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            disabled={!selectedClassroom}
+          >
+            Export CSV
+          </Button>
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-400 w-44" max={dayjs().format("YYYY-MM-DD")} />
         </div>

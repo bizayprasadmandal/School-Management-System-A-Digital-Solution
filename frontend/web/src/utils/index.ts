@@ -143,7 +143,7 @@ export const titleCase = (s: string) =>
   s.split(/[\s_-]/).map(capitalize).join(" ");
 
 export const truncate = (s: string, len: number) =>
-  s.length > len ? `${s.slice(0, len)}…` : s;
+  s.length > len ? `${s.slice(0, len)}...` : s;
 
 export const initials = (name: string) =>
   name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
@@ -193,6 +193,47 @@ export const CHART_COLORS = [
   "#6366f1","#22c55e","#f59e0b","#ef4444","#8b5cf6",
   "#14b8a6","#f97316","#3b82f6","#ec4899","#84cc16",
 ];
+
+// ─── CSV Export helper ────────────────────────────────────────────────────────
+
+/**
+ * Convert an array of objects to CSV string.
+ * @param data      Array of row objects
+ * @param columns   Column definitions: { key: string; label: string }
+ * @returns         CSV-formatted string
+ */
+export function toCsv(
+  data: Record<string, unknown>[],
+  columns: { key: string; label: string }[]
+): string {
+  const header = columns.map((c) => escapeCsv(c.label)).join(",");
+  const rows = data.map((row) =>
+    columns.map((c) => escapeCsv(String(row[c.key] ?? ""))).join(",")
+  );
+  return [header, ...rows].join("\n");
+}
+
+function escapeCsv(val: string): string {
+  if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+}
+
+/**
+ * Trigger a CSV file download in the browser.
+ */
+export function downloadCsv(csv: string, filename: string): void {
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // ─── Download helpers ─────────────────────────────────────────────────────────
 

@@ -15,10 +15,10 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://api.edusphere.schoo
 const BRAND = "#4F46E5";
 
 const ROLE_DEMO = [
-  { role: "Admin",   email: "admin@school.edu",   password: "Admin@1234" },
-  { role: "Teacher", email: "teacher@school.edu",  password: "Teacher@1234" },
-  { role: "Student", email: "student@school.edu",  password: "Student@1234" },
-  { role: "Parent",  email: "parent@school.edu",   password: "Parent@1234" },
+  { role: "Admin",   email: "admin@demo.edusphere.school",  password: "Admin@1234" },
+  { role: "Teacher", email: "sarah.mitchell@demo.edusphere.school", password: "Teacher@1234" },
+  { role: "Student", email: "student001@demo.edusphere.school", password: "Student@1234" },
+  { role: "Parent",  email: "parent001@demo.edusphere.school",  password: "Parent@1234" },
 ];
 
 export default function LoginScreen() {

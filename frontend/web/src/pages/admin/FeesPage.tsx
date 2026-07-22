@@ -4,7 +4,7 @@
 
 import React, { useState } from "react";
 import {
-  BanknotesIcon, CheckCircleIcon, ClockIcon,
+  ArrowDownTrayIcon, BanknotesIcon, CheckCircleIcon, ClockIcon,
   ExclamationCircleIcon, ReceiptPercentIcon, DocumentPlusIcon,
   AcademicCapIcon, TagIcon,
 } from "@heroicons/react/24/outline";
@@ -22,6 +22,7 @@ import ScholarshipsPanel from "../../components/common/ScholarshipsPanel";
 import FeeCategoriesPanel from "../../components/common/FeeCategoriesPanel";
 import FeeStructuresPanel from "../../components/common/FeeStructuresPanel";
 import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
   unpaid:    { label: "Unpaid",   color: "amber" },
@@ -137,6 +138,30 @@ export default function FeesPage() {
 
   const invoices = data?.results ?? [];
 
+  const handleExportFees = () => {
+    const cols = [
+      { key: "invoice_number", label: "Invoice #" },
+      { key: "student", label: "Student" },
+      { key: "due_date", label: "Due Date" },
+      { key: "total_amount", label: "Total" },
+      { key: "paid_amount", label: "Paid" },
+      { key: "outstanding_amount", label: "Outstanding" },
+      { key: "status", label: "Status" },
+    ];
+    const rows = invoices.map((inv) => ({
+      invoice_number: inv.invoice_number,
+      student: inv.student,
+      due_date: dayjs(inv.due_date).format("YYYY-MM-DD"),
+      total_amount: Number(inv.total_amount).toFixed(2),
+      paid_amount: Number(inv.paid_amount).toFixed(2),
+      outstanding_amount: Number(inv.outstanding_amount).toFixed(2),
+      status: inv.status,
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, `fees-invoices-${dayjs().format("YYYY-MM-DD")}.csv`);
+    toast.success("Fees CSV exported");
+  };
+
   const summary = {
     total: invoices.reduce((s, i) => s + Number(i.total_amount), 0),
     collected: invoices.reduce((s, i) => s + Number(i.paid_amount), 0),
@@ -245,12 +270,21 @@ export default function FeesPage() {
           <p className="text-sm text-slate-500 mt-0.5">Track invoices, payments and outstanding balances</p>
         </div>
         {tab === "invoices" && (
-          <Button
-            onClick={() => setShowGenerateModal(true)}
-            leftIcon={<DocumentPlusIcon className="h-4 w-4" />}
-          >
-            Generate Invoices
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleExportFees}
+              leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            >
+              Export CSV
+            </Button>
+            <Button
+              onClick={() => setShowGenerateModal(true)}
+              leftIcon={<DocumentPlusIcon className="h-4 w-4" />}
+            >
+              Generate Invoices
+            </Button>
+          </div>
         )}
       </div>
 
