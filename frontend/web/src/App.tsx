@@ -102,7 +102,9 @@ const AccountantDashboard = React.lazy(() => import("./pages/accountant/Dashboar
 const LibrarianDashboard  = React.lazy(() => import("./pages/librarian/Dashboard"));
 
 // Counselor pages
-const CounselorDashboard  = React.lazy(() => import("./pages/counselor/Dashboard"));
+const CounselorDashboard          = React.lazy(() => import("./pages/counselor/Dashboard"));
+const CounselorAppointmentsPage   = React.lazy(() => import("./pages/counselor/CounselorAppointmentsPage"));
+const CounselorReferralsPage      = React.lazy(() => import("./pages/counselor/CounselorReferralsPage"));
 
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
@@ -313,8 +315,8 @@ function App() {
             <Route element={<RequireAuth allowedRoles={["counselor"]} />}>
               <Route path="/counselor" element={<CounselorLayout />}>
                 <Route index element={<CounselorDashboard />} />
-                <Route path="appointments" element={<EventsCalendarPage />} />
-                <Route path="referrals" element={<BehaviorPage />} />
+                <Route path="appointments" element={<CounselorAppointmentsPage />} />
+                <Route path="referrals" element={<CounselorReferralsPage />} />
                 <Route path="behavior" element={<BehaviorPage />} />
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />

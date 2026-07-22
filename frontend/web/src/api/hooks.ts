@@ -11,6 +11,9 @@ import {
 import { api } from "./client";
 import type {
   PaginatedResponse,
+  CounselingAppointment,
+  StudentReferral,
+  CounselorDashboardStats,
   StudentListItem,
   StudentDetail,
   AttendanceSummary,
@@ -612,5 +615,144 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: (data: Partial<User>) => api.patch<User>("/auth/profile/", data),
     onSuccess: (user) => qc.setQueryData(["profile"], user),
+  });
+}
+
+// ─── Counseling ────────────────────────────────────────────────────────────────
+
+export function useCounselingAppointments(params?: {
+  status?: string;
+  counselor?: string;
+  student?: string;
+  scheduled_date?: string;
+  ordering?: string;
+}) {
+  return useQuery({
+    queryKey: ["counseling", "appointments", params],
+    queryFn: () => api.get<{ results: CounselingAppointment[] }>("/counseling/appointments/", params),
+    staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateCounselingAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<CounselingAppointment> & { send_reminder?: boolean }) =>
+      api.post<CounselingAppointment>("/counseling/appointments/", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["counseling"] });
+      qc.invalidateQueries({ queryKey: ["counselor-dashboard"] });
+    },
+  });
+}
+
+export function useUpdateCounselingAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<CounselingAppointment> & { id: string }) =>
+      api.patch<CounselingAppointment>(`/counseling/appointments/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useCompleteAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, notes, follow_up_needed, follow_up_date }: {
+      id: string; notes?: string; follow_up_needed?: boolean; follow_up_date?: string;
+    }) => api.post(`/counseling/appointments/${id}/complete/`, { notes, follow_up_needed, follow_up_date }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useCancelAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/counseling/appointments/${id}/cancel/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useNoShowAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/counseling/appointments/${id}/no_show/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useCounselingReferrals(params?: {
+  status?: string;
+  priority?: string;
+  category?: string;
+  student?: string;
+}) {
+  return useQuery({
+    queryKey: ["counseling", "referrals", params],
+    queryFn: () => api.get<{ results: StudentReferral[] }>("/counseling/referrals/", params),
+    staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<StudentReferral> & { notify_counselor?: boolean }) =>
+      api.post<StudentReferral>("/counseling/referrals/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useUpdateReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<StudentReferral> & { id: string }) =>
+      api.patch<StudentReferral>(`/counseling/referrals/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useAssignReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, assigned_to }: { id: string; assigned_to: string }) =>
+      api.post(`/counseling/referrals/${id}/assign/`, { assigned_to }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useActionReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, outcome, intervention_plan }: {
+      id: string; outcome?: string; intervention_plan?: string;
+    }) => api.post(`/counseling/referrals/${id}/action_taken/`, { outcome, intervention_plan }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useCloseReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/counseling/referrals/${id}/close/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useReopenReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/counseling/referrals/${id}/reopen/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
+  });
+}
+
+export function useCounselorDashboardStats() {
+  return useQuery({
+    queryKey: ["counselor-dashboard", "stats"],
+    queryFn: () => api.get<CounselorDashboardStats>("/counseling/dashboard/stats/"),
+    staleTime: 30 * 1000,
   });
 }

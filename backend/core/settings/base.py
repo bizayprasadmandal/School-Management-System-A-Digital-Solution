@@ -67,6 +67,7 @@ LOCAL_APPS = [
     "services.health_clinic",
     "services.alumni",
     "services.cafeteria",
+    "services.counseling",
     "services.admissions",
 ]
 

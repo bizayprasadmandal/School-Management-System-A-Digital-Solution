@@ -485,6 +485,68 @@ export interface AuditLogEntry {
 /** Reference type for email-verification notifications */
 export const VERIFICATION_REF = "email_verification";
 
+// ─── Counseling ────────────────────────────────────────────────────────────
+
+export type CounselingAppointmentStatus = "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show";
+export type CounselingAppointmentType = "academic" | "career" | "personal" | "behavioral" | "college" | "group" | "other";
+
+export interface CounselingAppointment {
+  id: string;
+  counselor: string;
+  counselor_name: string;
+  student: string;
+  student_name: string;
+  student_grade?: string;
+  student_class?: string;
+  appointment_type: CounselingAppointmentType;
+  status: CounselingAppointmentStatus;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  location: string;
+  reason: string;
+  notes: string;
+  follow_up_needed: boolean;
+  follow_up_date?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentReferral {
+  id: string;
+  student: string;
+  student_name: string;
+  student_grade?: string;
+  student_class?: string;
+  referred_by?: string;
+  referred_by_name?: string;
+  assigned_to?: string;
+  assigned_to_name?: string;
+  category: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "under_review" | "contacted" | "actioned" | "closed" | "declined";
+  reason: string;
+  notes: string;
+  intervention_plan: string;
+  outcome: string;
+  follow_up_date?: string;
+  is_confidential: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CounselorDashboardStats {
+  today_appointments: number;
+  upcoming_appointments: number;
+  appointments_completed: number;
+  pending_referrals: number;
+  urgent_referrals: number;
+  referrals_resolved: number;
+  total_appointments: number;
+  total_referrals: number;
+}
+
 // ─── Common ────────────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
