@@ -29,6 +29,7 @@ import TeacherAttendanceScreen from "../screens/teacher/AttendanceScreen";
 import TeacherGradebookScreen from "../screens/teacher/GradebookScreen";
 import TeacherTimetableScreen from "../screens/teacher/TimetableScreen";
 import TeacherMessagesScreen from "../screens/teacher/MessagesScreen";
+import TeacherAssignmentsScreen from "../screens/teacher/AssignmentsScreen";
 
 // Parent screens
 import ParentHomeScreen from "../screens/parent/HomeScreen";
@@ -113,6 +114,7 @@ function TeacherTabs() {
           const icons: Record<string, [string, string]> = {
             Home:       ["home",           "home-outline"],
             Attendance: ["checkmark-done", "checkmark-done-outline"],
+            Assignments:["document-text",  "document-text-outline"],
             Gradebook:  ["bar-chart",      "bar-chart-outline"],
             Timetable:  ["time",           "time-outline"],
             Messages:   ["chatbubble",     "chatbubble-outline"],
@@ -128,6 +130,7 @@ function TeacherTabs() {
     >
       <Tab.Screen name="Home" component={TeacherHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Attendance" component={TeacherAttendanceScreen} />
+      <Tab.Screen name="Assignments" component={TeacherAssignmentsScreen} options={{ title: "Assignments" }} />
       <Tab.Screen name="Gradebook" component={TeacherGradebookScreen} />
       <Tab.Screen name="Timetable" component={TeacherTimetableScreen} />
       <Tab.Screen name="Messages" component={TeacherMessagesScreen} />
