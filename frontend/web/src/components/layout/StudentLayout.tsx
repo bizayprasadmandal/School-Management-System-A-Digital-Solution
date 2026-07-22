@@ -13,8 +13,18 @@ import {
   MegaphoneIcon, ExclamationTriangleIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
+
+// Map accent CSS class strings to CommandPalette accent color names
+const ACCENT_PALETTE: Record<string, "blue" | "amber" | "teal" | "pink" | "violet"> = {
+  "bg-blue-800": "blue",
+  "bg-amber-800": "amber",
+  "bg-teal-800": "teal",
+  "bg-pink-800": "pink",
+  "bg-violet-800": "violet",
+};
 import NotificationBell from "../../components/common/NotificationBell";
 import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
 import EmailVerificationBanner from "../../components/common/EmailVerificationBanner";
@@ -57,8 +67,7 @@ interface SidebarShellProps {
 
 const SidebarShell = memo(function SidebarShell({
   nav, accent, open, setOpen, user, logout, navigate, isDark, toggleDark,
-  verifyEmailPath, backupCodePath,
-}: SidebarShellProps) {
+  verifyEmailPath, backupCodePath,}: SidebarShellProps) {
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
       {open && (
@@ -132,6 +141,9 @@ const SidebarShell = memo(function SidebarShell({
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/* Command palette */}
+            <CommandPalette items={nav} accent={ACCENT_PALETTE[accent] ?? "indigo"} />
+
             {/* Dark mode toggle */}
             <button
               onClick={toggleDark}

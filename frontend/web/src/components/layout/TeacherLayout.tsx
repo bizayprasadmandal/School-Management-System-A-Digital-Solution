@@ -10,6 +10,7 @@ import {
   AcademicCapIcon, Bars3Icon, XMarkIcon, UsersIcon,
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon, Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
+import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -113,6 +114,9 @@ export default function TeacherLayout() {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/* Command palette */}
+            <CommandPalette items={NAV} accent="emerald" />
+
             {/* Dark mode toggle */}
             <button
               onClick={toggleDark}

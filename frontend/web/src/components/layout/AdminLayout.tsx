@@ -36,6 +36,7 @@ import {
   DocumentTextIcon,
   // Cafeteria uses existing BookOpenIcon
 } from "@heroicons/react/24/outline";
+import CommandPalette from "../common/CommandPalette";
 import { useAuthStore } from "../../store/authStore";
 import NotificationBell from "../../components/common/NotificationBell";
 import { useDarkMode } from "../../hooks/useDarkMode";
@@ -216,6 +217,9 @@ export default function AdminLayout() {
           <div className="flex-1 lg:pl-0" />
 
           <div className="flex items-center gap-2">
+            {/* Command palette */}
+            <CommandPalette items={NAV_ITEMS} accent="indigo" />
+
             {/* Dark mode toggle */}
             <button
               onClick={toggleDark}

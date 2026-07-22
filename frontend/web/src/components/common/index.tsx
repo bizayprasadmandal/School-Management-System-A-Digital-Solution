@@ -655,3 +655,8 @@ export const Avatar = React.memo(function Avatar({ name = "?", src, size = "md",
 // ─── ErrorBoundary ────────────────────────────────────────────────────────────
 
 export { ErrorBoundary } from "./ErrorBoundary";
+
+// ─── CommandPalette ───────────────────────────────────────────────────────────
+
+export { default as CommandPalette } from "./CommandPalette";
+export type { CommandItem } from "./CommandPalette";
