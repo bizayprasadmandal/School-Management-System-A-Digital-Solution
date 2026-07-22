@@ -6,3 +6,6 @@ class HostelConfig(AppConfig):
     name = "services.hostel"
     label = "hostel"
     verbose_name = "Hostel / Accommodation"
+
+    def ready(self):
+        import services.hostel.signals  # noqa: F401
