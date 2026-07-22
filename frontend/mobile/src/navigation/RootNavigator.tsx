@@ -21,6 +21,7 @@ import StudentGradesScreen from "../screens/student/GradesScreen";
 import StudentTimetableScreen from "../screens/student/TimetableScreen";
 import StudentMessagesScreen from "../screens/student/MessagesScreen";
 import StudentFeesScreen from "../screens/student/FeesScreen";
+import StudentAssignmentsScreen from "../screens/student/AssignmentsScreen";
 
 // Teacher screens
 import TeacherHomeScreen from "../screens/teacher/HomeScreen";
@@ -64,6 +65,7 @@ function StudentTabs() {
           const icons: Record<string, [string, string]> = {
             Home:       ["home",              "home-outline"],
             Attendance: ["calendar",          "calendar-outline"],
+            Assignments:["document-text",     "document-text-outline"],
             Grades:     ["school",            "school-outline"],
             Fees:       ["wallet",            "wallet-outline"],
             Timetable:  ["time",              "time-outline"],
@@ -92,6 +94,7 @@ function StudentTabs() {
     >
       <Tab.Screen name="Home" component={StudentHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Attendance" component={StudentAttendanceScreen} />
+      <Tab.Screen name="Assignments" component={StudentAssignmentsScreen} options={{ title: "Assignments" }} />
       <Tab.Screen name="Grades" component={StudentGradesScreen} />
       <Tab.Screen name="Fees" component={StudentFeesScreen} />
       <Tab.Screen name="Timetable" component={StudentTimetableScreen} />
@@ -218,6 +221,17 @@ function AppContent() {
           component={StudentConferencesScreen}
           options={{
             title: "My Conferences",
+            headerStyle: { backgroundColor: BRAND },
+            headerTintColor: "#fff",
+          }}
+        />
+      )}
+      {user?.role === "student" && (
+        <Stack.Screen
+          name="Assignments"
+          component={StudentAssignmentsScreen}
+          options={{
+            title: "My Assignments",
             headerStyle: { backgroundColor: BRAND },
             headerTintColor: "#fff",
           }}
