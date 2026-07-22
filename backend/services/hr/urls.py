@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     DepartmentViewSet, EmployeeViewSet, SalaryStructureViewSet,
     EmployeeSalaryViewSet, PayslipViewSet, LeaveRequestViewSet,
+    AccountantProfileView,
 )
 
 app_name = "hr_v1"
@@ -19,4 +20,5 @@ router.register(r"leave-requests", LeaveRequestViewSet, basename="leave-request"
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("profile/", AccountantProfileView.as_view(), name="accountant_profile"),
 ]

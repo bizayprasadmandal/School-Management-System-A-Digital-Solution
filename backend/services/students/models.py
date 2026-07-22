@@ -207,6 +207,30 @@ class Enrollment(models.Model):
         return f"{self.student} → {self.classroom} ({self.academic_year})"
 
 
+class ParentProfile(models.Model):
+    """Extended parent profile — self-service fields for parent/guardian users."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="parent_profile")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="parent_profiles")
+    occupation = models.CharField(max_length=100, blank=True, help_text="Current occupation")
+    alternate_phone = models.CharField(max_length=20, blank=True, help_text="Alternate contact number")
+    address = models.TextField(blank=True, help_text="Residential address")
+    emergency_contact_name = models.CharField(max_length=100, blank=True)
+    emergency_contact_phone = models.CharField(max_length=20, blank=True)
+    bio = models.TextField(blank=True, help_text="Short personal biography")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "parent_profiles"
+        verbose_name = "Parent Profile"
+        verbose_name_plural = "Parent Profiles"
+
+    def __str__(self):
+        return f"{self.user.full_name} — Parent Profile"
+
+
 class Document(models.Model):
     """Student document vault — certificates, ID cards, etc."""
 

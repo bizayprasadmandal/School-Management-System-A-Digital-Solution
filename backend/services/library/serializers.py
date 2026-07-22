@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Book, Checkout
+from .models import Book, Checkout, LibrarianProfile
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -7,6 +7,24 @@ class BookSerializer(serializers.ModelSerializer):
         model = Book
         fields = "__all__"
         read_only_fields = ["id", "created_at"]
+
+
+class LibrarianProfileSerializer(serializers.ModelSerializer):
+    """Full librarian profile — for admin view."""
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = LibrarianProfile
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class LibrarianSelfProfileSerializer(serializers.ModelSerializer):
+    """Limited fields that librarians can edit themselves."""
+
+    class Meta:
+        model = LibrarianProfile
+        fields = ["library_section", "qualification", "experience_years", "certifications", "bio"]
 
 
 class CheckoutSerializer(serializers.ModelSerializer):

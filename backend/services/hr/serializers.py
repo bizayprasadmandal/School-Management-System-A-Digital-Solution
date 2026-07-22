@@ -1,7 +1,7 @@
 """HR & Payroll serializers."""
 
 from rest_framework import serializers
-from .models import Department, Employee, SalaryStructure, EmployeeSalary, Payslip, LeaveRequest
+from .models import Department, Employee, SalaryStructure, EmployeeSalary, Payslip, LeaveRequest, AccountantProfile
 from services.auth.models import User
 
 
@@ -124,6 +124,24 @@ class PayslipSerializer(serializers.ModelSerializer):
             "generated_by", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class AccountantProfileSerializer(serializers.ModelSerializer):
+    """Full accountant profile — for admin view."""
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = AccountantProfile
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AccountantSelfProfileSerializer(serializers.ModelSerializer):
+    """Limited fields that accountants can edit themselves."""
+
+    class Meta:
+        model = AccountantProfile
+        fields = ["qualification", "specialization", "experience_years", "certifications", "bio"]
 
 
 class LeaveRequestSerializer(serializers.ModelSerializer):

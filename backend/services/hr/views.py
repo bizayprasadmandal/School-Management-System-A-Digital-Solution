@@ -3,7 +3,7 @@
 import logging
 from decimal import Decimal
 from django.utils import timezone
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -80,6 +80,26 @@ class SalaryStructureViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+
+class AccountantProfileView(generics.RetrieveUpdateAPIView):
+    """Get/update the authenticated accountant's own profile."""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ("PATCH", "PUT"):
+            from .serializers import AccountantSelfProfileSerializer
+            return AccountantSelfProfileSerializer
+        from .serializers import AccountantProfileSerializer
+        return AccountantProfileSerializer
+
+    def get_object(self):
+        from .models import AccountantProfile
+        profile, _ = AccountantProfile.objects.get_or_create(
+            user=self.request.user,
+            school=self.request.user.school,
+        )
+        return profile
 
 
 class EmployeeSalaryViewSet(viewsets.ModelViewSet):

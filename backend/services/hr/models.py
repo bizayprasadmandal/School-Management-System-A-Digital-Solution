@@ -235,3 +235,26 @@ class LeaveRequest(models.Model):
 
     def __str__(self):
         return f"{self.employee.employee_id} - {self.leave_type} ({self.from_date} - {self.to_date})"
+
+
+class AccountantProfile(models.Model):
+    """Extended accountant profile — professional information for self-service editing."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="accountant_profile")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="accountant_profiles")
+    qualification = models.CharField(max_length=100, blank=True, help_text="Professional qualification (e.g., ACCA, CPA, MBA Finance)")
+    specialization = models.CharField(max_length=100, blank=True, help_text="Area of expertise (e.g., Taxation, Audit, Financial Planning)")
+    experience_years = models.PositiveSmallIntegerField(default=0, help_text="Years of professional experience")
+    certifications = models.TextField(blank=True, help_text="Professional certifications and licenses")
+    bio = models.TextField(blank=True, help_text="Professional biography")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "accountant_profiles"
+        verbose_name = "Accountant Profile"
+        verbose_name_plural = "Accountant Profiles"
+
+    def __str__(self):
+        return f"{self.user.full_name} — Accountant Profile"

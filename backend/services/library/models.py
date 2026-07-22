@@ -51,3 +51,36 @@ class Checkout(models.Model):
         if not self.is_overdue:
             return 0
         return (timezone.now().date() - self.due_date).days
+
+
+class LibrarianProfile(models.Model):
+    """Extended librarian profile — professional information for self-service editing."""
+
+    class LibrarySection(models.TextChoices):
+        CIRCULATION = "circulation", "Circulation"
+        REFERENCE = "reference", "Reference"
+        CATALOGING = "cataloging", "Cataloging"
+        PERIODICALS = "periodicals", "Periodicals"
+        DIGITAL = "digital", "Digital Library"
+        ARCHIVES = "archives", "Archives"
+        CHILDREN = "children", "Children's Section"
+        GENERAL = "general", "General"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="librarian_profile")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="librarian_profiles")
+    library_section = models.CharField(max_length=30, choices=LibrarySection.choices, blank=True, help_text="Primary library section")
+    qualification = models.CharField(max_length=100, blank=True, help_text="Library science or relevant qualification")
+    experience_years = models.PositiveSmallIntegerField(default=0, help_text="Years of library experience")
+    certifications = models.TextField(blank=True, help_text="Professional certifications")
+    bio = models.TextField(blank=True, help_text="Professional biography")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "librarian_profiles"
+        verbose_name = "Librarian Profile"
+        verbose_name_plural = "Librarian Profiles"
+
+    def __str__(self):
+        return f"{self.user.full_name} — Librarian Profile"

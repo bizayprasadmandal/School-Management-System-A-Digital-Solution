@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Book, Checkout
 from .serializers import BookSerializer, CheckoutSerializer
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from core.permissions import IsSchoolMember, IsSchoolAdmin
 from core.pagination import StandardResultsSetPagination
 
@@ -29,6 +31,26 @@ class BookViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+
+class LibrarianProfileView(generics.RetrieveUpdateAPIView):
+    """Get/update the authenticated librarian's own profile."""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ("PATCH", "PUT"):
+            from .serializers import LibrarianSelfProfileSerializer
+            return LibrarianSelfProfileSerializer
+        from .serializers import LibrarianProfileSerializer
+        return LibrarianProfileSerializer
+
+    def get_object(self):
+        from .models import LibrarianProfile
+        profile, _ = LibrarianProfile.objects.get_or_create(
+            user=self.request.user,
+            school=self.request.user.school,
+        )
+        return profile
 
 
 class CheckoutViewSet(viewsets.ModelViewSet):

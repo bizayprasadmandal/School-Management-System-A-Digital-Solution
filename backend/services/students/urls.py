@@ -16,4 +16,9 @@ router.register(r"grades",         views.GradeViewSet,       basename="grade")
 router.register(r"academic-years", AcademicYearViewSet,      basename="academic-year")
 router.register(r"",               views.StudentViewSet,     basename="student")
 
-urlpatterns = [path("", include(router.urls))]
+from .parent_profile import ParentProfileView
+
+urlpatterns = [
+    path("", include(router.urls)),
+    path("parent-profile/", ParentProfileView.as_view(), name="parent_profile"),
+]
