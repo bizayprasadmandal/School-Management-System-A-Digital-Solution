@@ -22,8 +22,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
-import { useAnnouncements } from "../../api/hooks";
-import { SkeletonDashboard, ErrorState } from "../../components/common";
+import { useAnnouncements } from "../../api/hooks";import {
+  SkeletonDashboard, ErrorState, ErrorBoundary
+} from "../../components/common";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -146,46 +147,49 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Students"
-          value={stats?.total_students?.toLocaleString() ?? "—"}
-          icon={UsersIcon}
-          color="bg-indigo-500"
-          delta={stats?.student_delta_pct}
-          deltaLabel="vs last month"
-          to="/admin/students"
-        />
-        <StatCard
-          label="Teachers"
-          value={stats?.total_teachers?.toLocaleString() ?? "—"}
-          icon={AcademicCapIcon}
-          color="bg-violet-500"
-          to="/admin/teachers"
-        />
-        <StatCard
-          label="Today's Attendance"
-          value={stats ? `${stats.attendance_today_pct.toFixed(1)}%` : "—"}
-          icon={ClipboardDocumentCheckIcon}
-          color={
-            stats && stats.attendance_today_pct >= 90
-              ? "bg-emerald-500"
-              : "bg-amber-500"
-          }
-          delta={stats?.attendance_delta_pct}
-          deltaLabel="vs yesterday"
-          to="/admin/attendance"
-        />
-        <StatCard
-          label="Fees Collected (Month)"
-          value={stats ? `$${(stats.fees_collected_month / 1000).toFixed(0)}K` : "—"}
-          icon={BanknotesIcon}
-          color="bg-blue-500"
-          to="/admin/fees"
-        />
-      </div>
+      <ErrorBoundary>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Total Students"
+            value={stats?.total_students?.toLocaleString() ?? "—"}
+            icon={UsersIcon}
+            color="bg-indigo-500"
+            delta={stats?.student_delta_pct}
+            deltaLabel="vs last month"
+            to="/admin/students"
+          />
+          <StatCard
+            label="Teachers"
+            value={stats?.total_teachers?.toLocaleString() ?? "—"}
+            icon={AcademicCapIcon}
+            color="bg-violet-500"
+            to="/admin/teachers"
+          />
+          <StatCard
+            label="Today's Attendance"
+            value={stats ? `${stats.attendance_today_pct.toFixed(1)}%` : "—"}
+            icon={ClipboardDocumentCheckIcon}
+            color={
+              stats && stats.attendance_today_pct >= 90
+                ? "bg-emerald-500"
+                : "bg-amber-500"
+            }
+            delta={stats?.attendance_delta_pct}
+            deltaLabel="vs yesterday"
+            to="/admin/attendance"
+          />
+          <StatCard
+            label="Fees Collected (Month)"
+            value={stats ? `$${(stats.fees_collected_month / 1000).toFixed(0)}K` : "—"}
+            icon={BanknotesIcon}
+            color="bg-blue-500"
+            to="/admin/fees"
+          />
+        </div>
+      </ErrorBoundary>
 
       {/* Charts row */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Attendance trend */}
         <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
@@ -248,8 +252,10 @@ export default function AdminDashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* Fee collection chart + Announcements */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Fee trend */}
         <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
@@ -307,8 +313,10 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* Outstanding fees alert */}
+      <ErrorBoundary>
       {stats && stats.fees_outstanding > 0 && (
         <button onClick={() => navigate("/admin/fees")} className="w-full text-left">
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-4 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer group">
@@ -325,6 +333,7 @@ export default function AdminDashboard() {
           </div>
         </button>
       )}
+      </ErrorBoundary>
     </div>
   );
 }

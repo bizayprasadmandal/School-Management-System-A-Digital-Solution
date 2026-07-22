@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
 import { useUnreadNotificationCount } from "../../api/hooks";
-import { Avatar, Badge, SkeletonCard } from "../../components/common";
+import { Avatar, Badge, SkeletonCard, ErrorBoundary } from "../../components/common";
 import { useTitle } from "../../hooks";
 import { BellIcon, AcademicCapIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
@@ -93,6 +93,7 @@ export default function ParentDashboard() {
       </div>
 
       {/* Children overview */}
+      <ErrorBoundary>
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-slate-800">My Children</h2>
@@ -180,8 +181,10 @@ export default function ParentDashboard() {
           </div>
         )}
       </div>
+      </ErrorBoundary>
 
       {/* Quick action links */}
+      <ErrorBoundary>
       {childList.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-5">
           <h2 className="text-base font-semibold text-slate-800 mb-3">Quick Actions</h2>
@@ -203,8 +206,10 @@ export default function ParentDashboard() {
           </div>
         </div>
       )}
+      </ErrorBoundary>
 
       {/* Recent notifications */}
+      <ErrorBoundary>
       {notifList.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -247,6 +252,7 @@ export default function ParentDashboard() {
           </div>
         </div>
       )}
+      </ErrorBoundary>
     </div>
   );
 }

@@ -651,3 +651,7 @@ export const Avatar = React.memo(function Avatar({ name = "?", src, size = "md",
     </div>
   );
 });
+
+// ─── ErrorBoundary ────────────────────────────────────────────────────────────
+
+export { ErrorBoundary } from "./ErrorBoundary";
