@@ -20,6 +20,7 @@ import StudentAttendanceScreen from "../screens/student/AttendanceScreen";
 import StudentGradesScreen from "../screens/student/GradesScreen";
 import StudentTimetableScreen from "../screens/student/TimetableScreen";
 import StudentMessagesScreen from "../screens/student/MessagesScreen";
+import StudentFeesScreen from "../screens/student/FeesScreen";
 
 // Teacher screens
 import TeacherHomeScreen from "../screens/teacher/HomeScreen";
@@ -59,6 +60,7 @@ function StudentTabs() {
             Home:       ["home",              "home-outline"],
             Attendance: ["calendar",          "calendar-outline"],
             Grades:     ["school",            "school-outline"],
+            Fees:       ["wallet",            "wallet-outline"],
             Timetable:  ["time",              "time-outline"],
             Messages:   ["chatbubble-ellipses","chatbubble-ellipses-outline"],
           };
@@ -86,6 +88,7 @@ function StudentTabs() {
       <Tab.Screen name="Home" component={StudentHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Attendance" component={StudentAttendanceScreen} />
       <Tab.Screen name="Grades" component={StudentGradesScreen} />
+      <Tab.Screen name="Fees" component={StudentFeesScreen} />
       <Tab.Screen name="Timetable" component={StudentTimetableScreen} />
       <Tab.Screen name="Messages" component={StudentMessagesScreen} />
     </Tab.Navigator>

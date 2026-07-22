@@ -113,5 +113,3 @@ const styles = StyleSheet.create({
   notifTitle: { fontSize: 13, fontWeight: "600", color: "#1e293b" },
   notifBody: { fontSize: 12, color: "#64748b", marginTop: 2 },
 });
-
-const BRAND = "#6366f1";
