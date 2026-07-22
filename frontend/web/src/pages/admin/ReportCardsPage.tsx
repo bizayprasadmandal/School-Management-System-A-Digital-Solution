@@ -11,6 +11,7 @@ import { Button, Badge, DataTable, SkeletonCard, SkeletonTable, EmptyState, Moda
 import { percent, gradeBg, fmt } from "../../utils";
 import { useTitle } from "../../hooks";
 import { DocumentTextIcon, RocketLaunchIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import type { Exam, ReportCard, PaginatedResponse } from "../../types";
 export default function ReportCardsPage() {
   useTitle("Report Cards");
   const navigate = useNavigate();
@@ -22,13 +23,13 @@ export default function ReportCardsPage() {
 
   const { data: exams, isLoading: examsLoading } = useQuery({
     queryKey: ["admin-rc-exams", academicYear?.id],
-    queryFn: () => api.get<any>("/gradebook/exams/", { academic_year: academicYear?.id }),
+    queryFn: () => api.get<PaginatedResponse<Exam>>("/gradebook/exams/", { academic_year: academicYear?.id }),
     enabled: !!academicYear?.id,
   });
 
   const { data: reportCards, isLoading: rcLoading } = useQuery({
     queryKey: ["admin-rc-list", selectedExam, page],
-    queryFn: () => api.get<any>("/gradebook/report-cards/", { page_size: 50, page }),
+    queryFn: () => api.get<PaginatedResponse<ReportCard>>("/gradebook/report-cards/", { page_size: 50, page }),
     enabled: !!selectedExam,
   });
 
@@ -53,9 +54,9 @@ export default function ReportCardsPage() {
     onError: () => toast.error("Publish failed"),
   });
 
-  const examList = exams?.results ?? [];
-  const selected = examList.find((e: { id: string }) => e.id === selectedExam);
-  const rcs = reportCards?.results ?? [];
+  const examList: Exam[] = exams?.results ?? [];
+  const selected = examList.find((e) => e.id === selectedExam);
+  const rcs: ReportCard[] = reportCards?.results ?? [];
   // Reset to page 1 when switching exams
   useEffect(() => { setPage(1); }, [selectedExam]);
 
@@ -74,7 +75,7 @@ export default function ReportCardsPage() {
               <DocumentTextIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
               <p>No exams found for {academicYear?.name}. Create exams first.</p>
             </div>
-          ) : examList.map((exam: { id: string; name: string; status: string; exam_type_name: string; start_date: string; end_date: string; schedule_count: number }) => (
+          ) : examList.map((exam) => (
             <button key={exam.id} onClick={() => setSelectedExam(exam.id)}
               className={`bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 text-left hover:border-indigo-300 transition-colors ${selectedExam === exam.id ? "border-indigo-500 ring-2 ring-indigo-500 ring-offset-1" : ""}`}>
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -136,7 +137,7 @@ export default function ReportCardsPage() {
                     ? <a href={r.pdf_url} target="_blank" rel="noreferrer" className="text-indigo-600 text-xs font-medium hover:underline flex items-center gap-1"><ArrowDownTrayIcon className="h-3.5 w-3.5" />Download</a>
                     : <span className="text-slate-400 text-xs">Not ready</span> },
                 ]}
-                data={rcs as any[]} rowKey={r => r.id}
+                data={rcs} rowKey={(r) => r.id}
                 page={page} total={reportCards?.count ?? 0} pageSize={50} onPageChange={setPage}
                 onRowClick={(r) => navigate(`/admin/students/${r.student_id}`)}
               />

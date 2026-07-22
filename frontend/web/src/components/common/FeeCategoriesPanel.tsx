@@ -40,11 +40,11 @@ function CategoryFormModal({
     e.preventDefault();
     if (!form.name.trim()) return toast.error("Category name is required");
     if (isEdit) {
-      updateMut.mutate({ id: category!.id, ...form } as any, {
+      updateMut.mutate({ id: category!.id, ...form }, {
         onSuccess: () => { toast.success("Category updated"); onSaved(); },
       });
     } else {
-      createMut.mutate(form as any, {
+      createMut.mutate(form, {
         onSuccess: () => { toast.success("Category created"); onSaved(); },
       });
     }

@@ -263,6 +263,9 @@ export interface GradeRecord {
 export interface ReportCard {
   id: string;
   student: string;
+  student_id?: string;
+  student_name?: string;
+  student_admission_number?: string;
   exam: string;
   exam_name: string;
   academic_year_name: string;

@@ -353,7 +353,7 @@ export default function StudentGradesPage() {
                 render: (r) =>
                   r.pdf_url ? (
                     <button
-                      onClick={() => downloadPDF(r.pdf_url, r.exam_name)}
+                      onClick={() => r.pdf_url && downloadPDF(r.pdf_url, r.exam_name)}
                       className="text-indigo-600 dark:text-indigo-400 text-xs font-medium hover:underline"
                     >
                       Download
@@ -361,7 +361,7 @@ export default function StudentGradesPage() {
                   ) : null,
               },
             ]}
-            data={reportCards as any[]}
+            data={reportCards}
             rowKey={(r) => r.id}
             emptyMessage="No report cards"
           />

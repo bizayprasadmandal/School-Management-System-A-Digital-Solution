@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeftIcon, PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useStudent, useStudentAttendanceSummary, useStudentInvoices, useReportCards, useCreateStudent, useUpdateStudent, useClassrooms } from "../../api/hooks";
+import type { StudentDetail } from "../../types";
 import { Button, Badge, Avatar, Spinner, DataTable, SkeletonCard, Input, Select } from "../../components/common";
 import { fmt, currency, percent, attendanceColor, FEE_STATUS } from "../../utils";
 import { useTitle } from "../../hooks";
@@ -18,7 +19,7 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const isNew = id === "new";
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editForm, setEditForm] = useState<Partial<StudentDetail>>({});
   const { data: student, isLoading } = useStudent(isNew ? "" : id!);
   const updateStudent = useUpdateStudent(id!);
   const { data: attendance } = useStudentAttendanceSummary(isNew ? "" : id!);
@@ -48,10 +49,13 @@ export default function StudentDetailPage() {
               <Button variant="primary" leftIcon={<CheckIcon className="h-4 w-4" />} loading={updateStudent.isPending}
                 onClick={async () => {
                   try {
-                    await updateStudent.mutateAsync(editForm as any);
+                    await updateStudent.mutateAsync(editForm);
                     toast.success("Student updated!");
                     setIsEditing(false);
-                  } catch (err: any) { toast.error(err?.message ?? "Update failed"); }
+                  } catch (err: unknown) {
+                    const error = err as { message?: string };
+                    toast.error(error?.message ?? "Update failed");
+                  }
                 }}>
                 Save
               </Button>
@@ -70,7 +74,7 @@ export default function StudentDetailPage() {
                   emergency_contact_name: student.emergency_contact_name || "",
                   emergency_contact_phone: student.emergency_contact_phone || "",
                   medical_conditions: student.medical_conditions || "",
-                });
+                } as Partial<StudentDetail>);
                 setIsEditing(true);
               }}>
               Edit Student

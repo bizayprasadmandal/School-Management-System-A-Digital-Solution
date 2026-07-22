@@ -10,7 +10,7 @@ import {
   useGradeLevels, useAcademicYears, useFeeCategories,
 } from "../../api/hooks";
 import { Button, Modal, EmptyState, Badge, Input, Select } from "./index";
-import type { FeeStructure } from "../../types";
+import type { FeeCategory, FeeStructure } from "../../types";
 
 function StructureFormModal({
   open, onClose, structure, onSaved,
@@ -48,11 +48,11 @@ function StructureFormModal({
     if (form.amount <= 0) return toast.error("Amount must be greater than 0");
 
     if (isEdit) {
-      updateMut.mutate({ id: structure!.id, ...form } as any, {
+      updateMut.mutate({ id: structure!.id, ...form }, {
         onSuccess: () => { toast.success("Structure updated"); onSaved(); },
       });
     } else {
-      createMut.mutate(form as any, {
+      createMut.mutate(form, {
         onSuccess: () => { toast.success("Structure created"); onSaved(); },
       });
     }
@@ -65,7 +65,7 @@ function StructureFormModal({
           <Select label="Grade *" value={form.grade} onChange={e => setForm(p => ({ ...p, grade: parseInt(e.target.value) }))}
             options={[{ value: 0, label: "Select grade..." }, ...grades.map(g => ({ value: g.id, label: g.name }))]} />
           <Select label="Fee Category *" value={form.fee_category} onChange={e => setForm(p => ({ ...p, fee_category: parseInt(e.target.value) }))}
-            options={[{ value: 0, label: "Select category..." }, ...categories.map((c: any) => ({ value: c.id, label: c.name }))]} />
+            options={[{ value: 0, label: "Select category..." }, ...categories.map((c: FeeCategory) => ({ value: c.id, label: c.name }))]} />
         </div>
         <Select label="Academic Year *" value={form.academic_year} onChange={e => setForm(p => ({ ...p, academic_year: parseInt(e.target.value) }))}
           options={[{ value: 0, label: "Select year..." }, ...years.map(y => ({ value: y.id, label: y.name }))]} />
