@@ -157,7 +157,7 @@ def send_email_notification(self, user_id: str, subject: str, body: str):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_sms_notification(self, user_id: str, body: str):
-    """Send SMS via Twilio."""
+    """Send SMS via configured provider (Twilio, Vonage, or console fallback)."""
     try:
         from services.auth.models import User
         from django.conf import settings
@@ -166,19 +166,52 @@ def send_sms_notification(self, user_id: str, body: str):
         if not user.phone or not user.notify_sms:
             return
 
-        from twilio.rest import Client
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        provider = settings.SMS_PROVIDER
+        message_sid = None
 
-        # Prefer messaging service SID (handles regulatory compliance);
-        # fall back to direct phone number for simpler setups.
-        kwargs = {"body": body, "to": user.phone}
-        if settings.TWILIO_MESSAGING_SERVICE_SID:
-            kwargs["messaging_service_sid"] = settings.TWILIO_MESSAGING_SERVICE_SID
+        if provider == "vonage" and settings.VONAGE_API_KEY:
+            # ── Vonage (Nexmo) ────────────────────────────────────────────────
+            import vonage
+            client = vonage.Client(
+                key=settings.VONAGE_API_KEY,
+                secret=settings.VONAGE_API_SECRET,
+            )
+            sms = vonage.Sms(client)
+            response = sms.send_message({
+                "from": settings.VONAGE_FROM_NUMBER or "EduSphere",
+                "to": user.phone,
+                "text": body,
+            })
+            if response["messages"][0]["status"] == "0":
+                message_sid = response["messages"][0]["message-id"]
+                logger.info("SMS sent via Vonage to %s (ID: %s)", user.phone, message_sid)
+            else:
+                raise Exception(f"Vonage error: {response['messages'][0]['error-text']}")
+
+        elif provider == "console":
+            # ── Console/Logging (development) ─────────────────────────────────
+            logger.info(
+                "[SMS CONSOLE] To: %s | Body: %s",
+                user.phone, body[:100],
+            )
+            message_sid = "console_log"
+
         else:
-            kwargs["from_"] = settings.TWILIO_PHONE_NUMBER
+            # ── Twilio (default) ──────────────────────────────────────────────
+            from twilio.rest import Client
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
-        message = client.messages.create(**kwargs)
+            kwargs = {"body": body, "to": user.phone}
+            if settings.TWILIO_MESSAGING_SERVICE_SID:
+                kwargs["messaging_service_sid"] = settings.TWILIO_MESSAGING_SERVICE_SID
+            else:
+                kwargs["from_"] = settings.TWILIO_PHONE_NUMBER
 
+            message = client.messages.create(**kwargs)
+            message_sid = message.sid
+            logger.info("SMS sent via Twilio to %s (SID: %s)", user.phone, message_sid)
+
+        # Record notification in DB
         from .models import Notification
         Notification.objects.create(
             user=user,
@@ -188,8 +221,6 @@ def send_sms_notification(self, user_id: str, body: str):
             status="sent",
             sent_at=timezone.now(),
         )
-
-        logger.info("SMS sent to %s (SID: %s)", user.phone, message.sid)
 
     except Exception as exc:
         logger.error("SMS failed for user %s: %s", user_id, exc)

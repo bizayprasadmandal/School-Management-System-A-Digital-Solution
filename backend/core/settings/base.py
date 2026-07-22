@@ -287,12 +287,17 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@school.edu")
 
-# ─── SMS (Twilio) ─────────────────────────────────────────────────────────────
+# ─── SMS Providers (Twilio + Vonage fallback) ──────────────────────────────────
 
 TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
 TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
 TWILIO_PHONE_NUMBER = env("TWILIO_PHONE_NUMBER", default="")
 TWILIO_MESSAGING_SERVICE_SID = env("TWILIO_MESSAGING_SERVICE_SID", default="")
+
+VONAGE_API_KEY = env("VONAGE_API_KEY", default="")
+VONAGE_API_SECRET = env("VONAGE_API_SECRET", default="")
+VONAGE_FROM_NUMBER = env("VONAGE_FROM_NUMBER", default="")
+SMS_PROVIDER = env("SMS_PROVIDER", default="twilio")  # "twilio" | "vonage" | "console"
 
 # ─── Push Notifications (Firebase FCM) ───────────────────────────────────────
 

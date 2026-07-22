@@ -42,12 +42,19 @@ def notify_absent_guardians(self, record_id: str):
         notified_users = []
         for guardian in student.guardians.filter(user__isnull=False):
             guard_user = guardian.user
-            if guard_user.notify_push and guard_user.notify_email:
+            # Build channels based on guardian's notification preferences
+            channels = []
+            if guard_user.notify_push:   channels.append("push")
+            if guard_user.notify_email:  channels.append("email")
+            if guard_user.notify_sms:    channels.append("sms")
+            channels.append("in_app")
+
+            if channels:
                 NotificationService.send(
                     user=guard_user,
                     template=template,
                     context=context,
-                    channels=["push", "email"],
+                    channels=channels,
                 )
                 notified_users.append(str(guard_user.id))
 
