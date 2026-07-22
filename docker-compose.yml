@@ -191,10 +191,13 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api/v1
       - REACT_APP_WS_URL=ws://localhost:8000
-      - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=3000
+      # WATCHPACK_POLLING is set in frontend/web/.env to avoid hardcoding
+      # in Docker. It's read at build-time by react-scripts.
     volumes:
       - ./frontend/web/src:/app/src
       - ./frontend/web/public:/app/public
+      - ./frontend/web/.env:/app/.env
       - ./frontend/web/package.json:/app/package.json
       - ./frontend/web/tsconfig.json:/app/tsconfig.json
       - ./frontend/web/tailwind.config.js:/app/tailwind.config.js

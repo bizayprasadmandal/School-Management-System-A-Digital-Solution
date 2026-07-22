@@ -31,12 +31,58 @@ dayjs.extend(duration);
 // ─── i18n — Internationalization ────────────────────────────────────────────
 import "./i18n";
 
+// ─── Main App ────────────────────────────────────────────────────────────────
 import App from "./App";
+
+// Clear the chunk-reload flag after a successful load so subsequent reloads
+// work correctly if the user triggers a rebuild mid-session.
+window.addEventListener("load", () => {
+  sessionStorage.removeItem("chunkReloaded");
+});
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 root.render(<App />);
 
-// Hide the pre-React loading screen once the app mounts
+// ─── Chunk-loading error recovery ───────────────────────────────────────────
+// CRA generates code-split chunks with content hashes. When the Docker
+// container restarts, old chunks are removed and new ones are generated.
+// The browser may have cached index.html referencing old chunk names,
+// causing "Loading chunk X failed" errors. This handler catches those
+// errors and reloads the page to pick up the fresh index.html.
+window.addEventListener("error", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (
+    target?.tagName === "SCRIPT" &&
+    (target as HTMLScriptElement).src?.includes("/static/js/") &&
+    !sessionStorage.getItem("chunkReloaded")
+  ) {
+    sessionStorage.setItem("chunkReloaded", "true");
+    // Show a brief visual hint before reloading
+    const root = document.getElementById("root");
+    if (root) {
+      root.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#f8fafc;color:#475569;font-family:system-ui">
+        <div style="width:32px;height:32px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>
+        <p style="font-size:14px">Updating app…</p>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      </div>`;
+    }
+    setTimeout(() => window.location.reload(), 600);
+  }
+}, true);
+
+// Suppress duplicate chunk errors in the console after the reload flag is set
+window.addEventListener("error", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (
+    target?.tagName === "SCRIPT" &&
+    (target as HTMLScriptElement).src?.includes("/static/js/") &&
+    sessionStorage.getItem("chunkReloaded")
+  ) {
+    event.preventDefault();
+  }
+}, true);
+
+// ─── Hide pre-React loading screen ───────────────────────────────────────────
 const loader = document.getElementById("app-loading");
 if (loader) {
   loader.classList.add("hidden");
