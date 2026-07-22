@@ -60,24 +60,30 @@ class TenantMiddleware:
 
         if pk:
             cache_key = f"school_pk_{pk}"
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
+            cached_pk = cache.get(cache_key)
+            if cached_pk is not None:
+                try:
+                    return School.objects.get(pk=cached_pk, is_active=True)
+                except School.DoesNotExist:
+                    return None
             try:
                 school = School.objects.get(pk=pk, is_active=True)
-                cache.set(cache_key, school, timeout=300)
+                cache.set(cache_key, school.pk, timeout=300)
                 return school
             except School.DoesNotExist:
                 return None
 
         if subdomain:
             cache_key = f"school_subdomain_{subdomain}"
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return cached
+            cached_pk = cache.get(cache_key)
+            if cached_pk is not None:
+                try:
+                    return School.objects.get(pk=cached_pk, is_active=True)
+                except School.DoesNotExist:
+                    return None
             try:
                 school = School.objects.get(subdomain=subdomain, is_active=True)
-                cache.set(cache_key, school, timeout=300)
+                cache.set(cache_key, school.pk, timeout=300)
                 return school
             except School.DoesNotExist:
                 return None

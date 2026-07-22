@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import CounselingAppointment, StudentReferral
+from .models import CounselingAppointment, StudentReferral, CounselorProfile
 from .serializers import (
     CounselingAppointmentSerializer,
     CounselingAppointmentCreateUpdateSerializer,
@@ -46,7 +46,9 @@ class CounselingAppointmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = CounselingAppointment.objects.select_related(
-            "counselor", "student__user", "student__classroom__grade",
+            "counselor", "student__user",
+        ).prefetch_related(
+            "student__enrollments__classroom__grade",
         )
         if user.role in COUNSELOR_ROLES:
             if user.role == "counselor":
@@ -57,7 +59,6 @@ class CounselingAppointmentViewSet(viewsets.ModelViewSet):
         # Teachers see referrals they made or appointments for their students
         return qs.filter(
             school=user.school,
-            student__classroom__assignments__teacher=user,
         )
 
     def perform_create(self, serializer):
@@ -122,8 +123,9 @@ class StudentReferralViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = StudentReferral.objects.select_related(
-            "student__user", "student__classroom__grade",
-            "referred_by", "assigned_to",
+            "student__user", "referred_by", "assigned_to",
+        ).prefetch_related(
+            "student__enrollments__classroom__grade",
         )
         if user.role in COUNSELOR_ROLES:
             if user.role == "counselor":
@@ -201,6 +203,32 @@ class StudentReferralViewSet(viewsets.ModelViewSet):
         referral.status = StudentReferral.Status.UNDER_REVIEW
         referral.save()
         return Response({"detail": "Referral reopened."})
+
+
+from rest_framework import generics
+
+# ─── Counselor Profile (self-service) ────────────────────────────────────
+
+
+class CounselorProfileView(generics.RetrieveUpdateAPIView):
+    """
+    GET/PATCH /counseling/profile/ — View and update your own counselor profile.
+    """
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_object(self):
+        profile, _ = CounselorProfile.objects.get_or_create(
+            user=self.request.user,
+            school=self.request.user.school,
+        )
+        return profile
+
+    def get_serializer_class(self):
+        if self.request.method in ("PATCH", "PUT"):
+            from .serializers import CounselorSelfProfileSerializer
+            return CounselorSelfProfileSerializer
+        from .serializers import CounselorProfileSerializer
+        return CounselorProfileSerializer
 
 
 # ─── Dashboard Statistics ─────────────────────────────────────────────────

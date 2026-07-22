@@ -32,6 +32,7 @@ const STUDENT_NAV = [
   { label: "Conferences",to: "/student/conferences",   icon: VideoCameraIcon },
   { label: "Messages",   to: "/student/messages",      icon: ChatBubbleLeftRightIcon },
   { label: "Fees",       to: "/student/fees",           icon: BanknotesIcon },
+  { label: "Settings",   to: "/student/settings",        icon: Cog6ToothIcon },
 ];
 
 interface NavItem {
@@ -282,6 +283,7 @@ const PARENT_NAV: NavItem[] = [
   { label: "Fees",       to: "/parent/fees",         icon: BanknotesIcon },
   { label: "Conferences",to: "/parent/conferences",  icon: VideoCameraIcon },
   { label: "Messages",   to: "/parent/messages",    icon: ChatBubbleLeftRightIcon },
+  { label: "Settings",   to: "/parent/settings",    icon: Cog6ToothIcon },
 ];
 
 export function ParentLayout() {

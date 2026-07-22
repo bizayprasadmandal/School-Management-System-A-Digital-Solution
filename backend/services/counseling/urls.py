@@ -15,4 +15,5 @@ router.register(r"referrals", views.StudentReferralViewSet, basename="referral")
 urlpatterns = [
     path("", include(router.urls)),
     path("dashboard/stats/", views.CounselorDashboardStatsView.as_view(), name="dashboard_stats"),
+    path("profile/", views.CounselorProfileView.as_view(), name="counselor_profile"),
 ]

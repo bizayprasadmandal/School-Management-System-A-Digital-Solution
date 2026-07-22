@@ -78,6 +78,16 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         return obj.user.full_name
 
 
+class StudentSelfProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for students to update their own profile fields.
+    Only exposes non-sensitive self-service fields (bio, interests, learning_goals).
+    """
+    class Meta:
+        model = Student
+        fields = ["bio", "interests", "learning_goals"]
+
+
 class StudentCreateSerializer(serializers.ModelSerializer):
     """Handles student creation including user account creation."""
     first_name = serializers.CharField(write_only=True)

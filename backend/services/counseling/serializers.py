@@ -3,7 +3,7 @@ Counseling Service — Serializers.
 """
 
 from rest_framework import serializers
-from .models import CounselingAppointment, StudentReferral
+from .models import CounselingAppointment, StudentReferral, CounselorProfile
 
 
 class CounselingAppointmentSerializer(serializers.ModelSerializer):
@@ -11,12 +11,20 @@ class CounselingAppointmentSerializer(serializers.ModelSerializer):
 
     counselor_name = serializers.CharField(source="counselor.full_name", read_only=True)
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    student_grade = serializers.CharField(
-        source="student.classroom.grade.name", read_only=True, allow_null=True,
-    )
-    student_class = serializers.CharField(
-        source="student.classroom.name", read_only=True, allow_null=True,
-    )
+    student_grade = serializers.SerializerMethodField()
+    student_class = serializers.SerializerMethodField()
+
+    def get_student_grade(self, obj):
+        enrollment = obj.student.enrollments.filter(is_active=True).first()
+        if enrollment and enrollment.classroom and enrollment.classroom.grade:
+            return enrollment.classroom.grade.name
+        return None
+
+    def get_student_class(self, obj):
+        enrollment = obj.student.enrollments.filter(is_active=True).first()
+        if enrollment and enrollment.classroom:
+            return enrollment.classroom.name
+        return None
 
     class Meta:
         model = CounselingAppointment
@@ -43,14 +51,22 @@ class StudentReferralSerializer(serializers.ModelSerializer):
     """Full referral details with computed display names."""
 
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    student_grade = serializers.CharField(
-        source="student.classroom.grade.name", read_only=True, allow_null=True,
-    )
-    student_class = serializers.CharField(
-        source="student.classroom.name", read_only=True, allow_null=True,
-    )
+    student_grade = serializers.SerializerMethodField()
+    student_class = serializers.SerializerMethodField()
     referred_by_name = serializers.CharField(source="referred_by.full_name", read_only=True, allow_null=True)
     assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, allow_null=True)
+
+    def get_student_grade(self, obj):
+        enrollment = obj.student.enrollments.filter(is_active=True).first()
+        if enrollment and enrollment.classroom and enrollment.classroom.grade:
+            return enrollment.classroom.grade.name
+        return None
+
+    def get_student_class(self, obj):
+        enrollment = obj.student.enrollments.filter(is_active=True).first()
+        if enrollment and enrollment.classroom:
+            return enrollment.classroom.name
+        return None
 
     class Meta:
         model = StudentReferral
@@ -75,3 +91,25 @@ class StudentReferralCreateUpdateSerializer(serializers.ModelSerializer):
         if len(value.strip()) < 10:
             raise serializers.ValidationError("Reason must be at least 10 characters.")
         return value
+
+
+class CounselorProfileSerializer(serializers.ModelSerializer):
+    """Full counselor profile — used for GET responses."""
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = CounselorProfile
+        fields = [
+            "id", "user", "full_name", "email",
+            "specialties", "certifications", "office_hours", "bio",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CounselorSelfProfileSerializer(serializers.ModelSerializer):
+    """Serializer for counselors to update their own profile."""
+    class Meta:
+        model = CounselorProfile
+        fields = ["specialties", "certifications", "office_hours", "bio"]

@@ -50,9 +50,23 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             "id", "user", "full_name", "email", "phone", "avatar",
             "employee_id", "date_of_birth", "gender", "qualification",
             "specialization", "joining_date", "experience_years",
-            "department", "address", "is_active", "current_assignments",
+            "department", "address", "bio", "is_active", "current_assignments",
         ]
         read_only_fields = ["id"]
+
+
+class TeacherSelfProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for teachers to update their own profile (limited fields).
+    Admins still use TeacherProfileSerializer for full control.
+    """
+    class Meta:
+        model = TeacherProfile
+        fields = [
+            "qualification", "specialization", "department",
+            "experience_years", "bio",
+        ]
+
 
     def get_current_assignments(self, obj):
         """Return current-year teaching assignments for this teacher.

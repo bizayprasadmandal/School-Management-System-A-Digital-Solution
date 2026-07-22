@@ -155,3 +155,25 @@ class StudentReferral(models.Model):
             f"{self.get_category_display()} referral — "
             f"{self.student.user.full_name} ({self.get_status_display()})"
         )
+
+
+class CounselorProfile(models.Model):
+    """Extended counselor profile — additional professional information."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="counselor_profile")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counselor_profiles")
+    specialties = models.TextField(blank=True, help_text="Areas of specialization, e.g. career counseling, academic advising, mental health")
+    certifications = models.TextField(blank=True, help_text="Professional certifications and licenses")
+    office_hours = models.TextField(blank=True, help_text="Regular office hours and availability")
+    bio = models.TextField(blank=True, help_text="Professional biography")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counselor_profiles"
+        verbose_name = "Counselor Profile"
+        verbose_name_plural = "Counselor Profiles"
+
+    def __str__(self):
+        return f"{self.user.full_name} — Counselor Profile"

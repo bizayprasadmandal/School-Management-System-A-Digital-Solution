@@ -75,6 +75,7 @@ const TeacherTimetable      = React.lazy(() => import("./pages/teacher/Timetable
 const TeacherMessages       = React.lazy(() => import("./pages/teacher/MessagesPage"));
 const TeacherLessonPlans    = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
 const TeacherConferences     = React.lazy(() => import("./pages/teacher/ConferencesPage"));
+const TeacherSettings        = React.lazy(() => import("./pages/teacher/SettingsPage"));
 
 // Shared pages
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
@@ -91,20 +92,24 @@ const StudentTimetable      = React.lazy(() => import("./pages/student/Timetable
 const StudentMessages       = React.lazy(() => import("./pages/student/MessagesPage"));
 const StudentFees           = React.lazy(() => import("./pages/student/FeesPage"));
 const StudentConferences    = React.lazy(() => import("./pages/student/ConferencesPage"));
+const StudentSettings        = React.lazy(() => import("./pages/student/SettingsPage"));
 
 // Payment callback page
 const PaymentCallbackPage = React.lazy(() => import("./pages/fees/PaymentCallbackPage"));
 
 // Accountant pages
 const AccountantDashboard = React.lazy(() => import("./pages/accountant/Dashboard"));
+const AccountantSettings   = React.lazy(() => import("./pages/accountant/SettingsPage"));
 
 // Librarian pages
 const LibrarianDashboard  = React.lazy(() => import("./pages/librarian/Dashboard"));
+const LibrarianSettings    = React.lazy(() => import("./pages/librarian/SettingsPage"));
 
 // Counselor pages
 const CounselorDashboard          = React.lazy(() => import("./pages/counselor/Dashboard"));
 const CounselorAppointmentsPage   = React.lazy(() => import("./pages/counselor/CounselorAppointmentsPage"));
 const CounselorReferralsPage      = React.lazy(() => import("./pages/counselor/CounselorReferralsPage"));
+const CounselorSettings            = React.lazy(() => import("./pages/counselor/SettingsPage"));
 
 // Parent pages
 const ParentDashboard     = React.lazy(() => import("./pages/parent/Dashboard"));
@@ -250,8 +255,9 @@ function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="lesson-plans" element={<TeacherLessonPlans />} />
-                <Route path="conferences" element={<TeacherConferences />} />
-              </Route>
+              <Route path="conferences" element={<TeacherConferences />} />
+              <Route path="settings" element={<TeacherSettings />} />
+            </Route>
             </Route>
 
             {/* ── Student routes ────────────────────────── */}
@@ -266,8 +272,9 @@ function App() {
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
                 <Route path="fees" element={<StudentFees />} />
-                <Route path="conferences" element={<StudentConferences />} />
-              </Route>
+              <Route path="conferences" element={<StudentConferences />} />
+              <Route path="settings" element={<StudentSettings />} />
+            </Route>
             </Route>
 
             {/* ── Parent routes ─────────────────────────── */}
@@ -295,7 +302,7 @@ function App() {
                 <Route path="conferences" element={<AdminConferences />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings" element={<AccountantSettings />} />
               </Route>
             </Route>
 
@@ -306,9 +313,8 @@ function App() {
                 <Route path="library" element={<LibraryPage />} />
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
-                <Route path="setup-2fa" element={<Setup2FAPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-              </Route>
+                <Route path="setup-2fa" element={<Setup2FAPage />} />              <Route path="settings" element={<LibrarianSettings />} />
+          </Route>
             </Route>
 
             {/* ── Counselor routes ───────────────────────── */}
@@ -321,7 +327,7 @@ function App() {
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings" element={<CounselorSettings />} />
               </Route>
             </Route>
 

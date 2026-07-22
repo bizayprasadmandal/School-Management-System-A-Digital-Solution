@@ -8,7 +8,7 @@ import {
   HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
   CalendarDaysIcon, ChatBubbleLeftRightIcon, DocumentTextIcon,
   AcademicCapIcon, Bars3Icon, XMarkIcon, UsersIcon,
-  ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
+  ArrowRightOnRectangleIcon, SunIcon, MoonIcon, Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { useAuthStore } from "../../store/authStore";
@@ -28,6 +28,7 @@ const NAV = [
   { label: "Messages",     to: "/teacher/messages",      icon: ChatBubbleLeftRightIcon },
   { label: "Lesson Plans", to: "/teacher/lesson-plans",  icon: DocumentTextIcon },
   { label: "Conferences",  to: "/teacher/conferences",   icon: UsersIcon },
+  { label: "Settings",     to: "/teacher/settings",      icon: Cog6ToothIcon },
 ];
 
 export default function TeacherLayout() {

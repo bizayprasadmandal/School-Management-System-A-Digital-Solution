@@ -67,6 +67,7 @@ class TeacherProfile(models.Model):
     department = models.CharField(max_length=100, blank=True)
     salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     address = models.TextField()
+    bio = models.TextField(blank=True, help_text="Professional bio / biography")
     is_active = models.BooleanField(default=True)
 
     class Meta:

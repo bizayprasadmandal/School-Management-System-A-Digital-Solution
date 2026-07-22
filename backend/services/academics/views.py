@@ -93,6 +93,27 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
             ))
         return qs
 
+    @action(detail=False, methods=["get", "patch"], url_path="me")
+    def my_profile(self, request):
+        """
+        GET: Return the current teacher's own profile.
+        PATCH: Update limited self-service fields (qualification, specialization,
+               department, experience_years, bio).
+        """
+        try:
+            profile = TeacherProfile.objects.get(user=request.user, school=request.user.school)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher profile not found."}, status=404)
+
+        if request.method == "PATCH":
+            from .serializers import TeacherSelfProfileSerializer
+            serializer = TeacherSelfProfileSerializer(profile, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(TeacherProfileSerializer(profile).data)
+
+        return Response(TeacherProfileSerializer(profile).data)
+
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]

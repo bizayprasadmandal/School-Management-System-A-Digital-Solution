@@ -703,7 +703,7 @@ export default function CounselorAppointmentsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={CalendarDaysIcon} title="No appointments found"
-          description={search ? "Try a different search term" : "No appointments scheduled yet. Click 'New Appointment' to book one."}
+          description={search ? "Try a different search term" : "No appointments scheduled yet. Click &apos;New Appointment&apos; to book one."}
           action={<Button onClick={() => setShowForm(true)}><PlusIcon className="h-4 w-4 mr-1" /> New Appointment</Button>} />
       ) : (
         <div className="space-y-2">

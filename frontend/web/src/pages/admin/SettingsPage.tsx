@@ -10,6 +10,7 @@ import { useAuthStore } from "../../store/authStore";
 import { Button, Input, Select, Badge } from "../../components/common";
 import { useTitle } from "../../hooks";
 import EmailVerificationActions from "../../components/common/EmailVerificationActions";
+import ProfileSettingsSection from "../../components/common/ProfileSettingsSection";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -215,8 +216,9 @@ function IntegrationsTab() {
 
 const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Los_Angeles","America/Toronto","Europe/London","Europe/Paris","Asia/Kolkata","Asia/Dhaka","Asia/Kathmandu","Asia/Dubai","Africa/Nairobi","Australia/Sydney"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-type TabKey = "school" | "academic" | "notifications" | "integrations" | "security";
+type TabKey = "my-profile" | "school" | "academic" | "notifications" | "integrations" | "security";
 const TABS: {id: TabKey; label: string}[] = [
+  {id:"my-profile",label:"My Profile"},
   {id:"school",label:"School Profile"},
   {id:"academic",label:"Academic Settings"},
   {id:"notifications",label:"Notifications"},
@@ -268,6 +270,13 @@ export default function SettingsPage() {
         <div className="border-b border-slate-100 px-6 flex overflow-x-auto">
           {TABS.map(t => <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab===t.id?"border-indigo-600 text-indigo-600":"border-transparent text-slate-500 hover:text-slate-800"}`}>{t.label}</button>)}
         </div>
+
+        {activeTab === "my-profile" && (
+          <div className="p-5 max-w-2xl">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-5">My Profile</h2>
+            <ProfileSettingsSection basePath="/admin" accent="indigo" />
+          </div>
+        )}
 
         {activeTab === "school" && (
           <div className="p-5 max-w-2xl">
