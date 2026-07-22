@@ -56,7 +56,7 @@ function getStripePromise(publishableKey: string) {
 // ─── Inner Payment Form ──────────────────────────────────────────────────────
 
 function PaymentForm({
-  clientSecret,
+  clientSecret: _clientSecret,
   invoice,
   onSuccess,
   onClose,

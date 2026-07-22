@@ -25,7 +25,7 @@ const LIBRARY_SECTIONS = [
   { value: "periodicals", label: "Periodicals" },
   { value: "digital", label: "Digital Library" },
   { value: "archives", label: "Archives" },
-  { value: "children", label: "Children\'s Section" },
+  { value: "children", label: "Children's Section" },
   { value: "general", label: "General" },
 ];
 

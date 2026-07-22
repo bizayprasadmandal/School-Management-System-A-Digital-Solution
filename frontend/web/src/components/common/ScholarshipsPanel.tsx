@@ -8,7 +8,7 @@ import {
   AcademicCapIcon, PlusIcon, PencilIcon,
   CheckCircleIcon, XCircleIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 import { useScholarships, useCreateScholarship, useUpdateScholarship, useToggleScholarship, useAcademicYears } from "../../api/hooks";
@@ -16,7 +16,7 @@ import type { Scholarship, StudentListItem } from "../../types";
 import {
   Button, Badge, Modal, Input, Select, DataTable, EmptyState, ConfirmDialog,
 } from "./";
-import type { Column, BadgeColor } from "./";
+import type { Column } from "./";
 
 // ─── Student Search (inline fetch) ──────────────────────────────────────────
 
@@ -40,7 +40,6 @@ interface ScholarshipFormModalProps {
 }
 
 function ScholarshipFormModal({ scholarship, onClose }: ScholarshipFormModalProps) {
-  const qc = useQueryClient();
   const isEdit = !!scholarship;
 
   const [studentQuery, setStudentQuery] = useState(scholarship?.student_name ?? "");

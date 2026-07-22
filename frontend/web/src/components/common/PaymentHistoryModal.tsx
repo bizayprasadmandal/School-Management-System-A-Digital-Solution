@@ -11,11 +11,7 @@ import toast from "react-hot-toast";
 import {
   BanknotesIcon,
   ArrowPathIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
   ExclamationTriangleIcon,
-  DocumentTextIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 

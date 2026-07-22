@@ -13,12 +13,10 @@ import toast from "react-hot-toast";
 import { npr } from "../../utils";
 import type { FeeInvoice } from "../../types";
 import {
-  BanknotesIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ArrowTopRightOnSquareIcon,
-  CreditCardIcon,
 } from "@heroicons/react/24/outline";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -35,7 +33,7 @@ interface NepaliPayModalProps {
   invoice: FeeInvoice;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 // ─── Gateway Card ───────────────────────────────────────────────────────────
@@ -243,7 +241,7 @@ export default function NepaliPayModal({
   invoice,
   open,
   onClose,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: NepaliPayModalProps) {
   const [step, setStep] = useState<"select" | "processing" | "result">(
     "select",
