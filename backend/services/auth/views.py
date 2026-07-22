@@ -6,7 +6,7 @@ import secrets
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.password_validation import validate_password
-from rest_framework import status, generics
+from rest_framework import status, generics, parsers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -203,6 +203,41 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def perform_update(self, serializer):
+        user = serializer.save()
+        # Update auth store will refetch on next profile load
+        AuditLog.objects.create(
+            school=user.school, user=user,
+            action="profile_update", resource_type="user", resource_id=str(user.id),
+            ip_address=self.request.META.get("REMOTE_ADDR"),
+        )
+
+
+class UploadAvatarView(APIView):
+    """Upload or remove the authenticated user's avatar image."""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def post(self, request):
+        user = request.user
+        file = request.FILES.get("avatar")
+        if file:
+            user.avatar = file
+            user.save(update_fields=["avatar"])
+            return Response({
+                "avatar": user.avatar.url if user.avatar else None,
+                "detail": "Avatar updated successfully.",
+            })
+        return Response({"detail": "No file provided. Send a file with key 'avatar'."}, status=400)
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete()
+            user.avatar = None
+            user.save(update_fields=["avatar"])
+        return Response({"detail": "Avatar removed."})
 
 
 class ChangePasswordView(APIView):

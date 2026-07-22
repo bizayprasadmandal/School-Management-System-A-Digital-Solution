@@ -1,12 +1,14 @@
 /**
- * ProfileSettingsSection — Reusable profile editing component
- * Used by all role-specific Settings pages (teacher, student, counselor, etc.)
+ * ProfileSettingsSection — Reusable profile editing component with avatar upload,
+ * personal info editing, change password, notification prefs, and auth store sync.
+ * Used by all role-specific Settings pages.
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
+import type { User } from "../../types";
 import { Button, Input, SkeletonCard } from "./index";
 import { useProfile } from "../../api/hooks";
 import { useAuthStore } from "../../store/authStore";
@@ -15,6 +17,10 @@ import {
   BellIcon,
   ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
+  CameraIcon,
+  KeyIcon,
+  XCircleIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
 interface ProfileSettingsSectionProps {
@@ -41,6 +47,8 @@ export default function ProfileSettingsSection({
   const navigate = useNavigate();
   const qc = useQueryClient();
   const authLogout = useAuthStore((s) => s.logout);
+  const setUser = useAuthStore((s) => s.setUser);
+  const currentUser = useAuthStore((s) => s.user);
   const { data: profile, isLoading } = useProfile();
 
   const [form, setForm] = useState({
@@ -53,6 +61,19 @@ export default function ProfileSettingsSection({
     notify_sms: false,
     notify_push: true,
   });
+
+  // ─── Avatar ────────────────────────────────────────────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // ─── Change Password ────────────────────────────────────────────────────────
+  const [pwdForm, setPwdForm] = useState({
+    old_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [pwdErrors, setPwdErrors] = useState<Record<string, string>>({});
 
   // Sync form when profile loads
   useEffect(() => {
@@ -70,10 +91,16 @@ export default function ProfileSettingsSection({
     }
   }, [profile]);
 
+  // ─── Update Profile ─────────────────────────────────────────────────────────
+
   const updateProfile = useMutation({
-    mutationFn: (data: typeof form) => api.patch("/auth/profile/", data),
-    onSuccess: () => {
+    mutationFn: (data: typeof form) => api.patch<User>("/auth/profile/", data),
+    onSuccess: (updatedUser) => {
       qc.invalidateQueries({ queryKey: ["profile"] });
+      // Sync auth store so sidebar avatar/name updates immediately
+      if (updatedUser && currentUser) {
+        setUser({ ...currentUser, ...updatedUser });
+      }
       toast.success("Profile updated successfully!");
     },
     onError: () => toast.error("Failed to update profile."),
@@ -88,10 +115,155 @@ export default function ProfileSettingsSection({
     onError: () => toast.error("Failed to update preferences."),
   });
 
+  // ─── Avatar Upload ──────────────────────────────────────────────────────────
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    api.upload<{ avatar: string; detail: string }>("/auth/upload-avatar/", formData)
+      .then((res) => {
+        toast.success("Avatar updated!");
+        qc.invalidateQueries({ queryKey: ["profile"] });
+        // Update auth store
+        if (res.avatar && currentUser) {
+          setUser({ ...currentUser, avatar: res.avatar });
+        }
+        setAvatarPreview(null);
+      })
+      .catch(() => toast.error("Failed to upload avatar."))
+      .finally(() => setUploadingAvatar(false));
+  };
+
+  const handleRemoveAvatar = () => {
+    api.delete("/auth/upload-avatar/")
+      .then(() => {
+        toast.success("Avatar removed.");
+        qc.invalidateQueries({ queryKey: ["profile"] });
+        if (currentUser) setUser({ ...currentUser, avatar: undefined });
+      })
+      .catch(() => toast.error("Failed to remove avatar."));
+  };
+
+  // ─── Change Password ────────────────────────────────────────────────────────
+
+  const changePassword = useMutation({
+    mutationFn: (data: { old_password: string; new_password: string }) =>
+      api.post("/auth/change-password/", data),
+    onSuccess: () => {
+      toast.success("Password changed successfully!");
+      setPwdForm({ old_password: "", new_password: "", confirm_password: "" });
+      setPwdErrors({});
+    },
+    onError: (err: any) => {
+      if (err?.fieldErrors) {
+        setPwdErrors(
+          Object.fromEntries(
+            Object.entries(err.fieldErrors).map(([k, v]) => [k, (v as string[]).join(", ")])
+          )
+        );
+      } else {
+        toast.error(err?.message || "Failed to change password.");
+      }
+    },
+  });
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!pwdForm.old_password) errors.old_password = "Current password is required.";
+    if (pwdForm.new_password.length < 8) errors.new_password = "Password must be at least 8 characters.";
+    if (pwdForm.new_password !== pwdForm.confirm_password) errors.confirm_password = "Passwords do not match.";
+    setPwdErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    changePassword.mutate({
+      old_password: pwdForm.old_password,
+      new_password: pwdForm.new_password,
+    });
+  };
+
   if (isLoading) return <SkeletonCard />;
+
+  const avatarUrl = avatarPreview || profile?.avatar;
 
   return (
     <div className="space-y-6">
+      {/* Avatar Upload */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+          <CameraIcon className={`h-5 w-5 ${colors.icon}`} />
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            Profile Picture
+          </h2>
+        </div>
+        <div className="p-5 flex items-center gap-6">
+          <div className="relative group">
+            <div className="h-24 w-24 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                <UserCircleIcon className="h-14 w-14 text-indigo-400" />
+              )}
+            </div>
+            {profile?.avatar && !avatarPreview && (
+              <button
+                onClick={handleRemoveAvatar}
+                className="absolute -top-1 -right-1 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600 transition-colors"
+                title="Remove avatar"
+              >
+                <XCircleIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              {profile?.full_name || "Your Name"}
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5 mb-3">
+              JPEG, PNG, or WebP. Max 5MB.
+            </p>
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                loading={uploadingAvatar}
+                leftIcon={<CameraIcon className="h-4 w-4" />}
+              >
+                {profile?.avatar ? "Change Photo" : "Upload Photo"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Personal Information */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
@@ -125,7 +297,7 @@ export default function ProfileSettingsSection({
             label="Email"
             value={profile?.email || ""}
             disabled
-            hint="Email cannot be changed here"
+            hint="Email cannot be changed here. Use the verification section below."
           />
           <div className="flex justify-end">
             <Button
@@ -138,6 +310,55 @@ export default function ProfileSettingsSection({
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+          <KeyIcon className={`h-5 w-5 ${colors.icon}`} />
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            Change Password
+          </h2>
+        </div>
+        <form onSubmit={handleChangePassword} className="p-5 space-y-4">
+          <Input
+            label="Current Password"
+            type="password"
+            value={pwdForm.old_password}
+            onChange={(e) => setPwdForm((p) => ({ ...p, old_password: e.target.value }))}
+            error={pwdErrors.old_password}
+            required
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="New Password"
+              type="password"
+              value={pwdForm.new_password}
+              onChange={(e) => setPwdForm((p) => ({ ...p, new_password: e.target.value }))}
+              error={pwdErrors.new_password}
+              hint="At least 8 characters"
+              required
+            />
+            <Input
+              label="Confirm New Password"
+              type="password"
+              value={pwdForm.confirm_password}
+              onChange={(e) => setPwdForm((p) => ({ ...p, confirm_password: e.target.value }))}
+              error={pwdErrors.confirm_password}
+              required
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              variant="primary"
+              loading={changePassword.isPending}
+              leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+            >
+              Update Password
+            </Button>
+          </div>
+        </form>
       </div>
 
       {/* Notification Preferences */}

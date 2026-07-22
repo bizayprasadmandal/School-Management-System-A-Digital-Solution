@@ -639,11 +639,11 @@ export function ConfirmDialog({
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-export const Avatar = React.memo(function Avatar({ name, src, size = "md", className }: {
-  name: string; src?: string; size?: "sm" | "md" | "lg"; className?: string;
+export const Avatar = React.memo(function Avatar({ name = "?", src, size = "md", className }: {
+  name?: string; src?: string; size?: "sm" | "md" | "lg"; className?: string;
 }) {
   const sizes = { sm: "h-7 w-7 text-xs", md: "h-9 w-9 text-sm", lg: "h-12 w-12 text-base" };
-  const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
   if (src) return <img src={src} alt={name} className={clsx("rounded-full object-cover flex-shrink-0", sizes[size], className)} />;
   return (
     <div className={clsx("rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center flex-shrink-0", sizes[size], className)}>

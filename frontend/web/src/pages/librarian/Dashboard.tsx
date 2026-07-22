@@ -48,7 +48,7 @@ export default function LibrarianDashboard() {
           <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{stats?.total_students?.toLocaleString() ?? "—"}</p>
         </div>
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Attendance</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today&apos;s Attendance</p>
           <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">
             {stats ? `${stats.attendance_today_pct.toFixed(1)}%` : "—"}
           </p>

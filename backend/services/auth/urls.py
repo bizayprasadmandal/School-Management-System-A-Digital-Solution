@@ -29,6 +29,9 @@ urlpatterns = [
     path("send-verification/",       views.SendEmailVerificationView.as_view(),    name="send_verification"),
     path("verify-email/",            views.ConfirmEmailVerificationView.as_view(), name="confirm_verification"),
 
+    # Avatar Upload
+    path("upload-avatar/",            views.UploadAvatarView.as_view(),             name="upload_avatar"),
+
     # 2FA Backup Codes
     path("regenerate-backup-codes/", views.RegenerateBackupCodesView.as_view(),    name="regenerate_backup_codes"),
 ]

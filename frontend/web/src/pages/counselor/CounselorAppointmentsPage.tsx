@@ -75,7 +75,7 @@ function TodaySchedule({
       <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <CalendarDaysIcon className="h-5 w-5 text-pink-500" />
-          <h2 className="font-semibold text-slate-900 dark:text-white">Today's Schedule</h2>
+          <h2 className="font-semibold text-slate-900 dark:text-white">Today&apos;s Schedule</h2>
           <Badge color={upcomingToday.length > 0 ? "blue" : "slate"}>{upcomingToday.length} upcoming</Badge>
           {completedToday.length > 0 && <Badge color="green">{completedToday.length} done</Badge>}
         </div>
@@ -644,7 +644,7 @@ export default function CounselorAppointmentsPage() {
       {/* Stats */}
       <StatsBar stats={stats} />
 
-      {/* Today's Schedule */}
+      {/* Today&apos;s Schedule */}
       <TodaySchedule
         appointments={appointments}
         onComplete={handleComplete}
