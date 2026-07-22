@@ -147,9 +147,13 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
           setSelectedIndex(0);
         }}
         title="Search pages (Ctrl+K)"
-        className="rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
+        className="relative rounded-lg p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all duration-200 group"
       >
         <MagnifyingGlassIcon className="h-5 w-5" />
+        {/* Keyboard shortcut badge — visible on hover */}
+        <kbd className="absolute -top-0.5 -right-0.5 hidden sm:inline-flex items-center rounded-sm border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 px-1 py-0 text-[8px] font-medium text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
+          ⌘K
+        </kbd>
       </button>
 
       {/* ── Overlay ────────────────────────────────────────────────────── */}
