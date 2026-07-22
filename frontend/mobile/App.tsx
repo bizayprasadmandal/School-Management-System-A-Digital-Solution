@@ -43,44 +43,39 @@ const queryClient = new QueryClient({
 function NotificationInitializer({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const initRef = useRef(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // Reset ref on logout so re-login re-registers the token
     if (!isAuthenticated) {
       initRef.current = false;
+      cleanupRef.current?.();
+      cleanupRef.current = null;
       return;
     }
 
     const init = async () => {
-      // Prevent double-initialization
       if (initRef.current) return;
       initRef.current = true;
 
       const token = await registerForPushNotifications();
-      if (token) {
-        await syncPushTokenToBackend(token);
-      }
+      if (token) await syncPushTokenToBackend(token);
 
-      // Subscribe to foreground notifications (in-app alerts)
-      const unsubForeground = onForegroundNotification((notification) => {
-        // The system shows the notification via the handler configured in
-        // notifications.ts. Additional in-app UI updates can go here.
-      });
+      const unsubForeg = onForegroundNotification(() => {});
+      const unsubTap = onNotificationTapped(() => {});
 
-      // Subscribe to notification taps (user tapped a push notification)
-      const unsubTap = onNotificationTapped((response) => {
-        const data = response.notification.request.content.data;
-        // Future: navigate to the relevant screen based on data.route
-        // e.g., if (data.route) navigation.navigate(data.route);
-      });
-
-      return () => {
-        unsubForeground();
+      cleanupRef.current = () => {
+        unsubForeg();
         unsubTap();
       };
     };
 
     init();
+
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
   }, [isAuthenticated]);
 
   return <>{children}</>;
