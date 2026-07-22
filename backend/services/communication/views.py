@@ -14,6 +14,7 @@ from rest_framework import filters
 from .models import Announcement, DirectMessage, Notification
 from .serializers import (
     AnnouncementSerializer, DirectMessageSerializer, NotificationSerializer,
+    DeviceTokenSerializer,
 )
 from .services import broadcast_announcement
 from core.permissions import IsSchoolMember, IsTeacher, IsSchoolAdmin
@@ -214,3 +215,41 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             user=request.user, channel="in_app", read_at__isnull=True
         ).count()
         return Response({"count": count})
+
+
+class DeviceTokenView(viewsets.ViewSet):
+    """
+    Register or update an Expo push notification token for the
+    authenticated user's current device.
+
+    POST /api/v1/communication/push-tokens/ — create or update token
+    DELETE /api/v1/communication/push-tokens/<token>/ — deactivate token
+    """
+
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    serializer_class = DeviceTokenSerializer
+
+    def create(self, request):
+        serializer = DeviceTokenSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        token = serializer.save()
+        return Response(
+            DeviceTokenSerializer(token).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def destroy(self, request, pk=None):
+        """Deactivate a push token by its value (not ID)."""
+        # pk here is the token string from the URL
+        updated = DeviceToken.objects.filter(
+            user=request.user, token=pk
+        ).update(is_active=False)
+        if updated:
+            return Response({"detail": "Token deactivated."})
+        return Response(
+            {"detail": "Token not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )

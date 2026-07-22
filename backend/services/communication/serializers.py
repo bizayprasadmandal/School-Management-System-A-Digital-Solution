@@ -3,7 +3,7 @@ Communication Service — DRF Serializers
 """
 
 from rest_framework import serializers
-from .models import Announcement, DirectMessage, Notification
+from .models import Announcement, DirectMessage, Notification, DeviceToken
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
@@ -98,6 +98,31 @@ class DirectMessageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return DirectMessage.objects.create(**validated_data)
+
+
+class DeviceTokenSerializer(serializers.ModelSerializer):
+    """Register/update a push notification token for the authenticated user."""
+
+    class Meta:
+        model = DeviceToken
+        fields = ["id", "token", "platform", "device_id", "device_name", "app_version", "is_active"]
+        read_only_fields = ["id", "is_active"]
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        # Upsert: if token already exists for this user, update it
+        token, created = DeviceToken.objects.update_or_create(
+            token=validated_data["token"],
+            defaults={
+                "user": validated_data["user"],
+                "platform": validated_data.get("platform", "android"),
+                "device_id": validated_data.get("device_id", ""),
+                "device_name": validated_data.get("device_name", ""),
+                "app_version": validated_data.get("app_version", ""),
+                "is_active": True,
+            },
+        )
+        return token
 
 
 class NotificationSerializer(serializers.ModelSerializer):

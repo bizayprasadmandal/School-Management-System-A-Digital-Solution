@@ -8,4 +8,8 @@ router.register("announcements", views.AnnouncementViewSet, basename="announceme
 router.register("messages", views.DirectMessageViewSet, basename="message")
 router.register("notifications", views.NotificationViewSet, basename="notification")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    path("", include(router.urls)),
+    path("push-tokens/", views.DeviceTokenView.as_view({"post": "create"}), name="push-token-create"),
+    path("push-tokens/<path:pk>/", views.DeviceTokenView.as_view({"delete": "destroy"}), name="push-token-delete"),
+]
