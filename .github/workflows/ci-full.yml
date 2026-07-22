@@ -90,6 +90,12 @@ jobs:
     environment: { name: production, url: "https://app.edusphere.school" }
     steps:
       - uses: actions/checkout@v4
+      - name: Check pending migrations
+        run: |
+          kubectl exec deploy/sms-backend -n sms -- python manage.py migrate --check || {
+            echo "⚠️ Pending migrations detected! Running migrate..."
+            kubectl exec deploy/sms-backend -n sms -- python manage.py migrate --noinput
+          }
       - name: Deploy to Kubernetes
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_PRODUCTION }}" }

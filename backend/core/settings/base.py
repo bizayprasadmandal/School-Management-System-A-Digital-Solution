@@ -91,6 +91,9 @@ MIDDLEWARE = [
     "core.middleware.request_logging.RequestLoggingMiddleware",
     "core.middleware.tenant.TenantMiddleware",
     "core.middleware.email_verification.EmailVerificationMiddleware",
+    "core.middleware.api_versioning.APIVersioningMiddleware",
+    "core.middleware.body_size_limit.RequestBodySizeMiddleware",
+    "core.middleware.idempotency.IdempotencyMiddleware",
     "core.middleware.session_timeout.SessionTimeoutMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
@@ -184,8 +187,8 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/hour",
-        "user": "1000/hour",
+        "anon": "50/hour",
+        "user": "500/hour",
     },
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
 }
