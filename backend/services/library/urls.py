@@ -7,4 +7,7 @@ router = DefaultRouter()
 router.register("books", views.BookViewSet, basename="book")
 router.register("checkouts", views.CheckoutViewSet, basename="checkout")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    path("", include(router.urls)),
+    path("profile/", views.LibrarianProfileView.as_view(), name="librarian_profile"),
+]
