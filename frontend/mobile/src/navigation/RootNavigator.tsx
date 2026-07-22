@@ -40,6 +40,11 @@ import ParentMessagesScreen from "../screens/parent/MessagesScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import ProfileScreen from "../screens/shared/ProfileScreen";
 
+// Conference screens
+import StudentConferencesScreen from "../screens/student/ConferencesScreen";
+import TeacherConferencesScreen from "../screens/teacher/ConferencesScreen";
+import ParentConferencesScreen from "../screens/parent/ConferencesScreen";
+
 import { useAuthStore } from "../hooks/useAuthStore";
 import RouteProgressBar from "../components/RouteProgressBar";
 import { navigationRef } from "../services/navigation";
@@ -206,6 +211,40 @@ function AppContent() {
           headerTintColor: "#fff",
         }}
       />
+      {/* Conference screens per role */}
+      {user?.role === "student" && (
+        <Stack.Screen
+          name="Conferences"
+          component={StudentConferencesScreen}
+          options={{
+            title: "My Conferences",
+            headerStyle: { backgroundColor: BRAND },
+            headerTintColor: "#fff",
+          }}
+        />
+      )}
+      {user?.role === "teacher" && (
+        <Stack.Screen
+          name="Conferences"
+          component={TeacherConferencesScreen}
+          options={{
+            title: "My Slots",
+            headerStyle: { backgroundColor: "#059669" },
+            headerTintColor: "#fff",
+          }}
+        />
+      )}
+      {user?.role === "parent" && (
+        <Stack.Screen
+          name="Conferences"
+          component={ParentConferencesScreen}
+          options={{
+            title: "Conferences",
+            headerStyle: { backgroundColor: "#7c3aed" },
+            headerTintColor: "#fff",
+          }}
+        />
+      )}
     </Stack.Navigator>
   );
 }
