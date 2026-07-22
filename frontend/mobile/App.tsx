@@ -7,6 +7,7 @@
 import React, { useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
+import { navigationRef } from "./src/services/navigation";
 
 // ─── Global dayjs configuration ─────────────────────────────────────────────
 // Extend dayjs with plugins at the entry point so all screens that import dayjs
@@ -62,7 +63,13 @@ function NotificationInitializer({ children }: { children: React.ReactNode }) {
       if (token) await syncPushTokenToBackend(token);
 
       const unsubForeg = onForegroundNotification(() => {});
-      const unsubTap = onNotificationTapped(() => {});
+      const unsubTap = onNotificationTapped((response) => {
+        const data = response.notification.request.content.data;
+        // Navigate to the screen specified in the notification payload
+        if (data?.route && navigationRef.isReady()) {
+          navigationRef.navigate(data.route, data.params || {});
+        }
+      });
 
       cleanupRef.current = () => {
         unsubForeg();

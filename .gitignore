@@ -66,6 +66,7 @@ GoogleService-Info.plist
 # ── Logs ─────────────────────────────────────────────────────────────────
 *.log
 logs/
+backend_logs.txt
 
 # ── Windows ─────────────────────────────────────────────────────────────
 # Ignore the Windows reserved device-name file that can appear in repos

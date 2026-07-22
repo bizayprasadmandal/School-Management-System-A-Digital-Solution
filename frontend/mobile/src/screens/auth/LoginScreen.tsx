@@ -2,12 +2,13 @@
  * Mobile Login Screen — JWT authentication for React Native
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as LocalAuthentication from "expo-local-authentication";
 import axios from "axios";
 import { useAuthStore } from "../../hooks/useAuthStore";
 
@@ -27,7 +28,47 @@ export default function LoginScreen() {
   const [showPwd, setShowPwd]     = useState(false);
   const [loading, setLoading]     = useState(false);
   const [errors, setErrors]       = useState<{email?: string; password?: string}>({});
+  const [biometricType, setBiometricType] = useState<string | null>(null);
   const { setAuth } = useAuthStore();
+
+  // Check for biometric support on mount
+  useEffect(() => {
+    (async () => {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      if (!compatible) return;
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!enrolled) return;
+      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        setBiometricType("Fingerprint");
+      } else if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+        setBiometricType("Face ID");
+      } else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
+        setBiometricType("Iris");
+      }
+    })();
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Sign in to EduSphere",
+        cancelLabel: "Cancel",
+        disableDeviceFallback: false,
+      });
+      if (result.success) {
+        // Biometric verified — attempt login with stored credentials
+        const stored = useAuthStore.getState().user;
+        if (stored?.email) {
+          setEmail(stored.email);
+          // Password isn't stored securely, so just notify user
+          Alert.alert("Biometric Verified", "Please enter your password to complete sign-in.");
+        }
+      }
+    } catch {
+      // User cancelled or biometric failed — do nothing
+    }
+  };
 
   const validate = () => {
     const e: typeof errors = {};
@@ -115,6 +156,17 @@ export default function LoginScreen() {
               : <Text style={styles.btnText}>Sign In</Text>}
           </TouchableOpacity>
 
+          {/* Biometric */}
+          {biometricType && (
+            <TouchableOpacity style={styles.bioBtn} onPress={handleBiometricLogin}>
+              <Ionicons
+                name={biometricType === "Face ID" ? "scan-outline" : "finger-print-outline"}
+                size={18} color={BRAND}
+              />
+              <Text style={styles.bioText}>Sign in with {biometricType}</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Demo chips */}
           <View style={styles.demoBox}>
             <Text style={styles.demoTitle}>Demo Accounts</Text>
@@ -152,6 +204,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: "#1e293b" },
   err: { fontSize: 12, color: "#ef4444", marginBottom: 12 },
   btn: { backgroundColor: BRAND, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center", marginTop: 12, shadowColor: BRAND, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
+  bioBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0" },
+  bioText: { fontSize: 14, fontWeight: "600", color: BRAND },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   demoBox: { marginTop: 20, padding: 14, backgroundColor: "#eef2ff", borderRadius: 12 },
   demoTitle: { fontSize: 12, fontWeight: "700", color: BRAND, marginBottom: 8 },

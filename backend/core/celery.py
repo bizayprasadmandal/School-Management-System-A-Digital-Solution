@@ -39,6 +39,11 @@ app.conf.beat_schedule = {
         "task": "services.timetable.tasks.check_timetable_conflicts",
         "schedule": crontab(hour=23, minute=0, day_of_week=0),
     },
+    # Daily database backup at 3 AM
+    "daily-database-backup": {
+        "task": "services.infrastructure.tasks.create_database_backup",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 app.conf.task_routes = {

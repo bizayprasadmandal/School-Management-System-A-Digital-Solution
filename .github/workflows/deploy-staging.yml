@@ -1,0 +1,112 @@
+name: Deploy Staging
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_DB: sms_test, POSTGRES_USER: sms, POSTGRES_PASSWORD: sms }
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        options: --health-cmd "redis-cli ping" --health-interval 10s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r backend/requirements.txt
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://sms:sms@localhost/sms_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key
+          DEBUG: "True"
+        run: pytest --tb=short -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm", cache-dependency-path: frontend/web/package.json }
+      - run: npm ci
+        working-directory: frontend/web
+      - name: TypeScript check
+        working-directory: frontend/web
+        run: npx tsc --noEmit
+      - name: ESLint
+        working-directory: frontend/web
+        run: npx eslint src/ --max-warnings 0
+      - name: Frontend tests
+        working-directory: frontend/web
+        run: npx react-scripts test --watchAll=false --passWithNoTests
+
+  build-and-deploy:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          file: infrastructure/docker/backend/Dockerfile
+          target: production
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/backend:staging
+            ${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend/web
+          file: infrastructure/docker/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:staging
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Migrate database
+        run: |
+          kubectl exec deploy/sms-backend-staging -n staging -- python manage.py migrate --noinput
+
+      - name: Deploy to staging
+        run: |
+          kubectl set image deploy/sms-backend-staging \
+            backend=${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }} \
+            -n staging
+          kubectl set image deploy/sms-frontend-staging \
+            frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }} \
+            -n staging
+          kubectl rollout status deploy/sms-backend-staging -n staging --timeout=5m
+          kubectl rollout status deploy/sms-frontend-staging -n staging --timeout=5m
+
+      - name: Collect static files
+        run: |
+          kubectl exec deploy/sms-backend-staging -n staging -- python manage.py collectstatic --noinput
