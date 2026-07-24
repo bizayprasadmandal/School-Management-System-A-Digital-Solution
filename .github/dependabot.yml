@@ -1,44 +1,142 @@
-# ─── Dependabot — Automated dependency updates ───────────────────────────────
-# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+# ─── Dependabot — Automated Dependency Updates ─────────────────────────────────
+#
+# Schedule:  weekly on Monday morning
+# Reviewers: (optional — uncomment and list GitHub usernames)
+# Assignees: (optional — uncomment and list GitHub usernames)
+# Labels:    ["dependencies"]
 
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/frontend/web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Kathmandu"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "npm"
-    groups:
-      react:
-        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
-      testing:
-        patterns:
-          - "@testing-library/*"
-          - "@types/jest"
-          - "jest*"
 
+  # ─── Backend Python (pip) ──────────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "06:00"
       timezone: "Asia/Kathmandu"
     open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "python"
+    # labels:
+    #   - "dependencies"
+    #   - "python"
+    # reviewers:
+    #   - "your-github-username"
+    groups:
+      django:
+        patterns:
+          - "django*"
+          - "djangorestframework*"
+        update-types:
+          - "minor"
+          - "patch"
+      celery:
+        patterns:
+          - "celery*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "pytest*"
+          - "factory-boy"
+          - "faker"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Major Django upgrades need manual verification
+      - dependency-name: "Django"
+        update-types: ["version-update:semver-major"]
 
+  # ─── Frontend Web (npm) ────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kathmandu"
+    open-pull-requests-limit: 10
+    # labels:
+    #   - "dependencies"
+    #   - "javascript"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+        update-types:
+          - "minor"
+          - "patch"
+      tanstack:
+        patterns:
+          - "@tanstack/*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "@playwright/*"
+          - "@types/jest"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # react-scripts 5.x is the last CRA version; upgrades need manual migration
+      - dependency-name: "react-scripts"
+        update-types: ["version-update:semver-major"]
+
+  # ─── Frontend Mobile (npm) ─────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend/mobile"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kathmandu"
+    open-pull-requests-limit: 5
+    # labels:
+    #   - "dependencies"
+    #   - "mobile"
+    groups:
+      expo:
+        patterns:
+          - "expo*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Expo SDK major bumps need manual EAS Build verification
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+
+  # ─── Docker (compose & Dockerfiles) ────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/infrastructure/docker/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kathmandu"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker"
+    directory: "/infrastructure/docker/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kathmandu"
+    open-pull-requests-limit: 3
+
+  # ─── GitHub Actions ────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
-    labels:
-      - "dependencies"
-      - "ci"
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Kathmandu"
+    open-pull-requests-limit: 5
