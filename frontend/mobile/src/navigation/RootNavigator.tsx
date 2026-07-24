@@ -35,6 +35,7 @@ import TeacherAssignmentsScreen from "../screens/teacher/AssignmentsScreen";
 import ParentHomeScreen from "../screens/parent/HomeScreen";
 import ParentChildrenScreen from "../screens/parent/ChildrenScreen";
 import ParentAttendanceScreen from "../screens/parent/AttendanceScreen";
+import ParentAssignmentsScreen from "../screens/parent/AssignmentsScreen";
 import ParentGradesScreen from "../screens/parent/GradesScreen";
 import ParentMessagesScreen from "../screens/parent/MessagesScreen";
 
@@ -149,6 +150,7 @@ function ParentTabs() {
             Home:       ["home",       "home-outline"],
             Children:   ["people",     "people-outline"],
             Attendance: ["calendar",   "calendar-outline"],
+            Assignments:["document-text","document-text-outline"],
             Grades:     ["ribbon",     "ribbon-outline"],
             Messages:   ["chatbubble", "chatbubble-outline"],
           };
@@ -164,6 +166,7 @@ function ParentTabs() {
       <Tab.Screen name="Home" component={ParentHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Children" component={ParentChildrenScreen} />
       <Tab.Screen name="Attendance" component={ParentAttendanceScreen} />
+      <Tab.Screen name="Assignments" component={ParentAssignmentsScreen} options={{ title: "Assignments" }} />
       <Tab.Screen name="Grades" component={ParentGradesScreen} />
       <Tab.Screen name="Messages" component={ParentMessagesScreen} />
     </Tab.Navigator>
