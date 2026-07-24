@@ -77,14 +77,21 @@ export default function SchoolSwitcher() {
       {/* Trigger button */}
       <button
         onClick={() => setOpen(!open)}
-        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
           activeSchool
-            ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+            ? "border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_0_1px_#34d399] dark:border-emerald-600 dark:bg-emerald-900/25 dark:text-emerald-300 dark:shadow-[0_0_0_1px_#059669]"
             : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
         }`}
         title={activeSchool ? `Managing: ${activeSchool.name}` : "All Schools (Global)"}
       >
-        <BuildingOffice2Icon className="h-4 w-4 flex-shrink-0" />
+        {/* Colored indicator dot — always visible when context is active */}
+        {activeSchool && (
+          <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+        )}
+        <BuildingOffice2Icon className={`h-4 w-4 flex-shrink-0 ${activeSchool ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
         <span className="hidden sm:inline max-w-[140px] truncate">
           {activeSchool ? activeSchool.name : "All Schools"}
         </span>
