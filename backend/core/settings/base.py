@@ -242,6 +242,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=24),
         "options": {"expires": 3600},
     },
+    "mark-overdue-invoices": {
+        "task": "services.fees.tasks.mark_overdue_invoices",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
+    "send-fee-reminders": {
+        "task": "services.fees.tasks.send_fee_reminders",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
 }
 
 # ─── Storage (S3) ─────────────────────────────────────────────────────────────

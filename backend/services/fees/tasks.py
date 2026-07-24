@@ -14,15 +14,20 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def mark_overdue_invoices():
-    """Mark unpaid AND partially-paid invoices as overdue when past due date, applying late fees."""
+    """
+    Mark unpaid AND partially-paid invoices as overdue when past due date,
+    applying late fees and sending Expo push + in-app notifications to
+    students and parents.
+    """
     from .models import FeeInvoice
+    from services.communication.services import send_in_app_notification, send_expo_push_notification
 
     today = timezone.now().date()
 
     overdue = FeeInvoice.objects.filter(
         status__in=["unpaid", "partial"],
         due_date__lt=today,
-    ).select_related("fee_structure")
+    ).select_related("fee_structure", "student__user")
 
     updated = 0
     for invoice in overdue:
@@ -36,19 +41,72 @@ def mark_overdue_invoices():
         invoice.late_fee = late_fee
         invoice.total_amount = invoice.base_amount + late_fee - invoice.discount_amount
         invoice.save(update_fields=["status", "late_fee", "total_amount"])
+
+        # ── Send notifications ────────────────────────────────────────────
+        student = invoice.student
+        title = "Fee Payment Overdue"
+        body = (
+            f"Your fee payment of {invoice.outstanding_amount:,.2f} "
+            f"(Invoice #{invoice.invoice_number}) is now overdue by {days_overdue} day(s). "
+            f"Late fee of {invoice.late_fee:,.2f} applied."
+        )
+        push_data = {
+            "route": "Fees",
+            "reference_type": "fee_invoice",
+            "reference_id": str(invoice.id),
+        }
+
+        # Notify student
+        send_in_app_notification.delay(
+            user_id=str(student.user.id),
+            title=title,
+            body=body,
+            reference_type="fee_invoice",
+            reference_id=str(invoice.id),
+        )
+        send_expo_push_notification.delay(
+            user_id=str(student.user.id),
+            title=title,
+            body=body,
+            data=push_data,
+        )
+
+        # Notify parents
+        for sg in student.studentguardian_set.filter(
+            guardian__user__isnull=False, portal_access=True
+        ):
+            parent_body = (
+                f"{student.user.full_name}'s fee payment of "
+                f"{invoice.outstanding_amount:,.2f} "
+                f"(Invoice #{invoice.invoice_number}) is overdue by {days_overdue} day(s)."
+            )
+            send_in_app_notification.delay(
+                user_id=str(sg.guardian.user.id),
+                title=title,
+                body=parent_body,
+                reference_type="fee_invoice",
+                reference_id=str(invoice.id),
+            )
+            send_expo_push_notification.delay(
+                user_id=str(sg.guardian.user.id),
+                title=title,
+                body=parent_body,
+                data=push_data,
+            )
+
         updated += 1
 
     logger.info("mark_overdue_invoices completed", extra={
-        "marked_overdue": updated, "action": "mark_overdue",
+        "marked_overdue": updated, "notifications_sent": updated,
     })
     return {"marked_overdue": updated}
 
 
 @shared_task
 def send_fee_reminders():
-    """Send reminders for invoices due in 3 days."""
+    """Send reminders for invoices due in 3 days — in-app + Expo push to student and parents."""
     from .models import FeeInvoice
-    from services.communication.services import send_in_app_notification
+    from services.communication.services import send_in_app_notification, send_expo_push_notification
 
     reminder_date = timezone.now().date() + timedelta(days=3)
     invoices = FeeInvoice.objects.filter(
@@ -57,19 +115,64 @@ def send_fee_reminders():
     ).select_related("student__user")
     count = 0
     for invoice in invoices:
+        student = invoice.student
+        title = "Fee Payment Reminder"
+        body = (
+            f"Your fee payment of {invoice.outstanding_amount:,.2f} "
+            f"(Invoice #{invoice.invoice_number}) is due in 3 days."
+        )
+        push_data = {
+            "route": "Fees",
+            "reference_type": "fee_invoice",
+            "reference_id": str(invoice.id),
+        }
+
+        # Notify student
         send_in_app_notification.delay(
-            user_id=str(invoice.student.user.id),
-            title="Fee Payment Reminder",
-            body=f"Your fee payment of ${invoice.outstanding_amount:,.2f} "
-                 f"(Invoice #{invoice.invoice_number}) is due in 3 days.",
+            user_id=str(student.user.id),
+            title=title,
+            body=body,
             reference_type="fee_invoice",
             reference_id=str(invoice.id),
         )
+        send_expo_push_notification.delay(
+            user_id=str(student.user.id),
+            title=title,
+            body=body,
+            data=push_data,
+        )
+
+        # Notify parents
+        for sg in student.studentguardian_set.filter(
+            guardian__user__isnull=False, portal_access=True
+        ):
+            parent_body = (
+                f"{student.user.full_name}'s fee payment of "
+                f"{invoice.outstanding_amount:,.2f} "
+                f"(Invoice #{invoice.invoice_number}) is due in 3 days."
+            )
+            send_in_app_notification.delay(
+                user_id=str(sg.guardian.user.id),
+                title=title,
+                body=parent_body,
+                reference_type="fee_invoice",
+                reference_id=str(invoice.id),
+            )
+            send_expo_push_notification.delay(
+                user_id=str(sg.guardian.user.id),
+                title=title,
+                body=parent_body,
+                data=push_data,
+            )
         count += 1
+
     logger.info("send_fee_reminders completed", extra={
         "reminders_sent": count, "reminder_date": str(reminder_date),
     })
     return {"reminders_sent": count}
+
+
+
 
 
 @shared_task
