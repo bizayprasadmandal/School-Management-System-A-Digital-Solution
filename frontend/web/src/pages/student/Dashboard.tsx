@@ -37,7 +37,7 @@ import {
   useSchoolEvents,
   useStudentAssessments,
 } from "../../api/hooks";
-import { SkeletonStudentDashboard, ErrorState } from "../../components/common";
+import { SkeletonStudentDashboard, ErrorState, ErrorBoundary } from "../../components/common";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { StudentDetail, SchoolEvent, Assessment, FeeInvoice } from "../../types";
@@ -211,7 +211,7 @@ export default function StudentDashboard() {
 
   // ── Loading / Error states ────────────────────────────────────────────────
 
-  if (isLoading) return <SkeletonStudentDashboard />;
+    if (isLoading) return <SkeletonStudentDashboard />;
   if (profileError) return <ErrorState onRetry={() => refetchProfile()} />;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -237,6 +237,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* ── Quick info grid ──────────────────────────────────────────────── */}
+      <ErrorBoundary>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <InfoCard
           label="Current Class"
@@ -269,8 +270,10 @@ export default function StudentDashboard() {
           }
         />
       </div>
+      </ErrorBoundary>
 
       {/* ── Main content grid ────────────────────────────────────────────── */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
         {/* ─── Col 1-2: Attendance gauge + stats ─────────────────────────── */}
@@ -444,6 +447,7 @@ export default function StudentDashboard() {
           </Link>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* ── Outstanding fee banner (if any overdue) ──────────────────────── */}
       {feeSummary.overdue > 0 && (

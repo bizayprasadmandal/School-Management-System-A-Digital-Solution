@@ -11,7 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
-import { SkeletonDashboard, ErrorState } from "../../components/common";
+import { SkeletonDashboard, ErrorState, ErrorBoundary } from "../../components/common";
 import dayjs from "dayjs";
 
 interface DashboardStats {
@@ -55,6 +55,7 @@ export default function AccountantDashboard() {
       </div>
 
       {/* KPI cards */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Fees Collected (Month)</p>
@@ -77,8 +78,10 @@ export default function AccountantDashboard() {
           <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{data?.total_teachers?.toLocaleString() ?? "—"}</p>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* Fee collection chart */}
+      <ErrorBoundary>
       <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
         <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Fee Collection Trend</h2>
         <ResponsiveContainer width="100%" height={260}>
@@ -92,8 +95,10 @@ export default function AccountantDashboard() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      </ErrorBoundary>
 
       {/* Quick action cards */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <button onClick={() => navigate("/accountant/fees")} className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-5 border border-amber-200 dark:border-amber-800 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors group cursor-pointer">
           <div className="flex items-center gap-3">
@@ -132,6 +137,7 @@ export default function AccountantDashboard() {
           </div>
         </button>
       </div>
+      </ErrorBoundary>
     </div>
   );
 }

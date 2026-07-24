@@ -16,7 +16,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Button, Badge, SkeletonCard, SkeletonTeacherDashboard, ErrorState } from "../../components/common";
+import { Button, Badge, SkeletonCard, SkeletonTeacherDashboard, ErrorState, ErrorBoundary } from "../../components/common";
 import { percent, attendanceColor } from "../../utils";
 import { useTitle } from "../../hooks";
 
@@ -218,6 +218,7 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Quick-access cards row */}
+      <ErrorBoundary>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <QuickAccessCard
           title="My Classes"
@@ -258,8 +259,10 @@ export default function TeacherDashboard() {
           subtitle={totalUnread > 0 ? `${recentThreads.length} conversations` : "Inbox clear"}
         />
       </div>
+      </ErrorBoundary>
 
       {/* 3-column secondary cards: Pending Grading / Conferences / Messages */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
         {/* ─── Card 1: Pending Grading ─────────────────────────────────────── */}
@@ -408,8 +411,10 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* Today's Schedule + Weekly Attendance */}
+      <ErrorBoundary>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm dark:shadow-none">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
@@ -462,8 +467,10 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* Today's Class Attendance */}
+      <ErrorBoundary>
       {(attendanceSummaries?.length ?? 0) > 0 && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm dark:shadow-none">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
@@ -498,6 +505,7 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+      </ErrorBoundary>
     </div>
   );
 }
