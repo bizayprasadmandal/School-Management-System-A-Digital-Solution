@@ -303,9 +303,10 @@ VONAGE_API_SECRET = env("VONAGE_API_SECRET", default="")
 VONAGE_FROM_NUMBER = env("VONAGE_FROM_NUMBER", default="")
 SMS_PROVIDER = env("SMS_PROVIDER", default="twilio")  # "twilio" | "vonage" | "console"
 
-# ─── Push Notifications (Firebase FCM) ───────────────────────────────────────
+# ─── Push Notifications (Expo + Firebase FCM fallback) ──────────────────────
 
 FIREBASE_CREDENTIALS = env("FIREBASE_CREDENTIALS", default="")
+EXPO_ACCESS_TOKEN = env("EXPO_ACCESS_TOKEN", default="")
 
 # ─── Zoom (Video Conferencing) ────────────────────────────────────────────────
 

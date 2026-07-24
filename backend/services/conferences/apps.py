@@ -6,3 +6,6 @@ class ConferencesConfig(AppConfig):
     name = "services.conferences"
     label = "conferences"
     verbose_name = "Parent-Teacher Conferences"
+
+    def ready(self):
+        import services.conferences.signals  # noqa: F401 — imported for signal registration

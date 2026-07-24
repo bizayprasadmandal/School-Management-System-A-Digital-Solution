@@ -228,57 +228,116 @@ def send_sms_notification(self, user_id: str, body: str):
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_push_notification(self, user_id: str, title: str, body: str,
-                            data: dict = None):
-    """Send Firebase FCM push notification."""
+def send_expo_push_notification(self, user_id: str, title: str, body: str,
+                                 data: dict = None):
+    """Send Expo push notification (Expo Push API).
+
+    This is the primary push delivery channel for the Expo React Native app.
+    Falls back to Firebase FCM if the token is not an Expo token.
+    """
     try:
         from services.auth.models import User
-        from core.firebase import get_firebase_app
-
-        app = get_firebase_app()
-        if app is None:
-            logger.warning(
-                "Push notification skipped for user %s — Firebase not configured",
-                user_id,
-            )
-            return
-
-        from firebase_admin import messaging
+        from .models import DeviceToken, Notification
+        import requests
+        from django.conf import settings
 
         user = User.objects.get(id=user_id)
         if not user.notify_push:
             return
 
-        # Look up FCM token from device registry
-        from .models import DeviceToken
         tokens = DeviceToken.objects.filter(
             user=user, is_active=True
-        ).values_list("token", flat=True)
+        ).values_list("token", "platform")
 
         if not tokens:
             return
 
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(title=title, body=body),
-            data=data or {},
-            tokens=list(tokens),
-        )
-        response = messaging.send_each_for_multicast(message)
+        headers = {"Content-Type": "application/json"}
+        if settings.EXPO_ACCESS_TOKEN:
+            headers["Authorization"] = f"Bearer {settings.EXPO_ACCESS_TOKEN}"
 
-        # Deactivate invalid tokens
-        if response.failure_count > 0:
-            for idx, result in enumerate(response.responses):
-                if not result.success:
-                    DeviceToken.objects.filter(token=list(tokens)[idx]).update(is_active=False)
+        push_data = {
+            "title": title,
+            "body": body,
+            "data": data or {},
+            "sound": "default",
+            "badge": 1,
+            "channelId": "default",
+            "priority": "high",
+        }
+
+        success_count = 0
+        failure_count = 0
+        for token, platform in tokens:
+            if token.startswith("ExponentPushToken") or token.startswith("ExpoPushToken"):
+                # Send via Expo Push API
+                push_data["to"] = token
+                resp = requests.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json=push_data,
+                    headers=headers,
+                    timeout=10,
+                )
+                resp_data = resp.json()
+                if resp.ok and resp_data.get("data", {}).get("status") == "ok":
+                    success_count += 1
+                else:
+                    errors = resp_data.get("data", {}).get("errors", [])
+                    error_codes = [e.get("code") for e in errors]
+                    if "DeviceNotRegistered" in error_codes:
+                        DeviceToken.objects.filter(token=token).update(is_active=False)
+                    failure_count += 1
+                    logger.warning(
+                        "Expo push failed for token %s: %s",
+                        token[:20], resp_data,
+                    )
+            else:
+                # Fallback to Firebase FCM for non-Expo tokens
+                try:
+                    from core.firebase import get_firebase_app
+                    from firebase_admin import messaging
+
+                    app = get_firebase_app()
+                    if app is None:
+                        continue
+
+                    message = messaging.Message(
+                        notification=messaging.Notification(title=title, body=body),
+                        data=data or {},
+                        token=token,
+                    )
+                    messaging.send(message)
+                    success_count += 1
+                except Exception as fcm_err:
+                    failure_count += 1
+                    if "NOT_FOUND" in str(fcm_err) or "Unregistered" in str(fcm_err):
+                        DeviceToken.objects.filter(token=token).update(is_active=False)
+                    logger.warning("FCM fallback failed for token: %s", fcm_err)
+
+        # Record in-app notification for delivery tracking
+        Notification.objects.create(
+            user=user,
+            title=title,
+            body=body,
+            channel="push",
+            status="sent",
+            sent_at=timezone.now(),
+            reference_type=data.get("reference_type", "") if data else "",
+            reference_id=data.get("reference_id", "") if data else "",
+        )
 
         logger.info(
-            "Push sent to user %s: %d success, %d failure",
-            user_id, response.success_count, response.failure_count,
+            "Expo push sent to user %s: %d success, %d failure",
+            user_id, success_count, failure_count,
         )
 
     except Exception as exc:
-        logger.error("Push notification failed for user %s: %s", user_id, exc)
+        logger.error("Expo push notification failed for user %s: %s", user_id, exc)
         raise self.retry(exc=exc)
+
+
+# Alias for backward compatibility — existing callers can still use send_push_notification
+send_push_notification = send_expo_push_notification
 
 
 @shared_task
