@@ -38,7 +38,9 @@ import {
   // Cafeteria uses existing BookOpenIcon
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
+import SchoolSwitcher from "../common/SchoolSwitcher";
 import { useAuthStore } from "../../store/authStore";
+import { useSchoolContextStore } from "../../store/schoolContextStore";
 import NotificationBell from "../../components/common/NotificationBell";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
@@ -94,6 +96,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [isDark, toggleDark] = useDarkMode();
   const isSuperAdmin = user?.role === "super_admin";
+  const activeSchool = useSchoolContextStore((s) => s.activeSchool);
+  const activeSchoolName = activeSchool?.name || user?.school?.name;
 
   const PLATFORM_NAV_ITEMS: NavItem[] = [
     { label: "Platform Dashboard", to: "/admin/platform",           icon: ChartBarIcon },
@@ -138,11 +142,18 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {/* School badge */}
-        {user?.school && (
+        {/* School badge — shows active context for super admin */}
+        {activeSchoolName && (
           <div className="mx-4 mt-4 rounded-lg bg-indigo-800/60 dark:bg-indigo-900/80 px-3 py-2">
-            <p className="text-xs text-indigo-300 dark:text-indigo-400">School</p>
-            <p className="text-sm font-medium text-white truncate">{user.school.name}</p>
+            <p className="text-xs text-indigo-300 dark:text-indigo-400">
+              {activeSchool ? "Active School" : "School"}
+            </p>
+            <p className="text-sm font-medium text-white truncate flex items-center gap-1.5">
+              {activeSchoolName}
+              {activeSchool && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" title="Context switched" />
+              )}
+            </p>
           </div>
         )}
 
@@ -258,6 +269,9 @@ export default function AdminLayout() {
           <div className="flex items-center gap-2">
             {/* Command palette */}
             <CommandPalette items={NAV_ITEMS} accent="indigo" />
+
+            {/* School switcher (super admin only) */}
+            {isSuperAdmin && <SchoolSwitcher />}
 
             {/* Dark mode toggle */}
             <button

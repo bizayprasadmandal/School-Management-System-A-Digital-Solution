@@ -4,6 +4,7 @@
 
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
+import { useSchoolContextStore } from "../store/schoolContextStore";
 
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
 
@@ -15,7 +16,7 @@ export const apiClient = axios.create({
   timeout: 30_000,
 });
 
-// ─── Request interceptor — attach JWT ─────────────────────────────────────────
+// ─── Request interceptor — attach JWT + school context ───────────────────────
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -23,6 +24,14 @@ apiClient.interceptors.request.use(
     if (tokens?.access) {
       config.headers.Authorization = `Bearer ${tokens.access}`;
     }
+
+    // Super admin school context — add X-School-ID header
+    // The backend TenantMiddleware uses this to override the tenant context.
+    const { activeSchool } = useSchoolContextStore.getState();
+    if (activeSchool?.id) {
+      config.headers["X-School-ID"] = activeSchool.id;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
