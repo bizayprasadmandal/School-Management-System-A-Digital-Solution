@@ -34,6 +34,7 @@ import {
   HeartIcon,
   GlobeAltIcon,
   DocumentTextIcon,
+  GlobeAmericasIcon,
   // Cafeteria uses existing BookOpenIcon
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
@@ -92,6 +93,12 @@ export default function AdminLayout() {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [isDark, toggleDark] = useDarkMode();
+  const isSuperAdmin = user?.role === "super_admin";
+
+  const PLATFORM_NAV_ITEMS: NavItem[] = [
+    { label: "Platform Dashboard", to: "/admin/platform",           icon: ChartBarIcon },
+    { label: "Schools",             to: "/admin/platform/schools",   icon: BuildingOffice2Icon },
+  ];
 
   const handleLogout = useCallback(() => {
     logout();
@@ -160,6 +167,38 @@ export default function AdminLayout() {
               {label}
             </NavLink>
           ))}
+
+          {/* ── Platform Management (Super Admin only) ────────────── */}
+          {isSuperAdmin && (
+            <>
+              <div className="flex items-center gap-2 pt-4 pb-1">
+                <GlobeAmericasIcon className="h-4 w-4 text-indigo-400" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-indigo-400">
+                  Platform
+                </span>
+                <div className="flex-1 border-t border-indigo-800/50" />
+              </div>
+              {PLATFORM_NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === "/admin/platform"}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    clsx(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-purple-500/20 text-purple-200"
+                        : "text-indigo-300 hover:bg-white/5 hover:text-white"
+                    )
+                  }
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* User info */}

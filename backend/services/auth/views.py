@@ -15,7 +15,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
@@ -31,9 +31,11 @@ from core.throttles import (
 
 import hashlib
 import logging
-from .models import User, PasswordResetToken, AuditLog, TwoFactorBackupCode
+from django.db.models import Sum, Count, Q
+from .models import User, PasswordResetToken, AuditLog, TwoFactorBackupCode, School
 from .serializers import (
-    CustomTokenObtainPairSerializer, UserProfileSerializer, AuditLogSerializer
+    CustomTokenObtainPairSerializer, UserProfileSerializer, AuditLogSerializer,
+    SchoolSerializer, SchoolAdminSerializer, PlatformDashboardSerializer,
 )
 from services.communication.services import send_in_app_notification
 
@@ -683,3 +685,150 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 def me(request):
     """Lightweight endpoint to check token validity and fetch own user data."""
     return Response(UserProfileSerializer(request.user).data)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Super Admin — Platform Management
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    """Only super_admin can access platform-level endpoints."""
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role == "super_admin"
+        )
+
+
+class SchoolViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for schools — super admin only.
+    Provides school-level stats (user/student/teacher counts, revenue).
+    """
+    serializer_class = SchoolSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["is_active", "subscription_tier"]
+    search_fields = ["name", "code", "subdomain", "email"]
+    ordering_fields = ["name", "created_at", "user_count"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return School.objects.all().order_by("-created_at")
+
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        """Activate or deactivate a school."""
+        school = self.get_object()
+        school.is_active = not school.is_active
+        school.save(update_fields=["is_active"])
+        AuditLog.objects.create(
+            user=request.user,
+            action="toggle_school_active",
+            resource_type="school",
+            resource_id=str(school.id),
+            changes={"is_active": school.is_active},
+            ip_address=_get_client_ip(request),
+        )
+        return Response({"is_active": school.is_active})
+
+    @action(detail=True, methods=["get"])
+    def admins(self, request, pk=None):
+        """List school admin users for a given school."""
+        school = self.get_object()
+        admins = User.objects.filter(school=school, role="school_admin")
+        page = self.paginate_queryset(admins)
+        if page is not None:
+            serializer = SchoolAdminSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = SchoolAdminSerializer(admins, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def add_admin(self, request, pk=None):
+        """Create a new school admin user for a given school."""
+        school = self.get_object()
+        serializer = SchoolAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save(school=school, email_verified=True)
+        AuditLog.objects.create(
+            user=request.user,
+            action="create_school_admin",
+            resource_type="user",
+            resource_id=str(user.id),
+            changes={"school": school.name, "email": user.email},
+            ip_address=_get_client_ip(request),
+        )
+        return Response(SchoolAdminSerializer(user).data, status=201)
+
+
+class PlatformDashboardView(APIView):
+    """
+    Cross-school analytics for the super admin platform dashboard.
+    Returns aggregate counts, revenue, and recent/top schools.
+    """
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        from django.db.models import Count, Sum, Q
+        from services.fees.models import Payment
+
+        schools = School.objects.all()
+        total_schools = schools.count()
+        active_schools = schools.filter(is_active=True).count()
+
+        # User counts
+        total_users = User.objects.count()
+        total_students = User.objects.filter(role="student").count()
+        total_teachers = User.objects.filter(role="teacher").count()
+
+        # Revenue across all schools
+        revenue_result = Payment.objects.filter(
+            status="completed"
+        ).aggregate(total=Sum("amount"))
+        total_revenue = revenue_result["total"] or 0
+
+        # Schools by subscription tier
+        schools_by_tier = dict(
+            schools.values("subscription_tier").annotate(count=Count("id")).values_list("subscription_tier", "count")
+        )
+
+        # Most recent 5 schools
+        recent_schools = schools.order_by("-created_at")[:5]
+
+        # Top schools by revenue
+        top_schools_data = (
+            School.objects.annotate(
+                school_revenue=Sum(
+                    "users__student_enrollments__invoice__payment__amount",
+                    filter=Q(users__student_enrollments__invoice__payment__status="completed"),
+                )
+            )
+            .values("id", "name", "code", "school_revenue")
+            .order_by("-school_revenue")[:5]
+        )
+
+        data = {
+            "total_schools": total_schools,
+            "active_schools": active_schools,
+            "total_users": total_users,
+            "total_students": total_students,
+            "total_teachers": total_teachers,
+            "total_revenue": total_revenue,
+            "schools_by_tier": schools_by_tier,
+            "recent_schools": SchoolSerializer(recent_schools, many=True).data,
+            "top_schools": [
+                {
+                    "id": str(s["id"]),
+                    "name": s["name"],
+                    "code": s["code"],
+                    "revenue": float(s["school_revenue"] or 0),
+                }
+                for s in top_schools_data
+            ],
+        }
+
+        serializer = PlatformDashboardSerializer(data)
+        return Response(serializer.data)

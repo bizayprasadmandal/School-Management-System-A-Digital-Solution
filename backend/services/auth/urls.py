@@ -7,6 +7,7 @@ app_name = "auth_v1"
 
 router = DefaultRouter()
 router.register("audit-logs", views.AuditLogViewSet, basename="audit-log")
+router.register("schools", views.SchoolViewSet, basename="school")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -34,4 +35,7 @@ urlpatterns = [
 
     # 2FA Backup Codes
     path("regenerate-backup-codes/", views.RegenerateBackupCodesView.as_view(),    name="regenerate_backup_codes"),
+
+    # Platform Management (super admin)
+    path("platform/stats/",          views.PlatformDashboardView.as_view(),   name="platform_stats"),
 ]

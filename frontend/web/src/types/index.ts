@@ -41,8 +41,45 @@ export interface School {
   email: string;
   website?: string;
   timezone: string;
+  academic_year_start_month: number;
   subscription_tier: "basic" | "standard" | "premium";
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Computed stats (from SchoolSerializer)
+  user_count?: number;
+  student_count?: number;
+  teacher_count?: number;
+  admin_count?: number;
+  total_revenue?: number;
+}
+
+export interface SchoolAdminUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  role: "school_admin";
+  is_active: boolean;
+  date_joined: string;
+}
+
+export interface PlatformDashboardStats {
+  total_schools: number;
+  active_schools: number;
+  total_users: number;
+  total_students: number;
+  total_teachers: number;
+  total_revenue: number;
+  schools_by_tier: Record<string, number>;
+  recent_schools: School[];
+  top_schools: Array<{
+    id: string;
+    name: string;
+    code: string;
+    revenue: number;
+  }>;
 }
 
 export interface AuthTokens {

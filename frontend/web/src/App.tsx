@@ -37,6 +37,9 @@ const Verify2FALoginPage  = React.lazy(() => import("./pages/auth/Verify2FALogin
 
 // Admin pages
 const AdminDashboard      = React.lazy(() => import("./pages/admin/Dashboard"));
+const PlatformDashboard   = React.lazy(() => import("./pages/admin/PlatformDashboard"));
+const PlatformSchoolsPage = React.lazy(() => import("./pages/admin/PlatformSchoolsPage"));
+const PlatformSchoolDetail = React.lazy(() => import("./pages/admin/PlatformSchoolDetailPage"));
 const StudentsPage        = React.lazy(() => import("./pages/admin/StudentsPage"));
 const StudentDetailPage   = React.lazy(() => import("./pages/admin/StudentDetailPage"));
 const TeachersPage        = React.lazy(() => import("./pages/admin/TeachersPage"));
@@ -240,7 +243,11 @@ function App() {
                 <Route path="admissions" element={<AdmissionsPage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
                 <Route path="zoom-integration" element={<ZoomIntegrationPage />} />
-                <Route path="settings" element={<SettingsPage />} />
+                {/* Platform Management (super admin only) */}
+              <Route path="platform" element={<PlatformDashboard />} />
+              <Route path="platform/schools" element={<PlatformSchoolsPage />} />
+              <Route path="platform/schools/:id" element={<PlatformSchoolDetail />} />
+              <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
 

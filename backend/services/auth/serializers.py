@@ -1,6 +1,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
+from django.db import models
 from .models import User, School, AuditLog
 
 
@@ -58,6 +59,93 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "ip_address", "user_agent", "timestamp",
         ]
         read_only_fields = fields
+
+
+class SchoolSerializer(serializers.ModelSerializer):
+    """Serializer for multi-tenant school management (super admin)."""
+    user_count = serializers.SerializerMethodField()
+    student_count = serializers.SerializerMethodField()
+    teacher_count = serializers.SerializerMethodField()
+    admin_count = serializers.SerializerMethodField()
+    total_revenue = serializers.SerializerMethodField()
+
+    class Meta:
+        model = School
+        fields = [
+            "id", "name", "code", "subdomain", "logo",
+            "address", "phone", "email", "website",
+            "timezone", "academic_year_start_month",
+            "is_active", "subscription_tier",
+            "user_count", "student_count", "teacher_count",
+            "admin_count", "total_revenue",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at",
+                           "user_count", "student_count",
+                           "teacher_count", "admin_count", "total_revenue"]
+
+    def get_user_count(self, obj):
+        return obj.users.count()
+
+    def get_student_count(self, obj):
+        return obj.users.filter(role="student").count()
+
+    def get_teacher_count(self, obj):
+        return obj.users.filter(role="teacher").count()
+
+    def get_admin_count(self, obj):
+        return obj.users.filter(role="school_admin").count()
+
+    def get_total_revenue(self, obj):
+        """Sum of all paid payments for this school (quick stat)."""
+        from services.fees.models import Payment
+        result = Payment.objects.filter(
+            invoice__student__user__school=obj,
+            status="completed"
+        ).aggregate(total=models.Sum("amount"))
+        return result["total"] or 0
+
+
+class PlatformDashboardSerializer(serializers.Serializer):
+    """Cross-school analytics for super admin platform dashboard."""
+    total_schools = serializers.IntegerField()
+    active_schools = serializers.IntegerField()
+    total_users = serializers.IntegerField()
+    total_students = serializers.IntegerField()
+    total_teachers = serializers.IntegerField()
+    total_revenue = serializers.DecimalField(max_digits=15, decimal_places=2)
+    schools_by_tier = serializers.DictField(child=serializers.IntegerField())
+    recent_schools = SchoolSerializer(many=True)
+    top_schools = serializers.ListField(child=serializers.DictField())
+
+
+class SchoolAdminSerializer(serializers.ModelSerializer):
+    """Serializer for creating/managing school admin users."""
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "email", "first_name", "last_name", "phone",
+            "role", "is_active", "password", "date_joined",
+        ]
+        read_only_fields = ["id", "date_joined"]
+
+    def validate_role(self, value):
+        if value != "school_admin":
+            raise serializers.ValidationError("Only school_admin role can be created here.")
+        return value
+
+    def create(self, validated_data):
+        password = validated_data.pop("password", None)
+        user = User(**validated_data)
+        user.set_password(password or SchoolAdminSerializer._default_password())
+        user.save()
+        return user
+
+    @staticmethod
+    def _default_password():
+        return "School@1234"
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

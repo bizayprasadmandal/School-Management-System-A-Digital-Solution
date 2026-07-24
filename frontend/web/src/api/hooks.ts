@@ -37,6 +37,9 @@ import type {
   AcademicYear,
   Assessment,
   AssessmentSubmission,
+  School,
+  PlatformDashboardStats,
+  SchoolAdminUser,
 } from "../types";
 import { VERIFICATION_REF } from "../types";
 
@@ -754,5 +757,89 @@ export function useCounselorDashboardStats() {
     queryKey: ["counselor-dashboard", "stats"],
     queryFn: () => api.get<CounselorDashboardStats>("/counseling/dashboard/stats/"),
     staleTime: 30 * 1000,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Platform Management (Super Admin Only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function usePlatformSchools(params?: {
+  search?: string;
+  is_active?: boolean;
+  subscription_tier?: string;
+  page?: number;
+}) {
+  return useQuery({
+    queryKey: ["platform", "schools", params],
+    queryFn: () => api.get<PaginatedResponse<School>>("/auth/schools/", params),
+    staleTime: 2 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePlatformSchool(id: string) {
+  return useQuery({
+    queryKey: ["platform", "schools", id],
+    queryFn: () => api.get<School>(`/auth/schools/${id}/`),
+    enabled: !!id,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useCreateSchool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<School>) => api.post<School>("/auth/schools/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["platform", "schools"] }),
+  });
+}
+
+export function useUpdateSchool(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<School>) => api.patch<School>(`/auth/schools/${id}/`, data),
+    onSuccess: (updated) => {
+      qc.setQueryData(["platform", "schools", id], updated);
+      qc.invalidateQueries({ queryKey: ["platform", "schools"] });
+    },
+  });
+}
+
+export function useToggleSchoolActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/auth/schools/${id}/toggle_active/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["platform"] });
+      qc.invalidateQueries({ queryKey: ["platform", "schools"] });
+    },
+  });
+}
+
+export function usePlatformDashboardStats() {
+  return useQuery({
+    queryKey: ["platform", "dashboard", "stats"],
+    queryFn: () => api.get<PlatformDashboardStats>("/auth/platform/stats/"),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSchoolAdmins(schoolId: string) {
+  return useQuery({
+    queryKey: ["platform", "schools", schoolId, "admins"],
+    queryFn: () => api.get<PaginatedResponse<SchoolAdminUser>>(`/auth/schools/${schoolId}/admins/`),
+    enabled: !!schoolId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useAddSchoolAdmin(schoolId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<SchoolAdminUser> & { password?: string }) =>
+      api.post<SchoolAdminUser>(`/auth/schools/${schoolId}/add_admin/`, data),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["platform", "schools", schoolId, "admins"] }),
   });
 }
