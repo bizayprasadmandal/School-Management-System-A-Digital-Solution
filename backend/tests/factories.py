@@ -310,6 +310,20 @@ class TimetableSlotFactory(factory.django.DjangoModelFactory):
     academic_year = SubFactory(AcademicYearFactory)
 
 
+class LessonPlanFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.LessonPlan"
+
+    assignment = SubFactory(TeacherAssignmentFactory)
+    title = factory.Sequence(lambda n: f"Lesson Plan {n}")
+    topic = factory.Faker("word")
+    objectives = factory.Faker("paragraph", nb_sentences=2)
+    content = factory.Faker("paragraph", nb_sentences=3)
+    date = factory.LazyFunction(date.today)
+    duration_minutes = 45
+    status = "draft"
+
+
 class SchoolEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "timetable.SchoolEvent"

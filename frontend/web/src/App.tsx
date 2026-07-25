@@ -102,11 +102,17 @@ const PaymentCallbackPage = React.lazy(() => import("./pages/fees/PaymentCallbac
 
 // Accountant pages
 const AccountantDashboard = React.lazy(() => import("./pages/accountant/Dashboard"));
+const AccountantFeeReports = React.lazy(() => import("./pages/accountant/FeeReportsPage"));
+const AccountantPaymentHistory = React.lazy(() => import("./pages/accountant/PaymentHistoryPage"));
+const AccountantRefundManagement = React.lazy(() => import("./pages/accountant/RefundManagementPage"));
 const AccountantSettings   = React.lazy(() => import("./pages/accountant/SettingsPage"));
 
 // Librarian pages
-const LibrarianDashboard  = React.lazy(() => import("./pages/librarian/Dashboard"));
-const LibrarianSettings    = React.lazy(() => import("./pages/librarian/SettingsPage"));
+const LibrarianDashboard       = React.lazy(() => import("./pages/librarian/Dashboard"));
+const LibrarianBooks           = React.lazy(() => import("./pages/librarian/BookManagementPage"));
+const LibrarianCheckouts        = React.lazy(() => import("./pages/librarian/BookCheckoutPage"));
+const LibrarianFines           = React.lazy(() => import("./pages/librarian/FinesPage"));
+const LibrarianSettings        = React.lazy(() => import("./pages/librarian/SettingsPage"));
 
 // Counselor pages
 const CounselorDashboard          = React.lazy(() => import("./pages/counselor/Dashboard"));
@@ -305,7 +311,9 @@ function App() {
               <Route path="/accountant" element={<AccountantLayout />}>
                 <Route index element={<AccountantDashboard />} />
                 <Route path="fees" element={<FeesPage />} />
-                <Route path="reports" element={<ReportsPage />} />
+                <Route path="payments" element={<AccountantPaymentHistory />} />
+                <Route path="refunds" element={<AccountantRefundManagement />} />
+                <Route path="reports" element={<AccountantFeeReports />} />
                 <Route path="conferences" element={<AdminConferences />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                 <Route path="setup-2fa" element={<Setup2FAPage />} />
@@ -317,10 +325,14 @@ function App() {
             <Route element={<RequireAuth allowedRoles={["librarian"]} />}>
               <Route path="/librarian" element={<LibrarianLayout />}>
                 <Route index element={<LibrarianDashboard />} />
+                <Route path="books" element={<LibrarianBooks />} />
+                <Route path="checkouts" element={<LibrarianCheckouts />} />
+                <Route path="fines" element={<LibrarianFines />} />
                 <Route path="library" element={<LibraryPage />} />
                 <Route path="announcements" element={<AnnouncementsPage />} />
                 <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
-                <Route path="setup-2fa" element={<Setup2FAPage />} />              <Route path="settings" element={<LibrarianSettings />} />
+                <Route path="setup-2fa" element={<Setup2FAPage />} />
+                <Route path="settings" element={<LibrarianSettings />} />
           </Route>
             </Route>
 

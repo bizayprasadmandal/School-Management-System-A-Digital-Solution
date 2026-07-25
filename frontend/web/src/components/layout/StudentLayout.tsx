@@ -11,7 +11,7 @@ import {
   ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
   VideoCameraIcon, ChartBarIcon, Cog6ToothIcon,
   MegaphoneIcon, ExclamationTriangleIcon,
-  UserGroupIcon,
+  UserGroupIcon, ReceiptPercentIcon, ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -204,11 +204,13 @@ export default StudentLayout;
 // ─── Accountant Layout ────────────────────────────────────────────────────────
 
 const ACCOUNTANT_NAV: NavItem[] = [
-  { label: "Dashboard",      to: "/accountant",           icon: HomeIcon },
-  { label: "Fee Management", to: "/accountant/fees",       icon: BanknotesIcon },
-  { label: "Reports",        to: "/accountant/reports",    icon: ChartBarIcon },
-  { label: "Conferences",    to: "/accountant/conferences",icon: VideoCameraIcon },
-  { label: "Settings",       to: "/accountant/settings",   icon: Cog6ToothIcon },
+  { label: "Dashboard",      to: "/accountant",              icon: HomeIcon },
+  { label: "Fee Management", to: "/accountant/fees",          icon: BanknotesIcon },
+  { label: "Payment History",to: "/accountant/payments",      icon: ReceiptPercentIcon },
+  { label: "Refunds",        to: "/accountant/refunds",      icon: ArrowPathIcon },
+  { label: "Reports",        to: "/accountant/reports",       icon: ChartBarIcon },
+  { label: "Conferences",    to: "/accountant/conferences",   icon: VideoCameraIcon },
+  { label: "Settings",       to: "/accountant/settings",      icon: Cog6ToothIcon },
 ];
 
 export function AccountantLayout() {
@@ -232,10 +234,12 @@ export function AccountantLayout() {
 // ─── Librarian Layout ─────────────────────────────────────────────────────────
 
 const LIBRARIAN_NAV: NavItem[] = [
-  { label: "Dashboard",    to: "/librarian",            icon: HomeIcon },
-  { label: "Library",      to: "/librarian/library",    icon: BookOpenIcon },
-  { label: "Announcements",to: "/librarian/announcements", icon: MegaphoneIcon },
-  { label: "Settings",     to: "/librarian/settings",   icon: Cog6ToothIcon },
+  { label: "Dashboard",       to: "/librarian",              icon: HomeIcon },
+  { label: "Book Catalog",    to: "/librarian/books",        icon: BookOpenIcon },
+  { label: "Checkouts",       to: "/librarian/checkouts",    icon: ClipboardDocumentCheckIcon },
+  { label: "Fines",           to: "/librarian/fines",        icon: BanknotesIcon },
+  { label: "Announcements",   to: "/librarian/announcements",icon: MegaphoneIcon },
+  { label: "Settings",        to: "/librarian/settings",     icon: Cog6ToothIcon },
 ];
 
 export function LibrarianLayout() {

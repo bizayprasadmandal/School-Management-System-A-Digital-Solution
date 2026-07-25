@@ -55,6 +55,8 @@ django-prometheus==2.3.1
 # Testing
 pytest==8.1.1
 pytest-django==4.8.0
+pytest-xdist==3.6.1
+pytest-timeout==2.3.1
 factory-boy==3.3.0
 faker==24.3.0
 
