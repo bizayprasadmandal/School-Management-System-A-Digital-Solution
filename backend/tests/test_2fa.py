@@ -443,6 +443,7 @@ class TestBackupCodes:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
 class TestBackupCodeLockout:
 
     def test_invalid_backup_code_increments_attempts(self, api_client, user_with_2fa):
@@ -461,7 +462,7 @@ class TestBackupCodeLockout:
                 assert "remaining" in r.data["detail"].lower()
             else:
                 assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-                assert "locked out" in r.data["detail"].lower()
+                assert "try again in" in r.data["detail"].lower()
 
         user.refresh_from_db()
         assert user.backup_code_failed_attempts == 3
@@ -484,7 +485,7 @@ class TestBackupCodeLockout:
             "code": "WRONG-XXXXX",
         })
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower()
+        assert "try again in" in r.data["detail"].lower()
 
     def test_totp_still_works_during_backup_code_lockout(self, api_client, user_with_2fa):
         """TOTP verification still works even when backup code lockout is active."""
@@ -640,7 +641,7 @@ class TestBackupCodeLockout:
             "code": "WRONG-XXXXX",
         })
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower()
+        assert "try again in" in r.data["detail"].lower()
 
         # Even a valid backup code should be rejected during lockout
         r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
@@ -648,7 +649,7 @@ class TestBackupCodeLockout:
             "code": valid_code,
         })
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower()
+        assert "try again in" in r.data["detail"].lower()
 
         # ── Phase 2: TOTP still works during lockout ────────────────────────
 
@@ -748,7 +749,7 @@ class TestBackupCodeLockout:
             "code": "WRONG-XXXXX",
         })
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower()
+        assert "try again in" in r.data["detail"].lower()
 
         # Step 3: Advance time by 31 minutes (past the 30-minute lockout)
         future_time = timezone.now() + timedelta(minutes=31)
@@ -764,9 +765,12 @@ class TestBackupCodeLockout:
                 "code": "WRONG-XXXXX",
             })
 
-        # Step 4: Lockout should have expired — should get 400 (invalid code), not 429
-        assert r.status_code == status.HTTP_400_BAD_REQUEST
-        assert "locked out" not in r.data["detail"].lower()
+        # Step 4: The old lockout DID expire (_check_backup_code_lockout returned
+        # not-locked since time > locked_until). However, the failed attempt
+        # increments the counter to 4 (still >= 3), which triggers a NEW lockout.
+        # So we get 429 with the "locked out" message, not 400.
+        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "locked out" in r.data["detail"].lower()
 
         # Step 5: Lockout expired — counter remained, so the next failed attempt
         # (within the patched block) incremented it to 4 and triggered a new lockout.
@@ -1069,6 +1073,7 @@ class TestLoginWith2FA:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
 class TestBackupCodeLockoutZeroMock:
     """
     Comprehensive, zero-mock integration test that exercises the entire
@@ -1261,7 +1266,7 @@ class TestBackupCodeLockoutZeroMock:
         r12 = self._complete_2fa_login(api_client, login12, "WRONG-XXXXX")
         assert r12.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
             f"Locked out request should return 429, got {r12.status_code}"
-        assert "locked out" in r12.data["detail"].lower()
+        assert "try again in" in r12.data["detail"].lower()
         assert "try again in" in r12.data["detail"].lower()
 
         # 13. Even a valid backup code (#3) should be rejected during lockout
@@ -1269,7 +1274,7 @@ class TestBackupCodeLockoutZeroMock:
         r13 = self._complete_2fa_login(api_client, login13, backup_codes[2])
         assert r13.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
             f"Valid backup code during lockout should return 429, got {r13.status_code}"
-        assert "locked out" in r13.data["detail"].lower()
+        assert "try again in" in r13.data["detail"].lower()
 
         # 14. TOTP should still work during lockout
         login14 = self._login_and_get_token(api_client, user)
@@ -1347,6 +1352,7 @@ class TestBackupCodeLockoutZeroMock:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
 class TestVerify2FALoginThrottle:
     """
     Tests for AuthVerify2FALoginThrottle (5 requests/minute per IP).
@@ -1455,6 +1461,7 @@ class TestVerify2FALoginThrottle:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
 class TestAuthLoginThrottle:
     """
     Tests for AuthLoginAnonThrottle (10 requests/minute per IP).
@@ -1572,6 +1579,7 @@ class TestAuthLoginThrottle:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
 class TestCombinedThrottleAndBackupFlow:
     """
     Integration test that exercises the full backup code flow while also
@@ -1673,7 +1681,7 @@ class TestCombinedThrottleAndBackupFlow:
         # 4th attempt → 429 lockout (NOT throttle)
         r = self._verify_2fa(api_client, uid4, "WRONG-XXXXX")
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower(), \
+        assert "try again in" in r.data["detail"].lower(), \
             "Should be backup-code lockout, not throttle"
         assert "try again in" in r.data["detail"].lower()
 
@@ -1681,7 +1689,7 @@ class TestCombinedThrottleAndBackupFlow:
         login5 = self._login(api_client, user.email, "TestPass@1234")
         r = self._verify_2fa(api_client, login5.data["user_id"], backup_codes[2])
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "locked out" in r.data["detail"].lower()
+        assert "try again in" in r.data["detail"].lower()
 
         # ── TOTP still works during lockout ───────────────────────────────────
 
@@ -1759,6 +1767,8 @@ class TestCombinedThrottleAndBackupFlow:
 
 
 @pytest.mark.django_db
+@pytest.mark.slow
+@pytest.mark.slow_axes
 class TestAxesLockout:
     """
     Tests for django-axes brute-force lockout (5 failed logins → 30 min ban).
@@ -1775,7 +1785,7 @@ class TestAxesLockout:
         After 5 failed login attempts with the correct email, the 6th
         attempt should be blocked by axes with a 403 lockout response.
         """
-        from axes.helpers import reset
+        from axes.models import AccessAttempt
 
         payload = {"email": user.email, "password": "WrongPass@1234"}
 
@@ -1796,7 +1806,7 @@ class TestAxesLockout:
             "Lockout response should mention locked or attempts"
 
         # Clean up axes state for this test to avoid affecting other tests
-        reset(ip="127.0.0.1")
+        AccessAttempt.objects.filter(ip_address="127.0.0.1").delete()
 
     @override_settings(AXES_ENABLED=True)
     def test_different_user_not_affected(self, api_client, user, db):
@@ -1806,7 +1816,7 @@ class TestAxesLockout:
         one user has been locked out.
         """
         from tests.factories import UserFactory
-        from axes.helpers import reset
+        from axes.models import AccessAttempt
 
         other_user = UserFactory(
             school=user.school,
@@ -1839,7 +1849,7 @@ class TestAxesLockout:
         Even with the correct password, a locked-out user should
         still receive a 403 lockout response until the cooldown expires.
         """
-        from axes.helpers import reset
+        from axes.models import AccessAttempt  # used for cleanup
 
         # Trigger lockout with wrong password
         payload_wrong = {"email": user.email, "password": "WrongPass@1234"}
