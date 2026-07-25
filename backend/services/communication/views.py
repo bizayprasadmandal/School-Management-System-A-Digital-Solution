@@ -105,8 +105,6 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return DirectMessage.objects.filter(
-            school_scope=user.school
-        ).filter(
             sender=user
         ) | DirectMessage.objects.filter(
             recipient=user
