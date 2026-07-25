@@ -39,6 +39,20 @@ import ParentAssignmentsScreen from "../screens/parent/AssignmentsScreen";
 import ParentGradesScreen from "../screens/parent/GradesScreen";
 import ParentMessagesScreen from "../screens/parent/MessagesScreen";
 
+// Accountant screens
+import AccountantDashboardScreen from "../screens/accountant/DashboardScreen";
+import AccountantPaymentHistoryScreen from "../screens/accountant/PaymentHistoryScreen";
+import AccountantFeeReportsScreen from "../screens/accountant/FeeReportsScreen";
+import AccountantRefundsScreen from "../screens/accountant/RefundsScreen";
+
+// Librarian screens
+import LibrarianDashboardScreen from "../screens/librarian/DashboardScreen";
+import LibrarianBookManagementScreen from "../screens/librarian/BookManagementScreen";
+
+// Counselor screens
+import CounselorDashboardScreen from "../screens/counselor/DashboardScreen";
+import CounselorAppointmentsScreen from "../screens/counselor/AppointmentsScreen";
+
 // Shared screens
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
 import ProfileScreen from "../screens/shared/ProfileScreen";
@@ -139,6 +153,88 @@ function TeacherTabs() {
   );
 }
 
+// ─── Accountant Tab Navigator ────────────────────────────────────────────────
+
+function AccountantTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons: Record<string, [string, string]> = {
+            Home:     ["wallet",    "wallet-outline"],
+            Payments: ["card",     "card-outline"],
+            Reports:  ["bar-chart","bar-chart-outline"],
+            Refunds:  ["return-up-back","return-up-back-outline"],
+          };
+          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#059669",
+        tabBarInactiveTintColor: "#94a3b8",
+        headerStyle: { backgroundColor: "#059669" },
+        headerTintColor: "#fff",
+      })}
+    >
+      <Tab.Screen name="Home" component={AccountantDashboardScreen} options={{ title: "Dashboard" }} />
+      <Tab.Screen name="Payments" component={AccountantPaymentHistoryScreen} options={{ title: "Payments" }} />
+      <Tab.Screen name="Reports" component={AccountantFeeReportsScreen} options={{ title: "Reports" }} />
+      <Tab.Screen name="Refunds" component={AccountantRefundsScreen} options={{ title: "Refunds" }} />
+    </Tab.Navigator>
+  );
+}
+
+// ─── Librarian Tab Navigator ──────────────────────────────────────────────────
+
+function LibrarianTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons: Record<string, [string, string]> = {
+            Home:  ["library",     "library-outline"],
+            Books: ["book",       "book-outline"],
+          };
+          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#0ea5e9",
+        tabBarInactiveTintColor: "#94a3b8",
+        headerStyle: { backgroundColor: "#0ea5e9" },
+        headerTintColor: "#fff",
+      })}
+    >
+      <Tab.Screen name="Home" component={LibrarianDashboardScreen} options={{ title: "Dashboard" }} />
+      <Tab.Screen name="Books" component={LibrarianBookManagementScreen} options={{ title: "Books" }} />
+    </Tab.Navigator>
+  );
+}
+
+// ─── Counselor Tab Navigator ──────────────────────────────────────────────────
+
+function CounselorTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons: Record<string, [string, string]> = {
+            Home:         ["heart",       "heart-outline"],
+            Appointments: ["calendar",    "calendar-outline"],
+          };
+          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#8b5cf6",
+        tabBarInactiveTintColor: "#94a3b8",
+        headerStyle: { backgroundColor: "#8b5cf6" },
+        headerTintColor: "#fff",
+      })}
+    >
+      <Tab.Screen name="Home" component={CounselorDashboardScreen} options={{ title: "Dashboard" }} />
+      <Tab.Screen name="Appointments" component={CounselorAppointmentsScreen} options={{ title: "Appointments" }} />
+    </Tab.Navigator>
+  );
+}
+
 // ─── Parent Tab Navigator ─────────────────────────────────────────────────────
 
 function ParentTabs() {
@@ -189,10 +285,13 @@ function AppContent() {
 
   let MainTabs: React.ComponentType<any>;
   switch (user?.role) {
-    case "student":          MainTabs = StudentTabs; break;
-    case "teacher":          MainTabs = TeacherTabs; break;
-    case "parent":           MainTabs = ParentTabs;  break;
-    default:                 MainTabs = StudentTabs; break;
+    case "student":          MainTabs = StudentTabs;     break;
+    case "teacher":          MainTabs = TeacherTabs;     break;
+    case "parent":           MainTabs = ParentTabs;      break;
+    case "accountant":       MainTabs = AccountantTabs;  break;
+    case "librarian":        MainTabs = LibrarianTabs;   break;
+    case "counselor":        MainTabs = CounselorTabs;   break;
+    default:                 MainTabs = StudentTabs;     break;
   }
 
   return (

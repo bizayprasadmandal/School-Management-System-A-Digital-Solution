@@ -41,19 +41,21 @@ repos:
         types_or: [javascript, jsx, ts, tsx, json, css, markdown, yaml]
         args: [--print-width=100, --trailing-comma=all, --tab-width=2, --single-quote=false]
 
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.57.0
-    hooks:
-      - id: eslint
-        types: [file]
-        files: \.(ts|tsx)$
-        args: [--fix]
-        additional_dependencies:
-          - "eslint@8.57.0"
-          - "@typescript-eslint/eslint-plugin@7.2.0"
-          - "@typescript-eslint/parser@7.2.0"
-          - "eslint-plugin-react@7.34.1"
-          - "eslint-plugin-react-hooks@4.6.0"
+  # ESLint is run via npm run lint in CI — skipping pre-commit hook
+  # to avoid tag resolution issues with the mirrors-eslint repo.
+  # - repo: https://github.com/pre-commit/mirrors-eslint
+  #   rev: v8.56.0
+  #   hooks:
+  #     - id: eslint
+  #       types: [file]
+  #       files: \.(ts|tsx)$
+  #       args: [--fix]
+  #       additional_dependencies:
+  #         - "eslint@8.56.0"
+  #         - "@typescript-eslint/eslint-plugin@7.2.0"
+  #         - "@typescript-eslint/parser@7.2.0"
+  #         - "eslint-plugin-react@7.34.1"
+  #         - "eslint-plugin-react-hooks@4.6.0"
 
   - repo: https://github.com/djlint/djLint
     rev: v1.34.1

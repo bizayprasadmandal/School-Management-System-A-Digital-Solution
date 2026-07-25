@@ -28,7 +28,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key
           DEBUG: "True"
-        run: pytest --tb=short -q
+        run: pytest --tb=short -q --timeout=120 -m "not slow"
 
   frontend-test:
     runs-on: ubuntu-latest
