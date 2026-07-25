@@ -796,15 +796,15 @@ class PlatformDashboardView(APIView):
             schools.values("subscription_tier").annotate(count=Count("id")).values_list("subscription_tier", "count")
         )
 
-        # Most recent 5 schools
+        # Most recent 5 schools (pass raw queryset — let serializer handle it)
         recent_schools = schools.order_by("-created_at")[:5]
 
         # Top schools by revenue
         top_schools_data = (
             School.objects.annotate(
                 school_revenue=Sum(
-                    "users__student_enrollments__invoice__payment__amount",
-                    filter=Q(users__student_enrollments__invoice__payment__status="completed"),
+                    "users__student_profile__invoices__payments__amount",
+                    filter=Q(users__student_profile__invoices__payments__status="completed"),
                 )
             )
             .values("id", "name", "code", "school_revenue")
@@ -819,7 +819,7 @@ class PlatformDashboardView(APIView):
             "total_teachers": total_teachers,
             "total_revenue": total_revenue,
             "schools_by_tier": schools_by_tier,
-            "recent_schools": SchoolSerializer(recent_schools, many=True).data,
+            "recent_schools": recent_schools,
             "top_schools": [
                 {
                     "id": str(s["id"]),
@@ -831,5 +831,5 @@ class PlatformDashboardView(APIView):
             ],
         }
 
-        serializer = PlatformDashboardSerializer(data)
+        serializer = PlatformDashboardSerializer(instance=data)
         return Response(serializer.data)
