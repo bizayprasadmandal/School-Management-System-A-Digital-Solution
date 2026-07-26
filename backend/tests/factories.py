@@ -324,6 +324,16 @@ class LessonPlanFactory(factory.django.DjangoModelFactory):
     status = "draft"
 
 
+class DirectMessageFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "communication.DirectMessage"
+
+    sender = SubFactory(UserFactory)
+    recipient = SubFactory(UserFactory)
+    content = factory.Faker("sentence", nb_words=8)
+    status = "sent"
+
+
 class SchoolEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "timetable.SchoolEvent"

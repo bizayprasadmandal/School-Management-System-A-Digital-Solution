@@ -101,7 +101,7 @@ class TestAnnouncements:
 
     def test_admin_can_publish_announcement(self, admin_auth_client, school):
         from tests.factories import AnnouncementFactory
-        ann = AnnouncementFactory(school=school)
+        ann = AnnouncementFactory(school=school, is_draft=True)
         response = admin_auth_client.post(
             communication_announcement_publish(ann.id),
             format="json",
