@@ -14,7 +14,6 @@ celerybeat-schedule
 celerybeat.pid
 
 # ── Artifacts ──────────────────────────────────────────────────────────────
-=1.2.0
 
 # ── Playwright ────────────────────────────────────────────────────────────
 test-results/
@@ -40,10 +39,11 @@ coverage/
 web-build/
 
 # ── Environment & secrets ───────────────────────────────────────────────
+# Never commit real env values — only *.env.example templates are tracked.
 .env
-.env.local
-.env.*.local
-.env.production
+.env.*
+!.env.example
+!**/.env.example
 *.pem
 google-services.json
 GoogleService-Info.plist
