@@ -131,3 +131,8 @@ ACADEMICS_ASSIGNMENTS = url("academics/assignments/")
 ACADEMICS_MY_ASSIGNMENTS = url("academics/assignments/my-assignments/")
 ACADEMICS_LESSON_PLANS = url("academics/lesson-plans/")
 ACADEMICS_TEACHER_PROFILES = url("academics/teacher-profiles/")
+
+# ─── Inventory ────────────────────────────────────────────────────────────────
+
+INVENTORY_ITEMS = url("inventory/items/")
+INVENTORY_PURCHASE_ORDERS = url("inventory/purchase-orders/")
