@@ -2,28 +2,28 @@
 Student Service — ViewSets with role-based access
 """
 
-from django.utils import timezone
-from django.db.models import Q, OuterRef, Subquery
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import CharField, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
-from django.db.models import Value, CharField
-from rest_framework import viewsets, status, filters
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, OpenApiParameter
 
-from .models import Student, Guardian, Enrollment, Grade, Classroom, AcademicYear, Document
-from .serializers import (
-    StudentListSerializer, StudentDetailSerializer, StudentCreateSerializer,
-    GuardianSerializer, EnrollmentSerializer, GradeSerializer,
-    ClassroomSerializer, DocumentSerializer,
-)
 from .filters import StudentFilter
-from core.permissions import (
-    IsSchoolAdmin, IsTeacher, IsStudent, IsParent, IsSchoolMember,
+from .models import AcademicYear, Classroom, Document, Enrollment, Grade, Student
+from .serializers import (
+    ClassroomSerializer,
+    DocumentSerializer,
+    GradeSerializer,
+    StudentCreateSerializer,
+    StudentDetailSerializer,
+    StudentListSerializer,
 )
-from core.pagination import StandardResultsSetPagination
 
 MAX_PROMOTE_BATCH = 200
 
@@ -48,19 +48,19 @@ class StudentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # Annotate current classroom name (e.g. "Grade 5 A") on the active enrollment to avoid N+1
-        current_class_name_subquery = Enrollment.objects.filter(
-            student=OuterRef("pk"), is_active=True
-        ).annotate(
-            full_name=Concat(
-                "classroom__grade__name", Value(" "), "classroom__name",
-                output_field=CharField()
+        current_class_name_subquery = (
+            Enrollment.objects.filter(student=OuterRef("pk"), is_active=True)
+            .annotate(
+                full_name=Concat("classroom__grade__name", Value(" "), "classroom__name", output_field=CharField())
             )
-        ).values("full_name")[:1]
+            .values("full_name")[:1]
+        )
 
-        qs = Student.objects.filter(school=user.school).select_related(
-            "user", "school"
-        ).prefetch_related("enrollments__classroom__grade").annotate(
-            current_class_name=Subquery(current_class_name_subquery)
+        qs = (
+            Student.objects.filter(school=user.school)
+            .select_related("user", "school")
+            .prefetch_related("enrollments__classroom__grade")
+            .annotate(current_class_name=Subquery(current_class_name_subquery))
         )
 
         if user.role == "student":
@@ -94,6 +94,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="attendance-summary")
     def attendance_summary(self, request, pk=None):
         from services.attendance.models import AttendanceRecord
+
         student = self.get_object()
         academic_year_id = request.query_params.get("academic_year")
         qs = AttendanceRecord.objects.filter(student=student)
@@ -102,36 +103,41 @@ class StudentViewSet(viewsets.ModelViewSet):
         total = qs.count()
         present = qs.filter(status__in=["P", "L"]).count()
         absent = qs.filter(status="A").count()
-        return Response({
-            "total_days": total,
-            "present": present,
-            "absent": absent,
-            "late": qs.filter(status="L").count(),
-            "excused": qs.filter(status="E").count(),
-            "attendance_percentage": round((present / total * 100) if total else 0, 2),
-        })
+        return Response(
+            {
+                "total_days": total,
+                "present": present,
+                "absent": absent,
+                "late": qs.filter(status="L").count(),
+                "excused": qs.filter(status="E").count(),
+                "attendance_percentage": round((present / total * 100) if total else 0, 2),
+            }
+        )
 
     @extend_schema(summary="Get student's grade summary")
     @action(detail=True, methods=["get"], url_path="grade-summary")
     def grade_summary(self, request, pk=None):
         from services.gradebook.models import Grade as GradeRecord
+
         student = self.get_object()
-        grades = GradeRecord.objects.filter(
-            student=student
-        ).select_related("exam_schedule__subject", "exam_schedule__exam")
-        return Response({
-            "grades": [
-                {
-                    "subject": g.exam_schedule.subject.name,
-                    "exam": g.exam_schedule.exam.name,
-                    "marks_obtained": g.marks_obtained,
-                    "max_marks": g.exam_schedule.max_marks,
-                    "percentage": g.percentage,
-                    "is_pass": g.is_pass,
-                }
-                for g in grades
-            ]
-        })
+        grades = GradeRecord.objects.filter(student=student).select_related(
+            "exam_schedule__subject", "exam_schedule__exam"
+        )
+        return Response(
+            {
+                "grades": [
+                    {
+                        "subject": g.exam_schedule.subject.name,
+                        "exam": g.exam_schedule.exam.name,
+                        "marks_obtained": g.marks_obtained,
+                        "max_marks": g.exam_schedule.max_marks,
+                        "percentage": g.percentage,
+                        "is_pass": g.is_pass,
+                    }
+                    for g in grades
+                ]
+            }
+        )
 
     @extend_schema(summary="Get student's cumulative GPA")
     @action(detail=True, methods=["get"], url_path="cumulative-gpa")
@@ -139,6 +145,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         """Compute cumulative weighted GPA across all exams in the current academic year."""
         student = self.get_object()
         from services.gradebook.tasks import compute_cumulative_gpa
+
         result = compute_cumulative_gpa(str(student.id), student.school)
         if result is None:
             return Response({"detail": "No grades found for current academic year."}, status=404)
@@ -166,10 +173,26 @@ class StudentViewSet(viewsets.ModelViewSet):
             )
 
         from django.db import transaction
+
+        # Tenant isolation: target classroom + academic year must belong to this school.
+        if not AcademicYear.objects.filter(id=academic_year_id, school=request.user.school).exists():
+            return Response(
+                {"error": "Invalid academic year for this school."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         promoted = []
         with transaction.atomic():
             # Lock target classroom row to prevent race conditions
-            classroom = Classroom.objects.select_for_update().get(id=target_classroom_id)
+            try:
+                classroom = Classroom.objects.select_for_update().get(
+                    id=target_classroom_id, school=request.user.school
+                )
+            except Classroom.DoesNotExist:
+                return Response(
+                    {"error": "Target classroom not found in your school."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             for sid in student_ids:
                 try:
                     student = Student.objects.get(id=sid, school=request.user.school)
@@ -178,7 +201,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                         old_enrollment.is_active = False
                         old_enrollment.status = Enrollment.Status.GRADUATED
                         old_enrollment.save()
-                    new_enrollment = Enrollment.objects.create(
+                    Enrollment.objects.create(
                         student=student,
                         classroom=classroom,
                         academic_year_id=academic_year_id,
@@ -235,15 +258,12 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         if request.method == "PATCH":
             from .serializers import StudentSelfProfileSerializer
-            serializer = StudentSelfProfileSerializer(
-                student, data=request.data, partial=True
-            )
+
+            serializer = StudentSelfProfileSerializer(student, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             # Return full profile after update
-            return Response(
-                StudentDetailSerializer(student, context={"request": request}).data
-            )
+            return Response(StudentDetailSerializer(student, context={"request": request}).data)
 
         serializer = StudentDetailSerializer(student, context={"request": request})
         return Response(serializer.data)
@@ -259,6 +279,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         """
         import csv
         import io
+
         from django.db import transaction
         from services.auth.models import User, UserRole
 
@@ -290,9 +311,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
                     password = row.get("password", "Student@1234")
                     classroom_name = row.get("classroom_name", "").strip()
-                    classroom = Classroom.objects.filter(
-                        school=school, name=classroom_name
-                    ).first()
+                    classroom = Classroom.objects.filter(school=school, name=classroom_name).first()
                     if not classroom:
                         errors.append(f"Row {row_num}: classroom '{classroom_name}' not found")
                         continue
@@ -327,10 +346,12 @@ class StudentViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)[:100]}")
 
-        return Response({
-            "imported": imported,
-            "errors": errors[:20],  # Limit error reporting
-        })
+        return Response(
+            {
+                "imported": imported,
+                "errors": errors[:20],  # Limit error reporting
+            }
+        )
 
 
 class ClassroomViewSet(viewsets.ModelViewSet):
@@ -339,9 +360,9 @@ class ClassroomViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "grade__name"]
 
     def get_queryset(self):
-        return Classroom.objects.filter(
-            school=self.request.user.school
-        ).select_related("grade", "class_teacher", "academic_year")
+        return Classroom.objects.filter(school=self.request.user.school).select_related(
+            "grade", "class_teacher", "academic_year"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -351,9 +372,9 @@ class ClassroomViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="students")
     def students(self, request, pk=None):
         classroom = self.get_object()
-        students = Student.objects.filter(
-            enrollments__classroom=classroom, enrollments__is_active=True
-        ).select_related("user")
+        students = Student.objects.filter(enrollments__classroom=classroom, enrollments__is_active=True).select_related(
+            "user"
+        )
         return Response(StudentListSerializer(students, many=True).data)
 
 
@@ -364,10 +385,9 @@ class GradeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Count
+
         # Annotate counts directly on the queryset to avoid N+1 per grade
-        return Grade.objects.filter(
-            school=self.request.user.school
-        ).annotate(
+        return Grade.objects.filter(school=self.request.user.school).annotate(
             classroom_count=Count("classrooms", distinct=True),
             student_count=Count(
                 "classrooms__enrollments",

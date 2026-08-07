@@ -31,7 +31,9 @@ repos:
     rev: 7.0.0
     hooks:
       - id: flake8
-        args: [--max-line-length=120, --extend-ignore=E203,W503]
+        # Quote the comma-joined flag — an unquoted comma inside a YAML flow
+        # sequence would split it, making flake8 treat "W503" as a filename.
+        args: [--max-line-length=120, "--extend-ignore=E203,W503"]
         additional_dependencies: [flake8-django]
 
   - repo: https://github.com/pre-commit/mirrors-prettier

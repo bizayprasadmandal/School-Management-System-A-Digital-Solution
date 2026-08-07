@@ -3,12 +3,11 @@ Gradebook Service — Serializers
 """
 
 from decimal import Decimal
+
 from django.db import transaction
 from rest_framework import serializers
-from .models import (
-    Exam, ExamSchedule, Grade, Assessment,
-    AssessmentSubmission, ReportCard,
-)
+
+from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, ReportCard
 
 
 class ExamSerializer(serializers.ModelSerializer):
@@ -19,9 +18,18 @@ class ExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = [
-            "id", "name", "description", "exam_type", "exam_type_name",
-            "academic_year", "academic_year_name", "start_date", "end_date",
-            "status", "schedule_count", "created_at",
+            "id",
+            "name",
+            "description",
+            "exam_type",
+            "exam_type_name",
+            "academic_year",
+            "academic_year_name",
+            "start_date",
+            "end_date",
+            "status",
+            "schedule_count",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -37,9 +45,20 @@ class ExamScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamSchedule
         fields = [
-            "id", "exam", "exam_name", "subject", "subject_name",
-            "classroom", "classroom_name", "date", "start_time", "end_time",
-            "venue", "invigilator", "max_marks", "passing_marks",
+            "id",
+            "exam",
+            "exam_name",
+            "subject",
+            "subject_name",
+            "classroom",
+            "classroom_name",
+            "date",
+            "start_time",
+            "end_time",
+            "venue",
+            "invigilator",
+            "max_marks",
+            "passing_marks",
         ]
 
     def get_classroom_name(self, obj):
@@ -59,9 +78,19 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = [
-            "id", "student", "student_name", "exam_schedule",
-            "subject_name", "exam_name", "marks_obtained", "max_marks",
-            "percentage", "is_pass", "is_absent", "remarks", "graded_at",
+            "id",
+            "student",
+            "student_name",
+            "exam_schedule",
+            "subject_name",
+            "exam_name",
+            "marks_obtained",
+            "max_marks",
+            "percentage",
+            "is_pass",
+            "is_absent",
+            "remarks",
+            "graded_at",
         ]
         read_only_fields = ["id", "graded_by", "graded_at"]
 
@@ -74,15 +103,15 @@ class GradeSerializer(serializers.ModelSerializer):
 
 class BulkGradeSerializer(serializers.Serializer):
     exam_schedule_id = serializers.IntegerField()
-    grades = serializers.ListField(
-        child=serializers.DictField(), allow_empty=False
-    )
+    grades = serializers.ListField(child=serializers.DictField(), allow_empty=False)
 
     def validate_exam_schedule_id(self, value):
+        # Tenant isolation: schedule must belong to the caller's school.
+        school = self.context["request"].user.school
         try:
-            return ExamSchedule.objects.get(id=value)
+            return ExamSchedule.objects.get(id=value, exam__school=school)
         except ExamSchedule.DoesNotExist:
-            raise serializers.ValidationError("Exam schedule not found.")
+            raise serializers.ValidationError("Exam schedule not found in your school.")
 
     @transaction.atomic
     def save(self, graded_by=None):
@@ -111,9 +140,17 @@ class AssessmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assessment
         fields = [
-            "id", "assignment", "subject_name", "classroom_name",
-            "title", "assessment_type", "due_date", "max_marks",
-            "description", "attachment", "created_at",
+            "id",
+            "assignment",
+            "subject_name",
+            "classroom_name",
+            "title",
+            "assessment_type",
+            "due_date",
+            "max_marks",
+            "description",
+            "attachment",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -121,13 +158,13 @@ class AssessmentSerializer(serializers.ModelSerializer):
 
     def validate_attachment(self, value):
         if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise serializers.ValidationError(
-                f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB."
-            )
+            raise serializers.ValidationError(f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB.")
         if value:
             allowed_types = [
                 "application/pdf",
-                "image/jpeg", "image/png", "image/gif",
+                "image/jpeg",
+                "image/png",
+                "image/gif",
                 "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 "text/plain",
@@ -151,8 +188,16 @@ class AssessmentSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssessmentSubmission
         fields = [
-            "id", "assessment", "assessment_title", "student", "student_name",
-            "marks_obtained", "submitted_at", "file", "remarks", "is_late",
+            "id",
+            "assessment",
+            "assessment_title",
+            "student",
+            "student_name",
+            "marks_obtained",
+            "submitted_at",
+            "file",
+            "remarks",
+            "is_late",
             "percentage",
         ]
         read_only_fields = ["id", "is_late"]
@@ -174,16 +219,40 @@ class ReportCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportCard
         fields = [
-            "id", "student", "student_name", "student_admission_number",
-            "exam", "exam_name", "academic_year", "academic_year_name",
-            "total_marks", "obtained_marks", "percentage", "grade_letter",
-            "gpa", "rank_in_class", "rank_in_grade", "attendance_percentage",
-            "teacher_remarks", "principal_remarks", "status",
-            "pdf_url", "generated_at", "published_at",
+            "id",
+            "student",
+            "student_name",
+            "student_admission_number",
+            "exam",
+            "exam_name",
+            "academic_year",
+            "academic_year_name",
+            "total_marks",
+            "obtained_marks",
+            "percentage",
+            "grade_letter",
+            "gpa",
+            "rank_in_class",
+            "rank_in_grade",
+            "attendance_percentage",
+            "teacher_remarks",
+            "principal_remarks",
+            "status",
+            "pdf_url",
+            "generated_at",
+            "published_at",
         ]
         read_only_fields = [
-            "id", "total_marks", "obtained_marks", "percentage", "grade_letter",
-            "gpa", "rank_in_class", "rank_in_grade", "generated_at", "published_at",
+            "id",
+            "total_marks",
+            "obtained_marks",
+            "percentage",
+            "grade_letter",
+            "gpa",
+            "rank_in_class",
+            "rank_in_grade",
+            "generated_at",
+            "published_at",
         ]
 
     def get_pdf_url(self, obj):

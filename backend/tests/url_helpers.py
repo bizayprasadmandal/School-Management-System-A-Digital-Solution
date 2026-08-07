@@ -63,6 +63,7 @@ def attendance_leave_approve(leave_id: int) -> str:
 GRADEBOOK_EXAMS = url("gradebook/exams/")
 GRADEBOOK_GRADES_BULK = url("gradebook/grades/bulk/")
 GRADEBOOK_GRADES = url("gradebook/grades/")
+GRADEBOOK_GRADES_IMPORT_CSV = url("gradebook/grades/import-csv/")
 GRADEBOOK_REPORT_CARDS = url("gradebook/report-cards/")
 
 

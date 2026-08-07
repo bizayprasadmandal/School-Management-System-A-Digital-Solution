@@ -1,26 +1,26 @@
 """Inventory / Store Management — Viewsets with school-scoped CRUD and stock actions."""
 
+import json
 import logging
 from decimal import Decimal
-from django.utils import timezone
-from django.db import transaction as db_transaction
-import json
-from decimal import Decimal
 
-from rest_framework import viewsets, status
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db import transaction as db_transaction
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import Category, Supplier, InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem
+from .models import Category, InventoryItem, PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier
 from .serializers import (
-    CategorySerializer, SupplierSerializer, InventoryItemSerializer,
-    StockMovementSerializer, PurchaseOrderSerializer, PurchaseOrderItemSerializer,
+    CategorySerializer,
+    InventoryItemSerializer,
+    PurchaseOrderSerializer,
+    StockMovementSerializer,
+    SupplierSerializer,
 )
-from core.permissions import IsSchoolAdmin, IsSchoolMember
-from core.pagination import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +73,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
     def get_queryset(self):
-        return InventoryItem.objects.filter(
-            school=self.request.user.school
-        ).select_related("category", "supplier")
+        return InventoryItem.objects.filter(school=self.request.user.school).select_related("category", "supplier")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -121,9 +119,9 @@ class StockMovementViewSet(viewsets.ModelViewSet):
     filterset_fields = ["item", "movement_type", "performed_by"]
 
     def get_queryset(self):
-        return StockMovement.objects.filter(
-            item__school=self.request.user.school
-        ).select_related("item", "performed_by")
+        return StockMovement.objects.filter(item__school=self.request.user.school).select_related(
+            "item", "performed_by"
+        )
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
@@ -140,9 +138,11 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     filterset_fields = ["supplier", "status"]
 
     def get_queryset(self):
-        return PurchaseOrder.objects.filter(
-            school=self.request.user.school
-        ).select_related("supplier", "ordered_by").prefetch_related("items__item")
+        return (
+            PurchaseOrder.objects.filter(school=self.request.user.school)
+            .select_related("supplier", "ordered_by")
+            .prefetch_related("items__item")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -152,35 +152,57 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with db_transaction.atomic():
-            po = serializer.save(school=self.request.user.school, ordered_by=self.request.user)
-            items_data = []
-            raw_items = request.data.get("items_data", "[]")
-            if isinstance(raw_items, str):
-                try:
-                    items_data = json.loads(raw_items)
-                except (json.JSONDecodeError, TypeError):
-                    items_data = []
-            elif isinstance(raw_items, list):
-                items_data = raw_items
 
+        raw_items = request.data.get("items_data", "[]")
+        if isinstance(raw_items, str):
+            try:
+                items_data = json.loads(raw_items)
+            except (json.JSONDecodeError, TypeError):
+                items_data = []
+        elif isinstance(raw_items, list):
+            items_data = raw_items
+        else:
+            items_data = []
+
+        # Tenant isolation: resolve every line item against THIS school's
+        # inventory before writing anything, so a foreign item aborts cleanly
+        # without leaving a partially-created purchase order behind.
+        resolved_items = []
+        seen_items = set()
+        for entry in items_data:
+            item_id = entry["item"]
+            if item_id in seen_items:
+                return Response(
+                    {"error": f"Duplicate item '{item_id}' in items_data. Remove duplicates."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            seen_items.add(item_id)
+            try:
+                item = InventoryItem.objects.get(id=item_id, school=request.user.school)
+            except InventoryItem.DoesNotExist:
+                return Response(
+                    {"error": f"Item '{item_id}' not found in your school."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            resolved_items.append(
+                (
+                    item,
+                    int(entry["quantity_ordered"]),
+                    Decimal(str(entry.get("unit_price", item.unit_price))),
+                )
+            )
+
+        with db_transaction.atomic():
+            po = serializer.save(school=request.user.school, ordered_by=request.user)
             subtotal = Decimal("0")
-            seen_items = set()
-            for entry in items_data:
-                item_id = entry["item"]
-                if item_id in seen_items:
-                    return Response(
-                        {"error": f"Duplicate item '{item_id}' in items_data. Remove duplicates."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                seen_items.add(item_id)
-                item = InventoryItem.objects.get(id=entry["item"])
-                qty = int(entry["quantity_ordered"])
-                price = Decimal(str(entry.get("unit_price", item.unit_price)))
+            for item, qty, price in resolved_items:
                 total = qty * price
                 PurchaseOrderItem.objects.create(
-                    purchase_order=po, item=item,
-                    quantity_ordered=qty, unit_price=price, total_price=total,
+                    purchase_order=po,
+                    item=item,
+                    quantity_ordered=qty,
+                    unit_price=price,
+                    total_price=total,
                 )
                 subtotal += total
             po.subtotal = subtotal
@@ -230,12 +252,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 inv_item.save(update_fields=["current_stock"])
 
             # Update PO status
-            all_received = all(
-                pi.quantity_received >= pi.quantity_ordered for pi in po.items.all()
-            )
-            any_received = any(
-                pi.quantity_received > 0 for pi in po.items.all()
-            )
+            all_received = all(pi.quantity_received >= pi.quantity_ordered for pi in po.items.all())
+            any_received = any(pi.quantity_received > 0 for pi in po.items.all())
             if all_received:
                 po.status = PurchaseOrder.Status.RECEIVED
             elif any_received:
