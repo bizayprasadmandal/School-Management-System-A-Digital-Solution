@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import FeesPage from "./FeesPage";
+import { api } from "../../api/client";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ function renderPage() {
       <BrowserRouter>
         <FeesPage />
       </BrowserRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -113,7 +114,6 @@ function renderPage() {
 beforeEach(() => {
   jest.clearAllMocks();
 
-  const { api } = require("../../api/client");
   // Return appropriate data based on the URL path
   (api.get as jest.Mock).mockImplementation((url: string) => {
     if (url.includes("/fees/invoices/")) return Promise.resolve(mockInvoices);
@@ -266,9 +266,7 @@ describe("filters", () => {
   test("renders search input", async () => {
     renderPage();
     await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText(/Search student name or invoice/)
-      ).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Search student name or invoice/)).toBeInTheDocument();
     });
   });
 
@@ -284,7 +282,6 @@ describe("filters", () => {
 
 describe("empty state", () => {
   test("shows empty state when no invoices", async () => {
-    const { api } = require("../../api/client");
     (api.get as jest.Mock).mockResolvedValue({ count: 0, results: [] });
 
     renderPage();

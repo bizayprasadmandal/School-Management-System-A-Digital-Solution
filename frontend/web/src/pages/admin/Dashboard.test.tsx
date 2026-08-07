@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminDashboard from "./Dashboard";
 import { useAuthStore } from "../../store/authStore";
 import type { User } from "../../types";
+import { api } from "../../api/client";
+import { useAnnouncements } from "../../api/hooks";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -92,8 +94,18 @@ const mockDashboardStats = {
 
 const mockAnnouncements = {
   results: [
-    { id: "1", title: "School holiday next week", priority: "normal", created_at: "2024-06-01T10:00:00Z" },
-    { id: "2", title: "Exam results published", priority: "high", created_at: "2024-06-02T14:30:00Z" },
+    {
+      id: "1",
+      title: "School holiday next week",
+      priority: "normal",
+      created_at: "2024-06-01T10:00:00Z",
+    },
+    {
+      id: "2",
+      title: "Exam results published",
+      priority: "high",
+      created_at: "2024-06-02T14:30:00Z",
+    },
   ],
   count: 2,
 };
@@ -106,7 +118,7 @@ function renderPage() {
       <BrowserRouter>
         <AdminDashboard />
       </BrowserRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -121,10 +133,8 @@ beforeEach(() => {
     isLoading: false,
   });
 
-  const { api } = require("../../api/client");
   (api.get as jest.Mock).mockResolvedValue(mockDashboardStats);
 
-  const { useAnnouncements } = require("../../api/hooks");
   (useAnnouncements as jest.Mock).mockReturnValue({ data: mockAnnouncements });
 });
 
@@ -232,7 +242,6 @@ describe("announcements", () => {
   });
 
   test("shows empty state when no announcements", async () => {
-    const { useAnnouncements } = require("../../api/hooks");
     (useAnnouncements as jest.Mock).mockReturnValue({ data: { results: [], count: 0 } });
 
     renderPage();
@@ -270,7 +279,6 @@ describe("outstanding fees alert", () => {
   });
 
   test("does not show alert when fees_outstanding is 0", async () => {
-    const { api } = require("../../api/client");
     (api.get as jest.Mock).mockResolvedValue({ ...mockDashboardStats, fees_outstanding: 0 });
 
     renderPage();

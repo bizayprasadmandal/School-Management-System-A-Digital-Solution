@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import StudentsPage from "./StudentsPage";
 import { useAuthStore } from "../../store/authStore";
 import type { User } from "../../types";
+import { useStudents, useGradeLevels } from "../../api/hooks";
+import { downloadFromUrl } from "../../utils";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -119,7 +121,7 @@ function renderPage() {
       <BrowserRouter>
         <StudentsPage />
       </BrowserRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -134,7 +136,6 @@ beforeEach(() => {
     isLoading: false,
   });
 
-  const { useStudents, useGradeLevels } = require("../../api/hooks");
   (useStudents as jest.Mock).mockReturnValue({ data: mockStudents, isLoading: false });
   (useGradeLevels as jest.Mock).mockReturnValue({ data: mockGradeLevels });
 });
@@ -209,14 +210,11 @@ describe("student data display", () => {
 describe("search functionality", () => {
   test("renders search input", () => {
     renderPage();
-    expect(
-      screen.getByPlaceholderText(/Search by name or admission number/)
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search by name or admission number/)).toBeInTheDocument();
   });
 
   test("calls useStudents with search value after typing", async () => {
     renderPage();
-    const { useStudents } = require("../../api/hooks");
     const user = userEvent.setup();
 
     const searchInput = screen.getByPlaceholderText(/Search by name or admission number/);
@@ -254,7 +252,6 @@ describe("filters", () => {
 describe("export", () => {
   test("calls downloadFromUrl on Export CSV click", async () => {
     renderPage();
-    const { downloadFromUrl } = require("../../utils");
     const user = userEvent.setup();
     await user.click(screen.getByText("Export CSV"));
 
@@ -287,15 +284,12 @@ describe("navigation", () => {
 
 describe("empty state", () => {
   test("shows empty message when no students", () => {
-    const { useStudents } = require("../../api/hooks");
     (useStudents as jest.Mock).mockReturnValue({
       data: { count: 0, results: [] },
       isLoading: false,
     });
 
     renderPage();
-    expect(
-      screen.getByText(/No students found/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No students found/)).toBeInTheDocument();
   });
 });
