@@ -128,31 +128,34 @@ open http://localhost:3000
 
 ## 🔐 User Roles & Access
 
-| Role | Dashboard | Students | Grades | Attendance | Fees | Reports |
-|------|-----------|----------|--------|------------|------|---------|
-| Super Admin | ✅ Full | ✅ All schools | ✅ All | ✅ All | ✅ All | ✅ All |
-| School Admin | ✅ School | ✅ Own school | ✅ Own school | ✅ Own school | ✅ Own school | ✅ Own school |
-| Teacher | ✅ Limited | 👁 Own classes | ✏️ Own subjects | ✏️ Own classes | ❌ | ❌ |
-| Student | ✅ Personal | 👁 Own profile | 👁 Own grades | 👁 Own | 👁 Own | ❌ |
-| Parent | ✅ Personal | 👁 Own children | 👁 Children's | 👁 Children's | 💳 Pay | ❌ |
-| Accountant | ❌ | ❌ | ❌ | ❌ | ✅ Full | ✅ Fee reports |
+| Role         | Dashboard   | Students        | Grades          | Attendance     | Fees          | Reports        |
+| ------------ | ----------- | --------------- | --------------- | -------------- | ------------- | -------------- |
+| Super Admin  | ✅ Full     | ✅ All schools  | ✅ All          | ✅ All         | ✅ All        | ✅ All         |
+| School Admin | ✅ School   | ✅ Own school   | ✅ Own school   | ✅ Own school  | ✅ Own school | ✅ Own school  |
+| Teacher      | ✅ Limited  | 👁 Own classes  | ✏️ Own subjects | ✏️ Own classes | ❌            | ❌             |
+| Student      | ✅ Personal | 👁 Own profile  | 👁 Own grades   | 👁 Own         | 👁 Own        | ❌             |
+| Parent       | ✅ Personal | 👁 Own children | 👁 Children's   | 👁 Children's  | 💳 Pay        | ❌             |
+| Accountant   | ❌          | ❌              | ❌              | ❌             | ✅ Full       | ✅ Fee reports |
 
 ---
 
 ## 🧩 Core Modules
 
 ### 1. Student Information Management
+
 - Complete student lifecycle: enrollment → promotion → graduation
 - Guardian/parent portal with multi-child support
 - Document vault (birth certs, transfer certificates, etc.)
 - Medical records and emergency contacts
 
 ### 2. Academic Management
+
 - Subject setup per grade with credit hours and pass marks
 - Teacher-subject-classroom assignment matrix
 - Lesson planning with approval workflow
 
 ### 3. Attendance Tracking
+
 - Daily classroom attendance with bulk recording
 - Period/subject-level attendance for colleges
 - Automated guardian notifications when absent (Celery async)
@@ -160,6 +163,7 @@ open http://localhost:3000
 - Monthly PDF attendance reports
 
 ### 4. Gradebook & Assessments
+
 - Configurable grading scales (letter grades + GPA)
 - Exam scheduling with venue and invigilator management
 - Continuous assessment: homework, quizzes, projects
@@ -167,11 +171,13 @@ open http://localhost:3000
 - Class and grade rankings
 
 ### 5. Timetable Scheduling
+
 - Drag-and-drop weekly schedule builder
 - Conflict detection (teacher double-booking, room clashes)
 - School events and holiday calendar
 
 ### 6. Communication
+
 - Role-targeted announcements (students / parents / staff)
 - Direct messaging between any two users
 - Real-time in-app notifications via WebSocket (Django Channels)
@@ -179,6 +185,7 @@ open http://localhost:3000
 - Configurable notification templates per event type
 
 ### 7. Fee Management
+
 - Flexible fee structure per grade and category
 - Automated invoice generation on schedule
 - Online payment gateway integration (Stripe / Paystack / Razorpay)
@@ -187,6 +194,7 @@ open http://localhost:3000
 - Receipt generation (PDF)
 
 ### 8. Reporting & Analytics
+
 - Executive dashboard with KPI cards
 - Attendance trend charts (daily, monthly, yearly)
 - Grade distribution visualizations
@@ -197,36 +205,36 @@ open http://localhost:3000
 
 ## 🔗 External Integrations
 
-| System | Purpose | Status |
-|--------|---------|--------|
-| Google Workspace | SSO + Classroom sync | Configurable |
-| Microsoft 365 | SSO + Teams integration | Configurable |
-| Zoom | Virtual classroom links in timetable | API ready |
-| SendGrid | Transactional email | Active |
-| Twilio | SMS notifications | Active |
-| Firebase FCM | Mobile push notifications | Active |
-| Stripe / Razorpay | Online fee payment | Pluggable |
-| National Exam Boards | Result import | Via CSV/API |
+| System               | Purpose                              | Status       |
+| -------------------- | ------------------------------------ | ------------ |
+| Google Workspace     | SSO + Classroom sync                 | Configurable |
+| Microsoft 365        | SSO + Teams integration              | Configurable |
+| Zoom                 | Virtual classroom links in timetable | API ready    |
+| SendGrid             | Transactional email                  | Active       |
+| Twilio               | SMS notifications                    | Active       |
+| Firebase FCM         | Mobile push notifications            | Active       |
+| Stripe / Razorpay    | Online fee payment                   | Pluggable    |
+| National Exam Boards | Result import                        | Via CSV/API  |
 
 ---
 
 ## 🛠 Technology Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.12 · Django 4.2 · Django REST Framework |
-| GraphQL | Graphene-Django 3.x |
-| Auth | JWT (SimpleJWT) · django-axes (brute-force) |
-| Task Queue | Celery 5 · django-celery-beat |
-| WebSockets | Django Channels 4 + channels-redis |
+| Layer        | Technology                                                      |
+| ------------ | --------------------------------------------------------------- |
+| Backend      | Python 3.12 · Django 4.2 · Django REST Framework                |
+| GraphQL      | Graphene-Django 3.x                                             |
+| Auth         | JWT (SimpleJWT) · django-axes (brute-force)                     |
+| Task Queue   | Celery 5 · django-celery-beat                                   |
+| WebSockets   | Django Channels 4 + channels-redis                              |
 | Web Frontend | React 18 · TypeScript · TanStack Query · Zustand · Tailwind CSS |
-| Mobile | React Native · Expo · React Navigation |
-| Database | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Storage | AWS S3 / MinIO |
-| Container | Docker · Kubernetes (EKS / AKS / GKE) |
-| Monitoring | Prometheus · Grafana · Sentry |
-| CI/CD | GitHub Actions |
+| Mobile       | React Native · Expo · React Navigation                          |
+| Database     | PostgreSQL 16                                                   |
+| Cache        | Redis 7                                                         |
+| Storage      | AWS S3 / MinIO                                                  |
+| Container    | Docker · Kubernetes (EKS / AKS / GKE)                           |
+| Monitoring   | Prometheus · Grafana · Sentry                                   |
+| CI/CD        | GitHub Actions                                                  |
 
 ---
 
@@ -257,8 +265,11 @@ open http://localhost:3000
 
 ## 📄 License
 
-MIT License — see `LICENSE` file for details.
+**Proprietary — All rights reserved.**
+
+This software is the exclusive property of EduSphere. No rights are granted
+without prior written permission — see the `LICENSE` file for full terms.
 
 ---
 
-*Built with ❤️ for educators everywhere.*
+_Built with ❤️ for educators everywhere._
