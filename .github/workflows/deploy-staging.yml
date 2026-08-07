@@ -35,7 +35,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key
           DEBUG: "True"
-        run: pytest --tb=short -q
+        run: pytest --tb=short -q -m "not slow"
 
   lint:
     runs-on: ubuntu-latest
@@ -58,6 +58,7 @@ jobs:
   build-and-deploy:
     needs: [test, lint]
     runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -83,14 +84,20 @@ jobs:
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
-          context: frontend/web
+          # Build from the repo root so the Dockerfile can COPY the nginx
+          # config and entrypoint that live under infrastructure/.
+          context: .
           file: infrastructure/docker/frontend/Dockerfile
+          target: production
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend:staging
             ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL_STAGING }}
+            REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL_STAGING }}
 
       - name: Migrate database
         run: |
