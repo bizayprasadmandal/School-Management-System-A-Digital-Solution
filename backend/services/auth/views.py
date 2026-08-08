@@ -145,7 +145,7 @@ class LoginView(TokenObtainPairView):
                         "requires_2fa": True,
                         "user_id": str(user.id),
                         "backup_codes_remaining": user.backup_codes.filter(used=False).count(),
-                        "detail": "2FA is enabled. Please provide your TOTP code via /auth/verify-2fa/",
+                        "detail": ("2FA is enabled. Please provide your TOTP code " "via /auth/verify-2fa/"),
                     },
                     status=200,
                 )
@@ -494,7 +494,7 @@ class Verify2FALoginView(APIView):
         if is_locked:
             return Response(
                 {
-                    "detail": f"Too many failed backup code attempts. Try again in {remaining} seconds.",
+                    "detail": ("Too many failed backup code attempts. " f"Try again in {remaining} seconds."),
                 },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
@@ -579,7 +579,7 @@ class SendEmailVerificationView(APIView):
             subject="Verify Your Email Address — EduSphere SMS",
             body=(
                 f"Hi {user.full_name},\n\n"
-                f"Please verify your email address by clicking the link below:\n\n"
+                f"Please verify your email address ({email}) by clicking the link below:\n\n"
                 f"{verify_url}\n\n"
                 f"This link expires in 24 hours.\n\n"
                 f"If you did not create an account, please ignore this email.\n\n"
@@ -715,7 +715,14 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["action", "resource_type", "user"]
-    search_fields = ["action", "resource_type", "resource_id", "user__full_name", "user__email"]
+    search_fields = [
+        "action",
+        "resource_type",
+        "resource_id",
+        "user__first_name",
+        "user__last_name",
+        "user__email",
+    ]
     ordering = ["-timestamp"]
     ordering_fields = ["timestamp", "action"]
 

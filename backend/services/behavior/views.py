@@ -1,10 +1,22 @@
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, permissions, viewsets
+from rest_framework.permissions import IsAuthenticated
+
 from .models import Incident, Referral
 from .serializers import IncidentSerializer, ReferralSerializer
-from core.permissions import IsSchoolMember, IsSchoolAdmin
-from core.pagination import StandardResultsSetPagination
+
+
+class IsTeacherOrSchoolAdmin(permissions.BasePermission):
+    """Teachers and admins can report behavior incidents."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in (
+            "school_admin",
+            "super_admin",
+            "teacher",
+        )
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
@@ -16,12 +28,13 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering = ["-occurred_at"]
 
     def get_queryset(self):
-        return Incident.objects.filter(school=self.request.user.school).select_related(
-            "student__user", "reported_by"
-        )
+        return Incident.objects.filter(school=self.request.user.school).select_related("student__user", "reported_by")
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["create"]:
+            # Teachers and admins can report incidents
+            return [IsAuthenticated(), IsTeacherOrSchoolAdmin()]
+        if self.action in ["update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -37,9 +50,12 @@ class ReferralViewSet(viewsets.ModelViewSet):
     search_fields = ["reason", "action_taken"]
 
     def get_queryset(self):
-        return Referral.objects.filter(
-            incident__school=self.request.user.school
-        ).select_related("referred_to", "referred_by", "incident")
+        return Referral.objects.filter(incident__school=self.request.user.school).select_related(
+            "referred_to", "referred_by", "incident"
+        )
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(referred_by=self.request.user)

@@ -3,6 +3,7 @@ Attendance async tasks — Celery workers for notifications and batch processing
 """
 
 import logging
+
 from celery import shared_task
 from django.utils import timezone
 
@@ -16,15 +17,16 @@ def notify_absent_guardians(self, record_id: str):
     Runs after daily attendance recording.
     """
     try:
-        from .models import AttendanceRecord
-        from services.communication.models import Notification, NotificationTemplate
+        from services.communication.models import NotificationTemplate
         from services.communication.services import NotificationService
 
-        record = AttendanceRecord.objects.select_related(
-            "student__user", "student__school"
-        ).prefetch_related(
-            "student__guardians__user"
-        ).get(id=record_id)
+        from .models import AttendanceRecord
+
+        record = (
+            AttendanceRecord.objects.select_related("student__user", "student__school")
+            .prefetch_related("student__guardians__user")
+            .get(id=record_id)
+        )
 
         student = record.student
         school = student.school
@@ -44,9 +46,12 @@ def notify_absent_guardians(self, record_id: str):
             guard_user = guardian.user
             # Build channels based on guardian's notification preferences
             channels = []
-            if guard_user.notify_push:   channels.append("push")
-            if guard_user.notify_email:  channels.append("email")
-            if guard_user.notify_sms:    channels.append("sms")
+            if guard_user.notify_push:
+                channels.append("push")
+            if guard_user.notify_email:
+                channels.append("email")
+            if guard_user.notify_sms:
+                channels.append("sms")
             channels.append("in_app")
 
             if channels:
@@ -63,7 +68,9 @@ def notify_absent_guardians(self, record_id: str):
 
         logger.info(
             "Absent notification sent for student %s on %s to %d guardians",
-            student.admission_number, record.date, len(notified_users),
+            student.admission_number,
+            record.date,
+            len(notified_users),
         )
 
     except Exception as exc:
@@ -78,20 +85,34 @@ def process_approved_leave(self, leave_id: int):
     for the leave period to EXCUSED status.
     """
     try:
+        from datetime import timedelta
+
         from .models import AttendanceLeave, AttendanceRecord
-        from datetime import date, timedelta
 
         leave = AttendanceLeave.objects.select_related("student").get(id=leave_id)
+        student = leave.student
+
+        # A classroom/academic_year are required on AttendanceRecord, so if the
+        # student has no (active) enrollment we cannot synthesize records.
+        enrollment = student.enrollments.filter(is_active=True).first()
+        if enrollment is None:
+            logger.warning(
+                "Leave %d approved but student %s has no active enrollment; " "skipping attendance auto-update",
+                leave_id,
+                student.admission_number,
+            )
+            return {"updated": 0}
+
         current_date = leave.from_date
 
         updated_count = 0
         while current_date <= leave.to_date:
             record, created = AttendanceRecord.objects.get_or_create(
-                student=leave.student,
+                student=student,
                 date=current_date,
                 defaults={
-                    "classroom": leave.student.enrollments.filter(is_active=True).first().classroom,
-                    "academic_year": leave.student.enrollments.filter(is_active=True).first().academic_year,
+                    "classroom": enrollment.classroom,
+                    "academic_year": enrollment.academic_year,
                     "status": AttendanceRecord.Status.EXCUSED,
                     "remarks": f"Approved leave: {leave.leave_type}",
                 },
@@ -116,9 +137,10 @@ def generate_monthly_attendance_report(school_id: str, month: int, year: int):
     Generate and cache monthly attendance report for a school.
     Scheduled via django-celery-beat on the 1st of each month.
     """
-    from services.auth.models import School
-    from .models import AttendanceRecord
     from django.core.cache import cache
+    from services.auth.models import School
+
+    from .models import AttendanceRecord
 
     school = School.objects.get(id=school_id)
     records = AttendanceRecord.objects.filter(

@@ -3,18 +3,19 @@ Attendance Service — Views for recording and querying attendance
 """
 
 from datetime import date, timedelta
-from django.utils import timezone
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import AttendanceRecord, AttendanceLeave
-from .serializers import AttendanceRecordSerializer, AttendanceLeaveSerializer, BulkAttendanceSerializer
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsTeacher
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from services.students.models import Student
+
+from .models import AttendanceLeave, AttendanceRecord
+from .serializers import AttendanceLeaveSerializer, AttendanceRecordSerializer, BulkAttendanceSerializer
 from .tasks import notify_absent_guardians
-from core.permissions import IsSchoolMember, IsTeacher, IsSchoolAdmin
-from services.students.models import Student, Classroom
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
@@ -29,9 +30,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = AttendanceRecord.objects.filter(
-            student__school=user.school
-        ).select_related("student__user", "classroom", "recorded_by")
+        qs = AttendanceRecord.objects.filter(student__school=user.school).select_related(
+            "student__user", "classroom", "recorded_by"
+        )
 
         if user.role == "student":
             return qs.filter(student__user=user)
@@ -62,8 +63,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         # Trigger absent notifications asynchronously
         absent_ids = [
-            str(r.id) for r in records
-            if r.status == AttendanceRecord.Status.ABSENT and not r.notified_guardian
+            str(r.id) for r in records if r.status == AttendanceRecord.Status.ABSENT and not r.notified_guardian
         ]
         if absent_ids:
             for rid in absent_ids:
@@ -83,28 +83,28 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if not classroom_id:
             return Response({"error": "classroom_id is required"}, status=400)
 
-        records = AttendanceRecord.objects.filter(
-            classroom_id=classroom_id, date=target_date
-        ).select_related("student__user")
-
-        students_in_class = Student.objects.filter(
-            enrollments__classroom_id=classroom_id, enrollments__is_active=True
+        records = AttendanceRecord.objects.filter(classroom_id=classroom_id, date=target_date).select_related(
+            "student__user"
         )
+
+        students_in_class = Student.objects.filter(enrollments__classroom_id=classroom_id, enrollments__is_active=True)
         total = students_in_class.count()
         recorded = records.count()
 
-        return Response({
-            "date": target_date,
-            "total_students": total,
-            "recorded": recorded,
-            "not_recorded": total - recorded,
-            "breakdown": {
-                "present": records.filter(status="P").count(),
-                "absent": records.filter(status="A").count(),
-                "late": records.filter(status="L").count(),
-                "excused": records.filter(status="E").count(),
-            },
-        })
+        return Response(
+            {
+                "date": target_date,
+                "total_students": total,
+                "recorded": recorded,
+                "not_recorded": total - recorded,
+                "breakdown": {
+                    "present": records.filter(status="P").count(),
+                    "absent": records.filter(status="A").count(),
+                    "late": records.filter(status="L").count(),
+                    "excused": records.filter(status="E").count(),
+                },
+            }
+        )
 
     @action(detail=False, methods=["get"], url_path="student-report")
     def student_report(self, request):
@@ -125,18 +125,20 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         total = records.count()
         present = records.filter(status__in=["P", "L"]).count()
 
-        return Response({
-            "student_id": student_id,
-            "month": month,
-            "year": year,
-            "total_school_days": total,
-            "present": present,
-            "absent": records.filter(status="A").count(),
-            "late": records.filter(status="L").count(),
-            "excused": records.filter(status="E").count(),
-            "percentage": round((present / total * 100) if total else 0, 2),
-            "records": AttendanceRecordSerializer(records, many=True).data,
-        })
+        return Response(
+            {
+                "student_id": student_id,
+                "month": month,
+                "year": year,
+                "total_school_days": total,
+                "present": present,
+                "absent": records.filter(status="A").count(),
+                "late": records.filter(status="L").count(),
+                "excused": records.filter(status="E").count(),
+                "percentage": round((present / total * 100) if total else 0, 2),
+                "records": AttendanceRecordSerializer(records, many=True).data,
+            }
+        )
 
     @action(detail=False, methods=["get"], url_path="streak")
     def streak(self, request):
@@ -146,7 +148,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         Returns the current streak length and the
         longest streak within the current academic year.
         """
-        from services.students.models import AcademicYear, Student as StudentModel
+        from services.students.models import AcademicYear
+        from services.students.models import Student as StudentModel
 
         student_id = request.query_params.get("student_id")
         if not student_id:
@@ -157,19 +160,16 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         except StudentModel.DoesNotExist:
             return Response({"error": "Student not found"}, status=404)
 
-        current_year = AcademicYear.objects.filter(
-            school=student.school, is_current=True
-        ).first()
+        current_year = AcademicYear.objects.filter(school=student.school, is_current=True).first()
 
-        records_qs = AttendanceRecord.objects.filter(
-            student=student
-        ).order_by("-date")
+        records_qs = AttendanceRecord.objects.filter(student=student).order_by("-date")
 
         if current_year:
-            records_qs = records_qs.filter(
-                date__gte=current_year.start_date,
-                date__lte=current_year.end_date,
-            )
+            # Scope by the academic_year object rather than a date range:
+            # the school's official year bounds may not cover every record
+            # that is legitimately tagged with the current year (e.g. records
+            # created before start_date or after end_date).
+            records_qs = records_qs.filter(academic_year=current_year)
 
         records = list(records_qs.values("date", "status"))
         if not records:
@@ -205,10 +205,12 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 temp_streak = 0
                 prev_date = None
 
-        return Response({
-            "current_streak": current_streak,
-            "longest_streak": longest_streak,
-        })
+        return Response(
+            {
+                "current_streak": current_streak,
+                "longest_streak": longest_streak,
+            }
+        )
 
 
 class AttendanceLeaveViewSet(viewsets.ModelViewSet):
@@ -216,16 +218,15 @@ class AttendanceLeaveViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        qs = AttendanceLeave.objects.order_by("-requested_at")
         if user.role in ["school_admin", "super_admin"]:
-            return AttendanceLeave.objects.filter(student__school=user.school)
+            return qs.filter(student__school=user.school)
         if user.role == "teacher":
-            return AttendanceLeave.objects.filter(
-                student__enrollments__classroom__assignments__teacher=user
-            ).distinct()
+            return qs.filter(student__enrollments__classroom__assignments__teacher=user).distinct()
         if user.role == "student":
-            return AttendanceLeave.objects.filter(student__user=user)
+            return qs.filter(student__user=user)
         if user.role == "parent":
-            return AttendanceLeave.objects.filter(student__guardians__user=user)
+            return qs.filter(student__guardians__user=user)
         return AttendanceLeave.objects.none()
 
     @action(detail=True, methods=["post"], url_path="approve")
@@ -239,6 +240,7 @@ class AttendanceLeaveViewSet(viewsets.ModelViewSet):
 
         # Auto-update attendance records for the leave period
         from .tasks import process_approved_leave
+
         process_approved_leave.delay(leave.id)
 
         return Response({"status": "approved"})

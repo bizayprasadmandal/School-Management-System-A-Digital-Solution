@@ -1,17 +1,21 @@
 """Tests for Timetable Service — Periods, TimetableSlots, SchoolEvents."""
 
+from datetime import date
+
 import pytest
-from datetime import date, time
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.url_helpers import (
-    TIMETABLE_SLOTS, TIMETABLE_PERIODS, TIMETABLE_EVENTS,
-    TIMETABLE_WEEKLY, TIMETABLE_TEACHER_SCHEDULE,
+    TIMETABLE_EVENTS,
     TIMETABLE_EVENTS_UPCOMING,
+    TIMETABLE_PERIODS,
+    TIMETABLE_SLOTS,
+    TIMETABLE_TEACHER_SCHEDULE,
+    TIMETABLE_WEEKLY,
 )
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def api_client():
@@ -21,44 +25,53 @@ def api_client():
 @pytest.fixture
 def school(db):
     from tests.factories import SchoolFactory
+
     return SchoolFactory()
 
 
 @pytest.fixture
 def admin_user(db, school):
     from tests.factories import AdminUserFactory
+
     return AdminUserFactory(school=school)
 
 
 @pytest.fixture
 def teacher_user(db, school):
     from tests.factories import TeacherUserFactory
+
     return TeacherUserFactory(school=school)
 
 
 @pytest.fixture
 def student_user(db, school):
     from tests.factories import StudentUserFactory
+
     return StudentUserFactory(school=school)
 
 
 @pytest.fixture
 def academic_year(db, school):
     from tests.factories import AcademicYearFactory
+
     return AcademicYearFactory(school=school)
 
 
 @pytest.fixture
 def grade(db, school):
     from tests.factories import GradeFactory
+
     return GradeFactory(school=school, level=5)
 
 
 @pytest.fixture
 def classroom(db, school, grade, academic_year, teacher_user):
     from tests.factories import ClassroomFactory
+
     return ClassroomFactory(
-        school=school, grade=grade, academic_year=academic_year,
+        school=school,
+        grade=grade,
+        academic_year=academic_year,
         class_teacher=teacher_user,
     )
 
@@ -66,30 +79,39 @@ def classroom(db, school, grade, academic_year, teacher_user):
 @pytest.fixture
 def subject(db, school, grade):
     from tests.factories import SubjectFactory
+
     return SubjectFactory(school=school, grade=grade)
 
 
 @pytest.fixture
 def period(db, school):
     from tests.factories import PeriodFactory
+
     return PeriodFactory(school=school)
 
 
 @pytest.fixture
 def teacher_assignment(db, teacher_user, subject, classroom, academic_year):
     from tests.factories import TeacherAssignmentFactory
+
     return TeacherAssignmentFactory(
-        teacher=teacher_user, subject=subject,
-        classroom=classroom, academic_year=academic_year,
+        teacher=teacher_user,
+        subject=subject,
+        classroom=classroom,
+        academic_year=academic_year,
     )
 
 
 @pytest.fixture
 def timetable_slot(db, teacher_assignment, classroom, period, academic_year):
     from tests.factories import TimetableSlotFactory
+
     return TimetableSlotFactory(
-        assignment=teacher_assignment, classroom=classroom,
-        period=period, academic_year=academic_year, day_of_week=0,
+        assignment=teacher_assignment,
+        classroom=classroom,
+        period=period,
+        academic_year=academic_year,
+        day_of_week=0,
     )
 
 
@@ -113,13 +135,16 @@ def student_auth_client(api_client, student_user):
 
 # ─── Period Tests ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestPeriods:
 
     def test_admin_can_create_period(self, admin_auth_client, school):
         payload = {
-            "name": "Period 1", "period_number": 1,
-            "start_time": "08:00", "end_time": "08:45",
+            "name": "Period 1",
+            "period_number": 1,
+            "start_time": "08:00",
+            "end_time": "08:45",
         }
         response = admin_auth_client.post(TIMETABLE_PERIODS, payload, format="json")
         assert response.status_code == status.HTTP_201_CREATED
@@ -137,23 +162,27 @@ class TestPeriods:
 
     def test_period_ordered_by_period_number(self, admin_auth_client, school):
         from tests.factories import PeriodFactory
+
         PeriodFactory(school=school, period_number=2)
         PeriodFactory(school=school, period_number=1)
         response = admin_auth_client.get(TIMETABLE_PERIODS)
-        numbers = [p["period_number"] for p in response.data]
+        numbers = [p["period_number"] for p in response.data["results"]]
         assert numbers == sorted(numbers)
 
     def test_period_unique_per_number(self, admin_auth_client, period):
         """Duplicate period_number for same school should fail."""
         payload = {
-            "name": "P2", "period_number": period.period_number,
-            "start_time": "09:00", "end_time": "09:45",
+            "name": "P2",
+            "period_number": period.period_number,
+            "start_time": "09:00",
+            "end_time": "09:45",
         }
         response = admin_auth_client.post(TIMETABLE_PERIODS, payload, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 # ─── TimetableSlot Tests ──────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestTimetableSlots:
@@ -170,7 +199,9 @@ class TestTimetableSlots:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["day_of_week"] == 0
 
-    def test_student_cannot_create_slot(self, student_auth_client, teacher_assignment, classroom, period, academic_year):
+    def test_student_cannot_create_slot(
+        self, student_auth_client, teacher_assignment, classroom, period, academic_year
+    ):
         payload = {
             "classroom": classroom.id,
             "assignment": teacher_assignment.id,
@@ -184,21 +215,18 @@ class TestTimetableSlots:
     def test_list_slots(self, admin_auth_client, timetable_slot):
         response = admin_auth_client.get(TIMETABLE_SLOTS)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert response.data[0]["subject_name"] is not None
+        results = response.data["results"]
+        assert len(results) >= 1
+        assert results[0]["subject_name"] is not None
 
     def test_slot_filter_by_classroom(self, admin_auth_client, timetable_slot):
-        response = admin_auth_client.get(
-            f"{TIMETABLE_SLOTS}?classroom={timetable_slot.classroom.id}"
-        )
+        response = admin_auth_client.get(f"{TIMETABLE_SLOTS}?classroom={timetable_slot.classroom.id}")
         assert response.status_code == status.HTTP_200_OK
-        for s in response.data:
+        for s in response.data["results"]:
             assert s["classroom"] == timetable_slot.classroom.id
 
     def test_slot_filter_by_day(self, admin_auth_client, timetable_slot):
-        response = admin_auth_client.get(
-            f"{TIMETABLE_SLOTS}?day_of_week={timetable_slot.day_of_week}"
-        )
+        response = admin_auth_client.get(f"{TIMETABLE_SLOTS}?day_of_week={timetable_slot.day_of_week}")
         assert response.status_code == status.HTTP_200_OK
 
     def test_teacher_conflict_detection(self, admin_auth_client, teacher_assignment, classroom, period, academic_year):
@@ -217,7 +245,8 @@ class TestTimetableSlots:
     def test_admin_can_update_slot(self, admin_auth_client, timetable_slot):
         response = admin_auth_client.patch(
             f"{TIMETABLE_SLOTS}{timetable_slot.id}/",
-            {"day_of_week": 2}, format="json",
+            {"day_of_week": 2},
+            format="json",
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.data["day_of_week"] == 2
@@ -229,12 +258,17 @@ class TestTimetableSlots:
 
 # ─── Weekly & Teacher Schedule Tests ──────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestWeeklySchedule:
 
     def test_weekly_structure(self, admin_auth_client, timetable_slot):
         response = admin_auth_client.get(
-            f"{TIMETABLE_WEEKLY}?classroom_id={timetable_slot.classroom.id}&academic_year_id={timetable_slot.academic_year.id}"
+            TIMETABLE_WEEKLY,
+            {
+                "classroom_id": timetable_slot.classroom.id,
+                "academic_year_id": timetable_slot.academic_year.id,
+            },
         )
         assert response.status_code == status.HTTP_200_OK
         assert "Monday" in response.data
@@ -261,6 +295,7 @@ class TestWeeklySchedule:
 
 # ─── SchoolEvent Tests ────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestSchoolEvents:
 
@@ -277,7 +312,8 @@ class TestSchoolEvents:
 
     def test_student_cannot_create_event(self, student_auth_client):
         payload = {
-            "title": "Event", "event_type": "other",
+            "title": "Event",
+            "event_type": "other",
             "start_date": date.today().isoformat(),
             "end_date": date.today().isoformat(),
         }
@@ -286,14 +322,17 @@ class TestSchoolEvents:
 
     def test_list_events(self, admin_auth_client, school):
         from tests.factories import SchoolEventFactory
+
         SchoolEventFactory(school=school)
         response = admin_auth_client.get(TIMETABLE_EVENTS)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] >= 1
 
     def test_upcoming_events(self, admin_auth_client, school):
-        from tests.factories import SchoolEventFactory
         from datetime import timedelta
+
+        from tests.factories import SchoolEventFactory
+
         SchoolEventFactory(
             school=school,
             start_date=date.today() + timedelta(days=2),
@@ -309,6 +348,7 @@ class TestSchoolEvents:
 
     def test_event_filter_by_type(self, admin_auth_client, school):
         from tests.factories import SchoolEventFactory
+
         SchoolEventFactory(school=school, event_type="holiday")
         SchoolEventFactory(school=school, event_type="sports")
         response = admin_auth_client.get(f"{TIMETABLE_EVENTS}?event_type=holiday")
@@ -318,6 +358,7 @@ class TestSchoolEvents:
 
     def test_event_search(self, admin_auth_client, school):
         from tests.factories import SchoolEventFactory
+
         SchoolEventFactory(school=school, title="Independence Day Celebration")
         response = admin_auth_client.get(f"{TIMETABLE_EVENTS}?search=Independence")
         assert response.status_code == status.HTTP_200_OK
@@ -325,7 +366,8 @@ class TestSchoolEvents:
 
     def test_tenant_isolation_event(self, db):
         """School A cannot see School B events."""
-        from tests.factories import SchoolFactory, AdminUserFactory, SchoolEventFactory
+        from tests.factories import AdminUserFactory, SchoolEventFactory, SchoolFactory
+
         school_a = SchoolFactory(code="EVTA")
         school_b = SchoolFactory(code="EVTB")
         admin_a = AdminUserFactory(school=school_a)

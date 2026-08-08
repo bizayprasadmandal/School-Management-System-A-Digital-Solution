@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Incident, Referral
 
 
@@ -9,7 +10,7 @@ class IncidentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incident
         fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school", "reported_by"]
 
 
 class ReferralSerializer(serializers.ModelSerializer):
@@ -19,4 +20,4 @@ class ReferralSerializer(serializers.ModelSerializer):
     class Meta:
         model = Referral
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "referred_by"]

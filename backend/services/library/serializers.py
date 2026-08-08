@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Book, Checkout, LibrarianProfile
 
 
@@ -6,11 +7,18 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
+
+    def create(self, validated_data):
+        # New books start fully available.
+        total = validated_data.get("total_copies", validated_data.get("available_copies", 1))
+        validated_data.setdefault("available_copies", total)
+        return super().create(validated_data)
 
 
 class LibrarianProfileSerializer(serializers.ModelSerializer):
     """Full librarian profile — for admin view."""
+
     user_name = serializers.CharField(source="user.full_name", read_only=True)
 
     class Meta:
@@ -37,3 +45,9 @@ class CheckoutSerializer(serializers.ModelSerializer):
         model = Checkout
         fields = "__all__"
         read_only_fields = ["id", "checked_out_at", "fine_amount", "fine_paid"]
+
+    def validate(self, attrs):
+        book = attrs.get("book")
+        if book and book.available_copies <= 0:
+            raise serializers.ValidationError("No copies of this book are currently available.")
+        return attrs

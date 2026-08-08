@@ -20,6 +20,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "full_name": user.full_name,
             "role": user.role,
             "avatar": user.avatar.url if user.avatar else None,
+            "email_verified": user.email_verified,
             "school": (
                 {
                     "id": str(user.school.id),
@@ -38,16 +39,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class SendEmailVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField(
-        required=False, help_text="Email to verify. Defaults to the authenticated user's email if omitted."
+        required=False,
+        help_text="Email to verify. Defaults to the authenticated user's email if omitted.",
     )
 
     def validate_email(self, value):
         user = self.context["request"].user
         if value and value.lower() != user.email:
             raise serializers.ValidationError("You can only verify your own email address.")
-        if user.email_verified:
-            raise serializers.ValidationError("Email is already verified.")
         return value or user.email
+
+    def validate(self, attrs):
+        # Runs even when `email` is omitted from the payload.
+        user = self.context["request"].user
+        if user.email_verified:
+            raise serializers.ValidationError({"email": "Email is already verified."})
+        return attrs
 
 
 class ConfirmEmailVerificationSerializer(serializers.Serializer):

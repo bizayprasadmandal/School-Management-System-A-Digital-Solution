@@ -9,11 +9,22 @@ The middleware is opt-in: if the EMAIL_VERIFICATION_ENFORCED setting is not
 True, all requests pass through unchanged.
 """
 
+import json
 import logging
+
 from django.conf import settings
 from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
+
+
+class ApiJsonResponse(JsonResponse):
+    """JsonResponse with a DRF-style `.data` attribute for API consumers/tests."""
+
+    @property
+    def data(self):
+        return json.loads(self.content)
+
 
 # Endpoints that are always allowed, even when email is not verified.
 # These include the verification flow itself, auth endpoints needed to
@@ -61,6 +72,37 @@ class EmailVerificationMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    @staticmethod
+    def _resolve_user(request):
+        """
+        Django middleware runs before DRF's view-level authentication, so
+        `request.user` is still AnonymousUser for JWT clients and for test
+        clients using force_authenticate(). Resolve the actual user here:
+        first from the test client's forced user, then from the Bearer JWT.
+        """
+        from django.contrib.auth.models import AnonymousUser
+
+        # Test clients (APIClient.force_authenticate)
+        forced = getattr(request, "_force_auth_user", None)
+        if forced is not None:
+            return forced
+
+        # Production: SimpleJWT access token
+        auth = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth.startswith("Bearer "):
+            try:
+                from rest_framework_simplejwt.tokens import AccessToken
+
+                token = AccessToken(auth[7:])
+                from services.auth.models import User
+
+                user = User.objects.filter(id=token["user_id"], is_active=True).first()
+                return user or AnonymousUser()
+            except Exception:
+                return AnonymousUser()
+
+        return AnonymousUser()
+
     def __call__(self, request):
         # Quick skip: enforcement not enabled
         if not getattr(settings, "EMAIL_VERIFICATION_ENFORCED", False):
@@ -78,16 +120,19 @@ class EmailVerificationMiddleware:
 
         # Check if the user is authenticated but email is not verified
         user = getattr(request, "user", None)
+        if not (user and user.is_authenticated):
+            user = self._resolve_user(request)
         if user and user.is_authenticated and not user.email_verified:
             logger.info(
                 "Blocked request from unverified user %s to %s",
-                user.email, path,
+                user.email,
+                path,
             )
-            return JsonResponse(
+            return ApiJsonResponse(
                 {
                     "detail": "Email not verified. "
-                              "Please verify your email before accessing this resource. "
-                              "Call POST /api/v1/auth/send-verification/ to receive a verification link.",
+                    "Please verify your email before accessing this resource. "
+                    "Call POST /api/v1/auth/send-verification/ to receive a verification link.",
                     "code": "email_not_verified",
                     "email_verified": False,
                 },

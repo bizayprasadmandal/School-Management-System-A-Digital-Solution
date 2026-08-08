@@ -1,21 +1,24 @@
 """Hostel / Accommodation Management — Viewsets with school-scoped CRUD."""
 
 import logging
+
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django.utils import timezone
-from rest_framework import viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import Hostel, HostelRoom, HostelAllocation, HostelFee, HostelVisitor
+from .models import Hostel, HostelAllocation, HostelFee, HostelRoom, HostelVisitor
 from .serializers import (
-    HostelSerializer, HostelRoomSerializer, HostelAllocationSerializer,
-    HostelFeeSerializer, HostelVisitorSerializer,
+    HostelAllocationSerializer,
+    HostelFeeSerializer,
+    HostelRoomSerializer,
+    HostelSerializer,
+    HostelVisitorSerializer,
 )
-from core.permissions import IsSchoolAdmin, IsSchoolMember
-from core.pagination import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +50,11 @@ class HostelRoomViewSet(viewsets.ModelViewSet):
     filterset_fields = ["hostel", "floor", "room_type", "is_active", "has_ac"]
 
     def get_queryset(self):
-        return HostelRoom.objects.filter(
-            hostel__school=self.request.user.school
-        ).select_related("hostel").prefetch_related("allocations")
+        return (
+            HostelRoom.objects.filter(hostel__school=self.request.user.school)
+            .select_related("hostel")
+            .prefetch_related("allocations")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -64,13 +69,13 @@ class HostelAllocationViewSet(viewsets.ModelViewSet):
     serializer_class = HostelAllocationSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__full_name", "room__room_number"]
+    search_fields = ["student__user__first_name", "student__user__last_name", "room__room_number"]
     filterset_fields = ["room", "student", "status", "is_paid"]
 
     def get_queryset(self):
-        return HostelAllocation.objects.filter(
-            room__hostel__school=self.request.user.school
-        ).select_related("student__user", "room__hostel", "allocated_by")
+        return HostelAllocation.objects.filter(room__hostel__school=self.request.user.school).select_related(
+            "student__user", "room__hostel", "allocated_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -119,9 +124,9 @@ class HostelVisitorViewSet(viewsets.ModelViewSet):
     filterset_fields = ["hostel", "student_visited"]
 
     def get_queryset(self):
-        return HostelVisitor.objects.filter(
-            hostel__school=self.request.user.school
-        ).select_related("hostel", "student_visited__user", "checked_in_by")
+        return HostelVisitor.objects.filter(hostel__school=self.request.user.school).select_related(
+            "hostel", "student_visited__user", "checked_in_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

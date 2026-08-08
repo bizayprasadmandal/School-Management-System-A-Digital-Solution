@@ -2,23 +2,34 @@
 Timetable Service — Views and serializers for schedule management
 """
 
-from rest_framework import viewsets, status, serializers, filters
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import TimetableSlot, Period, SchoolEvent
-from core.permissions import IsSchoolMember, IsSchoolAdmin
-from core.pagination import StandardResultsSetPagination
-
+from .models import Period, SchoolEvent, TimetableSlot
 
 # ─── Serializers ──────────────────────────────────────────────────────────────
+
 
 class PeriodSerializer(serializers.ModelSerializer):
     class Meta:
         model = Period
         fields = ["id", "name", "period_number", "start_time", "end_time", "is_break"]
+
+    def validate_period_number(self, value):
+        request = self.context.get("request")
+        if request and getattr(request, "user", None) and request.user.is_authenticated:
+            school = request.user.school
+            qs = Period.objects.filter(school=school, period_number=value)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(f"A period with number {value} already exists for this school.")
+        return value
 
 
 class TimetableSlotSerializer(serializers.ModelSerializer):
@@ -34,10 +45,21 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimetableSlot
         fields = [
-            "id", "classroom", "classroom_name", "assignment",
-            "subject_name", "subject_code", "teacher_name",
-            "period", "period_name", "start_time", "end_time",
-            "day_of_week", "day_name", "room", "academic_year",
+            "id",
+            "classroom",
+            "classroom_name",
+            "assignment",
+            "subject_name",
+            "subject_code",
+            "teacher_name",
+            "period",
+            "period_name",
+            "start_time",
+            "end_time",
+            "day_of_week",
+            "day_name",
+            "room",
+            "academic_year",
         ]
 
     def get_classroom_name(self, obj):
@@ -47,11 +69,15 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
         return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
 
     def validate(self, attrs):
-        # Conflict detection: teacher double-booking
-        teacher = attrs["assignment"].teacher
-        day = attrs["day_of_week"]
-        period = attrs["period"]
-        academic_year = attrs["academic_year"]
+        # Conflict detection: teacher double-booking.
+        # Use instance values for fields not present in a PATCH payload.
+        assignment = attrs.get("assignment") or getattr(self.instance, "assignment", None)
+        if assignment is None:
+            return attrs
+        teacher = assignment.teacher
+        day = attrs.get("day_of_week", getattr(self.instance, "day_of_week", None))
+        period = attrs.get("period", getattr(self.instance, "period", None))
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
         existing = TimetableSlot.objects.filter(
             assignment__teacher=teacher,
             day_of_week=day,
@@ -70,14 +96,24 @@ class SchoolEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolEvent
         fields = [
-            "id", "title", "description", "event_type",
-            "start_date", "end_date", "start_time", "end_time",
-            "venue", "is_school_wide", "target_grades", "created_at",
+            "id",
+            "title",
+            "description",
+            "event_type",
+            "start_date",
+            "end_date",
+            "start_time",
+            "end_time",
+            "venue",
+            "is_school_wide",
+            "target_grades",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 # ─── Views ────────────────────────────────────────────────────────────────────
+
 
 class PeriodViewSet(viewsets.ModelViewSet):
     serializer_class = PeriodSerializer
@@ -101,11 +137,12 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = TimetableSlot.objects.filter(
-            classroom__school=user.school
-        ).select_related(
-            "assignment__teacher", "assignment__subject",
-            "classroom__grade", "period", "academic_year",
+        qs = TimetableSlot.objects.filter(classroom__school=user.school).select_related(
+            "assignment__teacher",
+            "assignment__subject",
+            "classroom__grade",
+            "period",
+            "academic_year",
         )
         if user.role == "teacher":
             qs = qs.filter(assignment__teacher=user)
@@ -133,10 +170,7 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
         for slot in qs.order_by("day_of_week", "period__period_number"):
             week[slot.day_of_week].append(TimetableSlotSerializer(slot).data)
 
-        return Response({
-            dict(TimetableSlot.DAYS_OF_WEEK)[day]: slots
-            for day, slots in week.items()
-        })
+        return Response({dict(TimetableSlot.DAYS_OF_WEEK)[day]: slots for day, slots in week.items()})
 
     @action(detail=False, methods=["get"], url_path="teacher-schedule")
     def teacher_schedule(self, request):
@@ -160,9 +194,7 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
     ordering = ["start_date"]
 
     def get_queryset(self):
-        return SchoolEvent.objects.filter(
-            school=self.request.user.school
-        ).prefetch_related("target_grades")
+        return SchoolEvent.objects.filter(school=self.request.user.school).prefetch_related("target_grades")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -178,5 +210,6 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="upcoming")
     def upcoming(self, request):
         from django.utils import timezone
+
         qs = self.get_queryset().filter(start_date__gte=timezone.now().date())[:10]
         return Response(SchoolEventSerializer(qs, many=True).data)

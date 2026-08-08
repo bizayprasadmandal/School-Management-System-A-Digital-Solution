@@ -7,6 +7,7 @@ from decimal import Decimal
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django.db import transaction as db_transaction
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -127,7 +128,12 @@ class StockMovementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolAdmin()]
 
     def perform_create(self, serializer):
-        serializer.save()
+        movement = serializer.save()
+        # Keep the item's stock in sync with the recorded movement.
+        # quantity is positive for inbound, negative for outbound.
+        item = movement.item
+        item.current_stock = max(0, item.current_stock + movement.quantity)
+        item.save(update_fields=["current_stock"])
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
@@ -150,10 +156,19 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        # `items_data` is consumed by this view (line items), not a serializer
+        # field, so strip it before validation to avoid an unknown-field error.
+        data = request.data.copy()
+        raw_items = data.pop("items_data", "[]")
+        # Auto-generate a unique order number when the client omits one.
+        if not data.get("order_number"):
+            today = timezone.localdate()
+            prefix = f"PO-{today:%Y%m%d}-"
+            seq = PurchaseOrder.objects.filter(order_number__startswith=prefix).count() + 1
+            data["order_number"] = f"{prefix}{seq:04d}"
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        raw_items = request.data.get("items_data", "[]")
         if isinstance(raw_items, str):
             try:
                 items_data = json.loads(raw_items)
@@ -251,9 +266,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 inv_item.current_stock += qty
                 inv_item.save(update_fields=["current_stock"])
 
-            # Update PO status
-            all_received = all(pi.quantity_received >= pi.quantity_ordered for pi in po.items.all())
-            any_received = any(pi.quantity_received > 0 for pi in po.items.all())
+            # Update PO status. Use a fresh query: `po.items` may have been
+            # prefetched before the loop, so the in-memory cache holds stale
+            # quantity_received values.
+            received_pairs = po.items.values_list("quantity_received", "quantity_ordered")
+            all_received = all(r >= o for r, o in received_pairs)
+            any_received = any(r > 0 for r, _ in received_pairs)
             if all_received:
                 po.status = PurchaseOrder.Status.RECEIVED
             elif any_received:

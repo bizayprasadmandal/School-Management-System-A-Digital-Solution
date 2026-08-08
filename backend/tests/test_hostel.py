@@ -1,8 +1,8 @@
 """Tests for Hostel Service — Hostel, HostelRoom, HostelAllocation, HostelFee, HostelVisitor."""
 
+from datetime import date
+
 import pytest
-from datetime import date, timedelta
-from decimal import Decimal
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.url_helpers import API_PREFIX
@@ -17,12 +17,14 @@ HOSTEL_VISITORS = f"{API_PREFIX}/hostel/visitors/"
 @pytest.fixture
 def school(db):
     from tests.factories import SchoolFactory
+
     return SchoolFactory()
 
 
 @pytest.fixture
 def admin(db, school):
     from tests.factories import AdminUserFactory
+
     return AdminUserFactory(school=school)
 
 
@@ -49,24 +51,21 @@ class TestHostels:
 
     def test_list_hostels(self, admin_client, school):
         from services.hostel.models import Hostel
-        Hostel.objects.create(
-            school=school, name="Girls Hostel B",
-            total_rooms=15, capacity_per_room=2,
-        )
+
+        Hostel.objects.create(school=school, name="Girls Hostel B")
         r = admin_client.get(HOSTEL_HOSTELS)
         assert r.status_code == status.HTTP_200_OK
         assert r.data["count"] >= 1
 
     def test_tenant_isolation_hostel(self, db):
-        from tests.factories import SchoolFactory, AdminUserFactory
+        from tests.factories import AdminUserFactory, SchoolFactory
+
         school_a = SchoolFactory(code="HSTA")
         school_b = SchoolFactory(code="HSTB")
         admin_a = AdminUserFactory(school=school_a)
         from services.hostel.models import Hostel
-        Hostel.objects.create(
-            school=school_b, name="Secret Hostel",
-            total_rooms=10, capacity_per_room=3,
-        )
+
+        Hostel.objects.create(school=school_b, name="Secret Hostel")
         client = APIClient()
         client.force_authenticate(user=admin_a)
         r = client.get(HOSTEL_HOSTELS)
@@ -79,10 +78,8 @@ class TestHostelRooms:
 
     def test_create_room(self, admin_client, school):
         from services.hostel.models import Hostel
-        hostel = Hostel.objects.create(
-            school=school, name="Hostel A",
-            total_rooms=10, capacity_per_room=4,
-        )
+
+        hostel = Hostel.objects.create(school=school, name="Hostel A")
         payload = {
             "hostel": hostel.id,
             "room_number": "101",
@@ -101,14 +98,13 @@ class TestHostelAllocations:
     def test_create_allocation(self, admin_client, school):
         from services.hostel.models import Hostel, HostelRoom
         from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
-        hostel = Hostel.objects.create(
-            school=school, name="Hostel A",
-            total_rooms=10, capacity_per_room=4,
-        )
+        hostel = Hostel.objects.create(school=school, name="Hostel A")
         room = HostelRoom.objects.create(
-            hostel=hostel, room_number="101",
-            capacity=4, occupied_beds=0,
+            hostel=hostel,
+            room_number="101",
+            capacity=4,
         )
         payload = {
             "student": pupil.id,
@@ -119,40 +115,42 @@ class TestHostelAllocations:
         assert r.status_code == status.HTTP_201_CREATED
 
     def test_checkout_updates_occupied_beds(self, admin_client, school):
-        from services.hostel.models import Hostel, HostelRoom, HostelAllocation
+        from services.hostel.models import Hostel, HostelAllocation, HostelRoom
         from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
-        hostel = Hostel.objects.create(
-            school=school, name="Hostel A",
-            total_rooms=10, capacity_per_room=4,
-        )
+        hostel = Hostel.objects.create(school=school, name="Hostel A")
         room = HostelRoom.objects.create(
-            hostel=hostel, room_number="101",
-            capacity=4, occupied_beds=1,
+            hostel=hostel,
+            room_number="101",
+            capacity=4,
         )
         alloc = HostelAllocation.objects.create(
-            school=school, student=pupil, room=room,
-            check_in_date=date.today(), is_active=True,
+            student=pupil,
+            room=room,
+            check_in_date=date.today(),
         )
         r = admin_client.post(f"{HOSTEL_ALLOCATIONS}{alloc.id}/checkout/")
         assert r.status_code == status.HTTP_200_OK
         room.refresh_from_db()
         assert room.occupied_beds == 0
         alloc.refresh_from_db()
-        assert alloc.is_active is False
+        assert alloc.status == "checked_out"
 
 
 @pytest.mark.django_db
 class TestHostelFees:
 
     def test_create_fee(self, admin_client, school):
-        from tests.factories import StudentFactory
-        pupil = StudentFactory(school=school)
+        from services.hostel.models import Hostel
+
+        hostel = Hostel.objects.create(school=school, name="Hostel A")
         payload = {
-            "student": pupil.id,
+            "hostel": hostel.id,
+            "name": "Monthly Hostel Fee",
             "amount": "500.00",
-            "due_date": (date.today() + timedelta(days=30)).isoformat(),
-            "fee_type": "monthly",
+            "billing_cycle": "monthly",
+            "room_type": "double",
         }
         r = admin_client.post(HOSTEL_FEES, payload, format="json")
         assert r.status_code == status.HTTP_201_CREATED
@@ -163,24 +161,18 @@ class TestHostelFees:
 class TestHostelVisitors:
 
     def test_create_visitor(self, admin_client, school):
-        from services.hostel.models import Hostel, HostelRoom, HostelAllocation
+        from services.hostel.models import Hostel
         from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
-        hostel = Hostel.objects.create(
-            school=school, name="Hostel A",
-            total_rooms=10, capacity_per_room=4,
-        )
-        room = HostelRoom.objects.create(hostel=hostel, room_number="101", capacity=4)
-        alloc = HostelAllocation.objects.create(
-            school=school, student=pupil, room=room,
-            check_in_date=date.today(), is_active=True,
-        )
+        hostel = Hostel.objects.create(school=school, name="Hostel A")
         payload = {
-            "allocation": alloc.id,
+            "hostel": hostel.id,
             "visitor_name": "Parent Name",
-            "visitor_phone": "+1234567890",
+            "phone": "+1234567890",
+            "student_visited": pupil.id,
             "relationship": "father",
-            "check_in_time": "10:00",
+            "in_time": "2026-08-08T10:00:00Z",
             "purpose": "Visit",
         }
         r = admin_client.post(HOSTEL_VISITORS, payload, format="json")

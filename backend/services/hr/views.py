@@ -1,22 +1,25 @@
 """HR & Payroll — Viewsets with school-scoped CRUD and payroll actions."""
 
 import logging
-from decimal import Decimal
+
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django.utils import timezone
-from rest_framework import viewsets, status, generics
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import Department, Employee, SalaryStructure, EmployeeSalary, Payslip, LeaveRequest
+from .models import Department, Employee, EmployeeSalary, LeaveRequest, Payslip, SalaryStructure
 from .serializers import (
-    DepartmentSerializer, EmployeeSerializer, SalaryStructureSerializer,
-    EmployeeSalarySerializer, PayslipSerializer, LeaveRequestSerializer,
+    DepartmentSerializer,
+    EmployeeSalarySerializer,
+    EmployeeSerializer,
+    LeaveRequestSerializer,
+    PayslipSerializer,
+    SalaryStructureSerializer,
 )
-from core.permissions import IsSchoolAdmin, IsSchoolMember
-from core.pagination import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +47,23 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["user__full_name", "employee_id", "designation", "user__email"]
+    search_fields = [
+        "user__first_name",
+        "user__last_name",
+        "employee_id",
+        "designation",
+        "user__email",
+    ]
     filterset_fields = ["department", "status", "employment_type"]
     ordering_fields = ["joining_date", "employee_id"]
     ordering = ["employee_id"]
 
     def get_queryset(self):
-        return Employee.objects.filter(
-            school=self.request.user.school
-        ).select_related("user", "department").prefetch_related("salaries")
+        return (
+            Employee.objects.filter(school=self.request.user.school)
+            .select_related("user", "department")
+            .prefetch_related("salaries")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -84,17 +95,21 @@ class SalaryStructureViewSet(viewsets.ModelViewSet):
 
 class AccountantProfileView(generics.RetrieveUpdateAPIView):
     """Get/update the authenticated accountant's own profile."""
+
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         if self.request.method in ("PATCH", "PUT"):
             from .serializers import AccountantSelfProfileSerializer
+
             return AccountantSelfProfileSerializer
         from .serializers import AccountantProfileSerializer
+
         return AccountantProfileSerializer
 
     def get_object(self):
         from .models import AccountantProfile
+
         profile, _ = AccountantProfile.objects.get_or_create(
             user=self.request.user,
             school=self.request.user.school,
@@ -109,9 +124,9 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
     filterset_fields = ["employee", "is_active"]
 
     def get_queryset(self):
-        return EmployeeSalary.objects.filter(
-            employee__school=self.request.user.school
-        ).select_related("employee__user", "structure")
+        return EmployeeSalary.objects.filter(employee__school=self.request.user.school).select_related(
+            "employee__user", "structure"
+        )
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
@@ -130,6 +145,7 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
             return Response({"error": "period_start and period_end are required"}, status=400)
 
         from django.db import transaction
+
         with transaction.atomic():
             payslip, created = Payslip.objects.get_or_create(
                 school=employee.school,
@@ -162,9 +178,9 @@ class PayslipViewSet(viewsets.ModelViewSet):
     ordering = ["-period_start"]
 
     def get_queryset(self):
-        return Payslip.objects.filter(
-            school=self.request.user.school
-        ).select_related("employee__user", "employee__department")
+        return Payslip.objects.filter(school=self.request.user.school).select_related(
+            "employee__user", "employee__department"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -201,13 +217,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["employee__user__full_name", "reason"]
+    search_fields = ["employee__user__first_name", "employee__user__last_name", "reason"]
     filterset_fields = ["employee", "leave_type", "status"]
 
     def get_queryset(self):
-        return LeaveRequest.objects.filter(
-            school=self.request.user.school
-        ).select_related("employee__user", "reviewed_by")
+        return LeaveRequest.objects.filter(school=self.request.user.school).select_related(
+            "employee__user", "reviewed_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

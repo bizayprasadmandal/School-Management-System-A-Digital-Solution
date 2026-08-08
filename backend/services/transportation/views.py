@@ -1,20 +1,22 @@
 """Transportation Management — Viewsets with school-scoped CRUD."""
 
 import logging
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import Vehicle, Driver, Route, RouteStop, StudentRoute, VehicleMaintenance
-from .serializers import (
-    VehicleSerializer, DriverSerializer, RouteSerializer, RouteStopDetailSerializer,
-    StudentRouteSerializer, VehicleMaintenanceSerializer,
-)
-from core.permissions import IsSchoolAdmin, IsSchoolMember
 from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, viewsets
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Driver, Route, RouteStop, StudentRoute, Vehicle, VehicleMaintenance
+from .serializers import (
+    DriverSerializer,
+    RouteSerializer,
+    RouteStopDetailSerializer,
+    StudentRouteSerializer,
+    VehicleMaintenanceSerializer,
+    VehicleSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +50,7 @@ class DriverViewSet(viewsets.ModelViewSet):
     filterset_fields = ["status"]
 
     def get_queryset(self):
-        return Driver.objects.filter(school=self.request.user.school).select_related(
-            "employee__user", "user"
-        )
+        return Driver.objects.filter(school=self.request.user.school).select_related("employee__user", "user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -69,9 +69,11 @@ class RouteViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active", "vehicle", "driver"]
 
     def get_queryset(self):
-        return Route.objects.filter(
-            school=self.request.user.school
-        ).select_related("vehicle", "driver").prefetch_related("stops")
+        return (
+            Route.objects.filter(school=self.request.user.school)
+            .select_related("vehicle", "driver")
+            .prefetch_related("stops")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -101,13 +103,13 @@ class StudentRouteViewSet(viewsets.ModelViewSet):
     serializer_class = StudentRouteSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__full_name", "route__name"]
+    search_fields = ["student__user__first_name", "student__user__last_name", "route__name"]
     filterset_fields = ["route", "student", "is_active"]
 
     def get_queryset(self):
-        return StudentRoute.objects.filter(
-            route__school=self.request.user.school
-        ).select_related("route", "student__user", "pickup_stop", "dropoff_stop")
+        return StudentRoute.objects.filter(route__school=self.request.user.school).select_related(
+            "route", "student__user", "pickup_stop", "dropoff_stop"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -126,9 +128,9 @@ class VehicleMaintenanceViewSet(viewsets.ModelViewSet):
     filterset_fields = ["vehicle", "maintenance_type", "status"]
 
     def get_queryset(self):
-        return VehicleMaintenance.objects.filter(
-            vehicle__school=self.request.user.school
-        ).select_related("vehicle", "performed_by")
+        return VehicleMaintenance.objects.filter(vehicle__school=self.request.user.school).select_related(
+            "vehicle", "performed_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

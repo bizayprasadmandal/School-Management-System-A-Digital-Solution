@@ -13,19 +13,17 @@ from django.core import mail
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
-
 from services.auth.models import EmailVerificationToken
 from tests.factories import SchoolFactory, UserFactory
 from tests.url_helpers import (
+    AUTH_CONFIRM_VERIFICATION,
     AUTH_LOGIN,
     AUTH_ME,
-    AUTH_SEND_VERIFICATION,
-    AUTH_CONFIRM_VERIFICATION,
     AUTH_PASSWORD_RESET,
     AUTH_PASSWORD_RESET_CONFIRM,
+    AUTH_SEND_VERIFICATION,
     STUDENTS_LIST,
 )
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -48,11 +46,12 @@ def unverified_user(db, school):
 
 @pytest.fixture
 def verified_user(db, school):
-    """User with email_verified=True (default from factory)."""
+    """User with email_verified=True."""
     return UserFactory(
         school=school,
         email="verified@school.edu",
         role="student",
+        email_verified=True,
     )
 
 
@@ -108,9 +107,7 @@ class TestSendVerificationEmail:
         assert user.email in mail.outbox[0].body
 
         # Check token was created in DB
-        token_count = EmailVerificationToken.objects.filter(
-            user=user, used=False
-        ).count()
+        token_count = EmailVerificationToken.objects.filter(user=user, used=False).count()
         assert token_count == 1
 
         # Verify the email body contains the token
@@ -167,20 +164,22 @@ class TestSendVerificationEmail:
         """Custom verification base URL is used in the email."""
         client, user = unverified_client
         custom_url = "https://myapp.com/auth"
-        r = client.post(AUTH_SEND_VERIFICATION, {
-            "verification_base_url": custom_url,
-        })
+        r = client.post(
+            AUTH_SEND_VERIFICATION,
+            {
+                "verification_base_url": custom_url,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert custom_url in mail.outbox[0].body
 
     def test_send_audit_log_created(self, unverified_client):
         """An audit log entry is created for the send action."""
         from services.auth.models import AuditLog
+
         client, user = unverified_client
         client.post(AUTH_SEND_VERIFICATION)
-        assert AuditLog.objects.filter(
-            user=user, action="send_verification_email"
-        ).exists()
+        assert AuditLog.objects.filter(user=user, action="send_verification_email").exists()
 
 
 # ─── Confirm Email Verification Tests ─────────────────────────────────────────
@@ -215,9 +214,12 @@ class TestConfirmEmailVerification:
     def test_confirm_invalid_token(self, unverified_client):
         """Non-existent token returns 400."""
         client, user = unverified_client
-        r = client.post(AUTH_CONFIRM_VERIFICATION, {
-            "token": "totally-fake-token-that-does-not-exist",
-        })
+        r = client.post(
+            AUTH_CONFIRM_VERIFICATION,
+            {
+                "token": "totally-fake-token-that-does-not-exist",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r.data["detail"]
 
@@ -277,12 +279,11 @@ class TestConfirmEmailVerification:
     def test_confirm_audit_log_created(self, unverified_client):
         """An audit log entry is created for the confirm action."""
         from services.auth.models import AuditLog
+
         client, user = unverified_client
         token = _create_verification_token(user)
         client.post(AUTH_CONFIRM_VERIFICATION, {"token": token.token})
-        assert AuditLog.objects.filter(
-            user=user, action="confirm_email_verification"
-        ).exists()
+        assert AuditLog.objects.filter(user=user, action="confirm_email_verification").exists()
 
     def test_confirm_after_email_already_verified(self, unverified_client):
         """Confirming after already being verified still succeeds (idempotent token usage)."""
@@ -481,6 +482,7 @@ class TestPasswordResetAndEmailVerification:
     def reset_user(self, db, school):
         """A user who will request a password reset."""
         from tests.factories import UserFactory
+
         return UserFactory(
             school=school,
             email="reset-test@school.edu",
@@ -495,7 +497,9 @@ class TestPasswordResetAndEmailVerification:
     def _create_reset_token(self, user):
         """Helper: create a valid password reset token directly in the DB."""
         import secrets
+
         from services.auth.models import PasswordResetToken
+
         token_str = secrets.token_urlsafe(48)
         return PasswordResetToken.objects.create(
             user=user,
@@ -517,6 +521,7 @@ class TestPasswordResetAndEmailVerification:
 
         # Verify a PasswordResetToken was created
         from services.auth.models import PasswordResetToken
+
         assert PasswordResetToken.objects.filter(user=reset_user, used=False).exists()
 
     def test_unverified_user_can_confirm_password_reset(self, api_client, reset_user):
@@ -527,10 +532,13 @@ class TestPasswordResetAndEmailVerification:
         token = self._create_reset_token(reset_user)
         new_password = "NewStrongPass@789"
 
-        r = api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": token.token,
-            "new_password": new_password,
-        })
+        r = api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": token.token,
+                "new_password": new_password,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "reset successfully" in r.data["detail"].lower()
 
@@ -545,9 +553,7 @@ class TestPasswordResetAndEmailVerification:
         # Email should still be unverified (password reset doesn't affect this)
         assert reset_user.email_verified is False
 
-    def test_unverified_user_can_login_with_new_password_after_reset(
-        self, api_client, reset_user
-    ):
+    def test_unverified_user_can_login_with_new_password_after_reset(self, api_client, reset_user):
         """
         After resetting their password, an unverified user can log in
         with the new credentials (email_verified is not required for login).
@@ -556,16 +562,22 @@ class TestPasswordResetAndEmailVerification:
         new_password = "AfterResetPass@456"
 
         # Confirm reset
-        api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": token.token,
-            "new_password": new_password,
-        })
+        api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": token.token,
+                "new_password": new_password,
+            },
+        )
 
         # Login with new password
-        r = api_client.post(AUTH_LOGIN, {
-            "email": reset_user.email,
-            "password": new_password,
-        })
+        r = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": reset_user.email,
+                "password": new_password,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
         assert r.data["user"]["email_verified"] is False
@@ -575,17 +587,23 @@ class TestPasswordResetAndEmailVerification:
         token = self._create_reset_token(reset_user)
 
         # First use — should succeed
-        r1 = api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": token.token,
-            "new_password": "NewPassAfterUse@123",
-        })
+        r1 = api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": token.token,
+                "new_password": "NewPassAfterUse@123",
+            },
+        )
         assert r1.status_code == status.HTTP_200_OK
 
         # Second use with same token — should fail
-        r2 = api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": token.token,
-            "new_password": "AnotherPass@456",
-        })
+        r2 = api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": token.token,
+                "new_password": "AnotherPass@456",
+            },
+        )
         assert r2.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r2.data["detail"]
 
@@ -593,7 +611,9 @@ class TestPasswordResetAndEmailVerification:
         """An expired password reset token is rejected."""
         # Create a token that expired 1 hour ago
         import secrets
+
         from services.auth.models import PasswordResetToken
+
         expired_token = PasswordResetToken.objects.create(
             user=reset_user,
             token=secrets.token_urlsafe(48),
@@ -601,27 +621,32 @@ class TestPasswordResetAndEmailVerification:
             used=False,
         )
 
-        r = api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": expired_token.token,
-            "new_password": "ExpiredPass@789",
-        })
+        r = api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": expired_token.token,
+                "new_password": "ExpiredPass@789",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "expired" in r.data["detail"].lower()
 
-    def test_password_reset_request_returns_success_for_unknown_email(
-        self, api_client
-    ):
+    def test_password_reset_request_returns_success_for_unknown_email(self, api_client):
         """
         Requesting a password reset for an unknown email returns the same
         success message (don't reveal if the email exists).
         """
-        r = api_client.post(AUTH_PASSWORD_RESET, {
-            "email": "nonexistent-unknown@school.edu",
-        })
+        r = api_client.post(
+            AUTH_PASSWORD_RESET,
+            {
+                "email": "nonexistent-unknown@school.edu",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "reset link" in r.data["detail"].lower()
         # No token should be created
         from services.auth.models import PasswordResetToken
+
         assert PasswordResetToken.objects.count() == 0
 
     def test_password_reset_allowed_when_middleware_enforced(self, api_client, reset_user):
@@ -635,21 +660,23 @@ class TestPasswordResetAndEmailVerification:
         token = self._create_reset_token(reset_user)
 
         with override_settings(EMAIL_VERIFICATION_ENFORCED=True):
-            # Request reset — should work
-            r_req = self._request_reset(api_client, reset_user.email)
-            assert r_req.status_code == status.HTTP_200_OK
-
-            # Confirm reset — should work
-            r_conf = api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-                "token": token.token,
-                "new_password": "MiddlewarePass@123",
-            })
+            # Confirm reset first — requesting a new reset below invalidates
+            # this token (the request view marks all unused tokens as used).
+            r_conf = api_client.post(
+                AUTH_PASSWORD_RESET_CONFIRM,
+                {
+                    "token": token.token,
+                    "new_password": "MiddlewarePass@123",
+                },
+            )
             assert r_conf.status_code == status.HTTP_200_OK
             assert "reset successfully" in r_conf.data["detail"].lower()
 
-    def test_password_reset_does_not_affect_email_verified_status(
-        self, api_client, reset_user
-    ):
+            # Request reset — should also work
+            r_req = self._request_reset(api_client, reset_user.email)
+            assert r_req.status_code == status.HTTP_200_OK
+
+    def test_password_reset_does_not_affect_email_verified_status(self, api_client, reset_user):
         """
         After a password reset, the user's email_verified field remains
         unchanged (false in this case). Password reset is a separate concern.
@@ -657,17 +684,18 @@ class TestPasswordResetAndEmailVerification:
         assert reset_user.email_verified is False
 
         token = self._create_reset_token(reset_user)
-        api_client.post(AUTH_PASSWORD_RESET_CONFIRM, {
-            "token": token.token,
-            "new_password": "NewPassKeepStatus@789",
-        })
+        api_client.post(
+            AUTH_PASSWORD_RESET_CONFIRM,
+            {
+                "token": token.token,
+                "new_password": "NewPassKeepStatus@789",
+            },
+        )
 
         reset_user.refresh_from_db()
         assert reset_user.email_verified is False  # Unchanged
 
-    def test_request_reset_with_unverified_email_and_verification_pending(
-        self, api_client, unverified_user
-    ):
+    def test_request_reset_with_unverified_email_and_verification_pending(self, api_client, unverified_user):
         """
         An unverified user with a pending email verification token
         can still request a password reset (no conflict between the
@@ -681,6 +709,4 @@ class TestPasswordResetAndEmailVerification:
         assert r.status_code == status.HTTP_200_OK
 
         # Email verification token should still be valid (not affected)
-        assert EmailVerificationToken.objects.filter(
-            user=unverified_user, used=False
-        ).count() == 1
+        assert EmailVerificationToken.objects.filter(user=unverified_user, used=False).count() == 1
