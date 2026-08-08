@@ -16,6 +16,12 @@ useDefault = true
 
 [allowlist]
   description = "Intentionally committed dev/demo credentials, placeholders, and test fixtures"
+  # The initial commit documented kubectl secret syntax using AWS's PUBLIC
+  # example keys (AKIAIOSFODNN7EXAMPLE / wJalrXUtnFEMI...), not real
+  # credentials. Already replaced with <...> placeholders in the working tree.
+  commits = [
+    '''9a48684a258a07830c3db5199fdd0c16a84e35bf''',
+  ]
   paths = [
     '''docker-compose\.yml''',
     '''docker-compose\.prod\.yml''',
