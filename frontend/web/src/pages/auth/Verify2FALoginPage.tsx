@@ -32,14 +32,14 @@ import type { User } from "../../types";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROLE_ROUTES: Record<string, string> = {
-  super_admin:  "/admin",
+  super_admin: "/admin",
   school_admin: "/admin",
-  accountant:   "/admin",
-  teacher:      "/teacher",
-  student:      "/student",
-  parent:       "/parent",
-  librarian:    "/admin",
-  counselor:    "/admin",
+  accountant: "/admin",
+  teacher: "/teacher",
+  student: "/student",
+  parent: "/parent",
+  librarian: "/admin",
+  counselor: "/admin",
 };
 
 type AuthMode = "totp" | "backup";
@@ -101,7 +101,7 @@ export default function Verify2FALoginPage() {
       toast.success(`Welcome back, ${response.user.first_name}!`);
       navigate(route, { replace: true });
     },
-    [setAuth, navigate, queryClient]
+    [setAuth, navigate, queryClient],
   );
 
   // ── Verify TOTP code ─────────────────────────────────────────────────────
@@ -278,7 +278,10 @@ export default function Verify2FALoginPage() {
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
             {userEmail ? (
-              <>Enter the verification code for <span className="font-medium text-slate-700 dark:text-slate-300">{userEmail}</span></>
+              <>
+                Enter the verification code for{" "}
+                <span className="font-medium text-slate-700 dark:text-slate-300">{userEmail}</span>
+              </>
             ) : (
               "Enter your verification code"
             )}
@@ -293,7 +296,7 @@ export default function Verify2FALoginPage() {
                 "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                 authMode === "totp"
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300",
               )}
             >
               Authenticator app
@@ -305,7 +308,7 @@ export default function Verify2FALoginPage() {
                 "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                 authMode === "backup"
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300",
               )}
             >
               Backup code
@@ -319,7 +322,7 @@ export default function Verify2FALoginPage() {
                 "rounded-xl border px-4 py-3 mb-4",
                 lockoutInfo.type === "lockout"
                   ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/40"
-                  : "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50"
+                  : "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50",
               )}
             >
               <div className="flex items-start gap-2.5">
@@ -328,7 +331,7 @@ export default function Verify2FALoginPage() {
                     "h-5 w-5 shrink-0 mt-0.5",
                     lockoutInfo.type === "lockout"
                       ? "text-red-500 dark:text-red-400"
-                      : "text-amber-500 dark:text-amber-400"
+                      : "text-amber-500 dark:text-amber-400",
                   )}
                 />
                 <div className="flex-1 min-w-0">
@@ -337,19 +340,21 @@ export default function Verify2FALoginPage() {
                       "text-sm font-semibold",
                       lockoutInfo.type === "lockout"
                         ? "text-red-800 dark:text-red-300"
-                        : "text-amber-800 dark:text-amber-300"
+                        : "text-amber-800 dark:text-amber-300",
                     )}
                   >
                     {lockoutInfo.type === "lockout"
                       ? "Access temporarily locked"
-                      : `Warning: ${lockoutInfo.remaining} attempt${lockoutInfo.remaining === 1 ? "" : "s"} remaining`}
+                      : `Warning: ${lockoutInfo.remaining} attempt${
+                          lockoutInfo.remaining === 1 ? "" : "s"
+                        } remaining`}
                   </p>
                   <p
                     className={clsx(
                       "text-xs mt-1",
                       lockoutInfo.type === "lockout"
                         ? "text-red-700 dark:text-red-400/80"
-                        : "text-amber-700 dark:text-amber-400/80"
+                        : "text-amber-700 dark:text-amber-400/80",
                     )}
                   >
                     {lockoutInfo.message}
@@ -375,7 +380,9 @@ export default function Verify2FALoginPage() {
                 {code.map((digit, i) => (
                   <input
                     key={i}
-                    ref={(el) => { codeInputRefs.current[i] = el; }}
+                    ref={(el) => {
+                      codeInputRefs.current[i] = el;
+                    }}
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -390,7 +397,7 @@ export default function Verify2FALoginPage() {
                       errorMsg
                         ? "border-red-300 focus:ring-red-400"
                         : "border-slate-300 dark:border-slate-600 focus:ring-indigo-500 focus:border-indigo-400",
-                      digit ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : ""
+                      digit ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : "",
                     )}
                     aria-label={`Digit ${i + 1}`}
                   />
@@ -413,8 +420,19 @@ export default function Verify2FALoginPage() {
                 {isSubmitting ? (
                   <>
                     <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Verifying…
                   </>
@@ -438,7 +456,7 @@ export default function Verify2FALoginPage() {
                     "flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 mb-4",
                     backupCodesRemaining <= 2
                       ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50"
-                      : "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700/50"
+                      : "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700/50",
                   )}
                 >
                   <KeyIcon
@@ -446,7 +464,7 @@ export default function Verify2FALoginPage() {
                       "h-4 w-4",
                       backupCodesRemaining <= 2
                         ? "text-amber-500 dark:text-amber-400"
-                        : "text-emerald-500 dark:text-emerald-400"
+                        : "text-emerald-500 dark:text-emerald-400",
                     )}
                   />
                   <span
@@ -454,10 +472,11 @@ export default function Verify2FALoginPage() {
                       "text-sm font-semibold",
                       backupCodesRemaining <= 2
                         ? "text-amber-800 dark:text-amber-300"
-                        : "text-emerald-800 dark:text-emerald-300"
+                        : "text-emerald-800 dark:text-emerald-300",
                     )}
                   >
-                    {backupCodesRemaining} backup code{backupCodesRemaining === 1 ? "" : "s"} remaining
+                    {backupCodesRemaining} backup code{backupCodesRemaining === 1 ? "" : "s"}{" "}
+                    remaining
                   </span>
                 </div>
               )}
@@ -475,13 +494,18 @@ export default function Verify2FALoginPage() {
                   placeholder="XXXXX-XXXXX"
                   value={backupCode}
                   onChange={(e) => {
-                    const val = e.target.value.toUpperCase();
-                    // Auto-insert dash after 5 characters
-                    if (val.length === 6 && val[5] !== "-") {
-                      setBackupCode(val.slice(0, 5) + "-" + val.slice(5));
-                    } else if (val.length <= 11) {
-                      setBackupCode(val);
+                    // Strip non-alphanumerics, then re-insert a dash after the
+                    // 5th character. Works for typing, paste, and autofill —
+                    // fill()/paste set the whole value at once, so we can't rely
+                    // on catching the exact 6-character transition.
+                    let val = e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 10);
+                    if (val.length > 5) {
+                      val = val.slice(0, 5) + "-" + val.slice(5);
                     }
+                    setBackupCode(val);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleBackupVerify();
@@ -496,7 +520,7 @@ export default function Verify2FALoginPage() {
                     errorMsg
                       ? "border-red-300 focus:ring-red-400"
                       : "border-slate-300 dark:border-slate-600 focus:ring-indigo-500 focus:border-indigo-400",
-                    backupCode ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : ""
+                    backupCode ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : "",
                   )}
                 />
               </div>
@@ -517,8 +541,19 @@ export default function Verify2FALoginPage() {
                 {isSubmitting ? (
                   <>
                     <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Verifying…
                   </>
@@ -542,9 +577,9 @@ export default function Verify2FALoginPage() {
               Need help signing in?
             </p>
             <p className="text-xs text-indigo-600 dark:text-indigo-400/70">
-              If you&apos;ve lost access to your authenticator app, use a backup code
-              instead. If you don&apos;t have any backup codes, contact your school
-              administrator to have 2FA disabled for your account.
+              If you&apos;ve lost access to your authenticator app, use a backup code instead. If
+              you don&apos;t have any backup codes, contact your school administrator to have 2FA
+              disabled for your account.
             </p>
           </div>
         </div>

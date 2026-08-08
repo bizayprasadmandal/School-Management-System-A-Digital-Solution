@@ -35,6 +35,7 @@ from .serializers import (
     SchoolAdminSerializer,
     SchoolSerializer,
     UserProfileSerializer,
+    serialize_login_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -457,16 +458,14 @@ class Verify2FALoginView(APIView):
                 reference_type="email_verification",
             )
 
+        # Match the user payload shape of the regular login response
+        # (CustomTokenObtainPairSerializer) so the frontend auth store and
+        # welcome toast receive first_name/avatar/email_verified/school.
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
-                "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "full_name": user.full_name,
-                    "role": user.role,
-                },
+                "user": serialize_login_user(user),
             }
         )
 
