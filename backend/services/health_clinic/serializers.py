@@ -1,15 +1,44 @@
 """Health/Clinic serializers."""
 
 from rest_framework import serializers
-from .models import HealthRecord, NurseVisit, Immunization, MedicationLog
+
+from .models import HealthRecord, Immunization, MedicationLog, NurseVisit
 
 
 class HealthRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
     class Meta:
         model = HealthRecord
-        fields = ["id", "student", "student_name", "blood_type", "height_cm", "weight_kg", "allergies", "chronic_conditions", "medications", "emergency_contact_name", "emergency_contact_phone", "doctor_name", "doctor_phone", "insurance_provider", "insurance_number", "notes", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "blood_type",
+            "height_cm",
+            "weight_kg",
+            "allergies",
+            "chronic_conditions",
+            "medications",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+            "doctor_name",
+            "doctor_phone",
+            "insurance_provider",
+            "insurance_number",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_student(self, value):
+        # Health records must stay within the tenant — the student has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
 
 
 class NurseVisitSerializer(serializers.ModelSerializer):
@@ -20,22 +49,93 @@ class NurseVisitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NurseVisit
-        fields = ["id", "student", "student_name", "visit_type", "visit_type_display", "visit_date", "symptoms", "diagnosis", "treatment", "medication_given", "temperature_c", "blood_pressure", "status", "status_display", "treated_by", "treated_by_name", "notes", "follow_up_date", "created_at"]
-        read_only_fields = ["id", "visit_date", "created_at"]
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "visit_type",
+            "visit_type_display",
+            "visit_date",
+            "symptoms",
+            "diagnosis",
+            "treatment",
+            "medication_given",
+            "temperature_c",
+            "blood_pressure",
+            "status",
+            "status_display",
+            "treated_by",
+            "treated_by_name",
+            "notes",
+            "follow_up_date",
+            "created_at",
+        ]
+        read_only_fields = ["id", "treated_by", "visit_date", "created_at"]
+
+    def validate_student(self, value):
+        # Nurse visits must stay within the tenant — the student has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
 
 
 class ImmunizationSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
     class Meta:
         model = Immunization
-        fields = ["id", "student", "student_name", "vaccine_name", "dose_number", "date_administered", "administered_by", "facility", "batch_number", "next_due_date", "notes", "created_at"]
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "vaccine_name",
+            "dose_number",
+            "date_administered",
+            "administered_by",
+            "facility",
+            "batch_number",
+            "next_due_date",
+            "notes",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
+
+    def validate_student(self, value):
+        # Immunizations must stay within the tenant — the student has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
 
 
 class MedicationLogSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
     administered_by_name = serializers.CharField(source="administered_by.full_name", read_only=True, default=None)
+
     class Meta:
         model = MedicationLog
-        fields = ["id", "student", "student_name", "medication_name", "dosage", "route", "time_administered", "administered_by", "administered_by_name", "notes", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "medication_name",
+            "dosage",
+            "route",
+            "time_administered",
+            "administered_by",
+            "administered_by_name",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "administered_by", "created_at"]
+
+    def validate_student(self, value):
+        # Medication logs must stay within the tenant — the student has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value

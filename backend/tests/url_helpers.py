@@ -136,3 +136,24 @@ ACADEMICS_TEACHER_PROFILES = url("academics/teacher-profiles/")
 
 INVENTORY_ITEMS = url("inventory/items/")
 INVENTORY_PURCHASE_ORDERS = url("inventory/purchase-orders/")
+INVENTORY_STOCK_MOVEMENTS = url("inventory/stock-movements/")
+
+# ─── Library ──────────────────────────────────────────────────────────────────
+
+LIBRARY_BOOKS = url("library/books/")
+LIBRARY_CHECKOUTS = url("library/checkouts/")
+
+# ─── Hostel ───────────────────────────────────────────────────────────────────
+
+HOSTEL_HOSTELS = url("hostel/hostels/")
+HOSTEL_ROOMS = url("hostel/rooms/")
+HOSTEL_ALLOCATIONS = url("hostel/allocations/")
+HOSTEL_FEES = url("hostel/fees/")
+HOSTEL_VISITORS = url("hostel/visitors/")
+
+# ─── Health / Clinic ──────────────────────────────────────────────────────────
+
+HEALTH_RECORDS = url("health/records/")
+HEALTH_NURSE_VISITS = url("health/visits/")
+HEALTH_IMMUNIZATIONS = url("health/immunizations/")
+HEALTH_MEDICATION_LOGS = url("health/medication-logs/")

@@ -1,7 +1,8 @@
 """Hostel / Accommodation Management serializers."""
 
 from rest_framework import serializers
-from .models import Hostel, HostelRoom, HostelAllocation, HostelFee, HostelVisitor
+
+from .models import Hostel, HostelAllocation, HostelFee, HostelRoom, HostelVisitor
 
 
 class HostelSerializer(serializers.ModelSerializer):
@@ -17,13 +18,47 @@ class HostelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hostel
         fields = [
-            "id", "name", "code", "gender", "gender_display", "status", "status_display",
-            "warden", "warden_name", "assistant_warden", "assistant_warden_name",
-            "address", "phone", "total_floors", "rules", "amenities", "notes",
-            "total_rooms", "total_beds", "occupied_beds", "available_beds",
-            "created_at", "updated_at",
+            "id",
+            "name",
+            "code",
+            "gender",
+            "gender_display",
+            "status",
+            "status_display",
+            "warden",
+            "warden_name",
+            "assistant_warden",
+            "assistant_warden_name",
+            "address",
+            "phone",
+            "total_floors",
+            "rules",
+            "amenities",
+            "notes",
+            "total_rooms",
+            "total_beds",
+            "occupied_beds",
+            "available_beds",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_warden(self, value):
+        # Hostels must stay within the tenant — the warden has to be a staff
+        # member of the same school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Warden must be in your school.")
+        return value
+
+    def validate_assistant_warden(self, value):
+        # Hostels must stay within the tenant — the assistant warden has to be
+        # a staff member of the same school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Assistant warden must be in your school.")
+        return value
 
 
 class HostelRoomSerializer(serializers.ModelSerializer):
@@ -35,13 +70,33 @@ class HostelRoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelRoom
         fields = [
-            "id", "hostel", "hostel_name", "room_number", "floor", "room_type",
-            "room_type_display", "capacity", "is_furnished", "has_ac",
-            "has_attached_bathroom", "monthly_fee",
-            "occupied_beds", "available_beds",
-            "is_active", "notes", "created_at",
+            "id",
+            "hostel",
+            "hostel_name",
+            "room_number",
+            "floor",
+            "room_type",
+            "room_type_display",
+            "capacity",
+            "is_furnished",
+            "has_ac",
+            "has_attached_bathroom",
+            "monthly_fee",
+            "occupied_beds",
+            "available_beds",
+            "is_active",
+            "notes",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def validate_hostel(self, value):
+        # Rooms inherit tenant scope from their hostel — reject hostels from
+        # another school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
 
 
 class HostelAllocationSerializer(serializers.ModelSerializer):
@@ -54,14 +109,41 @@ class HostelAllocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelAllocation
         fields = [
-            "id", "student", "student_name", "room", "room_display",
-            "hostel_name", "room_number",
-            "status", "check_in_date", "check_out_date",
-            "fee_amount", "is_paid", "notes",
-            "allocated_by", "allocated_by_name",
-            "created_at", "updated_at",
+            "id",
+            "student",
+            "student_name",
+            "room",
+            "room_display",
+            "hostel_name",
+            "room_number",
+            "status",
+            "check_in_date",
+            "check_out_date",
+            "fee_amount",
+            "is_paid",
+            "notes",
+            "allocated_by",
+            "allocated_by_name",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "allocated_by", "created_at", "updated_at"]
+
+    def validate_student(self, value):
+        # Allocations must stay within the tenant — the student has to belong
+        # to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
+
+    def validate_room(self, value):
+        # Allocations inherit tenant scope from the room (which belongs to a
+        # hostel) — reject rooms from another school.
+        user = self.context["request"].user
+        if value.hostel.school_id != user.school_id:
+            raise serializers.ValidationError("Room not found in your school.")
+        return value
 
 
 class HostelFeeSerializer(serializers.ModelSerializer):
@@ -71,12 +153,29 @@ class HostelFeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelFee
         fields = [
-            "id", "name", "hostel", "hostel_name", "room_type",
-            "amount", "billing_cycle", "billing_cycle_display",
-            "includes_meals", "includes_laundry", "includes_wifi",
-            "is_active", "created_at",
+            "id",
+            "name",
+            "hostel",
+            "hostel_name",
+            "room_type",
+            "amount",
+            "billing_cycle",
+            "billing_cycle_display",
+            "includes_meals",
+            "includes_laundry",
+            "includes_wifi",
+            "is_active",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def validate_hostel(self, value):
+        # Fee structures must stay within the tenant — the hostel has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
 
 
 class HostelVisitorSerializer(serializers.ModelSerializer):
@@ -87,9 +186,37 @@ class HostelVisitorSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelVisitor
         fields = [
-            "id", "hostel", "hostel_name", "visitor_name", "phone",
-            "id_proof", "student_visited", "student_name",
-            "purpose", "in_time", "out_time", "relationship",
-            "checked_in_by", "checked_in_by_name", "notes", "created_at",
+            "id",
+            "hostel",
+            "hostel_name",
+            "visitor_name",
+            "phone",
+            "id_proof",
+            "student_visited",
+            "student_name",
+            "purpose",
+            "in_time",
+            "out_time",
+            "relationship",
+            "checked_in_by",
+            "checked_in_by_name",
+            "notes",
+            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "checked_in_by", "created_at"]
+
+    def validate_hostel(self, value):
+        # Visitor logs must stay within the tenant — the hostel has to belong
+        # to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
+
+    def validate_student_visited(self, value):
+        # Visitor logs must stay within the tenant — the student visited has
+        # to belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value

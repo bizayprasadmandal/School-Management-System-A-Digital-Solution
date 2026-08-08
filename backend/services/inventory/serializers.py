@@ -1,7 +1,8 @@
 """Inventory / Store Management serializers."""
 
 from rest_framework import serializers
-from .models import Category, Supplier, InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem
+
+from .models import Category, InventoryItem, PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -22,9 +23,19 @@ class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
         fields = [
-            "id", "name", "contact_person", "email", "phone", "address",
-            "tax_id", "payment_terms", "status", "status_display",
-            "notes", "created_at", "updated_at",
+            "id",
+            "name",
+            "contact_person",
+            "email",
+            "phone",
+            "address",
+            "tax_id",
+            "payment_terms",
+            "status",
+            "status_display",
+            "notes",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -39,14 +50,45 @@ class InventoryItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryItem
         fields = [
-            "id", "category", "category_name", "supplier", "supplier_name",
-            "name", "sku", "description", "unit", "unit_display",
-            "unit_price", "current_stock", "minimum_stock", "maximum_stock",
-            "location", "barcode", "is_active",
-            "is_low_stock", "stock_value",
-            "created_at", "updated_at",
+            "id",
+            "category",
+            "category_name",
+            "supplier",
+            "supplier_name",
+            "name",
+            "sku",
+            "description",
+            "unit",
+            "unit_display",
+            "unit_price",
+            "current_stock",
+            "minimum_stock",
+            "maximum_stock",
+            "location",
+            "barcode",
+            "is_active",
+            "is_low_stock",
+            "stock_value",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "current_stock", "created_at", "updated_at"]
+
+    def validate_category(self, value):
+        # Inventory items must stay within the tenant — the category has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Category not found in your school.")
+        return value
+
+    def validate_supplier(self, value):
+        # Inventory items must stay within the tenant — the supplier has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Supplier not found in your school.")
+        return value
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
@@ -58,14 +100,39 @@ class StockMovementSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockMovement
         fields = [
-            "id", "item", "item_name", "item_sku",
-            "movement_type", "movement_type_display",
-            "quantity", "unit_price", "total_amount",
-            "reference_number", "reference_type", "notes",
-            "performed_by", "performed_by_name",
+            "id",
+            "item",
+            "item_name",
+            "item_sku",
+            "movement_type",
+            "movement_type_display",
+            "quantity",
+            "unit_price",
+            "total_amount",
+            "reference_number",
+            "reference_type",
+            "notes",
+            "performed_by",
+            "performed_by_name",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def validate_item(self, value):
+        # Stock movements inherit tenant scope from the item — reject items
+        # from another school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Item not found in your school.")
+        return value
+
+    def validate_performed_by(self, value):
+        # Stock movements must stay within the tenant — the performing user
+        # has to belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Performed-by user must be in your school.")
+        return value
 
 
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
@@ -75,8 +142,16 @@ class PurchaseOrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseOrderItem
         fields = [
-            "id", "purchase_order", "item", "item_name", "item_sku",
-            "quantity_ordered", "quantity_received", "unit_price", "total_price", "notes",
+            "id",
+            "purchase_order",
+            "item",
+            "item_name",
+            "item_sku",
+            "quantity_ordered",
+            "quantity_received",
+            "unit_price",
+            "total_price",
+            "notes",
         ]
         read_only_fields = ["id"]
 
@@ -90,11 +165,31 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseOrder
         fields = [
-            "id", "order_number", "supplier", "supplier_name",
-            "order_date", "expected_date", "status", "status_display",
-            "subtotal", "tax_amount", "shipping_cost", "total_amount",
-            "notes", "ordered_by", "ordered_by_name",
+            "id",
+            "order_number",
+            "supplier",
+            "supplier_name",
+            "order_date",
+            "expected_date",
+            "status",
+            "status_display",
+            "subtotal",
+            "tax_amount",
+            "shipping_cost",
+            "total_amount",
+            "notes",
+            "ordered_by",
+            "ordered_by_name",
             "items",
-            "created_at", "updated_at",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "ordered_by", "created_at", "updated_at"]
+
+    def validate_supplier(self, value):
+        # Purchase orders must stay within the tenant — the supplier has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Supplier not found in your school.")
+        return value
