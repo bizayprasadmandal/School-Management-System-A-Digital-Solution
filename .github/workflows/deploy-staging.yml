@@ -61,6 +61,10 @@ jobs:
     permissions: { contents: read, packages: write }
     steps:
       - uses: actions/checkout@v4
+      # GHCR rejects uppercase characters in image names — slug the repo name.
+      - name: Slug GHCR image base (lowercase)
+        run: |
+          echo "IMAGE_BASE=${{ env.REGISTRY }}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -80,8 +84,8 @@ jobs:
           target: production
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend:staging
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_BASE }}/backend:staging
+            ${{ env.IMAGE_BASE }}/backend:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -95,8 +99,8 @@ jobs:
           target: production
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:staging
-            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_BASE }}/frontend:staging
+            ${{ env.IMAGE_BASE }}/frontend:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -110,10 +114,10 @@ jobs:
       - name: Deploy to staging
         run: |
           kubectl set image deploy/sms-backend-staging \
-            backend=${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ env.IMAGE_TAG }} \
+            backend=${{ env.IMAGE_BASE }}/backend:${{ env.IMAGE_TAG }} \
             -n staging
           kubectl set image deploy/sms-frontend-staging \
-            frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ env.IMAGE_TAG }} \
+            frontend=${{ env.IMAGE_BASE }}/frontend:${{ env.IMAGE_TAG }} \
             -n staging
           kubectl rollout status deploy/sms-backend-staging -n staging --timeout=5m
           kubectl rollout status deploy/sms-frontend-staging -n staging --timeout=5m

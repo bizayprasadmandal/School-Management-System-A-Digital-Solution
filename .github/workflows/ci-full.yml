@@ -5,9 +5,10 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+# GHCR rejects uppercase characters in image names, but github.repository
+# (e.g. .../School-Management-System-A-Digital-Solution) can contain them and
+# can't be lowercased via GitHub expression syntax. Each job that builds or
+# deploys images computes the slugged IMAGE_BASE via a shell step.
 
 jobs:
   backend-test:
@@ -196,6 +197,10 @@ jobs:
     permissions: { contents: read, packages: write }
     steps:
       - uses: actions/checkout@v4
+      # GHCR requires lowercase image names — slug the repo name via the shell.
+      - name: Slug GHCR image base (lowercase)
+        run: |
+          echo "IMAGE_BASE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -211,7 +216,7 @@ jobs:
           file: infrastructure/docker/backend/Dockerfile
           target: production
           push: true
-          tags: ${{ env.BACKEND_IMAGE }}:${{ github.sha }},${{ env.BACKEND_IMAGE }}:latest
+          tags: ${{ env.IMAGE_BASE }}/backend:${{ github.sha }},${{ env.IMAGE_BASE }}/backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build & push frontend
@@ -223,7 +228,7 @@ jobs:
           file: infrastructure/docker/frontend/Dockerfile
           target: production
           push: true
-          tags: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }},${{ env.FRONTEND_IMAGE }}:latest
+          tags: ${{ env.IMAGE_BASE }}/frontend:${{ github.sha }},${{ env.IMAGE_BASE }}/frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -237,6 +242,9 @@ jobs:
     environment: { name: production, url: "https://app.edusphere.school" }
     steps:
       - uses: actions/checkout@v4
+      - name: Slug GHCR image base (lowercase)
+        run: |
+          echo "IMAGE_BASE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
       - name: Configure kubectl
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_PRODUCTION }}" }
@@ -248,8 +256,8 @@ jobs:
           }
       - name: Deploy to Kubernetes
         run: |
-          kubectl set image deployment/sms-backend backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n sms
-          kubectl set image deployment/sms-frontend frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }} -n sms
+          kubectl set image deployment/sms-backend backend=${{ env.IMAGE_BASE }}/backend:${{ github.sha }} -n sms
+          kubectl set image deployment/sms-frontend frontend=${{ env.IMAGE_BASE }}/frontend:${{ github.sha }} -n sms
           kubectl rollout status deployment/sms-backend -n sms --timeout=5m
           kubectl rollout status deployment/sms-frontend -n sms --timeout=3m
           echo "✅ Deployed ${{ github.sha }} to production"

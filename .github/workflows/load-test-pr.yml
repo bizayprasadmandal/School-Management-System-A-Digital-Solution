@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
   STAGING_URL: ${{ inputs.staging_url || '' }}
   SECRET_KEY: loadtest-secret-key-2026
 
@@ -41,6 +40,11 @@ jobs:
       deployed: ${{ steps.deploy.outputs.deployed }}
     steps:
       - uses: actions/checkout@v4
+
+      # GHCR rejects uppercase characters in image names — slug the repo name.
+      - name: Slug GHCR image base (lowercase)
+        run: |
+          echo "IMAGE_BASE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
       - name: Check staging kubeconfig available
         id: check-kube
@@ -71,7 +75,7 @@ jobs:
           file: infrastructure/docker/backend/Dockerfile
           target: production
           push: true
-          tags: ${{ env.BACKEND_IMAGE }}:${{ github.sha }},${{ env.BACKEND_IMAGE }}:pr-latest
+          tags: ${{ env.IMAGE_BASE }}/backend:${{ github.sha }},${{ env.IMAGE_BASE }}/backend:pr-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: COMMIT_SHA=${{ github.sha }}
@@ -89,7 +93,7 @@ jobs:
         run: |
           NAMESPACE="${NAMESPACE:-sms-staging}"
           kubectl set image deployment/sms-backend \
-            backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            backend=${{ env.IMAGE_BASE }}/backend:${{ github.sha }} \
             -n "$NAMESPACE"
           kubectl rollout status deployment/sms-backend \
             -n "$NAMESPACE" --timeout=5m
