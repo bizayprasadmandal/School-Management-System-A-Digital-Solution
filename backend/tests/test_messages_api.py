@@ -1,9 +1,23 @@
-"""Debug tests — verify DirectMessageViewSet endpoints work correctly."""
-import pytest
-import json
+"""Tests — verify DirectMessageViewSet endpoints work correctly."""
 
+import pytest
+from rest_framework.test import APIClient
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def user(db):
+    from tests.factories import UserFactory
+
+    return UserFactory()
+
+
+@pytest.fixture
+def api_client(db, user):
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
 
 
 class TestMessagesAPI:
@@ -21,8 +35,6 @@ class TestMessagesAPI:
 
     def test_message_conversation(self, api_client, user):
         """GET /messages/conversation/{id}/ should handle nonexistent id."""
-        resp = api_client.get(
-            f"/api/v1/communication/messages/conversation/{user.id}/"
-        )
+        resp = api_client.get(f"/api/v1/communication/messages/conversation/{user.id}/")
         # Should either return 200 (empty list) or 404
         assert resp.status_code in (200, 404)
