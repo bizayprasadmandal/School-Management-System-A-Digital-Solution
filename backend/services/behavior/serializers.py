@@ -12,6 +12,14 @@ class IncidentSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["id", "created_at", "updated_at", "school", "reported_by"]
 
+    def validate_student(self, value):
+        # Incidents must stay within the tenant — the student has to belong to
+        # the same school as the reporter.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
+
 
 class ReferralSerializer(serializers.ModelSerializer):
     referred_to_name = serializers.CharField(source="referred_to.full_name", read_only=True)

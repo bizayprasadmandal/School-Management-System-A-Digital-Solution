@@ -86,6 +86,20 @@ class TestIncidents:
         r = student_client.post(BEHAVIOR_INCIDENTS, payload, format="json")
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_cannot_report_incident_for_student_from_another_school(self, teacher_client):
+        from tests.factories import SchoolFactory, StudentFactory
+
+        other_school = SchoolFactory(code="BEHE")
+        other_pupil = StudentFactory(school=other_school)
+        payload = {
+            "student": other_pupil.id,
+            "incident_type": "other",
+            "description": "Cross-school student",
+            "severity": "low",
+        }
+        r = teacher_client.post(BEHAVIOR_INCIDENTS, payload, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_list_incidents(self, admin_client, school):
         from services.behavior.models import Incident
         from tests.factories import StudentFactory
