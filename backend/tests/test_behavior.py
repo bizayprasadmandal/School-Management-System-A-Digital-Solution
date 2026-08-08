@@ -168,6 +168,51 @@ class TestReferrals:
         r = admin_client.post(BEHAVIOR_REFERRALS, payload, format="json")
         assert r.status_code == status.HTTP_201_CREATED
 
+    def test_cannot_refer_to_incident_from_another_school(self, admin_client):
+        from services.behavior.models import Incident
+        from tests.factories import SchoolFactory, StudentFactory, TeacherUserFactory
+
+        other_school = SchoolFactory(code="BEHC")
+        other_pupil = StudentFactory(school=other_school)
+        other_incident = Incident.objects.create(
+            school=other_school,
+            student=other_pupil,
+            incident_type="counseling",
+            description="Other school incident",
+            severity="low",
+            reported_by=admin_client.handler._force_user,
+        )
+        counselor = TeacherUserFactory(school=admin_client.handler._force_user.school)
+        payload = {
+            "incident": other_incident.id,
+            "reason": "Should be rejected",
+            "referred_to": counselor.id,
+        }
+        r = admin_client.post(BEHAVIOR_REFERRALS, payload, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_cannot_refer_to_user_from_another_school(self, admin_client, school):
+        from services.behavior.models import Incident
+        from tests.factories import SchoolFactory, StudentFactory, TeacherUserFactory
+
+        other_counselor = TeacherUserFactory(school=SchoolFactory(code="BEHD"))
+        pupil = StudentFactory(school=school)
+        incident = Incident.objects.create(
+            school=school,
+            student=pupil,
+            incident_type="counseling",
+            description="Local incident",
+            severity="low",
+            reported_by=admin_client.handler._force_user,
+        )
+        payload = {
+            "incident": incident.id,
+            "reason": "Should be rejected",
+            "referred_to": other_counselor.id,
+        }
+        r = admin_client.post(BEHAVIOR_REFERRALS, payload, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_list_referrals(self, admin_client, school):
         from services.behavior.models import Incident, Referral
         from tests.factories import StudentFactory, TeacherUserFactory

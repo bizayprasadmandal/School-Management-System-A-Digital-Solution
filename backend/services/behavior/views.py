@@ -58,4 +58,7 @@ class ReferralViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolAdmin()]
 
     def perform_create(self, serializer):
+        # Tenant scoping is enforced by ReferralSerializer.validate_incident /
+        # validate_referred_to — Referral derives its school from the incident,
+        # so there is no direct school FK to set here.
         serializer.save(referred_by=self.request.user)
