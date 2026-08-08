@@ -36,10 +36,12 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ─── Production stage ─────────────────────────────────────────────────────────
 FROM base AS production
 
-# Build args for collectstatic (passed from docker-compose)
-ARG SECRET_KEY
-ARG DATABASE_URL
-ARG REDIS_URL
+# Build args for collectstatic (passed from docker-compose; defaults keep the
+# CI build hermetic — ARGs never persist into the image, runtime env from
+# k8s/compose always overrides these).
+ARG SECRET_KEY=build-time-placeholder-not-for-runtime
+ARG DATABASE_URL=postgresql://build:build@localhost:5432/build_db
+ARG REDIS_URL=redis://localhost:6379/0
 
 # Create non-root user
 RUN groupadd --gid 1001 django && \
