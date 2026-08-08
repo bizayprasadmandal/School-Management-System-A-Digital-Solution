@@ -2,43 +2,40 @@
 Auth Service — Login, profile, password management, token views
 """
 
-import secrets
-from datetime import timedelta
-from django.utils import timezone
-from django.contrib.auth.password_validation import validate_password
-from rest_framework import status, generics, parsers
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema
-
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
-from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin
-
-from core.throttles import (
-    AuthLoginAnonThrottle,
-    AuthPasswordResetThrottle,
-    AuthPasswordResetConfirmThrottle,
-    AuthVerify2FALoginThrottle,
-)
-
 import hashlib
 import logging
-from django.db.models import Sum, Count, Q
-from .models import User, PasswordResetToken, AuditLog, TwoFactorBackupCode, School
-from .serializers import (
-    CustomTokenObtainPairSerializer, UserProfileSerializer, AuditLogSerializer,
-    SchoolSerializer, SchoolAdminSerializer, PlatformDashboardSerializer,
+import secrets
+from datetime import timedelta
+
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin
+from core.throttles import (
+    AuthLoginAnonThrottle,
+    AuthPasswordResetConfirmThrottle,
+    AuthPasswordResetThrottle,
+    AuthVerify2FALoginThrottle,
 )
+from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics, parsers, permissions, status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from services.communication.services import send_in_app_notification
+
+from .models import AuditLog, PasswordResetToken, School, TwoFactorBackupCode, User
+from .serializers import (
+    AuditLogSerializer,
+    CustomTokenObtainPairSerializer,
+    PlatformDashboardSerializer,
+    SchoolAdminSerializer,
+    SchoolSerializer,
+    UserProfileSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +64,7 @@ def _generate_backup_codes(user, count=BACKUP_CODE_COUNT):
         raw = secrets.token_hex(5).upper()[:5] + "-" + secrets.token_hex(5).upper()[:5]
         plain_codes.append(raw)
         hashed = hashlib.sha256(raw.encode()).hexdigest()
-        codes_to_create.append(
-            TwoFactorBackupCode(user=user, hashed_code=hashed)
-        )
+        codes_to_create.append(TwoFactorBackupCode(user=user, hashed_code=hashed))
 
     TwoFactorBackupCode.objects.bulk_create(codes_to_create)
     # Reset lockout state since the user now has fresh codes
@@ -119,9 +114,7 @@ def _check_backup_code(user, code):
     """
     hashed = hashlib.sha256(code.encode()).hexdigest()
     try:
-        bc = TwoFactorBackupCode.objects.get(
-            user=user, hashed_code=hashed, used=False
-        )
+        bc = TwoFactorBackupCode.objects.get(user=user, hashed_code=hashed, used=False)
         bc.used = True
         bc.save(update_fields=["used"])
         return True
@@ -136,6 +129,7 @@ class LoginView(TokenObtainPairView):
     If the user has 2FA enabled, returns a partial token and requires
     a follow-up call to Verify2FAView with the TOTP code.
     """
+
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [AuthLoginAnonThrottle]
 
@@ -146,12 +140,15 @@ class LoginView(TokenObtainPairView):
 
             # 2FA check — if enabled, require TOTP verification
             if user.two_factor_enabled and user.two_factor_secret:
-                return Response({
-                    "requires_2fa": True,
-                    "user_id": str(user.id),
-                    "backup_codes_remaining": user.backup_codes.filter(used=False).count(),
-                    "detail": "2FA is enabled. Please provide your TOTP code via /auth/verify-2fa/",
-                }, status=200)
+                return Response(
+                    {
+                        "requires_2fa": True,
+                        "user_id": str(user.id),
+                        "backup_codes_remaining": user.backup_codes.filter(used=False).count(),
+                        "detail": "2FA is enabled. Please provide your TOTP code via /auth/verify-2fa/",
+                    },
+                    status=200,
+                )
 
             user.last_login_ip = _get_client_ip(request)
             user.save(update_fields=["last_login_ip"])
@@ -181,9 +178,9 @@ class LoginView(TokenObtainPairView):
         return response
 
 
-
 class LogoutView(APIView):
     """Blacklist the refresh token to invalidate the session."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -201,6 +198,7 @@ class LogoutView(APIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     """Get/update the authenticated user's own profile."""
+
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
@@ -211,14 +209,18 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         user = serializer.save()
         # Update auth store will refetch on next profile load
         AuditLog.objects.create(
-            school=user.school, user=user,
-            action="profile_update", resource_type="user", resource_id=str(user.id),
+            school=user.school,
+            user=user,
+            action="profile_update",
+            resource_type="user",
+            resource_id=str(user.id),
             ip_address=self.request.META.get("REMOTE_ADDR"),
         )
 
 
 class UploadAvatarView(APIView):
     """Upload or remove the authenticated user's avatar image."""
+
     permission_classes = [IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
 
@@ -228,10 +230,12 @@ class UploadAvatarView(APIView):
         if file:
             user.avatar = file
             user.save(update_fields=["avatar"])
-            return Response({
-                "avatar": user.avatar.url if user.avatar else None,
-                "detail": "Avatar updated successfully.",
-            })
+            return Response(
+                {
+                    "avatar": user.avatar.url if user.avatar else None,
+                    "detail": "Avatar updated successfully.",
+                }
+            )
         return Response({"detail": "No file provided. Send a file with key 'avatar'."}, status=400)
 
     def delete(self, request):
@@ -263,8 +267,11 @@ class ChangePasswordView(APIView):
         user.save()
 
         AuditLog.objects.create(
-            school=user.school, user=user,
-            action="password_change", resource_type="user", resource_id=str(user.id),
+            school=user.school,
+            user=user,
+            action="password_change",
+            resource_type="user",
+            resource_id=str(user.id),
             ip_address=request.META.get("REMOTE_ADDR"),
         )
         return Response({"detail": "Password updated successfully."})
@@ -290,8 +297,9 @@ class RequestPasswordResetView(APIView):
                 expires_at=timezone.now() + timedelta(hours=2),
             )
             # Send email async
-            from services.communication.tasks import send_email_notification
             from django.conf import settings
+            from services.communication.tasks import send_email_notification
+
             frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
             reset_url = request.data.get("reset_url", f"{frontend_url}/reset-password/{token_str}")
             send_email_notification.delay(
@@ -314,9 +322,7 @@ class ConfirmPasswordResetView(APIView):
         new_password = request.data.get("new_password", "")
 
         try:
-            reset_token = PasswordResetToken.objects.select_related("user").get(
-                token=token_str, used=False
-            )
+            reset_token = PasswordResetToken.objects.select_related("user").get(token=token_str, used=False)
         except PasswordResetToken.DoesNotExist:
             return Response({"detail": "Invalid or expired reset link."}, status=400)
 
@@ -342,10 +348,12 @@ class Setup2FAView(APIView):
     Generate a TOTP secret for the authenticated user and return the
     provisioning URI (for QR code), the raw secret, and backup codes.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         import pyotp
+
         user = request.user
         secret = pyotp.random_base32()
         user.two_factor_secret = secret
@@ -358,20 +366,27 @@ class Setup2FAView(APIView):
         # Generate backup codes immediately (shown before TOTP verification)
         backup_codes = _generate_backup_codes(user)
 
-        return Response({
-            "secret": secret,
-            "provisioning_uri": provisioning_uri,
-            "backup_codes": backup_codes,
-            "detail": "Scan the QR code with your authenticator app, then call /auth/verify-2fa/ to enable. Save your backup codes in a safe place.",
-        })
+        return Response(
+            {
+                "secret": secret,
+                "provisioning_uri": provisioning_uri,
+                "backup_codes": backup_codes,
+                "detail": (
+                    "Scan the QR code with your authenticator app, then call "
+                    "/auth/verify-2fa/ to enable. Save your backup codes in a safe place."
+                ),
+            }
+        )
 
 
 class Verify2FAView(APIView):
     """Verify a TOTP code and enable 2FA for the user."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         import pyotp
+
         user = request.user
         code = request.data.get("code", "")
         if not user.two_factor_secret:
@@ -384,10 +399,12 @@ class Verify2FAView(APIView):
             # Generate backup codes if they don't already exist
             if not TwoFactorBackupCode.objects.filter(user=user, used=False).exists():
                 backup_codes = _generate_backup_codes(user)
-                return Response({
-                    "detail": "2FA enabled successfully.",
-                    "backup_codes": backup_codes,
-                })
+                return Response(
+                    {
+                        "detail": "2FA enabled successfully.",
+                        "backup_codes": backup_codes,
+                    }
+                )
 
             return Response({"detail": "2FA enabled successfully."})
         return Response({"detail": "Invalid TOTP code."}, status=400)
@@ -395,6 +412,7 @@ class Verify2FAView(APIView):
 
 class Disable2FAView(APIView):
     """Disable 2FA for the authenticated user and clean up backup codes."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -417,12 +435,14 @@ class Verify2FALoginView(APIView):
     password verification (requires_2fa=True step).
     Rate-limited to 5 requests/minute per IP.
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [AuthVerify2FALoginThrottle]
 
     def _issue_jwt(self, user, request):
         """Issue JWT tokens and send verification notification if needed."""
         from rest_framework_simplejwt.tokens import RefreshToken
+
         refresh = RefreshToken.for_user(user)
 
         if not user.email_verified:
@@ -437,16 +457,18 @@ class Verify2FALoginView(APIView):
                 reference_type="email_verification",
             )
 
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "full_name": user.full_name,
-                "role": user.role,
-            },
-        })
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "role": user.role,
+                },
+            }
+        )
 
     def post(self, request):
         user_id = request.data.get("user_id", "")
@@ -461,6 +483,7 @@ class Verify2FALoginView(APIView):
 
         # Try TOTP first
         import pyotp
+
         totp = pyotp.TOTP(user.two_factor_secret)
         if totp.verify(code, valid_window=1):
             return self._issue_jwt(user, request)
@@ -469,9 +492,12 @@ class Verify2FALoginView(APIView):
         # Check lockout first
         is_locked, remaining = _check_backup_code_lockout(user)
         if is_locked:
-            return Response({
-                "detail": f"Too many failed backup code attempts. Try again in {remaining} seconds.",
-            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            return Response(
+                {
+                    "detail": f"Too many failed backup code attempts. Try again in {remaining} seconds.",
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         if _check_backup_code(user, code):
             # Successful backup code use — reset lockout counter
@@ -483,13 +509,25 @@ class Verify2FALoginView(APIView):
 
         attempts_left = BACKUP_CODE_LOCKOUT_LIMIT - user.backup_code_failed_attempts
         if attempts_left <= 0:
-            return Response({
-                "detail": "Too many failed backup code attempts. You are temporarily locked out. Try again in 30 minutes or use your authenticator app.",
-            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            return Response(
+                {
+                    "detail": (
+                        "Too many failed backup code attempts. You are temporarily "
+                        "locked out. Try again in 30 minutes or use your authenticator app."
+                    ),
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
-        return Response({
-            "detail": f"Invalid verification code. {attempts_left} backup code attempt{'s' if attempts_left != 1 else ''} remaining before lockout."
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "detail": (
+                    f"Invalid verification code. {attempts_left} backup code attempt"
+                    f"{'s' if attempts_left != 1 else ''} remaining before lockout."
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class SendEmailVerificationView(APIView):
@@ -497,26 +535,24 @@ class SendEmailVerificationView(APIView):
     Generate a verification token and send an email with the verification link.
     The user must be authenticated but have email_verified=False.
     """
+
     permission_classes = [IsAuthenticated]
     throttle_classes = [AuthPasswordResetThrottle]  # Reuse: 1 request per X time
 
     def post(self, request):
-        from .serializers import SendEmailVerificationSerializer
-        from .models import EmailVerificationToken
         from services.communication.tasks import send_email_notification
 
-        serializer = SendEmailVerificationSerializer(
-            data=request.data, context={"request": request}
-        )
+        from .models import EmailVerificationToken
+        from .serializers import SendEmailVerificationSerializer
+
+        serializer = SendEmailVerificationSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         user = request.user
         email = serializer.validated_data.get("email") or user.email
 
         # Invalidate any existing unused tokens for this user
-        EmailVerificationToken.objects.filter(
-            user=user, used=False, email=email
-        ).update(used=True)
+        EmailVerificationToken.objects.filter(user=user, used=False, email=email).update(used=True)
 
         # Create new token (expires in 24 hours)
         token_str = secrets.token_urlsafe(48)
@@ -529,6 +565,7 @@ class SendEmailVerificationView(APIView):
 
         # Build verification link — default to frontend URL
         from django.conf import settings
+
         frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         base_url = request.data.get(
             "verification_base_url",
@@ -559,9 +596,11 @@ class SendEmailVerificationView(APIView):
             ip_address=_get_client_ip(request),
         )
 
-        return Response({
-            "detail": "Verification email sent. Check your inbox (and spam folder).",
-        })
+        return Response(
+            {
+                "detail": "Verification email sent. Check your inbox (and spam folder).",
+            }
+        )
 
 
 class ConfirmEmailVerificationView(APIView):
@@ -570,12 +609,13 @@ class ConfirmEmailVerificationView(APIView):
     Accepts both authenticated requests (verify own email) and
     unauthenticated requests (clicking link in email).
     """
+
     permission_classes = [AllowAny]
     throttle_classes = [AuthPasswordResetConfirmThrottle]
 
     def post(self, request):
-        from .serializers import ConfirmEmailVerificationSerializer
         from .models import EmailVerificationToken
+        from .serializers import ConfirmEmailVerificationSerializer
 
         serializer = ConfirmEmailVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -583,9 +623,7 @@ class ConfirmEmailVerificationView(APIView):
         token_str = serializer.validated_data["token"]
 
         try:
-            verification = EmailVerificationToken.objects.select_related("user").get(
-                token=token_str, used=False
-            )
+            verification = EmailVerificationToken.objects.select_related("user").get(token=token_str, used=False)
         except EmailVerificationToken.DoesNotExist:
             return Response(
                 {"detail": "Invalid or already used verification link."},
@@ -623,10 +661,12 @@ class ConfirmEmailVerificationView(APIView):
             ip_address=_get_client_ip(request),
         )
 
-        return Response({
-            "detail": "Email verified successfully.",
-            "email_verified": True,
-        })
+        return Response(
+            {
+                "detail": "Email verified successfully.",
+                "email_verified": True,
+            }
+        )
 
 
 class RegenerateBackupCodesView(APIView):
@@ -634,6 +674,7 @@ class RegenerateBackupCodesView(APIView):
     Invalidate existing backup codes and generate a fresh set.
     Requires the user's password for security.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -656,16 +697,19 @@ class RegenerateBackupCodesView(APIView):
             ip_address=_get_client_ip(request),
         )
 
-        return Response({
-            "backup_codes": backup_codes,
-            "detail": "New backup codes generated. Previous codes are no longer valid.",
-        })
+        return Response(
+            {
+                "backup_codes": backup_codes,
+                "detail": "New backup codes generated. Previous codes are no longer valid.",
+            }
+        )
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Read-only audit log — admins can search, filter, and export.
     """
+
     serializer_class = AuditLogSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
@@ -676,9 +720,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["timestamp", "action"]
 
     def get_queryset(self):
-        return AuditLog.objects.filter(
-            school=self.request.user.school
-        ).select_related("user")
+        return AuditLog.objects.filter(school=self.request.user.school).select_related("user")
 
 
 @api_view(["GET"])
@@ -695,11 +737,9 @@ def me(request):
 
 class IsSuperAdmin(permissions.BasePermission):
     """Only super_admin can access platform-level endpoints."""
+
     def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and request.user.role == "super_admin"
-        )
+        return request.user.is_authenticated and request.user.role == "super_admin"
 
 
 class SchoolViewSet(viewsets.ModelViewSet):
@@ -707,6 +747,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
     CRUD for schools — super admin only.
     Provides school-level stats (user/student/teacher counts, revenue).
     """
+
     serializer_class = SchoolSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     pagination_class = StandardResultsSetPagination
@@ -754,6 +795,11 @@ class SchoolViewSet(viewsets.ModelViewSet):
         serializer = SchoolAdminSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save(school=school, email_verified=True)
+        data = SchoolAdminSerializer(user).data
+        # When no password was provided, a secure random one was generated —
+        # surface it once so the super admin can hand it to the new admin.
+        if getattr(user, "_generated_password", None):
+            data["temporary_password"] = user._generated_password
         AuditLog.objects.create(
             user=request.user,
             action="create_school_admin",
@@ -762,7 +808,7 @@ class SchoolViewSet(viewsets.ModelViewSet):
             changes={"school": school.name, "email": user.email},
             ip_address=_get_client_ip(request),
         )
-        return Response(SchoolAdminSerializer(user).data, status=201)
+        return Response(data, status=201)
 
 
 class PlatformDashboardView(APIView):
@@ -770,10 +816,11 @@ class PlatformDashboardView(APIView):
     Cross-school analytics for the super admin platform dashboard.
     Returns aggregate counts, revenue, and recent/top schools.
     """
+
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
-        from django.db.models import Count, Sum, Q
+        from django.db.models import Count, Q, Sum
         from services.fees.models import Payment
 
         schools = School.objects.all()
@@ -786,9 +833,7 @@ class PlatformDashboardView(APIView):
         total_teachers = User.objects.filter(role="teacher").count()
 
         # Revenue across all schools
-        revenue_result = Payment.objects.filter(
-            status="completed"
-        ).aggregate(total=Sum("amount"))
+        revenue_result = Payment.objects.filter(status="completed").aggregate(total=Sum("amount"))
         total_revenue = revenue_result["total"] or 0
 
         # Schools by subscription tier

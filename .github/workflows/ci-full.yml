@@ -60,8 +60,44 @@ jobs:
         env: { REACT_APP_API_URL: https://api.example.com/api/v1, CI: "false" }
         run: npm run build
 
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Secrets — hard gate. Scans full history; fails on any detected secret.
+      # Uses the OSS gitleaks CLI image (no license required). Config in
+      # .gitleaks.toml allowlists intentional dev/demo values.
+      - name: Gitleaks — secret leak scan
+        uses: docker://zricethezav/gitleaks:v8.18.4
+        with:
+          args: detect --source . --redact --verbose
+
+      # Python dependency CVEs — fail only on CRITICAL. Highs are printed in
+      # the log every run and tracked against the Django 5.2 upgrade backlog.
+      - name: pip-audit — Python dependency CVEs
+        run: |
+          python -m pip install --quiet pip-audit
+          cd backend
+          python -m pip_audit -r requirements.txt --fail-on=critical
+
+      # Python static security analysis — hard gate (medium+ findings).
+      # .bandit.yaml (skips + excludes) is auto-discovered from the repo root.
+      - name: Bandit — Python static security analysis
+        run: |
+          python -m pip install --quiet bandit
+          python -m bandit -r backend/services -ll -q -x migrations,tests
+
+      # JS dependency CVEs — fail only on CRITICAL (CRA toolchain noise is
+      # tracked against the Vite migration; all highs are printed below).
+      - name: npm audit — JS dependency CVEs
+        working-directory: frontend/web
+        run: npm audit --audit-level=critical
+
   docker-build:
-    needs: [backend-test, frontend-test]
+    needs: [backend-test, frontend-test, security-scan]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     permissions: { contents: read, packages: write }

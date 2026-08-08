@@ -13,6 +13,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.auth.utils import generate_secure_password
 
 from .filters import StudentFilter
 from .models import AcademicYear, Classroom, Document, Enrollment, Grade, Student
@@ -276,6 +277,8 @@ class StudentViewSet(viewsets.ModelViewSet):
         Expected CSV columns (header row required):
         first_name, last_name, email, admission_number, date_of_birth,
         gender, classroom_name, address, city, state, country, password
+        The ``password`` column is optional — when omitted, a secure random
+        password is generated per student and returned in the response.
         """
         import csv
         import io
@@ -292,6 +295,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         row_count = 0
         imported = 0
         errors = []
+        generated_passwords = {}
 
         school = request.user.school
         current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
@@ -309,7 +313,10 @@ class StudentViewSet(viewsets.ModelViewSet):
                         errors.append(f"Row {row_num}: email '{email}' already exists")
                         continue
 
-                    password = row.get("password", "Student@1234")
+                    password = (row.get("password") or "").strip()
+                    generated = not password
+                    if generated:
+                        password = generate_secure_password()
                     classroom_name = row.get("classroom_name", "").strip()
                     classroom = Classroom.objects.filter(school=school, name=classroom_name).first()
                     if not classroom:
@@ -324,6 +331,8 @@ class StudentViewSet(viewsets.ModelViewSet):
                         role=UserRole.STUDENT,
                         school=school,
                     )
+                    if generated:
+                        generated_passwords[email] = password
                     student = Student.objects.create(
                         user=user,
                         school=school,
@@ -350,6 +359,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             {
                 "imported": imported,
                 "errors": errors[:20],  # Limit error reporting
+                "generated_passwords": generated_passwords,
             }
         )
 

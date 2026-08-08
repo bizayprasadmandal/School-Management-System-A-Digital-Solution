@@ -5,18 +5,20 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  MagnifyingGlassIcon, PlusIcon, FunnelIcon,
-  ArrowDownTrayIcon, ArrowUpTrayIcon, EyeIcon, PencilIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  FunnelIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  EyeIcon,
+  PencilIcon,
 } from "@heroicons/react/24/outline";
 import { useStudents, useGradeLevels } from "../../api/hooks";
 import { downloadFromUrl } from "../../utils";
 import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import type { StudentListItem } from "../../types";
-import {
-  Button, Badge, Input, Select, Avatar,
-  DataTable,
-} from "../../components/common";
+import { Button, Badge, Input, Select, Avatar, DataTable } from "../../components/common";
 import type { Column } from "../../components/common";
 import ImportCsvModal from "../../components/common/ImportCsvModal";
 
@@ -49,9 +51,11 @@ export default function StudentsPage() {
   const handleExport = async () => {
     try {
       await downloadFromUrl(
-        `${process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1"}/reporting/export/students-csv/`,
+        `${
+          process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1"
+        }/reporting/export/students-csv/`,
         "students.csv",
-        tokens?.access ?? ""
+        tokens?.access ?? "",
       );
     } catch {
       toast.error("Export failed. Please try again.");
@@ -75,17 +79,23 @@ export default function StudentsPage() {
     {
       key: "admission_number",
       header: "Admission No.",
-      render: (student) => <span className="font-mono text-slate-600">{student.admission_number}</span>,
+      render: (student) => (
+        <span className="font-mono text-slate-600">{student.admission_number}</span>
+      ),
     },
     {
       key: "gender",
       header: "Gender",
-      render: (student) => <span className="text-sm text-slate-600">{GENDER_LABELS[student.gender] ?? "—"}</span>,
+      render: (student) => (
+        <span className="text-sm text-slate-600">{GENDER_LABELS[student.gender] ?? "—"}</span>
+      ),
     },
     {
       key: "current_class",
       header: "Class",
-      render: (student) => <span className="text-sm text-slate-600">{student.current_class ?? "—"}</span>,
+      render: (student) => (
+        <span className="text-sm text-slate-600">{student.current_class ?? "—"}</span>
+      ),
     },
     {
       key: "is_active",
@@ -101,14 +111,18 @@ export default function StudentsPage() {
       header: "Actions",
       render: (student) => (
         <div className="flex items-center gap-1">
-          <button onClick={() => navigate(`/admin/students/${student.id}`)}
+          <button
+            onClick={() => navigate(`/admin/students/${student.id}`)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-            title="View profile">
+            title="View profile"
+          >
             <EyeIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => navigate(`/admin/students/${student.id}/edit`)}
+          <button
+            onClick={() => navigate(`/admin/students/${student.id}/edit`)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
-            title="Edit student">
+            title="Edit student"
+          >
             <PencilIcon className="h-4 w-4" />
           </button>
         </div>
@@ -125,10 +139,20 @@ export default function StudentsPage() {
           <p className="text-sm text-slate-500 mt-0.5">{total.toLocaleString()} total students</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="md" leftIcon={<ArrowUpTrayIcon className="h-4 w-4" />} onClick={() => setShowImport(true)}>
+          <Button
+            variant="secondary"
+            size="md"
+            leftIcon={<ArrowUpTrayIcon className="h-4 w-4" />}
+            onClick={() => setShowImport(true)}
+          >
             Import CSV
           </Button>
-          <Button variant="secondary" size="md" leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={handleExport}>
+          <Button
+            variant="secondary"
+            size="md"
+            leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            onClick={handleExport}
+          >
             Export CSV
           </Button>
           <Link
@@ -150,13 +174,16 @@ export default function StudentsPage() {
             type="search"
             placeholder="Search by name or admission number…"
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
           <Button
             variant={showFilters ? "primary" : "secondary"}
             size="md"
             leftIcon={<FunnelIcon className="h-4 w-4" />}
-            onClick={() => setShowFilters(v => !v)}
+            onClick={() => setShowFilters((v) => !v)}
           >
             Filters
           </Button>
@@ -167,7 +194,10 @@ export default function StudentsPage() {
             <Select
               label="Gender"
               value={gender}
-              onChange={e => { setGender(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setGender(e.target.value);
+                setPage(1);
+              }}
               placeholder="All Genders"
               options={[
                 { value: "M", label: "Male" },
@@ -178,7 +208,7 @@ export default function StudentsPage() {
             <Select
               label="Status"
               value={isActive === undefined ? "" : String(isActive)}
-              onChange={e => {
+              onChange={(e) => {
                 setIsActive(e.target.value === "" ? undefined : e.target.value === "true");
                 setPage(1);
               }}
@@ -191,14 +221,23 @@ export default function StudentsPage() {
             <Select
               label="Class"
               value={grade ?? ""}
-              onChange={e => { setGrade(Number(e.target.value) || undefined); setPage(1); }}
+              onChange={(e) => {
+                setGrade(Number(e.target.value) || undefined);
+                setPage(1);
+              }}
               placeholder="All Grades"
-              options={(gradesData?.results ?? []).map(g => ({ value: g.id, label: g.name }))}
+              options={(gradesData?.results ?? []).map((g) => ({ value: g.id, label: g.name }))}
             />
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setSearch(""); setGender(""); setIsActive(true); setGrade(undefined); setPage(1); }}
+              onClick={() => {
+                setSearch("");
+                setGender("");
+                setIsActive(true);
+                setGrade(undefined);
+                setPage(1);
+              }}
               className="mt-0.5"
             >
               Clear filters
@@ -229,7 +268,8 @@ export default function StudentsPage() {
         endpoint="/students/import-csv/"
         invalidateQueries={[["students"]]}
         helpText={`first_name,last_name,email,admission_number,date_of_birth,gender,classroom_name,address,city,state,country,password
-John,Doe,john@example.com,ADM001,2010-05-15,M,Grade 5 A,123 Main St,New York,NY,USA,Student@1234`}
+John,Doe,john@example.com,ADM001,2010-05-15,M,Grade 5 A,123 Main St,New York,NY,USA
+(password column is optional — a secure random password is auto-generated and shown in the result)`}
       />
     </div>
   );

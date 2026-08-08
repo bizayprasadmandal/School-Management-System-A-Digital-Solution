@@ -59,6 +59,16 @@ repos:
   #         - "eslint-plugin-react@7.34.1"
   #         - "eslint-plugin-react-hooks@4.6.0"
 
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: [-ll, -q, -x, migrations, tests]
+
+  # Gitleaks secret scan runs in CI (security-scan job) via the OSS docker
+  # image — its pre-commit hook requires the Go toolchain, so it is not wired
+  # in locally to avoid breaking commits on machines without Go.
+
   - repo: https://github.com/djlint/djLint
     rev: v1.34.1
     hooks:

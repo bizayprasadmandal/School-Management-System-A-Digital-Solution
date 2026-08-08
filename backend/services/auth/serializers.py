@@ -1,8 +1,9 @@
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import serializers
 from django.db import models
-from .models import User, School, AuditLog
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import AuditLog, School, User
+from .utils import generate_secure_password
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -19,11 +20,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "full_name": user.full_name,
             "role": user.role,
             "avatar": user.avatar.url if user.avatar else None,
-            "school": {
-                "id": str(user.school.id),
-                "name": user.school.name,
-                "code": user.school.code,
-            } if user.school else None,
+            "school": (
+                {
+                    "id": str(user.school.id),
+                    "name": user.school.name,
+                    "code": user.school.code,
+                }
+                if user.school
+                else None
+            ),
             "notify_email": user.notify_email,
             "notify_sms": user.notify_sms,
             "notify_push": user.notify_push,
@@ -32,7 +37,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class SendEmailVerificationSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False, help_text="Email to verify. Defaults to the authenticated user's email if omitted.")
+    email = serializers.EmailField(
+        required=False, help_text="Email to verify. Defaults to the authenticated user's email if omitted."
+    )
 
     def validate_email(self, value):
         user = self.context["request"].user
@@ -54,15 +61,25 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = [
-            "id", "school", "user", "user_name", "user_email",
-            "action", "resource_type", "resource_id", "changes",
-            "ip_address", "user_agent", "timestamp",
+            "id",
+            "school",
+            "user",
+            "user_name",
+            "user_email",
+            "action",
+            "resource_type",
+            "resource_id",
+            "changes",
+            "ip_address",
+            "user_agent",
+            "timestamp",
         ]
         read_only_fields = fields
 
 
 class SchoolSerializer(serializers.ModelSerializer):
     """Serializer for multi-tenant school management (super admin)."""
+
     user_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
     teacher_count = serializers.SerializerMethodField()
@@ -72,17 +89,37 @@ class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = [
-            "id", "name", "code", "subdomain", "logo",
-            "address", "phone", "email", "website",
-            "timezone", "academic_year_start_month",
-            "is_active", "subscription_tier",
-            "user_count", "student_count", "teacher_count",
-            "admin_count", "total_revenue",
-            "created_at", "updated_at",
+            "id",
+            "name",
+            "code",
+            "subdomain",
+            "logo",
+            "address",
+            "phone",
+            "email",
+            "website",
+            "timezone",
+            "academic_year_start_month",
+            "is_active",
+            "subscription_tier",
+            "user_count",
+            "student_count",
+            "teacher_count",
+            "admin_count",
+            "total_revenue",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at",
-                           "user_count", "student_count",
-                           "teacher_count", "admin_count", "total_revenue"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "user_count",
+            "student_count",
+            "teacher_count",
+            "admin_count",
+            "total_revenue",
+        ]
 
     def get_user_count(self, obj):
         return obj.users.count()
@@ -99,15 +136,16 @@ class SchoolSerializer(serializers.ModelSerializer):
     def get_total_revenue(self, obj):
         """Sum of all paid payments for this school (quick stat)."""
         from services.fees.models import Payment
-        result = Payment.objects.filter(
-            invoice__student__user__school=obj,
-            status="completed"
-        ).aggregate(total=models.Sum("amount"))
+
+        result = Payment.objects.filter(invoice__student__user__school=obj, status="completed").aggregate(
+            total=models.Sum("amount")
+        )
         return result["total"] or 0
 
 
 class PlatformDashboardSerializer(serializers.Serializer):
     """Cross-school analytics for super admin platform dashboard."""
+
     total_schools = serializers.IntegerField()
     active_schools = serializers.IntegerField()
     total_users = serializers.IntegerField()
@@ -121,13 +159,21 @@ class PlatformDashboardSerializer(serializers.Serializer):
 
 class SchoolAdminSerializer(serializers.ModelSerializer):
     """Serializer for creating/managing school admin users."""
+
     password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = User
         fields = [
-            "id", "email", "first_name", "last_name", "phone",
-            "role", "is_active", "password", "date_joined",
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "role",
+            "is_active",
+            "password",
+            "date_joined",
         ]
         read_only_fields = ["id", "date_joined"]
 
@@ -138,14 +184,18 @@ class SchoolAdminSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
+        generated = password is None
+        if generated:
+            password = generate_secure_password()
         user = User(**validated_data)
-        user.set_password(password or SchoolAdminSerializer._default_password())
+        user.set_password(password)
         user.save()
+        # Expose the one-time plaintext when the password was auto-generated so
+        # the caller can share it with the new admin. A caller-supplied
+        # password is never echoed back.
+        if generated:
+            user._generated_password = password
         return user
-
-    @staticmethod
-    def _default_password():
-        return "School@1234"
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -154,10 +204,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "email", "first_name", "last_name", "phone",
-            "avatar", "role", "is_active", "email_verified",
-            "two_factor_enabled", "backup_codes_remaining",
-            "notify_email", "notify_sms", "notify_push",
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "avatar",
+            "role",
+            "is_active",
+            "email_verified",
+            "two_factor_enabled",
+            "backup_codes_remaining",
+            "notify_email",
+            "notify_sms",
+            "notify_push",
             "date_joined",
         ]
         read_only_fields = ["id", "email", "role", "is_active", "email_verified", "date_joined"]

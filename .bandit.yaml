@@ -1,0 +1,15 @@
+# Bandit configuration — Python static security analysis.
+# Run in CI (security-scan job, medium+ findings) and via pre-commit.
+#
+# Skips: the only subprocess usage in the codebase is the database backup task
+# (services/infrastructure/tasks.py), which uses list-based Popen without a
+# shell and system binaries resolved via PATH — no injection surface.
+skips:
+  - B101 # assert used (tests are excluded from scans anyway)
+  - B404 # import subprocess — see note above
+  - B603 # subprocess without explicit shell=False — see note above
+  - B607 # partial path (e.g. "gzip") — system binary via PATH, see note above
+
+exclude_dirs:
+  - tests
+  - migrations

@@ -1,0 +1,36 @@
+# EduSphere SMS — gitleaks configuration
+#
+# gitleaks runs on every push/PR in CI (security-scan job) to prevent real
+# secrets from being committed. This config keeps all default detection rules
+# and allowlists only intentionally committed NON-SECRET values:
+#   - local dev credentials in Docker Compose
+#   - placeholder k8s Secret templates (REPLACE_* values)
+#   - demo passwords printed by seed commands (dev/demo only)
+#   - .env.example templates with placeholder values
+#   - fake credentials in tests and load-test scripts
+
+title = "EduSphere SMS gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+  description = "Intentionally committed dev/demo credentials, placeholders, and test fixtures"
+  paths = [
+    '''docker-compose\.yml''',
+    '''docker-compose\.prod\.yml''',
+    '''infrastructure/docker/.*''',
+    '''infrastructure/k8s/.*''',
+    '''infrastructure/load-tests/.*''',
+    '''infrastructure/monitoring/.*''',
+    '''.*management/commands/seed_.*\.py''',
+    '''\.env\.example$''',
+    '''\.env\.example\..*''',
+    '''backend/tests/.*''',
+    '''backend/core/settings/test\.py''',
+    '''frontend/web/e2e/.*''',
+    '''.*\.test\.tsx$''',
+    '''.*\.test\.ts$''',
+    # CI workflow test credentials (e.g. postgres service password)
+    '''\.github/workflows/.*''',
+  ]

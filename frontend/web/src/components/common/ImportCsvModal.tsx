@@ -5,7 +5,12 @@
  */
 
 import React, { useState, useRef, useCallback } from "react";
-import { ArrowUpTrayIcon, DocumentTextIcon, XMarkIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpTrayIcon,
+  DocumentTextIcon,
+  XMarkIcon,
+  ClipboardDocumentIcon,
+} from "@heroicons/react/24/outline";
 import { Modal, Button } from "./";
 import { api } from "../../api/client";
 import toast from "react-hot-toast";
@@ -22,7 +27,11 @@ interface ImportCsvModalProps {
 }
 
 export default function ImportCsvModal({
-  open, onClose, endpoint, invalidateQueries, helpText,
+  open,
+  onClose,
+  endpoint,
+  invalidateQueries,
+  helpText,
 }: ImportCsvModalProps) {
   const qc = useQueryClient();
   const [csvText, setCsvText] = useState("");
@@ -32,7 +41,11 @@ export default function ImportCsvModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isPending, setIsPending] = useState(false);
-  const [results, setResults] = useState<{ imported: number; errors: string[] } | null>(null);
+  const [results, setResults] = useState<{
+    imported: number;
+    errors: string[];
+    generated_passwords?: Record<string, string>;
+  } | null>(null);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -59,7 +72,11 @@ export default function ImportCsvModal({
     setIsPending(true);
     setResults(null);
     try {
-      const res = await api.post<{ imported: number; errors: string[] }>(endpoint, { csv_data: csvText });
+      const res = await api.post<{
+        imported: number;
+        errors: string[];
+        generated_passwords?: Record<string, string>;
+      }>(endpoint, { csv_data: csvText });
       setResults(res);
       if (res.errors && res.errors.length > 0) {
         toast.error(`Imported ${res.imported} records with ${res.errors.length} errors`);
@@ -102,11 +119,7 @@ export default function ImportCsvModal({
             <Button variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              loading={isPending}
-              disabled={!csvText.trim()}
-            >
+            <Button onClick={handleSubmit} loading={isPending} disabled={!csvText.trim()}>
               Import Data
             </Button>
           </>
@@ -116,10 +129,14 @@ export default function ImportCsvModal({
       <div className="space-y-4">
         {/* Results summary */}
         {results && (
-          <div className={clsx(
-            "rounded-xl border p-4 space-y-2",
-            results.errors.length > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200",
-          )}>
+          <div
+            className={clsx(
+              "rounded-xl border p-4 space-y-2",
+              results.errors.length > 0
+                ? "bg-amber-50 border-amber-200"
+                : "bg-green-50 border-green-200",
+            )}
+          >
             <p className="text-sm font-semibold text-slate-800">
               {results.imported} records imported successfully
             </p>
@@ -127,8 +144,24 @@ export default function ImportCsvModal({
               <div className="space-y-1">
                 <p className="text-xs font-medium text-red-700">{results.errors.length} errors:</p>
                 <ul className="text-xs text-red-600 max-h-32 overflow-y-auto space-y-0.5 list-disc list-inside">
-                  {results.errors.map((err, i) => <li key={i}>{err}</li>)}
+                  {results.errors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
                 </ul>
+              </div>
+            )}
+            {results.generated_passwords && Object.keys(results.generated_passwords).length > 0 && (
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                <p className="text-xs font-medium text-indigo-700 mb-1.5">
+                  Auto-generated passwords — share these with students:
+                </p>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {Object.entries(results.generated_passwords).map(([email, pw]) => (
+                    <p key={email} className="text-xs font-mono text-indigo-600 break-all">
+                      <span className="font-semibold">{email}</span>: {pw}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -165,7 +198,10 @@ export default function ImportCsvModal({
         {/* Upload area */}
         {!results && mode === "upload" && (
           <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleFileDrop}
             onClick={() => fileInputRef.current?.click()}
@@ -180,9 +216,14 @@ export default function ImportCsvModal({
               <>
                 <DocumentTextIcon className="h-10 w-10 text-indigo-500 mb-2" />
                 <p className="text-sm font-medium text-slate-700">{fileName}</p>
-                <p className="text-xs text-slate-400 mt-1">{csvText.length.toLocaleString()} characters</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {csvText.length.toLocaleString()} characters
+                </p>
                 <button
-                  onClick={(e) => { e.stopPropagation(); reset(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    reset();
+                  }}
                   className="mt-2 text-xs text-red-500 hover:text-red-700"
                 >
                   Remove file
