@@ -11,7 +11,6 @@ def pytest_configure(config):
     settings.CELERY_TASK_ALWAYS_EAGER = True
     settings.CELERY_TASK_EAGER_PROPAGATES = True
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    settings.STORAGES["default"]["BACKEND"] = "django.core.files.storage.FileSystemStorage"
     settings.AXES_ENABLED = False  # Disable brute-force protection in tests
     settings.CACHES = {
         "default": {
