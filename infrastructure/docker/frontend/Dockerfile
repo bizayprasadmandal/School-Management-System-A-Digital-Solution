@@ -26,7 +26,7 @@ ENV REACT_APP_WS_URL=$REACT_APP_WS_URL
 RUN npm run build
 
 # ─── Production stage (Nginx) ─────────────────────────────────────────────────
-FROM nginx:1.25-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 # Remove default config
 RUN rm /etc/nginx/conf.d/default.conf
