@@ -37,6 +37,10 @@ COPY infrastructure/docker/frontend/nginx.conf /etc/nginx/conf.d/app.conf
 # Copy built assets
 COPY --from=builder /app/build /usr/share/nginx/html
 
+# Fail the image build on nginx config errors (also confirms the sub_filter
+# module is present in the image) instead of shipping a broken frontend.
+RUN nginx -t
+
 EXPOSE 80
 
 # Runtime env substitution for API URL
