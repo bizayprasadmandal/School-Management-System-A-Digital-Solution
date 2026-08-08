@@ -1,13 +1,14 @@
 """
 Production settings — extends base, enforces security, uses real services
 """
-# Explicit imports from base (star import needed for Django settings convention)
-from .base import *  # noqa: F401, F403 — Django settings require wildcard import
 
 import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
+
+# Explicit imports from base (star import needed for Django settings convention)
+from .base import *  # noqa: F401, F403 — Django settings require wildcard import
 
 # ─── Security overrides ────────────────────────────────────────────────────────
 
@@ -31,12 +32,12 @@ SECURE_BROWSER_XSS_FILTER = True
 # Allow disabling S3 during Docker build where MinIO is not available
 USE_S3 = env.bool("USE_S3", default=True)
 if USE_S3:
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
+    STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
+    STORAGES["staticfiles"]["BACKEND"] = "storages.backends.s3boto3.S3StaticStorage"
 else:
     # WhiteNoise serves compressed & hashed static files when S3 is unavailable
-    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    STORAGES["default"]["BACKEND"] = "django.core.files.storage.FileSystemStorage"
+    STORAGES["staticfiles"]["BACKEND"] = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
@@ -116,4 +117,3 @@ DATABASES["default"]["CONN_MAX_AGE"] = 60
 # ─── Email Verification Enforcement ────────────────────────────────────────────
 
 EMAIL_VERIFICATION_ENFORCED = True
-

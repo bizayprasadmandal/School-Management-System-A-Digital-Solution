@@ -4,6 +4,7 @@ Sets environment defaults BEFORE importing base so that env() calls
 in base.py resolve successfully. Overrides external service configs
 for test isolation.
 """
+
 import os
 
 # ── Set environment defaults BEFORE importing base ────────────────────────────
@@ -43,11 +44,6 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
-
-# Remove STATICFILES_STORAGE to avoid conflict with STORAGES (Django 4.2)
-# (base.py sets STATICFILES_STORAGE; test.py uses STORAGES instead)
-if "STATICFILES_STORAGE" in dir():
-    del STATICFILES_STORAGE  # noqa: F821
 
 # Channels — in-memory for tests
 CHANNEL_LAYERS = {
