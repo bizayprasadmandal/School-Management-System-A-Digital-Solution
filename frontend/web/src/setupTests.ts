@@ -10,4 +10,12 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
-
+// ─── ResizeObserver stub ───────────────────────────────────────────────────────
+// recharts' ResponsiveContainer observes its container via ResizeObserver, which
+// jsdom doesn't implement — stub it so chart components render in tests.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+(window as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
