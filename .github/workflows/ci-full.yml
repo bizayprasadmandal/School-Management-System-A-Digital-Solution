@@ -241,7 +241,10 @@ jobs:
   deploy-production:
     needs: [docker-build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Skipped until the cluster kubeconfig exists as a repo secret. Without it,
+    # azure/k8s-set-context fails on every push ("Input required and not
+    # supplied: kubeconfig"). Adding the secret automatically activates the job.
+    if: github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG_PRODUCTION != ''
     environment: { name: production, url: "https://app.edusphere.school" }
     steps:
       - uses: actions/checkout@v4

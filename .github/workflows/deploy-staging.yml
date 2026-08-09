@@ -72,7 +72,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Skipped until KUBE_CONFIG_STAGING is configured — image builds above
+      # still run, and setting the secret activates the deploy steps.
       - name: Configure kubectl
+        if: secrets.KUBE_CONFIG_STAGING != ''
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_STAGING }}" }
 
@@ -108,10 +111,12 @@ jobs:
             REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL_STAGING }}
 
       - name: Migrate database
+        if: secrets.KUBE_CONFIG_STAGING != ''
         run: |
           kubectl exec deploy/sms-backend-staging -n staging -- python manage.py migrate --noinput
 
       - name: Deploy to staging
+        if: secrets.KUBE_CONFIG_STAGING != ''
         run: |
           kubectl set image deploy/sms-backend-staging \
             backend=${{ env.IMAGE_BASE }}/backend:${{ env.IMAGE_TAG }} \
@@ -123,5 +128,6 @@ jobs:
           kubectl rollout status deploy/sms-frontend-staging -n staging --timeout=5m
 
       - name: Collect static files
+        if: secrets.KUBE_CONFIG_STAGING != ''
         run: |
           kubectl exec deploy/sms-backend-staging -n staging -- python manage.py collectstatic --noinput
