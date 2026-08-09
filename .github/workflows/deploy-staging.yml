@@ -72,10 +72,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Skipped until KUBE_CONFIG_STAGING is configured — image builds above
-      # still run, and setting the secret activates the deploy steps.
+      # Guard: skipped until KUBE_CONFIG_STAGING is configured — image builds
+      # above still run, and setting the secret activates the deploy steps.
+      - name: Check kubeconfig secret is configured
+        id: kubecheck
+        run: |
+          if [ -n "$KUBE_CONFIG_STAGING" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::KUBE_CONFIG_STAGING secret is not set — skipping staging deploy. Add the secret to activate."
+          fi
+        env:
+          KUBE_CONFIG_STAGING: ${{ secrets.KUBE_CONFIG_STAGING }}
       - name: Configure kubectl
-        if: secrets.KUBE_CONFIG_STAGING != ''
+        if: steps.kubecheck.outputs.configured == 'true'
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_STAGING }}" }
 
@@ -111,12 +122,12 @@ jobs:
             REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL_STAGING }}
 
       - name: Migrate database
-        if: secrets.KUBE_CONFIG_STAGING != ''
+        if: steps.kubecheck.outputs.configured == 'true'
         run: |
           kubectl exec deploy/sms-backend-staging -n staging -- python manage.py migrate --noinput
 
       - name: Deploy to staging
-        if: secrets.KUBE_CONFIG_STAGING != ''
+        if: steps.kubecheck.outputs.configured == 'true'
         run: |
           kubectl set image deploy/sms-backend-staging \
             backend=${{ env.IMAGE_BASE }}/backend:${{ env.IMAGE_TAG }} \
@@ -128,6 +139,6 @@ jobs:
           kubectl rollout status deploy/sms-frontend-staging -n staging --timeout=5m
 
       - name: Collect static files
-        if: secrets.KUBE_CONFIG_STAGING != ''
+        if: steps.kubecheck.outputs.configured == 'true'
         run: |
           kubectl exec deploy/sms-backend-staging -n staging -- python manage.py collectstatic --noinput

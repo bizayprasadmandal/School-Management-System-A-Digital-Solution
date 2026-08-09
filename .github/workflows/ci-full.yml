@@ -241,26 +241,41 @@ jobs:
   deploy-production:
     needs: [docker-build]
     runs-on: ubuntu-latest
-    # Skipped until the cluster kubeconfig exists as a repo secret. Without it,
-    # azure/k8s-set-context fails on every push ("Input required and not
-    # supplied: kubeconfig"). Adding the secret automatically activates the job.
-    if: github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG_PRODUCTION != ''
+    # The secrets context is unavailable in job-level if, so the kubeconfig check
+    # lives in a guard step: without the secret the deploy steps are skipped (job
+    # stays green) instead of azure/k8s-set-context failing on every push with
+    # "Input required and not supplied: kubeconfig".
+    if: github.ref == 'refs/heads/main'
     environment: { name: production, url: "https://app.edusphere.school" }
     steps:
       - uses: actions/checkout@v4
       - name: Slug GHCR image base (lowercase)
         run: |
           echo "IMAGE_BASE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+      - name: Check kubeconfig secret is configured
+        id: kubecheck
+        run: |
+          if [ -n "$KUBE_CONFIG_PRODUCTION" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::KUBE_CONFIG_PRODUCTION secret is not set — skipping production deploy. Add the secret to activate."
+          fi
+        env:
+          KUBE_CONFIG_PRODUCTION: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
       - name: Configure kubectl
+        if: steps.kubecheck.outputs.configured == 'true'
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_PRODUCTION }}" }
       - name: Check pending migrations
+        if: steps.kubecheck.outputs.configured == 'true'
         run: |
           kubectl exec deploy/sms-backend -n sms -- python manage.py migrate --check || {
             echo "⚠️ Pending migrations detected! Running migrate..."
             kubectl exec deploy/sms-backend -n sms -- python manage.py migrate --noinput
           }
       - name: Deploy to Kubernetes
+        if: steps.kubecheck.outputs.configured == 'true'
         run: |
           kubectl set image deployment/sms-backend backend=${{ env.IMAGE_BASE }}/backend:${{ github.sha }} -n sms
           kubectl set image deployment/sms-frontend frontend=${{ env.IMAGE_BASE }}/frontend:${{ github.sha }} -n sms
