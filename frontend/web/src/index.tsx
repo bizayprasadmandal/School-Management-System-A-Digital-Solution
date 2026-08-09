@@ -4,20 +4,23 @@ import "./index.css";
 // ─── Sentry error monitoring ────────────────────────────────────────────────
 import * as Sentry from "@sentry/react";
 
-Sentry.init({
-  dsn: process.env.REACT_APP_SENTRY_DSN || "https://1d07b7ecc3b227d21f1649829f886ad5@o4511743482789888.ingest.de.sentry.io/4511743491309648",
-  environment: process.env.NODE_ENV || "development",
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
-  ],
-  // Performance monitoring (sample rate 10% in dev, 50% in prod)
-  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.5 : 0.1,
-  // Session replay (sample rate 0% in dev, 10% in prod)
-  replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0.0,
-  replaysOnErrorSampleRate: 1.0, // Always capture replays on error
-});
-
+// Only initialize when a DSN is configured (set REACT_APP_SENTRY_DSN).
+// No hardcoded fallback: dev/CI builds and bundles built without the DSN
+// stay Sentry-free instead of pushing noise to a real project.
+const sentryDsn = process.env.REACT_APP_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: process.env.NODE_ENV || "development",
+    release: process.env.REACT_APP_SENTRY_RELEASE || undefined,
+    integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
+    // Performance monitoring (sample rate 10% in dev, 50% in prod)
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.5 : 0.1,
+    // Session replay (sample rate 0% in dev, 10% in prod)
+    replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0.0,
+    replaysOnErrorSampleRate: 1.0, // Always capture replays on error
+  });
+}
 
 // ─── Global dayjs configuration ─────────────────────────────────────────────
 // Extend dayjs with plugins at the entry point so all code-split chunks
@@ -49,38 +52,46 @@ root.render(<App />);
 // The browser may have cached index.html referencing old chunk names,
 // causing "Loading chunk X failed" errors. This handler catches those
 // errors and reloads the page to pick up the fresh index.html.
-window.addEventListener("error", (event) => {
-  const target = event.target as HTMLElement | null;
-  if (
-    target?.tagName === "SCRIPT" &&
-    (target as HTMLScriptElement).src?.includes("/static/js/") &&
-    !sessionStorage.getItem("chunkReloaded")
-  ) {
-    sessionStorage.setItem("chunkReloaded", "true");
-    // Show a brief visual hint before reloading
-    const root = document.getElementById("root");
-    if (root) {
-      root.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#f8fafc;color:#475569;font-family:system-ui">
+window.addEventListener(
+  "error",
+  (event) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.tagName === "SCRIPT" &&
+      (target as HTMLScriptElement).src?.includes("/static/js/") &&
+      !sessionStorage.getItem("chunkReloaded")
+    ) {
+      sessionStorage.setItem("chunkReloaded", "true");
+      // Show a brief visual hint before reloading
+      const root = document.getElementById("root");
+      if (root) {
+        root.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#f8fafc;color:#475569;font-family:system-ui">
         <div style="width:32px;height:32px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>
         <p style="font-size:14px">Updating app…</p>
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
       </div>`;
+      }
+      setTimeout(() => window.location.reload(), 600);
     }
-    setTimeout(() => window.location.reload(), 600);
-  }
-}, true);
+  },
+  true,
+);
 
 // Suppress duplicate chunk errors in the console after the reload flag is set
-window.addEventListener("error", (event) => {
-  const target = event.target as HTMLElement | null;
-  if (
-    target?.tagName === "SCRIPT" &&
-    (target as HTMLScriptElement).src?.includes("/static/js/") &&
-    sessionStorage.getItem("chunkReloaded")
-  ) {
-    event.preventDefault();
-  }
-}, true);
+window.addEventListener(
+  "error",
+  (event) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.tagName === "SCRIPT" &&
+      (target as HTMLScriptElement).src?.includes("/static/js/") &&
+      sessionStorage.getItem("chunkReloaded")
+    ) {
+      event.preventDefault();
+    }
+  },
+  true,
+);
 
 // ─── Hide pre-React loading screen ───────────────────────────────────────────
 const loader = document.getElementById("app-loading");
