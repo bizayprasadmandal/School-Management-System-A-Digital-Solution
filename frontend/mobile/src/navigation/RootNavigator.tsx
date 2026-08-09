@@ -3,12 +3,14 @@
  * Supports: iOS & Android | Roles: Student, Parent, Teacher
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, type ComponentProps } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 // Auth screens
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -69,7 +71,7 @@ import { navigationRef } from "../services/navigation";
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const BRAND = "#4F46E5";  // Indigo-600
+const BRAND = "#4F46E5"; // Indigo-600
 
 // ─── Student Tab Navigator ─────────────────────────────────────────────────────
 
@@ -79,22 +81,19 @@ function StudentTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:       ["home",              "home-outline"],
-            Attendance: ["calendar",          "calendar-outline"],
-            Assignments:["document-text",     "document-text-outline"],
-            Grades:     ["school",            "school-outline"],
-            Fees:       ["wallet",            "wallet-outline"],
-            Timetable:  ["time",              "time-outline"],
-            Messages:   ["chatbubble-ellipses","chatbubble-ellipses-outline"],
+            Home: ["home", "home-outline"],
+            Attendance: ["calendar", "calendar-outline"],
+            Assignments: ["document-text", "document-text-outline"],
+            Grades: ["school", "school-outline"],
+            Fees: ["wallet", "wallet-outline"],
+            Timetable: ["time", "time-outline"],
+            Messages: ["chatbubble-ellipses", "chatbubble-ellipses-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
-          return (
-            <Ionicons
-              name={focused ? active : inactive}
-              size={size}
-              color={color}
-            />
-          );
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
+          return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: BRAND,
         tabBarInactiveTintColor: "#94a3b8",
@@ -110,7 +109,11 @@ function StudentTabs() {
     >
       <Tab.Screen name="Home" component={StudentHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Attendance" component={StudentAttendanceScreen} />
-      <Tab.Screen name="Assignments" component={StudentAssignmentsScreen} options={{ title: "Assignments" }} />
+      <Tab.Screen
+        name="Assignments"
+        component={StudentAssignmentsScreen}
+        options={{ title: "Assignments" }}
+      />
       <Tab.Screen name="Grades" component={StudentGradesScreen} />
       <Tab.Screen name="Fees" component={StudentFeesScreen} />
       <Tab.Screen name="Timetable" component={StudentTimetableScreen} />
@@ -127,14 +130,17 @@ function TeacherTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:       ["home",           "home-outline"],
+            Home: ["home", "home-outline"],
             Attendance: ["checkmark-done", "checkmark-done-outline"],
-            Assignments:["document-text",  "document-text-outline"],
-            Gradebook:  ["bar-chart",      "bar-chart-outline"],
-            Timetable:  ["time",           "time-outline"],
-            Messages:   ["chatbubble",     "chatbubble-outline"],
+            Assignments: ["document-text", "document-text-outline"],
+            Gradebook: ["bar-chart", "bar-chart-outline"],
+            Timetable: ["time", "time-outline"],
+            Messages: ["chatbubble", "chatbubble-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
           return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: BRAND,
@@ -145,7 +151,11 @@ function TeacherTabs() {
     >
       <Tab.Screen name="Home" component={TeacherHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Attendance" component={TeacherAttendanceScreen} />
-      <Tab.Screen name="Assignments" component={TeacherAssignmentsScreen} options={{ title: "Assignments" }} />
+      <Tab.Screen
+        name="Assignments"
+        component={TeacherAssignmentsScreen}
+        options={{ title: "Assignments" }}
+      />
       <Tab.Screen name="Gradebook" component={TeacherGradebookScreen} />
       <Tab.Screen name="Timetable" component={TeacherTimetableScreen} />
       <Tab.Screen name="Messages" component={TeacherMessagesScreen} />
@@ -161,12 +171,15 @@ function AccountantTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:     ["wallet",    "wallet-outline"],
-            Payments: ["card",     "card-outline"],
-            Reports:  ["bar-chart","bar-chart-outline"],
-            Refunds:  ["return-up-back","return-up-back-outline"],
+            Home: ["wallet", "wallet-outline"],
+            Payments: ["card", "card-outline"],
+            Reports: ["bar-chart", "bar-chart-outline"],
+            Refunds: ["return-up-back", "return-up-back-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
           return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#059669",
@@ -175,10 +188,26 @@ function AccountantTabs() {
         headerTintColor: "#fff",
       })}
     >
-      <Tab.Screen name="Home" component={AccountantDashboardScreen} options={{ title: "Dashboard" }} />
-      <Tab.Screen name="Payments" component={AccountantPaymentHistoryScreen} options={{ title: "Payments" }} />
-      <Tab.Screen name="Reports" component={AccountantFeeReportsScreen} options={{ title: "Reports" }} />
-      <Tab.Screen name="Refunds" component={AccountantRefundsScreen} options={{ title: "Refunds" }} />
+      <Tab.Screen
+        name="Home"
+        component={AccountantDashboardScreen}
+        options={{ title: "Dashboard" }}
+      />
+      <Tab.Screen
+        name="Payments"
+        component={AccountantPaymentHistoryScreen}
+        options={{ title: "Payments" }}
+      />
+      <Tab.Screen
+        name="Reports"
+        component={AccountantFeeReportsScreen}
+        options={{ title: "Reports" }}
+      />
+      <Tab.Screen
+        name="Refunds"
+        component={AccountantRefundsScreen}
+        options={{ title: "Refunds" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -191,10 +220,13 @@ function LibrarianTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:  ["library",     "library-outline"],
-            Books: ["book",       "book-outline"],
+            Home: ["library", "library-outline"],
+            Books: ["book", "book-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
           return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#0ea5e9",
@@ -203,8 +235,16 @@ function LibrarianTabs() {
         headerTintColor: "#fff",
       })}
     >
-      <Tab.Screen name="Home" component={LibrarianDashboardScreen} options={{ title: "Dashboard" }} />
-      <Tab.Screen name="Books" component={LibrarianBookManagementScreen} options={{ title: "Books" }} />
+      <Tab.Screen
+        name="Home"
+        component={LibrarianDashboardScreen}
+        options={{ title: "Dashboard" }}
+      />
+      <Tab.Screen
+        name="Books"
+        component={LibrarianBookManagementScreen}
+        options={{ title: "Books" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -217,10 +257,13 @@ function CounselorTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:         ["heart",       "heart-outline"],
-            Appointments: ["calendar",    "calendar-outline"],
+            Home: ["heart", "heart-outline"],
+            Appointments: ["calendar", "calendar-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
           return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#8b5cf6",
@@ -229,8 +272,16 @@ function CounselorTabs() {
         headerTintColor: "#fff",
       })}
     >
-      <Tab.Screen name="Home" component={CounselorDashboardScreen} options={{ title: "Dashboard" }} />
-      <Tab.Screen name="Appointments" component={CounselorAppointmentsScreen} options={{ title: "Appointments" }} />
+      <Tab.Screen
+        name="Home"
+        component={CounselorDashboardScreen}
+        options={{ title: "Dashboard" }}
+      />
+      <Tab.Screen
+        name="Appointments"
+        component={CounselorAppointmentsScreen}
+        options={{ title: "Appointments" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -243,14 +294,17 @@ function ParentTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, [string, string]> = {
-            Home:       ["home",       "home-outline"],
-            Children:   ["people",     "people-outline"],
-            Attendance: ["calendar",   "calendar-outline"],
-            Assignments:["document-text","document-text-outline"],
-            Grades:     ["ribbon",     "ribbon-outline"],
-            Messages:   ["chatbubble", "chatbubble-outline"],
+            Home: ["home", "home-outline"],
+            Children: ["people", "people-outline"],
+            Attendance: ["calendar", "calendar-outline"],
+            Assignments: ["document-text", "document-text-outline"],
+            Grades: ["ribbon", "ribbon-outline"],
+            Messages: ["chatbubble", "chatbubble-outline"],
           };
-          const [active, inactive] = icons[route.name] ?? ["help", "help-outline"];
+          const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
+            IoniconName,
+            IoniconName,
+          ];
           return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
         },
         tabBarActiveTintColor: BRAND,
@@ -262,7 +316,11 @@ function ParentTabs() {
       <Tab.Screen name="Home" component={ParentHomeScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Children" component={ParentChildrenScreen} />
       <Tab.Screen name="Attendance" component={ParentAttendanceScreen} />
-      <Tab.Screen name="Assignments" component={ParentAssignmentsScreen} options={{ title: "Assignments" }} />
+      <Tab.Screen
+        name="Assignments"
+        component={ParentAssignmentsScreen}
+        options={{ title: "Assignments" }}
+      />
       <Tab.Screen name="Grades" component={ParentGradesScreen} />
       <Tab.Screen name="Messages" component={ParentMessagesScreen} />
     </Tab.Navigator>
@@ -285,22 +343,32 @@ function AppContent() {
 
   let MainTabs: React.ComponentType<any>;
   switch (user?.role) {
-    case "student":          MainTabs = StudentTabs;     break;
-    case "teacher":          MainTabs = TeacherTabs;     break;
-    case "parent":           MainTabs = ParentTabs;      break;
-    case "accountant":       MainTabs = AccountantTabs;  break;
-    case "librarian":        MainTabs = LibrarianTabs;   break;
-    case "counselor":        MainTabs = CounselorTabs;   break;
-    default:                 MainTabs = StudentTabs;     break;
+    case "student":
+      MainTabs = StudentTabs;
+      break;
+    case "teacher":
+      MainTabs = TeacherTabs;
+      break;
+    case "parent":
+      MainTabs = ParentTabs;
+      break;
+    case "accountant":
+      MainTabs = AccountantTabs;
+      break;
+    case "librarian":
+      MainTabs = LibrarianTabs;
+      break;
+    case "counselor":
+      MainTabs = CounselorTabs;
+      break;
+    default:
+      MainTabs = StudentTabs;
+      break;
   }
 
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="Main"
-        component={MainTabs}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}

@@ -4,8 +4,16 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -16,18 +24,18 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://api.edusphere.schoo
 const BRAND = "#4F46E5";
 
 const ROLE_DEMO = [
-  { role: "Admin",   email: "admin@demo.edusphere.school",  password: "Admin@1234" },
+  { role: "Admin", email: "admin@demo.edusphere.school", password: "Admin@1234" },
   { role: "Teacher", email: "sarah.mitchell@demo.edusphere.school", password: "Teacher@1234" },
   { role: "Student", email: "student001@demo.edusphere.school", password: "Student@1234" },
-  { role: "Parent",  email: "parent001@demo.edusphere.school",  password: "Parent@1234" },
+  { role: "Parent", email: "parent001@demo.edusphere.school", password: "Parent@1234" },
 ];
 
 export default function LoginScreen() {
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [showPwd, setShowPwd]     = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [errors, setErrors]       = useState<{email?: string; password?: string}>({});
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [biometricType, setBiometricType] = useState<string | null>(null);
   const { setAuth } = useAuthStore();
 
@@ -95,9 +103,11 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-
         {/* Logo */}
         <View style={styles.logoBox}>
           <Ionicons name="school" size={38} color={BRAND} />
@@ -112,12 +122,15 @@ export default function LoginScreen() {
 
           {/* Email */}
           <Text style={styles.label}>Email address</Text>
-          <View style={[styles.row, errors.email && styles.rowError]}>
+          <View style={[styles.row, !!errors.email && styles.rowError]}>
             <Ionicons name="mail-outline" size={18} color="#94a3b8" style={{ marginRight: 10 }} />
             <TextInput
               style={styles.input}
               value={email}
-              onChangeText={v => { setEmail(v); setErrors(e => ({ ...e, email: undefined })); }}
+              onChangeText={(v) => {
+                setEmail(v);
+                setErrors((e) => ({ ...e, email: undefined }));
+              }}
               placeholder="you@school.edu"
               placeholderTextColor="#cbd5e1"
               keyboardType="email-address"
@@ -132,28 +145,46 @@ export default function LoginScreen() {
             <Text style={styles.label}>Password</Text>
             <Text style={styles.forgot}>Forgot password?</Text>
           </View>
-          <View style={[styles.row, errors.password && styles.rowError]}>
-            <Ionicons name="lock-closed-outline" size={18} color="#94a3b8" style={{ marginRight: 10 }} />
+          <View style={[styles.row, !!errors.password && styles.rowError]}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={18}
+              color="#94a3b8"
+              style={{ marginRight: 10 }}
+            />
             <TextInput
               style={styles.input}
               value={password}
-              onChangeText={v => { setPassword(v); setErrors(e => ({ ...e, password: undefined })); }}
+              onChangeText={(v) => {
+                setPassword(v);
+                setErrors((e) => ({ ...e, password: undefined }));
+              }}
               placeholder="••••••••••"
               placeholderTextColor="#cbd5e1"
               secureTextEntry={!showPwd}
               onSubmitEditing={handleLogin}
             />
-            <TouchableOpacity onPress={() => setShowPwd(v => !v)}>
-              <Ionicons name={showPwd ? "eye-off-outline" : "eye-outline"} size={18} color="#94a3b8" />
+            <TouchableOpacity onPress={() => setShowPwd((v) => !v)}>
+              <Ionicons
+                name={showPwd ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color="#94a3b8"
+              />
             </TouchableOpacity>
           </View>
           {errors.password && <Text style={styles.err}>{errors.password}</Text>}
 
           {/* Button */}
-          <TouchableOpacity style={[styles.btn, loading && { opacity: 0.65 }]} onPress={handleLogin} disabled={loading}>
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Sign In</Text>}
+          <TouchableOpacity
+            style={[styles.btn, loading && { opacity: 0.65 }]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
           {/* Biometric */}
@@ -161,7 +192,8 @@ export default function LoginScreen() {
             <TouchableOpacity style={styles.bioBtn} onPress={handleBiometricLogin}>
               <Ionicons
                 name={biometricType === "Face ID" ? "scan-outline" : "finger-print-outline"}
-                size={18} color={BRAND}
+                size={18}
+                color={BRAND}
               />
               <Text style={styles.bioText}>Sign in with {biometricType}</Text>
             </TouchableOpacity>
@@ -171,9 +203,16 @@ export default function LoginScreen() {
           <View style={styles.demoBox}>
             <Text style={styles.demoTitle}>Demo Accounts</Text>
             <View style={styles.chips}>
-              {ROLE_DEMO.map(d => (
-                <TouchableOpacity key={d.role} style={styles.chip}
-                  onPress={() => { setEmail(d.email); setPassword(d.password); setErrors({}); }}>
+              {ROLE_DEMO.map((d) => (
+                <TouchableOpacity
+                  key={d.role}
+                  style={styles.chip}
+                  onPress={() => {
+                    setEmail(d.email);
+                    setPassword(d.password);
+                    setErrors({});
+                  }}
+                >
                   <Text style={styles.chipText}>{d.role}</Text>
                 </TouchableOpacity>
               ))}
@@ -190,27 +229,91 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#312e81" },
   scroll: { flexGrow: 1, alignItems: "center", paddingVertical: 48, paddingHorizontal: 24 },
-  logoBox: { width: 72, height: 72, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 12, elevation: 8 },
+  logoBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   appName: { fontSize: 28, fontWeight: "800", color: "#fff", letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: "#a5b4fc", marginTop: 4, marginBottom: 32 },
-  card: { width: "100%", maxWidth: 420, backgroundColor: "#fff", borderRadius: 20, padding: 28, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 24, elevation: 12 },
+  card: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 28,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
+  },
   title: { fontSize: 22, fontWeight: "700", color: "#0f172a" },
   sub: { fontSize: 14, color: "#64748b", marginTop: 4, marginBottom: 24 },
   label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
-  labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   forgot: { fontSize: 13, fontWeight: "600", color: BRAND },
-  row: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, paddingHorizontal: 14, height: 48, marginBottom: 4 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    marginBottom: 4,
+  },
   rowError: { borderColor: "#ef4444" },
   input: { flex: 1, fontSize: 15, color: "#1e293b" },
   err: { fontSize: 12, color: "#ef4444", marginBottom: 12 },
-  btn: { backgroundColor: BRAND, borderRadius: 14, height: 52, alignItems: "center", justifyContent: "center", marginTop: 12, shadowColor: BRAND, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
-  bioBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0" },
+  btn: {
+    backgroundColor: BRAND,
+    borderRadius: 14,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    shadowColor: BRAND,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  bioBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
   bioText: { fontSize: 14, fontWeight: "600", color: BRAND },
   btnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   demoBox: { marginTop: 20, padding: 14, backgroundColor: "#eef2ff", borderRadius: 12 },
   demoTitle: { fontSize: 12, fontWeight: "700", color: BRAND, marginBottom: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: "#c7d2fe" },
+  chip: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
   chipText: { fontSize: 13, fontWeight: "600", color: BRAND },
   footer: { marginTop: 28, fontSize: 12, color: "#818cf8" },
 });

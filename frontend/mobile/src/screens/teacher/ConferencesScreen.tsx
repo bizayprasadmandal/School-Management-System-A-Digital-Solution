@@ -5,8 +5,17 @@
 
 import React, { useState } from "react";
 import {
-  View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity,
-  Alert, RefreshControl, Modal, Platform,
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  Modal,
+  Platform,
+  Linking,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -21,10 +30,13 @@ export default function TeacherConferencesScreen() {
   const [newSlot, setNewSlot] = useState({ start_time: "09:00", end_time: "09:30", notes: "" });
   const qc = useQueryClient();
 
-  const { data: slotsData, isLoading, refetch } = useQuery({
+  const {
+    data: slotsData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["mob-teacher-conf", date],
-    queryFn: () =>
-      mobileApi.get<{ results: any[] }>("/conferences/conference-slots/", { date }),
+    queryFn: () => mobileApi.get<{ results: any[] }>("/conferences/conference-slots/", { date }),
   });
 
   const slots = slotsData?.results ?? [];
@@ -61,15 +73,22 @@ export default function TeacherConferencesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
-      <ScrollView contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={BRAND} />}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={BRAND} />
+        }
       >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.heading}>My Slots</Text>
             <Text style={styles.sub}>Manage your parent-teacher conference availability</Text>
           </View>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => setShowForm(true)}
+            activeOpacity={0.8}
+          >
             <Text style={styles.addBtnTxt}>+ Add Slot</Text>
           </TouchableOpacity>
         </View>
@@ -86,13 +105,15 @@ export default function TeacherConferencesScreen() {
         </View>
 
         {slots.length === 0 ? (
-          <EmptyState icon="📅" title="No slots" sub="Create your first conference slot for this date" />
+          <EmptyState
+            icon="📅"
+            title="No slots"
+            sub="Create your first conference slot for this date"
+          />
         ) : (
           <View style={styles.list}>
             {slots.map((slot: any) => (
-              <View key={slot.id}
-                style={[styles.card, slot.is_booked && styles.cardBooked]}
-              >
+              <View key={slot.id} style={[styles.card, slot.is_booked && styles.cardBooked]}>
                 <View style={styles.cardMain}>
                   <View style={styles.timeCol}>
                     <Text style={styles.timeStart}>{slot.start_time?.slice(0, 5)}</Text>
@@ -156,7 +177,11 @@ export default function TeacherConferencesScreen() {
                       onPress={() => {
                         Alert.alert("Remove Slot", "Remove this available slot?", [
                           { text: "Cancel", style: "cancel" },
-                          { text: "Remove", style: "destructive", onPress: () => cancelMut.mutate(slot.id) },
+                          {
+                            text: "Remove",
+                            style: "destructive",
+                            onPress: () => cancelMut.mutate(slot.id),
+                          },
                         ]);
                       }}
                     >
@@ -181,7 +206,12 @@ export default function TeacherConferencesScreen() {
       </ScrollView>
 
       {/* Create Slot Modal */}
-      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+      <Modal
+        visible={showForm}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowForm(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Create Conference Slot</Text>
@@ -194,7 +224,7 @@ export default function TeacherConferencesScreen() {
                 <Text style={styles.label}>Start</Text>
                 <TextInput
                   value={newSlot.start_time}
-                  onChangeText={v => setNewSlot(p => ({ ...p, start_time: v }))}
+                  onChangeText={(v) => setNewSlot((p) => ({ ...p, start_time: v }))}
                   style={styles.input}
                   placeholder="09:00"
                 />
@@ -203,7 +233,7 @@ export default function TeacherConferencesScreen() {
                 <Text style={styles.label}>End</Text>
                 <TextInput
                   value={newSlot.end_time}
-                  onChangeText={v => setNewSlot(p => ({ ...p, end_time: v }))}
+                  onChangeText={(v) => setNewSlot((p) => ({ ...p, end_time: v }))}
                   style={styles.input}
                   placeholder="09:30"
                 />
@@ -213,7 +243,7 @@ export default function TeacherConferencesScreen() {
             <Text style={styles.label}>Notes (optional)</Text>
             <TextInput
               value={newSlot.notes}
-              onChangeText={v => setNewSlot(p => ({ ...p, notes: v }) ) }
+              onChangeText={(v) => setNewSlot((p) => ({ ...p, notes: v }))}
               style={[styles.input, { minHeight: 60 }]}
               multiline
               placeholder="Any notes..."
@@ -279,29 +309,94 @@ const styles = StyleSheet.create({
   bookedName: { fontSize: 14, fontWeight: "600", color: "#065f46" },
   availableTxt: { fontSize: 14, fontWeight: "600", color: BRAND },
   notes: { fontSize: 12, color: "#64748b", marginTop: 4 },
-  zoomBadge: { marginTop: 6, alignSelf: "flex-start", backgroundColor: "#dcfce7", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  zoomBadge: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+    backgroundColor: "#dcfce7",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   zoomBadgeTxt: { fontSize: 11, fontWeight: "600", color: "#15803d" },
   actions: { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" },
   joinBtn: { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  zoomBtn: { backgroundColor: "#dbeafe", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  completeBtn: { backgroundColor: "#dcfce7", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  cancelBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#fecaca" },
-  removeBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#fecaca" },
+  zoomBtn: {
+    backgroundColor: "#dbeafe",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  completeBtn: {
+    backgroundColor: "#dcfce7",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cancelBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  removeBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
   actionTxt: { fontSize: 12, fontWeight: "700", color: "#1e293b" },
   cancelTxt: { fontSize: 12, fontWeight: "600", color: "#dc2626" },
-  zoomDetails: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#f1f5f9", flexDirection: "row", gap: 16 },
+  zoomDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    flexDirection: "row",
+    gap: 16,
+  },
   zoomId: { fontSize: 11, color: "#64748b" },
   zoomPwd: { fontSize: 11, color: "#64748b" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  modal: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === "ios" ? 40 : 24 },
+  modal: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+  },
   modalTitle: { fontSize: 18, fontWeight: "700", color: "#1e293b", marginBottom: 20 },
   label: { fontSize: 12, fontWeight: "600", color: "#374151", marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: "#1e293b", marginBottom: 14, backgroundColor: "#fff" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#1e293b",
+    marginBottom: 14,
+    backgroundColor: "#fff",
+  },
   inputDisabled: { backgroundColor: "#f8fafc", color: "#94a3b8" },
   timeRow: { flexDirection: "row", gap: 12 },
   modalActions: { flexDirection: "row", gap: 12, marginTop: 8 },
-  modalCancel: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: "#e2e8f0", paddingVertical: 12, alignItems: "center" },
+  modalCancel: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
   modalCancelTxt: { fontSize: 14, fontWeight: "600", color: "#64748b" },
-  modalConfirm: { flex: 1, backgroundColor: BRAND, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  modalConfirm: {
+    flex: 1,
+    backgroundColor: BRAND,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
   modalConfirmTxt: { fontSize: 14, fontWeight: "700", color: "#fff" },
 });

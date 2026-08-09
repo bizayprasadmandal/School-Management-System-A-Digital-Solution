@@ -5,14 +5,21 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  RefreshControl, Alert, Modal, Platform, Linking,
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  Modal,
+  Platform,
+  Linking,
+  DimensionValue,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi, mobileApiClient } from "../../api/client";
-import {
-  SkeletonGradesScreen, Card, Badge, StatCard,
-} from "../../components";
+import { SkeletonGradesScreen, Card, Badge, StatCard } from "../../components";
 
 const BRAND = "#6366f1";
 
@@ -38,7 +45,12 @@ function ReportCardDetailModal({
   onClose,
 }: {
   reportCard: any;
-  subjectData: { subject: string; marks_obtained: number | null; max_marks: number; percentage: number | null }[];
+  subjectData: {
+    subject: string;
+    marks_obtained: number | null;
+    max_marks: number;
+    percentage: number | null;
+  }[];
   onClose: () => void;
 }) {
   const pct = Number(reportCard.percentage);
@@ -139,7 +151,9 @@ function ReportCardDetailModal({
                           {subj.subject}
                         </Text>
                         <Text style={styles.subjMarks}>
-                          {subj.marks_obtained != null ? `${subj.marks_obtained}/${subj.max_marks}` : "—"}
+                          {subj.marks_obtained != null
+                            ? `${subj.marks_obtained}/${subj.max_marks}`
+                            : "—"}
                         </Text>
                       </View>
                       <View style={styles.subjBarContainer}>
@@ -147,7 +161,7 @@ function ReportCardDetailModal({
                           <View
                             style={[
                               styles.subjBarFill,
-                              { width: barWidth, backgroundColor: barColor },
+                              { width: barWidth as DimensionValue, backgroundColor: barColor },
                             ]}
                           />
                         </View>
@@ -179,10 +193,7 @@ function ReportCardDetailModal({
 
             {/* PDF Download */}
             {(reportCard.pdf_url || reportCard.pdf_file) && (
-              <TouchableOpacity
-                style={styles.pdfBtn}
-                onPress={handleDownloadPDF}
-              >
+              <TouchableOpacity style={styles.pdfBtn} onPress={handleDownloadPDF}>
                 <Text style={styles.pdfBtnIcon}>📄</Text>
                 <Text style={styles.pdfBtnTxt}>Download Report Card PDF</Text>
               </TouchableOpacity>
@@ -211,7 +222,11 @@ export default function StudentGradesScreen() {
   });
 
   // ── Report cards ─────────────────────────────────────────────────────────
-  const { data: rcData, isLoading: rcLoading, refetch: refetchRc } = useQuery({
+  const {
+    data: rcData,
+    isLoading: rcLoading,
+    refetch: refetchRc,
+  } = useQuery({
     queryKey: ["report-cards-mob", profile?.id],
     queryFn: () =>
       mobileApi.get<{ results: any[] }>("/gradebook/report-cards/", {
@@ -225,16 +240,14 @@ export default function StudentGradesScreen() {
   // ── Cumulative GPA ───────────────────────────────────────────────────────
   const { data: gpaData, isLoading: gpaLoading } = useQuery({
     queryKey: ["student-gpa-mob", profile?.id],
-    queryFn: () =>
-      mobileApi.get<any>(`/students/${profile!.id}/cumulative-gpa/`),
+    queryFn: () => mobileApi.get<any>(`/students/${profile!.id}/cumulative-gpa/`),
     enabled: !!profile?.id,
   });
 
   // ── Grade summary (subject breakdown) ────────────────────────────────────
   const { data: gradeSummaryData, isLoading: gsLoading } = useQuery({
     queryKey: ["student-grade-summary-mob", profile?.id],
-    queryFn: () =>
-      mobileApi.get<{ grades: any[] }>(`/students/${profile!.id}/grade-summary/`),
+    queryFn: () => mobileApi.get<{ grades: any[] }>(`/students/${profile!.id}/grade-summary/`),
     enabled: !!profile?.id,
   });
 
@@ -302,9 +315,7 @@ export default function StudentGradesScreen() {
               {gpaData && (
                 <View style={styles.heroGpa}>
                   <Text style={styles.heroGpaLbl}>GPA</Text>
-                  <Text style={styles.heroGpaVal}>
-                    {gpaData.cumulative_gpa.toFixed(2)}
-                  </Text>
+                  <Text style={styles.heroGpaVal}>{gpaData.cumulative_gpa.toFixed(2)}</Text>
                   <Text style={styles.heroGpaSub}>{gpaData.total_exams} exams</Text>
                 </View>
               )}
@@ -336,9 +347,7 @@ export default function StudentGradesScreen() {
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📋</Text>
             <Text style={styles.emptyTitle}>No results yet</Text>
-            <Text style={styles.emptySub}>
-              Your exam results will appear here once published.
-            </Text>
+            <Text style={styles.emptySub}>Your exam results will appear here once published.</Text>
           </Card>
         ) : null}
 
@@ -347,8 +356,16 @@ export default function StudentGradesScreen() {
           <View style={styles.statsRow}>
             {[
               { label: "Exams", value: stats.total, color: "#6366f1" },
-              { label: "Average", value: stats.avgScore != null ? `${stats.avgScore}%` : "—", color: "#059669" },
-              { label: "Best", value: stats.bestScore != null ? `${stats.bestScore}%` : "—", color: "#d97706" },
+              {
+                label: "Average",
+                value: stats.avgScore != null ? `${stats.avgScore}%` : "—",
+                color: "#059669",
+              },
+              {
+                label: "Best",
+                value: stats.bestScore != null ? `${stats.bestScore}%` : "—",
+                color: "#d97706",
+              },
               { label: "Published", value: stats.published, color: "#6366f1" },
             ].map(({ label, value, color }) => (
               <View key={label} style={styles.statPill}>
@@ -360,7 +377,7 @@ export default function StudentGradesScreen() {
         )}
 
         {/* Subject performance section (if we have grade summary) */}
-        {gradeSummaryData?.grades?.length > 0 && (
+        {gradeSummaryData && gradeSummaryData.grades && gradeSummaryData.grades.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Subject Performance</Text>
             {gradeSummaryData.grades.slice(0, 5).map((g: any, idx: number) => {
@@ -379,7 +396,7 @@ export default function StudentGradesScreen() {
                       <View
                         style={[
                           styles.subjBarFill,
-                          { width: barWidth, backgroundColor: barColor },
+                          { width: barWidth as DimensionValue, backgroundColor: barColor },
                         ]}
                       />
                     </View>
@@ -420,22 +437,16 @@ export default function StudentGradesScreen() {
                         {rc.obtained_marks}/{rc.total_marks} marks
                       </Text>
                       {rc.gpa && (
-                        <Text style={styles.cardMetaGpa}>
-                          GPA {Number(rc.gpa).toFixed(2)}
-                        </Text>
+                        <Text style={styles.cardMetaGpa}>GPA {Number(rc.gpa).toFixed(2)}</Text>
                       )}
                     </View>
                   </View>
                   <View style={styles.cardRight}>
                     <View style={[styles.cardScoreBadge, { backgroundColor: bg }]}>
-                      <Text style={[styles.cardScore, { color }]}>
-                        {pct.toFixed(1)}%
-                      </Text>
+                      <Text style={[styles.cardScore, { color }]}>{pct.toFixed(1)}%</Text>
                       <Text style={styles.cardGrade}>{rc.grade_letter}</Text>
                     </View>
-                    {rc.rank_in_class && (
-                      <Text style={styles.cardRank}>#{rc.rank_in_class}</Text>
-                    )}
+                    {rc.rank_in_class && <Text style={styles.cardRank}>#{rc.rank_in_class}</Text>}
                     <Badge
                       label={rc.status}
                       color={rc.status === "published" ? "green" : "slate"}

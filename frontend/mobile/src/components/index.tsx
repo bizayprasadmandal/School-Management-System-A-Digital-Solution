@@ -4,8 +4,16 @@
 
 import React from "react";
 import {
-  View, Text, TouchableOpacity, ActivityIndicator,
-  StyleSheet, TextInput, StyleProp, ViewStyle, Animated,
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  TextInput,
+  StyleProp,
+  ViewStyle,
+  Animated,
+  DimensionValue,
 } from "react-native";
 
 const BRAND = "#4F46E5";
@@ -22,11 +30,27 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Button({ label, onPress, variant = "primary", size = "md", loading, disabled, style }: ButtonProps) {
-  const bg = { primary: BRAND, secondary: "#fff", danger: "#ef4444", ghost: "transparent" }[variant];
-  const border = { primary: BRAND, secondary: "#e2e8f0", danger: "#ef4444", ghost: "transparent" }[variant];
+export function Button({
+  label,
+  onPress,
+  variant = "primary",
+  size = "md",
+  loading,
+  disabled,
+  style,
+}: ButtonProps) {
+  const bg = { primary: BRAND, secondary: "#fff", danger: "#ef4444", ghost: "transparent" }[
+    variant
+  ];
+  const border = { primary: BRAND, secondary: "#e2e8f0", danger: "#ef4444", ghost: "transparent" }[
+    variant
+  ];
   const textColor = variant === "secondary" ? "#374151" : variant === "ghost" ? "#6366f1" : "#fff";
-  const pad = { sm: { paddingHorizontal: 12, paddingVertical: 8 }, md: { paddingHorizontal: 20, paddingVertical: 12 }, lg: { paddingHorizontal: 28, paddingVertical: 16 } }[size];
+  const pad = {
+    sm: { paddingHorizontal: 12, paddingVertical: 8 },
+    md: { paddingHorizontal: 20, paddingVertical: 12 },
+    lg: { paddingHorizontal: 28, paddingVertical: 16 },
+  }[size];
   const fontSize = { sm: 12, md: 14, lg: 16 }[size];
 
   return (
@@ -34,18 +58,32 @@ export function Button({ label, onPress, variant = "primary", size = "md", loadi
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
-      style={[styles.btn, { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.5 : 1, ...pad }, style]}
+      style={[
+        styles.btn,
+        { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.5 : 1, ...pad },
+        style,
+      ]}
     >
-      {loading
-        ? <ActivityIndicator color={textColor} size="small" />
-        : <Text style={{ color: textColor, fontSize, fontWeight: "700", textAlign: "center" }}>{label}</Text>}
+      {loading ? (
+        <ActivityIndicator color={textColor} size="small" />
+      ) : (
+        <Text style={{ color: textColor, fontSize, fontWeight: "700", textAlign: "center" }}>
+          {label}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function Card({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -54,15 +92,23 @@ export function Card({ children, style }: { children: React.ReactNode; style?: S
 type BadgeColor = "green" | "red" | "amber" | "blue" | "purple" | "slate";
 
 const BADGE_STYLES: Record<BadgeColor, { bg: string; text: string; dot: string }> = {
-  green:  { bg: "#dcfce7", text: "#15803d", dot: "#22c55e" },
-  red:    { bg: "#fee2e2", text: "#dc2626", dot: "#ef4444" },
-  amber:  { bg: "#fef9c3", text: "#d97706", dot: "#f59e0b" },
-  blue:   { bg: "#dbeafe", text: "#2563eb", dot: "#3b82f6" },
+  green: { bg: "#dcfce7", text: "#15803d", dot: "#22c55e" },
+  red: { bg: "#fee2e2", text: "#dc2626", dot: "#ef4444" },
+  amber: { bg: "#fef9c3", text: "#d97706", dot: "#f59e0b" },
+  blue: { bg: "#dbeafe", text: "#2563eb", dot: "#3b82f6" },
   purple: { bg: "#f3e8ff", text: "#7c3aed", dot: "#8b5cf6" },
-  slate:  { bg: "#f1f5f9", text: "#475569", dot: "#94a3b8" },
+  slate: { bg: "#f1f5f9", text: "#475569", dot: "#94a3b8" },
 };
 
-export function Badge({ label, color = "slate", dot }: { label: string; color?: BadgeColor; dot?: boolean }) {
+export function Badge({
+  label,
+  color = "slate",
+  dot,
+}: {
+  label: string;
+  color?: BadgeColor;
+  dot?: boolean;
+}) {
   const s = BADGE_STYLES[color];
   return (
     <View style={[styles.badge, { backgroundColor: s.bg }]}>
@@ -74,7 +120,17 @@ export function Badge({ label, color = "slate", dot }: { label: string; color?: 
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-export function StatCard({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
+export function StatCard({
+  label,
+  value,
+  color,
+  sub,
+}: {
+  label: string;
+  value: string | number;
+  color: string;
+  sub?: string;
+}) {
   return (
     <Card style={[styles.statCard, { borderLeftColor: color, borderLeftWidth: 3 }]}>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
@@ -86,7 +142,15 @@ export function StatCard({ label, value, color, sub }: { label: string; value: s
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+export function SectionHeader({
+  title,
+  action,
+  onAction,
+}: {
+  title: string;
+  action?: string;
+  onAction?: () => void;
+}) {
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -131,7 +195,16 @@ export function MobileInput({ label, error, ...props }: MobileInputProps) {
     <View style={{ marginBottom: 16 }}>
       {label && <Text style={styles.inputLabel}>{label}</Text>}
       <TextInput
-        style={[styles.input, error && styles.inputError, props.multiline && { height: props.numberOfLines ? props.numberOfLines * 20 + 24 : 80, textAlignVertical: "top" }]}
+        style={[
+          styles.input,
+          error ? styles.inputError : null,
+          props.multiline
+            ? {
+                height: props.numberOfLines ? props.numberOfLines * 20 + 24 : 80,
+                textAlignVertical: "top" as const,
+              }
+            : null,
+        ]}
         placeholderTextColor="#94a3b8"
         {...props}
       />
@@ -143,7 +216,15 @@ export function MobileInput({ label, error, ...props }: MobileInputProps) {
 // ─── Skeleton Components ──────────────────────────────────────────────────────
 
 /** Animated pulsing block — base building block for all skeletons */
-function SkeletonBlock({ width, height, style }: { width?: number | string; height?: number; style?: StyleProp<ViewStyle> }) {
+function SkeletonBlock({
+  width,
+  height,
+  style,
+}: {
+  width?: number | string;
+  height?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
@@ -161,7 +242,7 @@ function SkeletonBlock({ width, height, style }: { width?: number | string; heig
     <Animated.View
       style={[
         { backgroundColor: "#e2e8f0", borderRadius: 8, opacity: pulseAnim },
-        width ? { width } : { flex: 1 },
+        width != null ? { width: width as DimensionValue } : { flex: 1 },
         height ? { height } : { height: 16 },
         style,
       ]}
@@ -263,7 +344,15 @@ export function SkeletonGradesScreen() {
   return (
     <View style={{ padding: 16 }}>
       <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
-      <View style={{ height: 140, backgroundColor: "#e2e8f0", borderRadius: 16, marginBottom: 20, padding: 20 }}>
+      <View
+        style={{
+          height: 140,
+          backgroundColor: "#e2e8f0",
+          borderRadius: 16,
+          marginBottom: 20,
+          padding: 20,
+        }}
+      >
         <SkeletonBlock width="30%" height={12} style={{ marginBottom: 8 }} />
         <SkeletonBlock width="60%" height={18} style={{ marginBottom: 16 }} />
         <View style={{ flexDirection: "row", gap: 24 }}>
@@ -285,7 +374,19 @@ export function SkeletonTimetableScreen() {
     <View style={{ padding: 16 }}>
       <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
       {Array.from({ length: 3 }, (_, i) => (
-        <View key={i} style={{ marginBottom: 14, backgroundColor: "#fff", borderRadius: 14, padding: 14, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }}>
+        <View
+          key={i}
+          style={{
+            marginBottom: 14,
+            backgroundColor: "#fff",
+            borderRadius: 14,
+            padding: 14,
+            shadowColor: "#000",
+            shadowOpacity: 0.04,
+            shadowRadius: 6,
+            elevation: 1,
+          }}
+        >
           <SkeletonBlock width="30%" height={14} style={{ marginBottom: 10 }} />
           <SkeletonBlock width="100%" height={44} style={{ marginBottom: 6, borderRadius: 10 }} />
           <SkeletonBlock width="100%" height={44} style={{ borderRadius: 10 }} />
@@ -301,7 +402,18 @@ export function SkeletonMessagesScreen() {
     <View style={{ padding: 16 }}>
       <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
       {Array.from({ length: 5 }, (_, i) => (
-        <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#f1f5f9" }}>
+        <View
+          key={i}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            padding: 14,
+            backgroundColor: "#fff",
+            borderBottomWidth: 1,
+            borderBottomColor: "#f1f5f9",
+          }}
+        >
           <SkeletonBlock width={44} height={44} style={{ borderRadius: 12 }} />
           <View style={{ flex: 1 }}>
             <SkeletonBlock width="50%" height={14} style={{ marginBottom: 6 }} />
@@ -320,7 +432,21 @@ export function SkeletonChildrenScreen() {
     <View style={{ padding: 16 }}>
       <SkeletonBlock width="40%" height={22} style={{ marginBottom: 16 }} />
       {Array.from({ length: 2 }, (_, i) => (
-        <View key={i} style={{ flexDirection: "row", gap: 14, backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 }}>
+        <View
+          key={i}
+          style={{
+            flexDirection: "row",
+            gap: 14,
+            backgroundColor: "#fff",
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 12,
+            shadowColor: "#000",
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
+          }}
+        >
           <SkeletonBlock width={56} height={56} style={{ borderRadius: 16 }} />
           <View style={{ flex: 1 }}>
             <SkeletonBlock width="60%" height={16} style={{ marginBottom: 4 }} />
@@ -391,17 +517,31 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 
 const styles = StyleSheet.create({
   btn: {
-    borderRadius: 14, borderWidth: 1,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   card: {
-    backgroundColor: "#fff", borderRadius: 16, padding: 16,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   badge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     alignSelf: "flex-start",
   },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
@@ -409,15 +549,25 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: "800" },
   statLabel: { fontSize: 11, color: "#64748b", marginTop: 2 },
   statSub: { fontSize: 10, color: "#94a3b8", marginTop: 1 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
   emptyState: { alignItems: "center", justifyContent: "center", padding: 40 },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: "#64748b", textAlign: "center" },
   emptySub: { fontSize: 13, color: "#94a3b8", textAlign: "center", marginTop: 6 },
   inputLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   input: {
-    borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: "#1e293b",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#1e293b",
     backgroundColor: "#fff",
   },
   inputError: { borderColor: "#ef4444" },

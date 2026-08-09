@@ -39,9 +39,10 @@ jobs:
       - name: Check no pending migrations
         working-directory: backend
         run: python manage.py makemigrations --check
+      # Coverage gate: floor measured at 70% (last green run) — 68 leaves headroom.
       - name: Run tests
         working-directory: backend
-        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov-fail-under=65 -q
+        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov-fail-under=68 -q
 
   e2e-test:
     runs-on: ubuntu-latest
@@ -145,6 +146,32 @@ jobs:
         working-directory: frontend/web
         env: { REACT_APP_API_URL: https://api.example.com/api/v1, CI: "false" }
         run: npm run build
+
+  # Typecheck + bundle the React Native (Expo) app so the mobile codebase
+  # can't rot silently — same npm/TS discipline the web app gets.
+  mobile-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          {
+            node-version: "20",
+            cache: npm,
+            cache-dependency-path: frontend/mobile/package-lock.json,
+          }
+      - run: npm ci --legacy-peer-deps
+        working-directory: frontend/mobile
+      - name: Typecheck
+        working-directory: frontend/mobile
+        run: npx tsc --noEmit
+      # Metro export validates the full import graph (catches missing modules,
+      # bad imports, syntax errors) without needing a native toolchain.
+      - name: Bundle check (Metro export)
+        working-directory: frontend/mobile
+        env: { EXPO_NO_TELEMETRY: "1" }
+        run: npx expo export --platform android --output-dir /tmp/mobile-export
 
   security-scan:
     runs-on: ubuntu-latest

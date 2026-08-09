@@ -10,8 +10,13 @@ repos:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
       - id: detect-private-key
+      # npm lockfiles legitimately exceed 500KB — exclude them from the
+      # added-large-files gate (they're not secrets and are diffed by npm).
+      # Uses pre-commit's core per-hook exclude (not the hook's --exclude arg,
+      # which isn't supported by all hook versions).
       - id: check-added-large-files
         args: [--maxkb=500]
+        exclude: ^.*package-lock\.json$
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
