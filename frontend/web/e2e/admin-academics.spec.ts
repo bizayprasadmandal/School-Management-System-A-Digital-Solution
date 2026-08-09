@@ -118,7 +118,11 @@ test.describe("Admin — Attendance Page", () => {
 
   test("renders attendance page with classroom selector", async ({ page }) => {
     await gotoAdminPage(page, "attendance");
-    await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible({ timeout: 5_000 });
+    // exact — the page also renders an "Attendance by Classroom — <date>" section
+    // heading that appears once data loads (timing-dependent strict-mode collision).
+    await expect(page.getByRole("heading", { name: "Attendance", exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
     // Should have a classroom/date filter
     const classroomSelect = page.locator("select, [role='combobox']").first();
     await expect(classroomSelect).toBeVisible({ timeout: 5_000 });
