@@ -7,6 +7,7 @@
 import React, { useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
+import * as Sentry from "@sentry/react-native";
 import { navigationRef } from "./src/services/navigation";
 
 // ─── Global dayjs configuration ─────────────────────────────────────────────
@@ -25,15 +26,31 @@ import {
 } from "./src/services/notifications";
 import { useAuthStore } from "./src/hooks/useAuthStore";
 
+// ─── Sentry (error tracking) ────────────────────────────────────────────────
+// Guarded by EXPO_PUBLIC_SENTRY_DSN — when unset, Sentry is completely off and
+// nothing is bundled. `enableNative: false` keeps JS-level capture working in
+// Expo Go / managed workflows (no native RNSentry module present). When an EAS
+// native build is added, add the `@sentry/react-native/expo` config plugin and
+// drop the `enableNative` flag to enable native crash reporting.
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    enabled: !__DEV__, // keep development noise out of the project
+    enableNative: false, // JS-level capture only (works in Expo Go)
+    tracesSampleRate: 0.1,
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,       // 5 min — baseline; per-query overrides in hooks
-      gcTime: 30 * 60 * 1000,          // keep stale data 30 min for instant back-nav
+      staleTime: 5 * 60 * 1000, // 5 min — baseline; per-query overrides in hooks
+      gcTime: 30 * 60 * 1000, // keep stale data 30 min for instant back-nav
       retry: 1,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,        // revalidate after network comes back
-      networkMode: "offlineFirst",     // prefer cache when offline
+      refetchOnReconnect: true, // revalidate after network comes back
+      networkMode: "offlineFirst", // prefer cache when offline
     },
   },
 });
@@ -88,7 +105,7 @@ function NotificationInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App() {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="light" />
@@ -98,3 +115,7 @@ export default function App() {
     </QueryClientProvider>
   );
 }
+
+// Wrap the root component so Sentry tracks component render errors; when the
+// SDK is disabled (no DSN) the wrapper is a no-op.
+export default sentryDsn ? Sentry.wrap(App) : App;
