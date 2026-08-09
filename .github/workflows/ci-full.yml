@@ -61,6 +61,9 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: ci-test-secret-key
       DEBUG: "True"
+      # e2e suites fire many sequential logins from one IP — keep the anon
+      # login throttle out of the way (production default remains 10/minute).
+      AUTH_LOGIN_THROTTLE_RATE: "10000/minute"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

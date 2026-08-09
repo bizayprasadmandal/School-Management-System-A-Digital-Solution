@@ -190,6 +190,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/hour",
         "user": "500/hour",
+        # Anon login limit — raised in e2e environments via AUTH_LOGIN_THROTTLE_RATE
+        # so suites (many sequential logins from one IP) aren't throttled mid-run.
+        "auth_login": env("AUTH_LOGIN_THROTTLE_RATE", default="10/minute"),
     },
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
 }

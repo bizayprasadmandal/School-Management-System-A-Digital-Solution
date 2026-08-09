@@ -29,8 +29,16 @@ const STUDENT_PASS = "Student@1234";
 
 /**
  * Log in via the login page and wait for navigation completion.
+ * Pass `unverified: true` when the login response is intercepted to set
+ * email_verified=false — unverified users stay on the login page (the app's
+ * verification funnel), so we wait for the banner instead of navigation.
  */
-async function loginAs(page, email: string, password: string) {
+async function loginAs(
+  page,
+  email: string,
+  password: string,
+  options: { unverified?: boolean } = {},
+) {
   await page.goto(`${BASE}/login`);
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
 
@@ -38,8 +46,13 @@ async function loginAs(page, email: string, password: string) {
   await page.fill('input[type="password"]', password);
   await page.click('button[type="submit"]');
 
-  // Wait for navigation away from login page
-  await page.waitForURL(/\/admin|\/teacher|\/student|\/parent/, { timeout: 10_000 });
+  if (options.unverified) {
+    // Unverified users stay on the login page with the verification banner.
+    await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 10_000 });
+  } else {
+    // Wait for navigation away from login page
+    await page.waitForURL(/\/admin|\/teacher|\/student|\/parent/, { timeout: 10_000 });
+  }
 }
 
 /**
@@ -48,7 +61,11 @@ async function loginAs(page, email: string, password: string) {
 async function openUserMenu(page) {
   const trigger = page.locator('[data-testid="user-menu-trigger"]');
   await trigger.click();
-  await expect(page.getByText("Email Verification")).toBeVisible({ timeout: 3_000 });
+  // The dropdown is the w-72 popover — scope to it so the sidebar/nav labels
+  // (which also contain "Email Verification") don't collide in strict mode.
+  await expect(page.locator("div.w-72").getByText("Email Verification")).toBeVisible({
+    timeout: 3_000,
+  });
 }
 
 /**
@@ -100,7 +117,11 @@ async function interceptVerifyEmailSuccess(page) {
 /**
  * Helper: Intercept the verify-email endpoint to return an error.
  */
-async function interceptVerifyEmailError(page, status = 400, message = "This verification link has expired. Request a new one.") {
+async function interceptVerifyEmailError(
+  page,
+  status = 400,
+  message = "This verification link has expired. Request a new one.",
+) {
   await page.route(`${API_BASE}/auth/verify-email/`, async (route) => {
     const body = JSON.stringify({ detail: message });
     await route.fulfill({
@@ -114,7 +135,6 @@ async function interceptVerifyEmailError(page, status = 400, message = "This ver
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 test.describe("Email Verification — Login Page Banner", () => {
-
   test("shows verification banner on login for unverified user", async ({ page }) => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
@@ -151,7 +171,9 @@ test.describe("Email Verification — Login Page Banner", () => {
     await resendBtn.click();
 
     // Should see success toast
-    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("verified user is redirected away from login page", async ({ page }) => {
@@ -168,22 +190,22 @@ test.describe("Email Verification — Login Page Banner", () => {
     // The verification banner should NOT be visible
     await expect(page.getByText("Email not verified")).not.toBeVisible({ timeout: 2_000 });
   });
-
 });
 
 test.describe("Email Verification — Public Verify-Email Page", () => {
-
   test("shows success state with valid token", async ({ page }) => {
     await interceptVerifyEmailSuccess(page);
 
     // Navigate directly to verify-email page with a fake token
     await page.goto(`${BASE}/verify-email/valid-test-token-12345`);
 
-    // Should show the success state
-    await expect(page.getByText("Verifying your email…")).toBeVisible({ timeout: 3_000 });
+    // Should show the success state (the transient "Verifying your email…"
+    // spinner is skipped — the mocked API resolves too fast to assert on it)
     await expect(page.getByText("Email verified!")).toBeVisible({ timeout: 5_000 });
     await expect(
-      page.getByText("Your email address has been confirmed. You can now access all features of the system.")
+      page.getByText(
+        "Your email address has been confirmed. You can now access all features of the system.",
+      ),
     ).toBeVisible();
 
     // Should have a "Sign in to your account" link
@@ -193,15 +215,21 @@ test.describe("Email Verification — Public Verify-Email Page", () => {
   });
 
   test("shows error state with expired token", async ({ page }) => {
-    await interceptVerifyEmailError(page, 400, "This verification link has expired. Request a new one.");
+    await interceptVerifyEmailError(
+      page,
+      400,
+      "This verification link has expired. Request a new one.",
+    );
 
     await page.goto(`${BASE}/verify-email/expired-token-abc`);
 
     // Should show the error state
-    await expect(page.getByText("Verifying your email…")).toBeVisible({ timeout: 3_000 });
     await expect(page.getByText("Verification failed")).toBeVisible({ timeout: 5_000 });
+    // The message renders in the error card AND as a toast — pin the card copy.
     await expect(
-      page.getByText("This verification link has expired. Request a new one.")
+      page
+        .getByRole("paragraph")
+        .filter({ hasText: "This verification link has expired. Request a new one." }),
     ).toBeVisible();
 
     // Should have a "Go to login" link
@@ -215,9 +243,7 @@ test.describe("Email Verification — Public Verify-Email Page", () => {
     await page.goto(`${BASE}/verify-email/`);
 
     await expect(page.getByText("Verification failed")).toBeVisible({ timeout: 5_000 });
-    await expect(
-      page.getByText("No verification token found in the URL.")
-    ).toBeVisible();
+    await expect(page.getByText("No verification token found in the URL.")).toBeVisible();
   });
 
   test("shows error state with already used token", async ({ page }) => {
@@ -226,8 +252,9 @@ test.describe("Email Verification — Public Verify-Email Page", () => {
     await page.goto(`${BASE}/verify-email/used-token-xyz`);
 
     await expect(page.getByText("Verification failed")).toBeVisible({ timeout: 5_000 });
+    // The message renders in the error card AND as a toast — pin the card copy.
     await expect(
-      page.getByText("Invalid or already used verification link.")
+      page.getByRole("paragraph").filter({ hasText: "Invalid or already used verification link." }),
     ).toBeVisible();
   });
 
@@ -245,18 +272,17 @@ test.describe("Email Verification — Public Verify-Email Page", () => {
     // Should navigate to login page
     await expect(page).toHaveURL(/\/login/, { timeout: 5_000 });
   });
-
 });
 
 test.describe("Email Verification — In-App Settings Page", () => {
-
   test("shows verified status for verified user", async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
     await page.goto(`${BASE}/admin/verify-email`);
 
-    await expect(page.getByText("Email Verification")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible({
+      timeout: 3_000,
+    });
     await expect(page.getByText("Email verified")).toBeVisible();
-    await expect(page.getByText("Verified")).toBeVisible();
     // Should NOT show send button
     await expect(page.getByText("Send verification email")).not.toBeVisible();
     // Should show "all good" message
@@ -268,60 +294,73 @@ test.describe("Email Verification — In-App Settings Page", () => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin/verify-email`);
 
     // Wait for page to load
-    await expect(page.getByText("Email Verification")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Email not verified")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible({
+      timeout: 5_000,
+    });
+    // The card has both a <p> and an <h2> with this copy — pin the heading.
+    await expect(page.getByRole("heading", { name: "Email not verified" })).toBeVisible();
     await expect(page.getByText("Unverified")).toBeVisible();
 
     // Should show the send button
-    const sendBtn = page.locator("button").filter({ hasText: /Send verification email/i });
+    // Pin the exact button — /Send verification email/i would substring-match
+    // the amber "Resend verification email" button too.
+    const sendBtn = page.getByRole("button", { name: "Send verification email", exact: true });
     await expect(sendBtn).toBeVisible();
     await sendBtn.click();
 
-    // Should show sent confirmation
-    await expect(page.getByText("Verification email sent!")).toBeVisible({ timeout: 5_000 });
+    // Should show sent confirmation — exact match so the longer inline span
+    // "Verification email sent! Check your inbox (and spam folder)" doesn't collide.
+    await expect(page.getByText("Verification email sent!", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
   });
-
 });
 
 test.describe("Email Verification — Dashboard Banner", () => {
-
   test("shows banner for unverified user on dashboard", async ({ page }) => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
     // The EmailVerificationBanner should be visible on the dashboard
     await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Some features are restricted until you verify your email address.")).toBeVisible();
+    await expect(
+      page.getByText("Some features are restricted until you verify your email address."),
+    ).toBeVisible();
   });
 
   test("resend from dashboard banner works", async ({ page }) => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
     // Find the resend button inside the banner (not user menu)
-    const resendBtn = page.locator("button").filter({ hasText: /Resend verification email/i }).first();
+    const resendBtn = page
+      .locator("button")
+      .filter({ hasText: /Resend verification email/i })
+      .first();
     await expect(resendBtn).toBeVisible({ timeout: 3_000 });
     await resendBtn.click();
 
-    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("dismiss banner hides it", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
@@ -344,15 +383,13 @@ test.describe("Email Verification — Dashboard Banner", () => {
     // The demo admin is verified — banner should not appear
     await expect(page.getByText("Email not verified")).not.toBeVisible({ timeout: 3_000 });
   });
-
 });
 
 test.describe("Email Verification — Topbar Badge + Sidebar", () => {
-
   test("shows email verification badge in topbar for unverified user", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
@@ -364,7 +401,7 @@ test.describe("Email Verification — Topbar Badge + Sidebar", () => {
   test("topbar badge navigates to verify-email page", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
@@ -375,13 +412,13 @@ test.describe("Email Verification — Topbar Badge + Sidebar", () => {
 
     // Should navigate to verify-email settings page
     await page.waitForURL("**/admin/verify-email**", { timeout: 10_000 });
-    await expect(page.getByText("Email Verification")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible();
   });
 
   test("sidebar avatar shows amber dot for unverified user", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
@@ -401,17 +438,16 @@ test.describe("Email Verification — Topbar Badge + Sidebar", () => {
     // Actually, for verified users in AdminLayout, it's a span with title="Email verified"
     await expect(verifiedDot.first()).toBeVisible({ timeout: 3_000 });
   });
-
 });
 
 test.describe("Email Verification — User Menu Dropdown", () => {
-
   test("shows verified status for verified user in dropdown", async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
     await page.waitForURL("**/admin**");
     await openUserMenu(page);
 
-    await expect(page.getByText("Verified")).toBeVisible();
+    // "Verified" also appears in other badges — the dropdown's own status line
+    // is unambiguous.
     await expect(page.getByText("Your email is verified.")).toBeVisible({ timeout: 3_000 });
   });
 
@@ -419,13 +455,16 @@ test.describe("Email Verification — User Menu Dropdown", () => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
     await openUserMenu(page);
 
-    await expect(page.getByText("Not Verified")).toBeVisible({ timeout: 3_000 });
-    await expect(page.getByText("Verify your email to unlock all features.")).toBeVisible();
+    // "Not Verified" appears in multiple badges — the dropdown's own status
+    // line is unambiguous.
+    await expect(page.getByText("Verify your email to unlock all features.")).toBeVisible({
+      timeout: 3_000,
+    });
 
     // Click the Resend button inside the dropdown
     const resendBtn = page.locator("button").filter({ hasText: /^Resend$/ });
@@ -433,31 +472,33 @@ test.describe("Email Verification — User Menu Dropdown", () => {
     await resendBtn.click();
 
     // Should show the sent confirmation within the dropdown
-    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Verification email sent! Check your inbox.")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("settings link in dropdown navigates to verify-email page", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
     await openUserMenu(page);
 
-    // Click "Settings" link
-    const settingsLink = page.getByText("Settings");
+    // Click "Settings" link — scoped to the dropdown so the sidebar's
+    // Settings nav item doesn't collide in strict mode.
+    const settingsLink = page.locator("div.w-72").getByText("Settings");
     await expect(settingsLink).toBeVisible();
     await settingsLink.click();
 
     // Should navigate to verify-email page
     await page.waitForURL("**/admin/verify-email**", { timeout: 10_000 });
-    await expect(page.getByText("Email Verification")).toBeVisible();
+    // "Email Verification" also appears in the topbar/sidebar labels — pin the page heading.
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible();
   });
-
 });
 
 test.describe("Email Verification — Settings Page Security Tab", () => {
-
   test("security tab shows email verification status", async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
     await page.goto(`${BASE}/admin/settings`);
@@ -469,15 +510,16 @@ test.describe("Email Verification — Settings Page Security Tab", () => {
 
     // Should show email section
     await expect(page.getByText("Account Security")).toBeVisible({ timeout: 3_000 });
-    await expect(page.getByText("Email Verification")).toBeVisible();
-    await expect(page.getByText("Verified")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible();
+    // "Verified" appears in both the topbar badge and the card — scope to the main content.
+    await expect(page.getByRole("main").getByText("Verified", { exact: true })).toBeVisible();
   });
 
   test("security tab shows unverified status with send action", async ({ page }) => {
     await interceptAsUnverified(page);
     await interceptSendVerification(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin/settings`);
 
     // Click Security tab
@@ -485,13 +527,18 @@ test.describe("Email Verification — Settings Page Security Tab", () => {
     await expect(securityTab).toBeVisible();
     await securityTab.click();
 
-    // Should show "Not Verified" status
-    await expect(page.getByText("Not Verified")).toBeVisible({ timeout: 3_000 });
-    await expect(page.getByText("Verify your email to unlock all features")).toBeVisible();
+    // Should show "Not Verified" status (appears in a few badges — first wins)
+    await expect(page.getByText("Not Verified").first()).toBeVisible({ timeout: 3_000 });
+    // Two adjacent paragraphs share this prefix — pin the exact short copy.
+    await expect(
+      page.getByText("Verify your email to unlock all features.", { exact: true }),
+    ).toBeVisible();
 
     // Click the "Send verification email" button from EmailVerificationActions
     // This is in the email verification card within the Security tab
-    const sendBtn = page.locator("button").filter({ hasText: /Send verification email/i });
+    // Pin the exact button — /Send verification email/i would substring-match
+    // the amber "Resend verification email" button too.
+    const sendBtn = page.getByRole("button", { name: "Send verification email", exact: true });
     await expect(sendBtn).toBeVisible();
     await sendBtn.click();
 
@@ -511,26 +558,22 @@ test.describe("Email Verification — Settings Page Security Tab", () => {
     await expect(page.getByText("Account Information")).toBeVisible({ timeout: 3_000 });
     await expect(page.getByText("Two-Factor Auth")).toBeVisible();
   });
-
 });
 
 test.describe("Email Verification — Notification on Login", () => {
-
   test("unverified user receives in-app notification on login", async ({ page }) => {
     await interceptAsUnverified(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS, { unverified: true });
     await page.goto(`${BASE}/admin`);
     await page.waitForSelector('[data-testid="user-menu-trigger"]', { timeout: 10_000 });
 
     // The banner should show with the notification title
     await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 3_000 });
   });
-
 });
 
 test.describe("Email Verification — Full End-to-End Flow", () => {
-
   test("complete flow: login as unverified → verify email → access dashboard", async ({ page }) => {
     // Step 1: Intercept login to create an unverified user session
     await interceptAsUnverified(page);
@@ -552,7 +595,9 @@ test.describe("Email Verification — Full End-to-End Flow", () => {
     // Should see success
     await expect(page.getByText("Email verified!")).toBeVisible({ timeout: 5_000 });
 
-    // Step 4: Navigate to login page and log in
+    // Step 4: The token is now verified — stop rewriting the login response so
+    // the second login reflects the real (verified) user.
+    await page.unroute(`${API_BASE}/auth/login/`);
     await page.goto(`${BASE}/login`);
     await page.fill('input[type="email"]', ADMIN_EMAIL);
     await page.fill('input[type="password"]', ADMIN_PASS);
@@ -564,11 +609,9 @@ test.describe("Email Verification — Full End-to-End Flow", () => {
     // Step 5: Verify no verification banner on dashboard
     await expect(page.getByText("Email not verified")).not.toBeVisible({ timeout: 3_000 });
   });
-
 });
 
 test.describe("Email Verification — Teacher Role", () => {
-
   test("teacher sees verification banner when unverified", async ({ page }) => {
     // Intercept login for a teacher user
     await page.route(`${API_BASE}/auth/login/`, async (route) => {
@@ -586,10 +629,14 @@ test.describe("Email Verification — Teacher Role", () => {
     await page.fill('input[type="password"]', STUDENT_PASS);
     await page.click('button[type="submit"]');
 
+    // Wait for the login to actually complete (it's a slow password hash) —
+    // navigating away before the session is stored loses the auth state.
+    await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 10_000 });
+
     // Navigate to teacher dashboard
     await page.goto(`${BASE}/teacher`);
 
-    // Should show the verification banner
+    // Should show the verification banner on the teacher layout
     await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 5_000 });
   });
 
@@ -608,9 +655,14 @@ test.describe("Email Verification — Teacher Role", () => {
     await page.fill('input[type="password"]', STUDENT_PASS);
     await page.click('button[type="submit"]');
 
-    await page.goto(`${BASE}/teacher/verify-email`);
-    await expect(page.getByText("Email Verification")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Email not verified")).toBeVisible();
-  });
+    // Wait for login to complete (slow password hash) before navigating.
+    await expect(page.getByText("Email not verified")).toBeVisible({ timeout: 10_000 });
 
+    await page.goto(`${BASE}/teacher/verify-email`);
+    await expect(page.getByRole("heading", { name: "Email Verification" })).toBeVisible({
+      timeout: 5_000,
+    });
+    // The card has both a <p> and an <h2> with this copy — pin the heading.
+    await expect(page.getByRole("heading", { name: "Email not verified" })).toBeVisible();
+  });
 });

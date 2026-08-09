@@ -45,7 +45,6 @@ async function openUserMenu(page) {
 }
 
 test.describe("User Menu Dropdown — Email Verification", () => {
-
   test("opens the dropdown and shows user info", async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
     await page.waitForURL("**/admin**");
@@ -61,7 +60,8 @@ test.describe("User Menu Dropdown — Email Verification", () => {
     await openUserMenu(page);
 
     // The demo admin user is pre-verified, so the badge shows "Verified"
-    await expect(page.getByText("Verified")).toBeVisible();
+    // (exact match — "Your email is verified." also contains "verified")
+    await expect(page.getByText("Verified", { exact: true })).toBeVisible();
     await expect(page.getByText("Your email is verified.")).toBeVisible({ timeout: 3_000 });
   });
 
@@ -71,10 +71,15 @@ test.describe("User Menu Dropdown — Email Verification", () => {
     await openUserMenu(page);
 
     // Click on the main content area to close the dropdown
-    await page.locator("main").first().click({ position: { x: 50, y: 50 } });
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 50, y: 50 } });
 
-    // The dropdown should close — the panel should no longer be visible
-    await expect(page.getByText("Email Verification")).not.toBeVisible({ timeout: 2_000 });
+    // The panel stays in the DOM for the close animation (opacity-0), so assert the
+    // closed state via the aria-hidden attribute rather than visibility.
+    const panel = page.locator('[data-testid="user-menu-trigger"] + div');
+    await expect(panel).toHaveAttribute("aria-hidden", "true", { timeout: 2_000 });
   });
 
   test("navigates to settings via View Profile", async ({ page }) => {
@@ -103,12 +108,26 @@ test.describe("User Menu Dropdown — Email Verification", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ detail: "Verification email sent. Check your inbox (and spam folder)." }),
+        body: JSON.stringify({
+          detail: "Verification email sent. Check your inbox (and spam folder).",
+        }),
       });
     });
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASS);
-    // The login page keeps unverified users on /login with a verification banner.
+    // Unverified users are kept on /login (RedirectIfAuth only redirects verified
+    // sessions), so loginAs()'s waitForURL would time out. Submit the form and wait
+    // for the login POST instead, then navigate directly to the dashboard.
+    await page.goto(`${BASE}/login`);
+    await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
+    await page.fill('input[type="email"]', ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASS);
+    await page.click('button[type="submit"]');
+    // The login page keeps unverified users here with a verification banner — waiting
+    // for the resend button confirms the app has processed the login response and
+    // stored the session (a plain response-wait could race the localStorage write).
+    await expect(page.getByRole("button", { name: /Resend verification email/i })).toBeVisible({
+      timeout: 10_000,
+    });
     // Navigate directly to the admin dashboard — the auth store already has the
     // tokens from the successful login call.
     await page.goto(`${BASE}/admin`);
@@ -117,16 +136,20 @@ test.describe("User Menu Dropdown — Email Verification", () => {
     await openUserMenu(page);
 
     // Should now see "Not Verified" because we mocked the login response
-    await expect(page.getByText("Not Verified")).toBeVisible({ timeout: 3_000 });
+    // (scope to the dropdown panel — the dashboard banner may show the same text)
+    const panel = page.locator('[data-testid="user-menu-trigger"] + div');
+    await expect(panel.getByText("Not Verified")).toBeVisible({ timeout: 3_000 });
 
-    // Should see the "Resend" button
-    const resendBtn = page.locator("button").filter({ hasText: /Resend/i });
+    // Should see the "Resend" button (scoped to the panel — the dashboard
+    // email-verification banner also shows a resend button)
+    const resendBtn = panel.locator("button").filter({ hasText: /Resend/i });
     await expect(resendBtn).toBeVisible();
 
     // Click "Resend" — the intercepted endpoint returns success
     await resendBtn.click();
 
     // The component shows "Verification email sent!" after a successful send
-    await expect(page.getByText("Verification email sent!")).toBeVisible({ timeout: 5_000 });
+    // (scope to the dropdown panel — the toast shows the same text)
+    await expect(panel.getByText("Verification email sent!")).toBeVisible({ timeout: 5_000 });
   });
 });
