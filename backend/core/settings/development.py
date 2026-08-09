@@ -1,12 +1,11 @@
 """Development settings — hot reload, debug toolbar, verbose logging."""
 
-from .base import *  # noqa: F403, F401 — Django settings require wildcard import
-
 from .base import (  # noqa: F811 — explicit re-import for IDE/type-checker convenience
     INSTALLED_APPS as BASE_INSTALLED_APPS,
-    MIDDLEWARE as BASE_MIDDLEWARE,
-    REST_FRAMEWORK as BASE_REST_FRAMEWORK,
 )
+from .base import MIDDLEWARE as BASE_MIDDLEWARE
+from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
+from .base import *  # noqa: F403, F401 — Django settings require wildcard import
 
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
@@ -28,11 +27,13 @@ CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
 LOGGING = {
-    "version": 1, "disable_existing_loggers": False,
+    "version": 1,
+    "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "DEBUG"},
     "loggers": {
         "django.db.backends": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "celery": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 
@@ -41,4 +42,3 @@ LOGGING = {
 # Enable enforcement locally so developers can test the full verification flow.
 # Demo users seeded via seed_demo_data have email_verified=True by default.
 EMAIL_VERIFICATION_ENFORCED = True
-

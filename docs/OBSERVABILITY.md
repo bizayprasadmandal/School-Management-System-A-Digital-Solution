@@ -6,15 +6,44 @@ workers, and the web app.
 
 ## What is already wired
 
-| Layer                             | Where                                 | Status                                                                                                                           |
-| --------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Backend (Django + Celery + Redis) | `backend/core/settings/production.py` | ✅ init guarded by `SENTRY_DSN`; Django/Celery/Redis integrations; `traces_sample_rate=0.1`; `environment="production"`          |
-| Web (React)                       | `frontend/web/src/index.tsx`          | ✅ init **only when `REACT_APP_SENTRY_DSN` is set** — no hardcoded DSN, dev/CI builds stay Sentry-free; tracing + session replay |
-| Mobile (React Native/Expo)        | —                                     | ❌ not yet wired (needs `@sentry/react-native` + native build; see “Next” below)                                                 |
+| Layer                             | Where                                 | Status                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend (Django + Celery + Redis) | `backend/core/settings/production.py` | ✅ init guarded by `SENTRY_DSN`; Django/Celery/Redis integrations; `traces_sample_rate=0.1`; `environment="production"`                                                        |
+| Web (React)                       | `frontend/web/src/index.tsx`          | ✅ init **only when `REACT_APP_SENTRY_DSN` is set** — no hardcoded DSN, dev/CI builds stay Sentry-free; tracing + session replay                                               |
+| Mobile (React Native/Expo)        | `frontend/mobile/App.tsx`             | ✅ JS-level capture, guarded by `EXPO_PUBLIC_SENTRY_DSN` (`enableNative: false` — works in Expo Go); native crash reports need an EAS build + config plugin (see “Next” below) |
 
 **Release tracking:** the backend uses `APP_VERSION`; the web image bakes
 `REACT_APP_SENTRY_RELEASE=<git sha>` from the CI build. Errors in production are
 attributable to a specific commit.
+
+## Celery worker logs (structured JSON)
+
+Workers route **every** log line through Django's `LOGGING` via the
+`setup_logging` signal in `backend/core/celery.py` — Celery's default handler
+hijack is disabled, so the `celery.*` runtime loggers, `services.*` task
+modules, and `celery.task` all emit with the project's configured formatters.
+
+In production each line is **one JSON object** on stdout with fields
+`asctime levelname name process message pathname lineno`, plus any `extra`
+context task modules attach (e.g. `{"invoice_count": n}`) as real fields.
+
+**Task failures:** the `task_failure` signal in `core/celery.py` logs a
+structured error carrying `task`, `task_id`, `task_args`/`task_kwargs`
+(PII-redacted, truncated), `retries`, `queue`, and the full traceback. The same failure is
+forwarded to **Sentry by the `CeleryIntegration`** (enabled in
+`core/settings/production.py`) whenever `SENTRY_DSN` is set — so every worker
+error is both queryable in logs and alerted on.
+
+```bash
+# Follow live worker logs as JSON, one object per line (docker compose)
+docker compose logs -f celery_worker | jq -R 'fromjson?'
+
+# Show recent task failures with their payloads (k8s — match your deployment)
+kubectl logs -n sms -l app=sms-celery-worker | grep '"celery.task"' | jq -R 'fromjson?'
+```
+
+(The `-l` label selector is robust to deployment-name changes; adjust the
+label to whatever the worker Deployment actually carries.)
 
 ## Env vars / GitHub secrets
 
@@ -89,8 +118,10 @@ deploy/sms-backend`) and the Grafana dashboards for the same window.
 
 ## Next (when you care)
 
-- **Mobile:** add `@sentry/react-native` and `Sentry.init` in
-  `frontend/mobile/App.tsx` guarded by `EXPO_PUBLIC_SENTRY_DSN`; requires a dev
-  build (Expo Go support is partial) — that's why it's not wired yet.
+- **Mobile native crash reports:** currently JS-level only (`enableNative:
+false`). For native crashes, add the `@sentry/react-native/expo` config
+  plugin to `app.json`, drop `enableNative` in `App.tsx`, and build with EAS.
 - **Session replay:** already enabled on the web (10% prod) — turn it up after
   you confirm volume/quotas.
+- **Log shipping:** when the cluster has a log sink (CloudWatch/Loki), send the
+  worker's JSON stdout there — the fields are already structured for it.

@@ -56,7 +56,7 @@ LOGGING = {
     "formatters": {
         "json": {
             "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(levelname)s %(name)s %(message)s %(pathname)s %(lineno)d",
+            "format": ("%(asctime)s %(levelname)s %(name)s %(process)d %(message)s" " %(pathname)s %(lineno)d"),
         },
     },
     "handlers": {
@@ -64,6 +64,10 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
     "loggers": {
+        # Celery worker + task loggers are routed here by the `setup_logging`
+        # signal in core/celery.py (JSON lines; task `extra` fields preserved).
+        "celery": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "celery.task": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.security": {"handlers": ["console"], "level": "ERROR", "propagate": False},
         "services": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
