@@ -249,6 +249,30 @@ jobs:
           tags: ${{ env.IMAGE_BASE }}/backend:${{ github.sha }},${{ env.IMAGE_BASE }}/backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The frontend bakes REACT_APP_* into the bundle at build time. An unset
+      # secret bakes an empty string, and the app's code-level fallback is
+      # localhost:8000 — so images built without these secrets silently point at
+      # the viewer's own localhost in production. Resolve effective values here
+      # (placeholder defaults) so images are never built with empty URLs; set the
+      # secrets to bake real URLs.
+      - name: Resolve frontend build args (placeholder when secrets unset)
+        id: fe-args
+        run: |
+          API="${REACT_APP_API_URL:-https://api.example.com/api/v1}"
+          WS="${REACT_APP_WS_URL:-https://api.example.com}"
+          echo "api_url=$API" >> "$GITHUB_OUTPUT"
+          echo "ws_url=$WS" >> "$GITHUB_OUTPUT"
+          # if-blocks (not `[ -z ] && echo`) — under bash -e a short-circuited &&
+          # line would exit 1 the moment the secrets ARE set, failing the build.
+          if [ -z "$REACT_APP_API_URL" ]; then
+            echo "::warning::REACT_APP_API_URL secret is not set — baking placeholder $API. Set it to bake real URLs."
+          fi
+          if [ -z "$REACT_APP_WS_URL" ]; then
+            echo "::warning::REACT_APP_WS_URL secret is not set — baking placeholder $WS. Set it to bake real URLs."
+          fi
+        env:
+          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
+          REACT_APP_WS_URL: ${{ secrets.REACT_APP_WS_URL }}
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
@@ -262,8 +286,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}
-            REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL }}
+            REACT_APP_API_URL=${{ steps.fe-args.outputs.api_url }}
+            REACT_APP_WS_URL=${{ steps.fe-args.outputs.ws_url }}
 
   deploy-production:
     needs: [docker-build]

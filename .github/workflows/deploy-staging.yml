@@ -103,6 +103,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Same silent-breakage guard as ci-full.yml: unset staging secrets would
+      # bake empty URLs (app falls back to localhost:8000). Bake placeholder
+      # defaults until the secrets are configured.
+      - name: Resolve frontend build args (placeholder when secrets unset)
+        id: fe-args
+        run: |
+          API="${REACT_APP_API_URL_STAGING:-https://api.staging.example.com/api/v1}"
+          WS="${REACT_APP_WS_URL_STAGING:-https://api.staging.example.com}"
+          echo "api_url=$API" >> "$GITHUB_OUTPUT"
+          echo "ws_url=$WS" >> "$GITHUB_OUTPUT"
+          # if-blocks (not `[ -z ] && echo`) — under bash -e a short-circuited &&
+          # line would exit 1 the moment the secrets ARE set, failing the build.
+          if [ -z "$REACT_APP_API_URL_STAGING" ]; then
+            echo "::warning::REACT_APP_API_URL_STAGING secret is not set — baking placeholder $API. Set it to bake real URLs."
+          fi
+          if [ -z "$REACT_APP_WS_URL_STAGING" ]; then
+            echo "::warning::REACT_APP_WS_URL_STAGING secret is not set — baking placeholder $WS. Set it to bake real URLs."
+          fi
+        env:
+          REACT_APP_API_URL_STAGING: ${{ secrets.REACT_APP_API_URL_STAGING }}
+          REACT_APP_WS_URL_STAGING: ${{ secrets.REACT_APP_WS_URL_STAGING }}
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
@@ -118,8 +139,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL_STAGING }}
-            REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL_STAGING }}
+            REACT_APP_API_URL=${{ steps.fe-args.outputs.api_url }}
+            REACT_APP_WS_URL=${{ steps.fe-args.outputs.ws_url }}
 
       - name: Migrate database
         if: steps.kubecheck.outputs.configured == 'true'
