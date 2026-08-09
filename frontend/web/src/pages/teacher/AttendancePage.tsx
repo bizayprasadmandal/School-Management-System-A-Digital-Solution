@@ -7,23 +7,44 @@ import { CheckCircleIcon, XCircleIcon, ClockIcon } from "@heroicons/react/24/sol
 import { CheckIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import {
-  useClassrooms,
-  useBulkRecordAttendance,
-} from "../../api/hooks";
+import { useClassrooms, useBulkRecordAttendance } from "../../api/hooks";
 import { Button, SkeletonTable } from "../../components/common";
-import { useAuthStore } from "../../store/authStore";
 import type { AttendanceStatus, StudentListItem } from "../../types";
 import { api } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 
-type StatusOption = { value: AttendanceStatus; label: string; color: string; icon: React.ReactNode };
+type StatusOption = {
+  value: AttendanceStatus;
+  label: string;
+  color: string;
+  icon: React.ReactNode;
+};
 
 const STATUS_OPTIONS: StatusOption[] = [
-  { value: "P", label: "Present", color: "bg-green-100 text-green-700 ring-green-300", icon: <CheckCircleIcon className="h-4 w-4" /> },
-  { value: "A", label: "Absent",  color: "bg-red-100 text-red-700 ring-red-300",       icon: <XCircleIcon className="h-4 w-4" /> },
-  { value: "L", label: "Late",    color: "bg-amber-100 text-amber-700 ring-amber-300",  icon: <ClockIcon className="h-4 w-4" /> },
-  { value: "E", label: "Excused", color: "bg-blue-100 text-blue-700 ring-blue-300",     icon: <CheckIcon className="h-4 w-4" /> },
+  {
+    value: "P",
+    label: "Present",
+    color: "bg-green-100 text-green-700 ring-green-300",
+    icon: <CheckCircleIcon className="h-4 w-4" />,
+  },
+  {
+    value: "A",
+    label: "Absent",
+    color: "bg-red-100 text-red-700 ring-red-300",
+    icon: <XCircleIcon className="h-4 w-4" />,
+  },
+  {
+    value: "L",
+    label: "Late",
+    color: "bg-amber-100 text-amber-700 ring-amber-300",
+    icon: <ClockIcon className="h-4 w-4" />,
+  },
+  {
+    value: "E",
+    label: "Excused",
+    color: "bg-blue-100 text-blue-700 ring-blue-300",
+    icon: <CheckIcon className="h-4 w-4" />,
+  },
 ];
 
 interface StudentAttendanceEntry {
@@ -48,7 +69,8 @@ export default function TeacherAttendancePage() {
   // Fetch students for selected classroom
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
     queryKey: ["classroom-students", selectedClassroom],
-    queryFn: () => api.get<StudentListItem[]>(`/students/classrooms/${selectedClassroom}/students/`),
+    queryFn: () =>
+      api.get<StudentListItem[]>(`/students/classrooms/${selectedClassroom}/students/`),
     enabled: !!selectedClassroom,
   });
 
@@ -140,8 +162,11 @@ export default function TeacherAttendancePage() {
       {/* Controls */}
       <div className="flex flex-wrap gap-4 rounded-xl bg-white p-4 shadow-sm border border-slate-100">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Date</label>
+          <label htmlFor="attendance-date" className="text-xs font-medium text-slate-600">
+            Date
+          </label>
           <input
+            id="attendance-date"
             type="date"
             value={selectedDate}
             max={today}
@@ -171,15 +196,27 @@ export default function TeacherAttendancePage() {
           {/* Summary + bulk actions */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-4 shadow-sm border border-slate-100">
             <div className="flex gap-6 text-sm">
-              <span><span className="font-semibold text-green-600">{stats.present}</span> Present</span>
-              <span><span className="font-semibold text-red-600">{stats.absent}</span> Absent</span>
-              <span><span className="font-semibold text-amber-600">{stats.late}</span> Late</span>
-              <span><span className="font-semibold text-blue-600">{stats.excused}</span> Excused</span>
+              <span>
+                <span className="font-semibold text-green-600">{stats.present}</span> Present
+              </span>
+              <span>
+                <span className="font-semibold text-red-600">{stats.absent}</span> Absent
+              </span>
+              <span>
+                <span className="font-semibold text-amber-600">{stats.late}</span> Late
+              </span>
+              <span>
+                <span className="font-semibold text-blue-600">{stats.excused}</span> Excused
+              </span>
               <span className="text-slate-400">/ {stats.total} total</span>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => markAll("P")}>Mark All Present</Button>
-              <Button variant="ghost" size="sm" onClick={() => markAll("A")}>Mark All Absent</Button>
+              <Button variant="ghost" size="sm" onClick={() => markAll("P")}>
+                Mark All Present
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => markAll("A")}>
+                Mark All Absent
+              </Button>
             </div>
           </div>
 
@@ -189,10 +226,18 @@ export default function TeacherAttendancePage() {
               <table className="min-w-full divide-y divide-slate-100">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Remarks</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Student
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Remarks
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -202,10 +247,18 @@ export default function TeacherAttendancePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {entry.avatar ? (
-                            <img src={entry.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                            <img
+                              src={entry.avatar}
+                              alt=""
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
                           ) : (
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
-                              {entry.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                              {entry.full_name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)}
                             </div>
                           )}
                           <div>
@@ -220,6 +273,7 @@ export default function TeacherAttendancePage() {
                             <button
                               key={opt.value}
                               onClick={() => setStatus(entry.student_id, opt.value)}
+                              aria-pressed={entry.status === opt.value}
                               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-all ${
                                 entry.status === opt.value
                                   ? `${opt.color} ring-2 scale-105`
@@ -261,9 +315,7 @@ export default function TeacherAttendancePage() {
         </>
       )}
 
-      {selectedClassroom && studentsLoading && (
-        <SkeletonTable rows={8} cols={4} />
-      )}
+      {selectedClassroom && studentsLoading && <SkeletonTable rows={8} cols={4} />}
 
       {!selectedClassroom && (
         <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
