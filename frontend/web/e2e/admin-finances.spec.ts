@@ -6,7 +6,7 @@
  * Run: npx playwright test admin-finances.spec.ts --headed
  */
 import { test, expect } from "@playwright/test";
-import { BASE, API_BASE, loginAsAdmin, gotoAdminPage } from "./helpers";
+import { BASE, API_BASE, loginAsAdmin, gotoAdminPage, mockCurrentAcademicYear } from "./helpers";
 
 const MOCK_INVOICES = {
   count: 3,
@@ -222,13 +222,7 @@ test.describe("Admin — Reports Page", () => {
     await loginAsAdmin(page);
     // The fee-report query is gated on useCurrentAcademicYear() — the seeded DB has
     // no current year, so mock one or the query never fires.
-    await page.route(`${API_BASE}/students/academic-years/**`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ count: 1, results: [{ id: 1, name: "2026-27", is_current: true }] }),
-      });
-    });
+    await mockCurrentAcademicYear(page);
     // The page fetches three different reporting endpoints; each needs its own shape.
     // (dashboard-stats without attendance_today_pct crashes percent() → "Cannot read 'toFixed'")
     const MOCK_DASH_STATS = {

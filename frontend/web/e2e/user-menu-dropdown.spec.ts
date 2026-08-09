@@ -14,6 +14,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { userMenuPanel } from "./helpers";
 
 const BASE = "http://localhost:3000";
 const API_BASE = "http://localhost:8000/api/v1";
@@ -78,7 +79,7 @@ test.describe("User Menu Dropdown — Email Verification", () => {
 
     // The panel stays in the DOM for the close animation (opacity-0), so assert the
     // closed state via the aria-hidden attribute rather than visibility.
-    const panel = page.locator('[data-testid="user-menu-trigger"] + div');
+    const panel = userMenuPanel(page);
     await expect(panel).toHaveAttribute("aria-hidden", "true", { timeout: 2_000 });
   });
 
@@ -137,7 +138,7 @@ test.describe("User Menu Dropdown — Email Verification", () => {
 
     // Should now see "Not Verified" because we mocked the login response
     // (scope to the dropdown panel — the dashboard banner may show the same text)
-    const panel = page.locator('[data-testid="user-menu-trigger"] + div');
+    const panel = userMenuPanel(page);
     await expect(panel.getByText("Not Verified")).toBeVisible({ timeout: 3_000 });
 
     // Should see the "Resend" button (scoped to the panel — the dashboard

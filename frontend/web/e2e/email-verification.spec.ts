@@ -17,6 +17,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { userMenuPanel } from "./helpers";
 
 const BASE = "http://localhost:3000";
 const API_BASE = "http://localhost:8000/api/v1";
@@ -63,7 +64,7 @@ async function openUserMenu(page) {
   await trigger.click();
   // The dropdown is the w-72 popover — scope to it so the sidebar/nav labels
   // (which also contain "Email Verification") don't collide in strict mode.
-  await expect(page.locator("div.w-72").getByText("Email Verification")).toBeVisible({
+  await expect(userMenuPanel(page).getByText("Email Verification")).toBeVisible({
     timeout: 3_000,
   });
 }
@@ -487,7 +488,7 @@ test.describe("Email Verification — User Menu Dropdown", () => {
 
     // Click "Settings" link — scoped to the dropdown so the sidebar's
     // Settings nav item doesn't collide in strict mode.
-    const settingsLink = page.locator("div.w-72").getByText("Settings");
+    const settingsLink = userMenuPanel(page).getByText("Settings");
     await expect(settingsLink).toBeVisible();
     await settingsLink.click();
 

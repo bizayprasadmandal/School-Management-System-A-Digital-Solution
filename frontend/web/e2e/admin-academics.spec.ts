@@ -6,7 +6,7 @@
  * Run: npx playwright test admin-academics.spec.ts --headed
  */
 import { test, expect } from "@playwright/test";
-import { BASE, API_BASE, loginAsAdmin, gotoAdminPage } from "./helpers";
+import { BASE, API_BASE, loginAsAdmin, gotoAdminPage, mockCurrentAcademicYear } from "./helpers";
 
 const MOCK_CLASSROOMS = {
   count: 2,
@@ -28,13 +28,6 @@ const MOCK_CLASSROOMS = {
       student_count: 30,
     },
   ],
-};
-
-// The seeded DB has no current academic year, but ExamsPage/TimetablePage gate their
-// queries on useCurrentAcademicYear() — mock it so those queries actually fire.
-const MOCK_CURRENT_YEAR = {
-  count: 1,
-  results: [{ id: 1, name: "2026-27", is_current: true }],
 };
 
 const MOCK_EXAMS = {
@@ -137,13 +130,7 @@ test.describe("Admin — Attendance Page", () => {
 test.describe("Admin — Exams Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/students/academic-years/**`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_CURRENT_YEAR),
-      });
-    });
+    await mockCurrentAcademicYear(page);
     await page.route(`${API_BASE}/gradebook/exams/**`, async (route) => {
       await route.fulfill({
         status: 200,
@@ -181,13 +168,7 @@ test.describe("Admin — Exams Page", () => {
 test.describe("Admin — Timetable Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/students/academic-years/**`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_CURRENT_YEAR),
-      });
-    });
+    await mockCurrentAcademicYear(page);
     // useClassrooms() always appends ?page=1 — glob the URL
     await page.route(`${API_BASE}/students/classrooms/**`, async (route) => {
       await route.fulfill({
