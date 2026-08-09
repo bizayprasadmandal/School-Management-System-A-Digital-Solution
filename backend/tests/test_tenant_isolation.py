@@ -32,6 +32,7 @@ from tests.factories import (
     TeacherUserFactory,
 )
 from tests.url_helpers import (
+    ATTENDANCE_STUDENT_REPORT,
     GRADEBOOK_GRADES_BULK,
     GRADEBOOK_GRADES_IMPORT_CSV,
     HEALTH_IMMUNIZATIONS,
@@ -443,6 +444,22 @@ def test_stock_movement_rejects_foreign_school_item(api_client, school_a, school
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
     assert "Item not found in your school." in str(resp.data)
+
+
+# ─── Attendance ──────────────────────────────────────────────────────────────
+
+
+def test_student_report_rejects_foreign_school_student(api_client, school_a, school_b):
+    """The monthly attendance report must not leak another school's student data."""
+    admin = AdminUserFactory(school=school_a, email="admin-att@test.edu", email_verified=True)
+    foreign_student = StudentFactory(school=school_b)
+
+    resp = _auth(api_client, admin).get(
+        ATTENDANCE_STUDENT_REPORT,
+        {"student_id": str(foreign_student.id), "month": 8, "year": 2026},
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert "Student not found" in str(resp.data)
 
 
 # ─── Health clinic ────────────────────────────────────────────────────────────

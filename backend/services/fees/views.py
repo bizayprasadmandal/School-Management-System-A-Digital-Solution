@@ -2,24 +2,35 @@
 Fees Service — Views for invoicing, payments, scholarships
 """
 
-from decimal import Decimal
-from django.utils import timezone
+import io
+
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django.db import transaction
-from rest_framework import viewsets, status
+from django.http import FileResponse
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship, PaymentGatewayConfig
+from .models import FeeCategory, FeeInvoice, FeeStructure, Payment, PaymentGatewayConfig, Scholarship
 from .serializers import (
-    FeeCategorySerializer, FeeStructureSerializer,
-    FeeInvoiceSerializer, PaymentSerializer, ScholarshipSerializer,
+    FeeCategorySerializer,
+    FeeInvoiceSerializer,
+    FeeStructureSerializer,
     PaymentGatewayConfigSerializer,
+    PaymentSerializer,
+    ScholarshipSerializer,
 )
-from core.permissions import IsSchoolMember, IsSchoolAdmin
-from core.pagination import StandardResultsSetPagination
+
+BRAND_COLOR = colors.HexColor("#4F46E5")
 
 
 class FeeCategoryViewSet(viewsets.ModelViewSet):
@@ -43,9 +54,9 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
     filterset_fields = ["grade", "academic_year", "fee_category", "is_active"]
 
     def get_queryset(self):
-        return FeeStructure.objects.filter(
-            school=self.request.user.school
-        ).select_related("grade", "fee_category", "academic_year")
+        return FeeStructure.objects.filter(school=self.request.user.school).select_related(
+            "grade", "fee_category", "academic_year"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -67,9 +78,9 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = FeeInvoice.objects.filter(
-            student__school=user.school
-        ).select_related("student__user", "academic_year", "fee_structure__fee_category")
+        qs = FeeInvoice.objects.filter(student__school=user.school).select_related(
+            "student__user", "academic_year", "fee_structure__fee_category"
+        )
         if user.role == "student":
             qs = qs.filter(student__user=user)
         elif user.role == "parent":
@@ -77,8 +88,7 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy",
-                           "bulk_generate", "waive"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate", "waive"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -107,6 +117,7 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
             )
 
         from .tasks import generate_bulk_invoices
+
         task = generate_bulk_invoices.delay(structure_id, academic_year_id)
         return Response(
             {"detail": "Bulk invoice generation queued.", "task_id": task.id},
@@ -124,9 +135,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Payment.objects.filter(
-            invoice__student__school=user.school
-        ).select_related("invoice__student__user")
+        qs = Payment.objects.filter(invoice__student__school=user.school).select_related(
+            "invoice__student__user", "collected_by"
+        )
         if user.role in ["student", "parent"]:
             if user.role == "student":
                 qs = qs.filter(invoice__student__user=user)
@@ -145,9 +156,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         # Lock the invoice row to prevent race conditions on concurrent payments
-        invoice = FeeInvoice.objects.select_for_update().get(
-            id=serializer.validated_data["invoice"].id
-        )
+        invoice = FeeInvoice.objects.select_for_update().get(id=serializer.validated_data["invoice"].id)
 
         payment = serializer.save(collected_by=request.user)
 
@@ -161,6 +170,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         # Generate receipt PDF in background
         from .tasks import generate_receipt_pdf
+
         generate_receipt_pdf.delay(str(payment.id))
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -175,23 +185,27 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            rightMargin=2 * cm, leftMargin=2 * cm,
-            topMargin=2 * cm, bottomMargin=2 * cm,
+            buffer,
+            pagesize=A4,
+            rightMargin=2 * cm,
+            leftMargin=2 * cm,
+            topMargin=2 * cm,
+            bottomMargin=2 * cm,
         )
 
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
-            "Title", parent=styles["Title"],
-            textColor=BRAND_COLOR, fontSize=18, spaceAfter=6,
+            "Title",
+            parent=styles["Title"],
+            textColor=BRAND_COLOR,
+            fontSize=18,
+            spaceAfter=6,
         )
         normal = styles["Normal"]
 
         elements = []
         elements.append(Paragraph("PAYMENT RECEIPT", title_style))
-        elements.append(
-            Paragraph(f"{school.name} — {school.address}", normal)
-        )
+        elements.append(Paragraph(f"{school.name} — {school.address}", normal))
         elements.append(HRFlowable(width="100%", thickness=1, color=BRAND_COLOR, spaceAfter=12))
 
         details = [
@@ -205,15 +219,19 @@ class PaymentViewSet(viewsets.ModelViewSet):
             ["Status", "Paid"],
         ]
         detail_table = Table(details, colWidths=[5 * cm, 10 * cm])
-        detail_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 6),
-        ]))
+        detail_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("PADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         elements.append(detail_table)
         elements.append(Spacer(1, 1 * cm))
         elements.append(
@@ -227,9 +245,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         buffer.seek(0)
 
         response = FileResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
-        )
+        response["Content-Disposition"] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
         return response
 
 
@@ -240,9 +256,9 @@ class ScholarshipViewSet(viewsets.ModelViewSet):
     filterset_fields = ["student", "academic_year", "is_active"]
 
     def get_queryset(self):
-        return Scholarship.objects.filter(
-            school=self.request.user.school
-        ).select_related("student__user", "academic_year", "approved_by")
+        return Scholarship.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "academic_year", "approved_by"
+        )
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
@@ -265,9 +281,7 @@ class GatewayConfigView(viewsets.ViewSet):
 
     def get_config(self, request):
         """Get or create the config for the user's school."""
-        config, _ = PaymentGatewayConfig.objects.get_or_create(
-            school=request.user.school
-        )
+        config, _ = PaymentGatewayConfig.objects.get_or_create(school=request.user.school)
         return config
 
     def list(self, request):
@@ -286,9 +300,7 @@ class GatewayConfigView(viewsets.ViewSet):
             return Response({"detail": "Only school administrators can update gateway settings."}, status=403)
 
         config = self.get_config(request)
-        serializer = PaymentGatewayConfigSerializer(
-            config, data=request.data, partial=True
-        )
+        serializer = PaymentGatewayConfigSerializer(config, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -300,14 +312,28 @@ class GatewayConfigView(viewsets.ViewSet):
         Public endpoint — returns list of enabled gateways for the user's school.
         Used by the frontend to show/hide gateway options in the payment picker.
         """
-        config, _ = PaymentGatewayConfig.objects.get_or_create(
-            school=request.user.school
-        )
+        config, _ = PaymentGatewayConfig.objects.get_or_create(school=request.user.school)
         gateways = []
         if config.stripe_enabled:
-            gateways.append({"id": "stripe", "name": "Credit / Debit Card", "description": "Visa, Mastercard, Amex via Stripe", "icon": "💳"})
+            gateways.append(
+                {
+                    "id": "stripe",
+                    "name": "Credit / Debit Card",
+                    "description": "Visa, Mastercard, Amex via Stripe",
+                    "icon": "💳",
+                }
+            )
         if config.khalti_enabled:
-            gateways.append({"id": "khalti", "name": "Khalti", "description": "Khalti wallet, Mobile Banking, or Cards", "icon": "💰"})
+            gateways.append(
+                {
+                    "id": "khalti",
+                    "name": "Khalti",
+                    "description": "Khalti wallet, Mobile Banking, or Cards",
+                    "icon": "💰",
+                }
+            )
         if config.esewa_enabled:
-            gateways.append({"id": "esewa", "name": "eSewa", "description": "eSewa wallet or connected bank accounts", "icon": "🏦"})
+            gateways.append(
+                {"id": "esewa", "name": "eSewa", "description": "eSewa wallet or connected bank accounts", "icon": "🏦"}
+            )
         return Response(gateways)

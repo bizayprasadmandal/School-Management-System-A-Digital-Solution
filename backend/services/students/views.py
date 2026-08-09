@@ -63,6 +63,13 @@ class StudentViewSet(viewsets.ModelViewSet):
             .prefetch_related("enrollments__classroom__grade")
             .annotate(current_class_name=Subquery(current_class_name_subquery))
         )
+        # Detail-only relations (enrollment academic year, guardians) are
+        # prefetched just for retrieve so the hot list endpoint stays lean.
+        if self.action == "retrieve":
+            qs = qs.prefetch_related(
+                "enrollments__academic_year",
+                "studentguardian_set__guardian__user",
+            )
 
         if user.role == "student":
             return qs.filter(user=user)
@@ -250,7 +257,15 @@ class StudentViewSet(viewsets.ModelViewSet):
         PATCH: Update limited self-service fields (bio, interests, learning_goals).
         """
         try:
-            student = Student.objects.get(user=request.user, school=request.user.school)
+            student = (
+                Student.objects.filter(user=request.user, school=request.user.school)
+                .prefetch_related(
+                    "enrollments__classroom__grade",
+                    "enrollments__academic_year",
+                    "studentguardian_set__guardian__user",
+                )
+                .get()
+            )
         except Student.DoesNotExist:
             return Response(
                 {"detail": "No student profile found for this user."},

@@ -30,8 +30,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = AttendanceRecord.objects.filter(student__school=user.school).select_related(
-            "student__user", "classroom", "recorded_by"
+        qs = (
+            AttendanceRecord.objects.filter(student__school=user.school)
+            .select_related("student__user", "classroom", "recorded_by")
+            .order_by("-date", "-recorded_at", "-id")
         )
 
         if user.role == "student":
@@ -116,14 +118,34 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if not student_id:
             return Response({"error": "student_id is required"}, status=400)
 
-        records = AttendanceRecord.objects.filter(
-            student_id=student_id,
-            date__year=year,
-            date__month=month,
-        ).order_by("date")
+        # Tenant isolation: only students in the caller's school.
+        try:
+            student = Student.objects.get(id=student_id, school=request.user.school)
+        except Student.DoesNotExist:
+            return Response({"error": "Student not found"}, status=404)
 
-        total = records.count()
-        present = records.filter(status__in=["P", "L"]).count()
+        records = (
+            AttendanceRecord.objects.filter(
+                student=student,
+                date__year=year,
+                date__month=month,
+            )
+            .select_related("student__user")
+            .order_by("date")
+        )
+
+        # One aggregate query instead of five COUNT queries.
+        from django.db.models import Count, Q
+
+        summary = records.aggregate(
+            total=Count("id"),
+            present=Count("id", filter=Q(status__in=["P", "L"])),
+            absent=Count("id", filter=Q(status="A")),
+            late=Count("id", filter=Q(status="L")),
+            excused=Count("id", filter=Q(status="E")),
+        )
+        total = summary["total"]
+        present = summary["present"]
 
         return Response(
             {
@@ -132,9 +154,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 "year": year,
                 "total_school_days": total,
                 "present": present,
-                "absent": records.filter(status="A").count(),
-                "late": records.filter(status="L").count(),
-                "excused": records.filter(status="E").count(),
+                "absent": summary["absent"],
+                "late": summary["late"],
+                "excused": summary["excused"],
                 "percentage": round((present / total * 100) if total else 0, 2),
                 "records": AttendanceRecordSerializer(records, many=True).data,
             }
