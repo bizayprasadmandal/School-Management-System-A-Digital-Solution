@@ -42,7 +42,17 @@ jobs:
       # Coverage gate: floor measured at 70% (last green run) — 68 leaves headroom.
       - name: Run tests
         working-directory: backend
-        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov-fail-under=68 -q
+        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov-fail-under=68 --cov-report=xml -q
+      # Publish coverage to Codecov (public repo — no token needed once the repo
+      # is activated at codecov.io). fail_ci_if_error keeps a Codecov hiccup from
+      # ever failing the build; `if: always()` lets the badge track the trend
+      # even when the gate drops a run.
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: backend/coverage.xml
+          fail_ci_if_error: false
 
   e2e-test:
     runs-on: ubuntu-latest

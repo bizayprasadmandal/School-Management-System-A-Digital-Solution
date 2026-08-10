@@ -3,6 +3,7 @@
 A production-grade, multi-tenant School Management System built with Django, React, and React Native.
 
 [![CI](https://github.com/bizayprasadmandal/School-Management-System-A-Digital-Solution/actions/workflows/ci-full.yml/badge.svg?branch=main)](https://github.com/bizayprasadmandal/School-Management-System-A-Digital-Solution/actions/workflows/ci-full.yml)
+[![codecov](https://codecov.io/gh/bizayprasadmandal/School-Management-System-A-Digital-Solution/branch/main/graph/badge.svg)](https://codecov.io/gh/bizayprasadmandal/School-Management-System-A-Digital-Solution)
 
 ---
 
