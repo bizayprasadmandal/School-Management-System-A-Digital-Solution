@@ -3,7 +3,10 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # k8s manifests are multi-document bundles (Namespace + Deployment +
+      # Service + ... in one file) — allow multiple YAML documents per file.
       - id: check-yaml
+        args: [--allow-multiple-documents]
       - id: check-json
       - id: check-toml
       - id: end-of-file-fixer

@@ -69,6 +69,11 @@ spec:
                 secretKeyRef:
                   name: sms-secrets
                   key: redis-url
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: sentry-dsn
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -311,7 +316,7 @@ metadata:
   labels:
     app: sms-celery-beat
 spec:
-  replicas: 1          # Always exactly 1 — multiple beat instances would double-fire tasks
+  replicas: 1 # Always exactly 1 — multiple beat instances would double-fire tasks
   selector:
     matchLabels:
       app: sms-celery-beat

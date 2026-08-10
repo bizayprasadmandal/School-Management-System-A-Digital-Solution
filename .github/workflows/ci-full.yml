@@ -334,6 +334,19 @@ jobs:
         if: steps.kubecheck.outputs.configured == 'true'
         uses: azure/k8s-set-context@v3
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_PRODUCTION }}" }
+      - name: Sync Sentry DSN into sms-secrets
+        if: steps.kubecheck.outputs.configured == 'true'
+        run: |
+          if [ -n "$SENTRY_DSN" ]; then
+            kubectl create secret generic sms-secrets \
+              --from-literal=sentry-dsn="$SENTRY_DSN" \
+              --dry-run=client -o yaml | kubectl apply -f - -n sms
+            echo "✅ synced sentry-dsn into sms-secrets"
+          else
+            echo "::warning::SENTRY_DSN secret is not set — backend will run without Sentry."
+          fi
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       - name: Check pending migrations
         if: steps.kubecheck.outputs.configured == 'true'
         run: |
