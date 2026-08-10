@@ -116,10 +116,15 @@ cp backend/.env.example backend/.env
 # 3. Start all services
 docker compose up -d
 
-# 4. Run migrations + seed demo data (migrations ship with every service)
+# 4. Run migrations (they ship with every service) + seed data
 docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py seed_demo_data
+docker compose exec backend python manage.py seed_demo_data    # demo school with realistic data
 docker compose exec backend python manage.py createsuperuser
+
+#    Optional seeds — run as needed:
+#    docker compose exec backend python manage.py seed_operational_data    # current academic year, exams, HR, admissions, events
+#    docker compose exec backend python manage.py seed_additional_schools  # extra schools + admins (multi-school demo)
+#    docker compose exec backend python manage.py seed_e2e_data            # exact Playwright e2e accounts (idempotent)
 
 # 5. Open browser
 open http://localhost:3000
