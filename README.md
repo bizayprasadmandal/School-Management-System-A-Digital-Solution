@@ -106,18 +106,16 @@ school-management-system/
 
 ```bash
 # 1. Clone and enter
-git clone https://github.com/your-org/edusphere-sms.git
-cd edusphere-sms
+git clone https://github.com/bizayprasadmandal/School-Management-System-A-Digital-Solution.git
+cd School-Management-System-A-Digital-Solution
 
 # 2. Copy environment files
 cp backend/.env.example backend/.env
 
 # 3. Start all services
 docker compose up -d
-# 4. Run migrations + seed data
-# Note: only auth_service ships with a hand-written initial migration;
-# the other services need makemigrations run once against their models.
-docker compose exec backend python manage.py makemigrations
+
+# 4. Run migrations + seed demo data (migrations ship with every service)
 docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py seed_demo_data
 docker compose exec backend python manage.py createsuperuser
@@ -190,7 +188,7 @@ open http://localhost:3000
 
 - Flexible fee structure per grade and category
 - Automated invoice generation on schedule
-- Online payment gateway integration (Stripe / Paystack / Razorpay)
+- Online payment gateway integration (Stripe / Khalti / eSewa)
 - Scholarship and discount management
 - Late fee calculation
 - Receipt generation (PDF)
@@ -207,16 +205,16 @@ open http://localhost:3000
 
 ## 🔗 External Integrations
 
-| System               | Purpose                              | Status       |
-| -------------------- | ------------------------------------ | ------------ |
-| Google Workspace     | SSO + Classroom sync                 | Configurable |
-| Microsoft 365        | SSO + Teams integration              | Configurable |
-| Zoom                 | Virtual classroom links in timetable | API ready    |
-| SendGrid             | Transactional email                  | Active       |
-| Twilio               | SMS notifications                    | Active       |
-| Firebase FCM         | Mobile push notifications            | Active       |
-| Stripe / Razorpay    | Online fee payment                   | Pluggable    |
-| National Exam Boards | Result import                        | Via CSV/API  |
+| System                  | Purpose                              | Status       |
+| ----------------------- | ------------------------------------ | ------------ |
+| Google Workspace        | SSO + Classroom sync                 | Configurable |
+| Microsoft 365           | SSO + Teams integration              | Configurable |
+| Zoom                    | Virtual classroom links in timetable | API ready    |
+| SendGrid                | Transactional email                  | Active       |
+| Twilio                  | SMS notifications                    | Active       |
+| Firebase FCM            | Mobile push notifications            | Active       |
+| Stripe / Khalti / eSewa | Online fee payment                   | Configurable |
+| National Exam Boards    | Result import                        | Via CSV/API  |
 
 ---
 
@@ -224,7 +222,7 @@ open http://localhost:3000
 
 | Layer        | Technology                                                      |
 | ------------ | --------------------------------------------------------------- |
-| Backend      | Python 3.12 · Django 4.2 · Django REST Framework                |
+| Backend      | Python 3.12 · Django 5.2 · Django REST Framework                |
 | GraphQL      | Graphene-Django 3.x                                             |
 | Auth         | JWT (SimpleJWT) · django-axes (brute-force)                     |
 | Task Queue   | Celery 5 · django-celery-beat                                   |
