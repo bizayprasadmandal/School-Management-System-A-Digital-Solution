@@ -133,6 +133,7 @@ TIMETABLE_EVENTS_UPCOMING = url("timetable/events/upcoming/")
 # ─── Reporting ────────────────────────────────────────────────────────────────
 
 REPORTING_DASHBOARD_STATS = url("reporting/dashboard-stats/")
+REPORTING_REFRESH_DASHBOARD = url("reporting/refresh-dashboard/")
 REPORTING_ATTENDANCE_REPORT = url("reporting/attendance-report/")
 REPORTING_FEE_REPORT = url("reporting/fee-report/")
 REPORTING_AT_RISK_STUDENTS = url("reporting/at-risk-students/")

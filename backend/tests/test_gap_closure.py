@@ -863,3 +863,40 @@ class TestOnboardingImports:
         assert resp.status_code == 403
         resp = api.post(TEACHER_PROFILES_IMPORT_CSV, {"csv_data": "email\n"}, format="json")
         assert resp.status_code == 403
+
+
+# ─── Role-scoped reporting access (accountant/librarian dashboards) ──────────
+
+
+class TestReportingRoleAccess:
+    def test_accountant_and_librarian_can_read_dashboard_stats(self, db, school):
+        from tests.factories import UserFactory
+        from tests.url_helpers import REPORTING_DASHBOARD_STATS
+
+        for role in ["accountant", "librarian"]:
+            staff = UserFactory(school=school, role=role)
+            client = APIClient()
+            client.force_authenticate(user=staff)
+            resp = client.get(REPORTING_DASHBOARD_STATS)
+            assert resp.status_code == 200, f"{role} got {resp.status_code}: {resp.content}"
+            assert resp.json()["total_students"] == 0  # empty school, but accessible
+
+    def test_students_and_parents_are_denied_dashboard_stats(self, db, school):
+        from tests.factories import ParentUserFactory, StudentUserFactory
+        from tests.url_helpers import REPORTING_DASHBOARD_STATS
+
+        for role in ["student", "parent"]:
+            user = StudentUserFactory(school=school) if role == "student" else ParentUserFactory(school=school)
+            client = APIClient()
+            client.force_authenticate(user=user)
+            resp = client.get(REPORTING_DASHBOARD_STATS)
+            assert resp.status_code == 403, f"{role} got {resp.status_code}"
+
+    def test_cache_refresh_is_admin_only(self, api, school, teacher, db):
+        from tests.url_helpers import REPORTING_DASHBOARD_STATS, REPORTING_REFRESH_DASHBOARD
+
+        # teacher (staff) can read stats but cannot refresh the cache
+        auth(api, teacher)
+        assert api.get(REPORTING_DASHBOARD_STATS).status_code == 200
+        resp = api.post(REPORTING_REFRESH_DASHBOARD, {}, format="json")
+        assert resp.status_code == 403

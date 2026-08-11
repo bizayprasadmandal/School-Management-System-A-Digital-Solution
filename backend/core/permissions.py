@@ -35,15 +35,34 @@ class IsSchoolAdmin(permissions.BasePermission):
         )
 
 
-class IsSuperAdmin(permissions.BasePermission):
-    message = "Only super administrators can perform this action."
+class IsSchoolStaff(permissions.BasePermission):
+    """
+    Any school staff member: admin, accountant, librarian or teacher.
+    Used for school-wide analytics that students/parents must not see.
+    """
+
+    message = "Only school staff can access this data."
 
     def has_permission(self, request, view):
         return bool(
             request.user
             and request.user.is_authenticated
-            and request.user.role == UserRole.SUPER_ADMIN
+            and request.user.role
+            in [
+                UserRole.SCHOOL_ADMIN,
+                UserRole.SUPER_ADMIN,
+                UserRole.ACCOUNTANT,
+                UserRole.LIBRARIAN,
+                UserRole.TEACHER,
+            ]
         )
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    message = "Only super administrators can perform this action."
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.SUPER_ADMIN)
 
 
 class IsTeacher(permissions.BasePermission):
@@ -61,22 +80,14 @@ class IsStudent(permissions.BasePermission):
     message = "Only students can perform this action."
 
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == UserRole.STUDENT
-        )
+        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.STUDENT)
 
 
 class IsParent(permissions.BasePermission):
     message = "Only parents/guardians can perform this action."
 
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == UserRole.PARENT
-        )
+        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.PARENT)
 
 
 class IsOwnerOrAdmin(permissions.BasePermission):

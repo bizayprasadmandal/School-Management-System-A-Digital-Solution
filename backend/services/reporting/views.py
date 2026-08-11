@@ -7,7 +7,7 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal
 
-from core.permissions import IsSchoolAdmin
+from core.permissions import IsSchoolAdmin, IsSchoolStaff
 from django.core.cache import cache
 from django.db.models import Avg, Count, Q, Sum
 from django.http import FileResponse, HttpResponse
@@ -33,7 +33,18 @@ ACCENT_COLOR = colors.HexColor("#E0E7FF")
 
 
 class ReportingViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    permission_classes = [IsAuthenticated, IsSchoolStaff]
+
+    def get_permissions(self):
+        """
+        Read-only analytics are available to school staff (accountants and
+        librarians render them on their dashboards; students/parents never
+        see school-wide figures). State-changing actions (e.g. cache
+        refresh) stay admin-only.
+        """
+        if self.action == "refresh_dashboard":
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolStaff()]
 
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
