@@ -115,7 +115,6 @@ if REPLICA_URL:
     DATABASES["replica"] = env.db_url(REPLICA_URL)
     DATABASE_ROUTERS = ["core.routers.ReadReplicaRouter"]
 
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
 DATABASES["default"]["CONN_MAX_AGE"] = 60
 
 # ─── Email Verification Enforcement ────────────────────────────────────────────

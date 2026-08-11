@@ -9,26 +9,56 @@ from datetime import timedelta
 
 import pyotp
 import pytest
-from django.utils import timezone
+from axes.utils import reset
 from django.test.utils import override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.factories import SchoolFactory, UserFactory
 from tests.url_helpers import (
+    AUTH_DISABLE_2FA,
     AUTH_LOGIN,
     AUTH_LOGOUT,
     AUTH_ME,
+    AUTH_REGENERATE_BACKUP_CODES,
     AUTH_SETUP_2FA,
     AUTH_VERIFY_2FA,
-    AUTH_DISABLE_2FA,
     AUTH_VERIFY_2FA_LOGIN,
-    AUTH_REGENERATE_BACKUP_CODES,
-    AUTH_PASSWORD_RESET,
-    AUTH_PASSWORD_RESET_CONFIRM,
 )
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
+
+
+def _patch_throttle_rates(rates_dict):
+    """
+    Temporarily replace the effective throttle rates.
+
+    DRF binds ``SimpleRateThrottle.THROTTLE_RATES`` to the api_settings dict at
+    class-definition time, so ``override_settings(REST_FRAMEWORK=...)`` (which
+    only swaps api_settings) never reaches it — the class attribute itself must
+    be patched.
+    """
+    from unittest.mock import patch
+
+    from rest_framework.throttling import SimpleRateThrottle
+
+    return patch.object(SimpleRateThrottle, "THROTTLE_RATES", rates_dict)
+
+
+@pytest.fixture
+def lifted_2fa_throttles(monkeypatch):
+    """
+    Lift the per-IP verify-2fa-login (5/min) and login (10/min) throttle rates
+    for the lifecycle tests, which fire many requests from one IP within a
+    minute. The dedicated throttle tests (TestVerify2FALoginThrottle,
+    TestAuthLoginThrottle) and combined_flow's phases 3–5 keep the real rates.
+    """
+    from rest_framework.throttling import SimpleRateThrottle
+
+    rates = dict(SimpleRateThrottle.THROTTLE_RATES)
+    rates.update(auth_verify_2fa_login="10000/minute", auth_login="10000/minute")
+    monkeypatch.setattr(SimpleRateThrottle, "THROTTLE_RATES", rates)
+    yield
 
 
 @pytest.fixture
@@ -150,6 +180,7 @@ class TestVerify2FA:
         _, secret = user_with_secret
         # Generate a code from the previous time window
         import time
+
         past_timestamp = int(time.time()) - 30  # 30 seconds ago = previous window
         totp = pyotp.TOTP(secret)
         past_code = totp.at(past_timestamp)
@@ -161,6 +192,7 @@ class TestVerify2FA:
         _, secret = user_with_secret
         totp = pyotp.TOTP(secret)
         import time
+
         old_timestamp = int(time.time()) - 90  # 90 seconds ago = 3 windows back
         old_code = totp.at(old_timestamp)
         r = auth_client.post(AUTH_VERIFY_2FA, {"code": old_code})
@@ -196,7 +228,7 @@ class TestDisable2FA:
 
     def test_disable_clears_secret(self, auth_client, user_with_2fa):
         """Secret is also cleared on disable."""
-        r = auth_client.post(AUTH_DISABLE_2FA, {"password": "TestPass@1234"})
+        auth_client.post(AUTH_DISABLE_2FA, {"password": "TestPass@1234"})
         user_with_2fa[0].refresh_from_db()
         assert user_with_2fa[0].two_factor_secret == ""
 
@@ -215,6 +247,7 @@ class TestBackupCodes:
         assert len(r.data["backup_codes"]) == 8
         # Each code should match XXXXX-XXXXX format
         import re
+
         for code in r.data["backup_codes"]:
             assert re.match(r"^[A-Z0-9]{5}-[A-Z0-9]{5}$", code), f"Invalid format: {code}"
 
@@ -228,48 +261,53 @@ class TestBackupCodes:
 
         # Verify each plain-text code's SHA-256 hash exists in the DB
         import hashlib
+
         for code in r.data["backup_codes"]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            assert TwoFactorBackupCode.objects.filter(
-                user=user, hashed_code=hashed
-            ).exists()
+            assert TwoFactorBackupCode.objects.filter(user=user, hashed_code=hashed).exists()
 
     def test_backup_code_can_be_used_to_login(self, api_client, user_with_2fa):
         """A valid backup code can log the user in via verify-2fa-login."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
 
         # Create a valid backup code directly in the DB
         import hashlib
+
         plain_code = "ABCDE-12345"
         hashed = hashlib.sha256(plain_code.encode()).hexdigest()
-        TwoFactorBackupCode.objects.create(
-            user=user, hashed_code=hashed, used=False
-        )
+        TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": plain_code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": plain_code,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
 
     def test_backup_code_marked_used_after_login(self, api_client, user_with_2fa):
         """Backup code is marked as used after a successful login."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
 
         import hashlib
+
         plain_code = "FGHIJ-67890"
         hashed = hashlib.sha256(plain_code.encode()).hexdigest()
-        bc = TwoFactorBackupCode.objects.create(
-            user=user, hashed_code=hashed, used=False
-        )
+        bc = TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
-        api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": plain_code,
-        })
+        api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": plain_code,
+            },
+        )
 
         bc.refresh_from_db()
         assert bc.used is True
@@ -277,27 +315,33 @@ class TestBackupCodes:
     def test_backup_code_cannot_be_reused(self, api_client, user_with_2fa):
         """Once used, a backup code cannot be used again."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
 
         import hashlib
+
         plain_code = "KLMNO-24680"
         hashed = hashlib.sha256(plain_code.encode()).hexdigest()
-        TwoFactorBackupCode.objects.create(
-            user=user, hashed_code=hashed, used=False
-        )
+        TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
         # First use — should succeed
-        r1 = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": plain_code,
-        })
+        r1 = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": plain_code,
+            },
+        )
         assert r1.status_code == status.HTTP_200_OK
 
         # Second use — should fail
-        r2 = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": plain_code,
-        })
+        r2 = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": plain_code,
+            },
+        )
         assert r2.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r2.data["detail"]
 
@@ -305,25 +349,28 @@ class TestBackupCodes:
         """An unknown backup code returns 400."""
         user, secret = user_with_2fa
 
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "NONEX-ISTEN",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "NONEX-ISTEN",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r.data["detail"]
 
     def test_backup_codes_cleaned_on_disable(self, auth_client, user_with_2fa):
         """Disabling 2FA removes all backup codes from the DB."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
 
         # Create some backup codes
         import hashlib
+
         for code in ["FIRST-11111", "SECON-22222", "THIRD-33333"]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            TwoFactorBackupCode.objects.create(
-                user=user, hashed_code=hashed, used=False
-            )
+            TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
         assert TwoFactorBackupCode.objects.filter(user=user).count() == 3
 
@@ -336,19 +383,22 @@ class TestBackupCodes:
     def test_regenerate_backup_codes(self, auth_client, user_with_2fa):
         """Regenerate endpoint creates new codes and invalidates old ones."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
 
         # Create some old backup codes
         import hashlib
+
         for code in ["OLDCD-11111", "OLDCD-22222"]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            TwoFactorBackupCode.objects.create(
-                user=user, hashed_code=hashed, used=False
-            )
+            TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
-        r = auth_client.post(AUTH_REGENERATE_BACKUP_CODES, {
-            "password": "TestPass@1234",
-        })
+        r = auth_client.post(
+            AUTH_REGENERATE_BACKUP_CODES,
+            {
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "backup_codes" in r.data
         assert len(r.data["backup_codes"]) == 8
@@ -357,9 +407,7 @@ class TestBackupCodes:
         assert TwoFactorBackupCode.objects.filter(user=user).count() == 8
         # Old codes shouldn't exist anymore
         old_hashed = hashlib.sha256("OLDCD-11111".encode()).hexdigest()
-        assert not TwoFactorBackupCode.objects.filter(
-            user=user, hashed_code=old_hashed
-        ).exists()
+        assert not TwoFactorBackupCode.objects.filter(user=user, hashed_code=old_hashed).exists()
 
     def test_regenerate_requires_password(self, auth_client, user_with_2fa):
         """Regenerate without password (or wrong password) returns 400."""
@@ -369,9 +417,12 @@ class TestBackupCodes:
 
     def test_regenerate_requires_2fa_enabled(self, auth_client, user):
         """User without 2FA cannot regenerate backup codes."""
-        r = auth_client.post(AUTH_REGENERATE_BACKUP_CODES, {
-            "password": "TestPass@1234",
-        })
+        r = auth_client.post(
+            AUTH_REGENERATE_BACKUP_CODES,
+            {
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "not enabled" in r.data["detail"].lower()
 
@@ -381,10 +432,13 @@ class TestBackupCodes:
         login with backup code → access API.
         """
         # Step 1: Login and get token
-        login = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert "access" in login.data
         token = login.data["access"]
 
@@ -399,42 +453,55 @@ class TestBackupCodes:
 
         # Step 3: Enable 2FA with TOTP
         import pyotp
+
         totp = pyotp.TOTP(secret)
         verify_r = setup_client.post(AUTH_VERIFY_2FA, {"code": totp.now()})
         assert verify_r.status_code == status.HTTP_200_OK
 
         # Step 4: Logout and login — should require 2FA
         api_client.post(AUTH_LOGOUT, {"refresh": login.data["refresh"]})
-        login2 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login2 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert login2.data.get("requires_2fa") is True
         user_id = login2.data["user_id"]
 
         # Step 5: Use a backup code instead of TOTP
         backup_code = backup_codes[0]
-        final = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": backup_code,
-        })
+        final = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": backup_code,
+            },
+        )
         assert final.status_code == status.HTTP_200_OK
         assert "access" in final.data
         assert final.data["user"]["email"] == user.email
 
         # Step 6: The backup code cannot be reused
-        r3 = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": backup_code,
-        })
+        r3 = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": backup_code,
+            },
+        )
         assert r3.status_code == status.HTTP_400_BAD_REQUEST
 
         # Step 7: Use another backup code
         backup_code2 = backup_codes[1]
-        final2 = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": backup_code2,
-        })
+        final2 = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": backup_code2,
+            },
+        )
         assert final2.status_code == status.HTTP_200_OK
         assert "access" in final2.data
 
@@ -442,6 +509,11 @@ class TestBackupCodes:
 # ─── Backup Code Lockout Tests ────────────────────────────────────────────────
 
 
+# These lifecycle tests fire many sequential verify-2fa-login + login requests
+# from one IP within a single minute — far beyond the real per-IP throttles
+# (5/min verify, 10/min login). The dedicated throttle classes below test the
+# throttles at their real rates; here they are lifted so lockout semantics are
+# what is exercised.
 @pytest.mark.django_db
 @pytest.mark.slow
 class TestBackupCodeLockout:
@@ -451,10 +523,13 @@ class TestBackupCodeLockout:
         user, _ = user_with_2fa
 
         for i in range(1, 4):
-            r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+            r = api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
             # First 2 attempts return 400 with remaining count;
             # the 3rd triggers the lockout and returns 429
             if i < 3:
@@ -474,16 +549,22 @@ class TestBackupCodeLockout:
 
         # 3 failed attempts
         for i in range(3):
-            api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+            api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
 
         # 4th attempt should be locked out
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "WRONG-XXXXX",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-XXXXX",
+            },
+        )
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "try again in" in r.data["detail"].lower()
 
@@ -493,47 +574,58 @@ class TestBackupCodeLockout:
 
         # Trigger backup code lockout
         for i in range(3):
-            api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+            api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
 
         # TOTP should still work
         totp = pyotp.TOTP(secret)
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": totp.now(),
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": totp.now(),
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
 
     def test_successful_backup_code_resets_lockout(self, api_client, user_with_2fa):
         """A successful backup code login resets the failed attempt counter."""
         from services.auth.models import TwoFactorBackupCode
+
         user, secret = user_with_2fa
         import hashlib
 
         plain_code = "RESET-12345"
         hashed = hashlib.sha256(plain_code.encode()).hexdigest()
-        TwoFactorBackupCode.objects.create(
-            user=user, hashed_code=hashed, used=False
-        )
+        TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
         # One failed attempt
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "WRONG-XXXXX",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-XXXXX",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
 
         user.refresh_from_db()
         assert user.backup_code_failed_attempts == 1
 
         # Successful backup code login
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": plain_code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": plain_code,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
 
         user.refresh_from_db()
@@ -550,9 +642,12 @@ class TestBackupCodeLockout:
         user.save()
 
         # Regenerate codes
-        r = auth_client.post(AUTH_REGENERATE_BACKUP_CODES, {
-            "password": "TestPass@1234",
-        })
+        r = auth_client.post(
+            AUTH_REGENERATE_BACKUP_CODES,
+            {
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
 
         user.refresh_from_db()
@@ -582,30 +677,38 @@ class TestBackupCodeLockout:
 
         # Trigger lockout
         for i in range(3):
-            api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+            api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
 
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "WRONG-XXXXX",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-XXXXX",
+            },
+        )
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "Try again in" in r.data["detail"]
         import re
-        seconds_match = re.search(r'(\d+)', r.data["detail"])
+
+        seconds_match = re.search(r"(\d+)", r.data["detail"])
         assert seconds_match is not None
         assert int(seconds_match.group(1)) > 0
 
-    def test_backup_code_lockout_integration(self, api_client, user_with_2fa):
+    def test_backup_code_lockout_integration(self, api_client, user_with_2fa, lifted_2fa_throttles):
         """
         Comprehensive integration: 3 bad backup codes → locked out →
         TOTP still works → regenerate codes → lockout reset →
         backup code works again.
         """
-        from services.auth.models import TwoFactorBackupCode
         import hashlib
+
+        from services.auth.models import TwoFactorBackupCode
 
         user, secret = user_with_2fa
 
@@ -614,21 +717,34 @@ class TestBackupCodeLockout:
         another_valid = "VALID-22222"
         for code in [valid_code, another_valid]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            TwoFactorBackupCode.objects.create(
-                user=user, hashed_code=hashed, used=False
-            )
+            TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
         # ── Phase 1: 3 bad backup codes → locked out ────────────────────────
 
-        for i in range(3):
-            r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+        # First 2 wrong attempts → 400 with a remaining count; the 3rd reaches
+        # the lockout limit and is rejected immediately with 429.
+        for i in range(2):
+            r = api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
             assert r.status_code == status.HTTP_400_BAD_REQUEST
             expected_remaining = 3 - i - 1
             if expected_remaining > 0:
                 assert str(expected_remaining) in r.data["detail"].lower()
+
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-00002",
+            },
+        )
+        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "try again in" in r.data["detail"].lower()
 
         # Verify lockout state in DB
         user.refresh_from_db()
@@ -636,47 +752,62 @@ class TestBackupCodeLockout:
         assert user.backup_code_locked_until is not None
 
         # 4th attempt should be locked out (429)
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "WRONG-XXXXX",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-XXXXX",
+            },
+        )
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "try again in" in r.data["detail"].lower()
 
         # Even a valid backup code should be rejected during lockout
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": valid_code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": valid_code,
+            },
+        )
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "try again in" in r.data["detail"].lower()
 
         # ── Phase 2: TOTP still works during lockout ────────────────────────
 
         totp = pyotp.TOTP(secret)
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": totp.now(),
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": totp.now(),
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
 
         # ── Phase 3: Login again (needs 2FA again) and regenerate codes ───────
 
         # Login to get a fresh user_id
-        login = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert login.data.get("requires_2fa") is True
         user_id = login.data["user_id"]
 
         # TOTP to get a token to authenticate the regenerate request
         totp2 = pyotp.TOTP(secret)
-        totp_r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": totp2.now(),
-        })
+        totp_r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": totp2.now(),
+            },
+        )
         assert totp_r.status_code == status.HTTP_200_OK
         token = totp_r.data["access"]
 
@@ -688,9 +819,12 @@ class TestBackupCodeLockout:
         assert user.backup_code_failed_attempts == 3  # Still locked out
         assert user.backup_code_locked_until is not None
 
-        r = auth_api.post(AUTH_REGENERATE_BACKUP_CODES, {
-            "password": "TestPass@1234",
-        })
+        r = auth_api.post(
+            AUTH_REGENERATE_BACKUP_CODES,
+            {
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "backup_codes" in r.data
         new_codes = r.data["backup_codes"]
@@ -703,25 +837,29 @@ class TestBackupCodeLockout:
         assert user.backup_code_locked_until is None
 
         # Login again and use a new backup code
-        login2 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login2 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         user_id2 = login2.data["user_id"]
 
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id2,
-            "code": new_codes[0],
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id2,
+                "code": new_codes[0],
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
 
         # Old codes should no longer work (invalidated by regenerate)
         user.refresh_from_db()
         old_hashed = hashlib.sha256(valid_code.encode()).hexdigest()
-        assert not TwoFactorBackupCode.objects.filter(
-            user=user, hashed_code=old_hashed, used=False
-        ).exists()
+        assert not TwoFactorBackupCode.objects.filter(user=user, hashed_code=old_hashed, used=False).exists()
 
     def test_lockout_auto_expires_after_30_minutes(self, api_client, user_with_2fa):
         """
@@ -734,20 +872,26 @@ class TestBackupCodeLockout:
 
         # Step 1: Trigger lockout with 3 failed attempts
         for i in range(3):
-            api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": f"WRONG-{i:05d}",
-            })
+            api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": f"WRONG-{i:05d}",
+                },
+            )
 
         user.refresh_from_db()
         assert user.backup_code_failed_attempts == 3
         assert user.backup_code_locked_until is not None
 
         # Step 2: Verify lockout is active
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "WRONG-XXXXX",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "WRONG-XXXXX",
+            },
+        )
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "try again in" in r.data["detail"].lower()
 
@@ -760,10 +904,13 @@ class TestBackupCodeLockout:
             # user.backup_code_locked_until from the DB and compares with timezone.now()
             # The user object was loaded before the patch, so we need a fresh API call
             # that re-loads the user from DB
-            r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-                "user_id": str(user.id),
-                "code": "WRONG-XXXXX",
-            })
+            r = api_client.post(
+                AUTH_VERIFY_2FA_LOGIN,
+                {
+                    "user_id": str(user.id),
+                    "code": "WRONG-XXXXX",
+                },
+            )
 
         # Step 4: The old lockout DID expire (_check_backup_code_lockout returned
         # not-locked since time > locked_until). However, the failed attempt
@@ -805,6 +952,7 @@ class TestBackupCodesRemaining:
 
         # Enable 2FA with TOTP
         import pyotp
+
         secret = setup_r.data["secret"]
         totp = pyotp.TOTP(secret)
         verify_r = auth_client.post(AUTH_VERIFY_2FA, {"code": totp.now()})
@@ -819,10 +967,13 @@ class TestBackupCodesRemaining:
     def test_decrements_after_backup_code_use(self, api_client, user):
         """Using a backup code to login decreases backup_codes_remaining."""
         # Full setup flow: login → setup 2FA → enable → login with backup code → check me
-        login = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         token = login.data["access"]
 
         auth = APIClient()
@@ -832,6 +983,7 @@ class TestBackupCodesRemaining:
         setup_r = auth.post(AUTH_SETUP_2FA)
         backup_codes = setup_r.data["backup_codes"]
         import pyotp
+
         totp = pyotp.TOTP(setup_r.data["secret"])
         auth.post(AUTH_VERIFY_2FA, {"code": totp.now()})
 
@@ -843,18 +995,24 @@ class TestBackupCodesRemaining:
         api_client.post(AUTH_LOGOUT, {"refresh": login.data["refresh"]})
 
         # Login again — requires 2FA
-        login2 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login2 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         user_id = login2.data["user_id"]
 
         # Use a backup code to login
         backup_code = backup_codes[0]
-        final = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": backup_code,
-        })
+        final = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": backup_code,
+            },
+        )
         assert final.status_code == status.HTTP_200_OK
         new_token = final.data["access"]
 
@@ -867,24 +1025,21 @@ class TestBackupCodesRemaining:
 
     def test_resets_to_8_after_regenerate(self, auth_client, user_with_2fa):
         """Regenerating backup codes resets backup_codes_remaining to 8."""
-        from services.auth.models import TwoFactorBackupCode
         import hashlib
+
+        from services.auth.models import TwoFactorBackupCode
 
         user, _ = user_with_2fa
 
         # Use up some codes manually
         for code in ["USED-11111", "USED-22222"]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            TwoFactorBackupCode.objects.create(
-                user=user, hashed_code=hashed, used=True
-            )
+            TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=True)
 
         # Create 3 unused codes
         for code in ["LEFT-33333", "LEFT-44444", "LEFT-55555"]:
             hashed = hashlib.sha256(code.encode()).hexdigest()
-            TwoFactorBackupCode.objects.create(
-                user=user, hashed_code=hashed, used=False
-            )
+            TwoFactorBackupCode.objects.create(user=user, hashed_code=hashed, used=False)
 
         # Check count via me
         r = auth_client.get(AUTH_ME)
@@ -927,10 +1082,13 @@ class TestLoginWith2FA:
     def test_login_returns_requires_2fa_when_enabled(self, api_client, user_with_2fa):
         """Login with 2FA returns requires_2fa: True instead of tokens."""
         user, _ = user_with_2fa
-        r = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        r = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert r.data.get("requires_2fa") is True
         assert "user_id" in r.data
@@ -939,10 +1097,13 @@ class TestLoginWith2FA:
 
     def test_login_returns_requires_2fa_false_when_disabled(self, api_client, user):
         """Login without 2FA returns tokens normally."""
-        r = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        r = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert r.data.get("requires_2fa") is not True
         assert "access" in r.data
@@ -953,10 +1114,13 @@ class TestLoginWith2FA:
         user, secret = user_with_2fa
         totp = pyotp.TOTP(secret)
         code = totp.now()
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": code,
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         assert "access" in r.data
         assert "refresh" in r.data
@@ -965,27 +1129,36 @@ class TestLoginWith2FA:
     def test_verify_2fa_login_invalid_code(self, api_client, user_with_2fa):
         """Invalid TOTP code during login returns 400."""
         user, _ = user_with_2fa
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "000000",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "000000",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r.data["detail"]
 
     def test_verify_2fa_login_unknown_user(self, api_client):
         """Unknown user_id returns 400."""
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": "00000000-0000-0000-0000-000000000000",
-            "code": "123456",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": "00000000-0000-0000-0000-000000000000",
+                "code": "123456",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_verify_2fa_login_user_without_2fa(self, api_client, user):
         """User without 2FA enabled cannot use verify-2fa-login."""
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": "123456",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": "123456",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "not enabled" in r.data["detail"]
 
@@ -994,11 +1167,15 @@ class TestLoginWith2FA:
         user, secret = user_with_2fa
         totp = pyotp.TOTP(secret)
         import time
+
         old_code = totp.at(int(time.time()) - 90)
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": str(user.id),
-            "code": old_code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": str(user.id),
+                "code": old_code,
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid" in r.data["detail"]
 
@@ -1006,12 +1183,14 @@ class TestLoginWith2FA:
         """End-to-end: setup → enable → login-with-2fa → verify-login → access API."""
 
         # Step 1: Login without 2FA (normal JWT flow)
-        client = APIClient()
         # We need to be authenticated to set up 2FA, so login first
-        login = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert "access" in login.data
         token = login.data["access"]
 
@@ -1030,19 +1209,25 @@ class TestLoginWith2FA:
 
         # Step 4: Logout and login again — should now require 2FA
         api_client.post(AUTH_LOGOUT, {"refresh": login.data["refresh"]})
-        login2 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login2 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert login2.data.get("requires_2fa") is True
         user_id = login2.data["user_id"]
 
         # Step 5: Complete login with TOTP code
         code2 = pyotp.TOTP(secret).now()
-        final = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id,
-            "code": code2,
-        })
+        final = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": code2,
+            },
+        )
         assert final.status_code == status.HTTP_200_OK
         assert "access" in final.data
         assert final.data["user"]["email"] == user.email
@@ -1061,10 +1246,13 @@ class TestLoginWith2FA:
         assert disable_r.status_code == status.HTTP_200_OK
 
         # Step 8: Login again — should work without 2FA
-        login3 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login3 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert "access" in login3.data
         assert login3.data.get("requires_2fa") is not True
 
@@ -1088,10 +1276,13 @@ class TestBackupCodeLockoutZeroMock:
 
     def _login_and_get_token(self, api_client, user):
         """Helper: login and return the full response data."""
-        r = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        r = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert r.status_code == status.HTTP_200_OK
         return r.data
 
@@ -1114,10 +1305,13 @@ class TestBackupCodeLockoutZeroMock:
 
     def _complete_2fa_login(self, api_client, login_data, code):
         """Helper: complete the 2FA login step with a code (TOTP or backup)."""
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": login_data["user_id"],
-            "code": code,
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": login_data["user_id"],
+                "code": code,
+            },
+        )
         return r
 
     def _get_me(self, token):
@@ -1126,7 +1320,7 @@ class TestBackupCodeLockoutZeroMock:
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         return client.get(AUTH_ME)
 
-    def test_full_http_lifecycle(self, api_client, user):
+    def test_full_http_lifecycle(self, api_client, user, lifted_2fa_throttles):
         """
         Complete lifecycle tested entirely through HTTP:
 
@@ -1157,13 +1351,13 @@ class TestBackupCodeLockoutZeroMock:
          18. Login again → use new backup code #1 → success
          19. Old code #1 is now invalid → 400
         """
-        from services.auth.models import TwoFactorBackupCode
         import hashlib
+
+        from services.auth.models import TwoFactorBackupCode
 
         # ════════════════════════════════════════════════════════════════
         # PHASE 1 ── Setup
         # ════════════════════════════════════════════════════════════════
-
         # 1. Login to get a token
         login1 = self._login_and_get_token(api_client, user)
         token1 = login1["access"]
@@ -1186,10 +1380,8 @@ class TestBackupCodeLockoutZeroMock:
         assert "access" not in login2, "JWT should not be returned before 2FA"
 
         # ★ Verify backup_codes_remaining in the login response
-        assert "backup_codes_remaining" in login2, \
-            "Login response should include backup_codes_remaining"
-        assert login2["backup_codes_remaining"] == 8, \
-            f"Expected 8 remaining, got {login2['backup_codes_remaining']}"
+        assert "backup_codes_remaining" in login2, "Login response should include backup_codes_remaining"
+        assert login2["backup_codes_remaining"] == 8, f"Expected 8 remaining, got {login2['backup_codes_remaining']}"
 
         # 5. Complete login with TOTP
         totp1 = pyotp.TOTP(secret)
@@ -1202,8 +1394,9 @@ class TestBackupCodeLockoutZeroMock:
         me6 = self._get_me(token2)
         assert me6.status_code == status.HTTP_200_OK
         assert me6.data["two_factor_enabled"] is True
-        assert me6.data["backup_codes_remaining"] == 8, \
-            f"Expected 8 backup codes via /me/, got {me6.data['backup_codes_remaining']}"
+        assert (
+            me6.data["backup_codes_remaining"] == 8
+        ), f"Expected 8 backup codes via /me/, got {me6.data['backup_codes_remaining']}"
 
         # ════════════════════════════════════════════════════════════════
         # PHASE 2 ── Use backup codes (2 successful uses)
@@ -1213,14 +1406,14 @@ class TestBackupCodeLockoutZeroMock:
         login7 = self._login_and_get_token(api_client, user)
         assert login7["backup_codes_remaining"] == 8
         r7 = self._complete_2fa_login(api_client, login7, backup_codes[0])
-        assert r7.status_code == status.HTTP_200_OK, \
-            f"Backup code #1 should work. Got {r7.status_code}: {r7.data}"
+        assert r7.status_code == status.HTTP_200_OK, f"Backup code #1 should work. Got {r7.status_code}: {r7.data}"
         token7 = r7.data["access"]
 
         # 8. Check /auth/me/ → should be 7 now
         me8 = self._get_me(token7)
-        assert me8.data["backup_codes_remaining"] == 7, \
-            f"Expected 7 after using one, got {me8.data['backup_codes_remaining']}"
+        assert (
+            me8.data["backup_codes_remaining"] == 7
+        ), f"Expected 7 after using one, got {me8.data['backup_codes_remaining']}"
 
         # 9. Use backup code #2
         login9 = self._login_and_get_token(api_client, user)
@@ -1231,8 +1424,9 @@ class TestBackupCodeLockoutZeroMock:
 
         # 10. Check /auth/me/ → should be 6 now
         me10 = self._get_me(token9)
-        assert me10.data["backup_codes_remaining"] == 6, \
-            f"Expected 6 after using two, got {me10.data['backup_codes_remaining']}"
+        assert (
+            me10.data["backup_codes_remaining"] == 6
+        ), f"Expected 6 after using two, got {me10.data['backup_codes_remaining']}"
 
         # ════════════════════════════════════════════════════════════════
         # PHASE 3 ── Lockout
@@ -1242,15 +1436,23 @@ class TestBackupCodeLockoutZeroMock:
         login11 = self._login_and_get_token(api_client, user)
         assert login11["backup_codes_remaining"] == 6
 
-        for i in range(3):
+        # First 2 wrong attempts → 400 with a remaining count; the 3rd reaches
+        # the lockout limit and is rejected immediately with 429.
+        for i in range(2):
             wrong_code = f"WRONG-{i:05d}"
             r = self._complete_2fa_login(api_client, login11, wrong_code)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"Attempt {i+1} should return 400, got {r.status_code}"
+            assert r.status_code == status.HTTP_400_BAD_REQUEST, f"Attempt {i+1} should return 400, got {r.status_code}"
             expected_remaining = 3 - i - 1
             if expected_remaining > 0:
-                assert str(expected_remaining) in r.data["detail"].lower(), \
-                    f"Should mention {expected_remaining} remaining attempts"
+                assert (
+                    str(expected_remaining) in r.data["detail"].lower()
+                ), f"Should mention {expected_remaining} remaining attempts"
+
+        r = self._complete_2fa_login(api_client, login11, "WRONG-00002")
+        assert (
+            r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        ), f"3rd wrong attempt should trigger lockout (429), got {r.status_code}"
+        assert "try again in" in r.data["detail"].lower()
 
         # Verify lockout state in DB
         user.refresh_from_db()
@@ -1264,26 +1466,28 @@ class TestBackupCodeLockoutZeroMock:
         assert "backup_codes_remaining" in login12
 
         r12 = self._complete_2fa_login(api_client, login12, "WRONG-XXXXX")
-        assert r12.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"Locked out request should return 429, got {r12.status_code}"
+        assert (
+            r12.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        ), f"Locked out request should return 429, got {r12.status_code}"
         assert "try again in" in r12.data["detail"].lower()
         assert "try again in" in r12.data["detail"].lower()
 
         # 13. Even a valid backup code (#3) should be rejected during lockout
         login13 = self._login_and_get_token(api_client, user)
         r13 = self._complete_2fa_login(api_client, login13, backup_codes[2])
-        assert r13.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"Valid backup code during lockout should return 429, got {r13.status_code}"
+        assert (
+            r13.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        ), f"Valid backup code during lockout should return 429, got {r13.status_code}"
         assert "try again in" in r13.data["detail"].lower()
 
         # 14. TOTP should still work during lockout
         login14 = self._login_and_get_token(api_client, user)
         totp14 = pyotp.TOTP(secret)
         r14 = self._complete_2fa_login(api_client, login14, totp14.now())
-        assert r14.status_code == status.HTTP_200_OK, \
-            f"TOTP should work during backup code lockout, got {r14.status_code}"
+        assert (
+            r14.status_code == status.HTTP_200_OK
+        ), f"TOTP should work during backup code lockout, got {r14.status_code}"
         assert "access" in r14.data
-        token14 = r14.data["access"]
 
         # ════════════════════════════════════════════════════════════════
         # PHASE 4 ── Regenerate + verify reset
@@ -1299,9 +1503,12 @@ class TestBackupCodeLockoutZeroMock:
         # 16. Regenerate codes via HTTP
         regen_client = APIClient()
         regen_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token15}")
-        regen_r = regen_client.post(AUTH_REGENERATE_BACKUP_CODES, {
-            "password": "TestPass@1234",
-        })
+        regen_r = regen_client.post(
+            AUTH_REGENERATE_BACKUP_CODES,
+            {
+                "password": "TestPass@1234",
+            },
+        )
         assert regen_r.status_code == status.HTTP_200_OK
         new_codes = regen_r.data["backup_codes"]
         assert len(new_codes) == 8
@@ -1319,33 +1526,38 @@ class TestBackupCodeLockoutZeroMock:
 
         # 17. Check /auth/me/ → should be 8 again
         me17 = self._get_me(token15)
-        assert me17.data["backup_codes_remaining"] == 8, \
-            f"Expected 8 after regenerate, got {me17.data['backup_codes_remaining']}"
+        assert (
+            me17.data["backup_codes_remaining"] == 8
+        ), f"Expected 8 after regenerate, got {me17.data['backup_codes_remaining']}"
 
         # 18. Login and use new backup code #1 → should succeed
         login18 = self._login_and_get_token(api_client, user)
         assert login18["backup_codes_remaining"] == 8
         r18 = self._complete_2fa_login(api_client, login18, new_codes[0])
-        assert r18.status_code == status.HTTP_200_OK, \
-            f"New backup code should work after regenerate. Got {r18.status_code}: {r18.data}"
+        assert (
+            r18.status_code == status.HTTP_200_OK
+        ), f"New backup code should work after regenerate. Got {r18.status_code}: {r18.data}"
         token18 = r18.data["access"]
 
         # Verify count decreased via /auth/me/
         me18 = self._get_me(token18)
-        assert me18.data["backup_codes_remaining"] == 7, \
-            f"Expected 7 after using one new code, got {me18.data['backup_codes_remaining']}"
+        assert (
+            me18.data["backup_codes_remaining"] == 7
+        ), f"Expected 7 after using one new code, got {me18.data['backup_codes_remaining']}"
 
         # 19. Old backup code #1 should be invalid (deleted by regenerate)
         login19 = self._login_and_get_token(api_client, user)
         r19 = self._complete_2fa_login(api_client, login19, backup_codes[0])
-        assert r19.status_code == status.HTTP_400_BAD_REQUEST, \
-            f"Old backup code should be invalid after regenerate. Got {r19.status_code}: {r19.data}"
+        assert (
+            r19.status_code == status.HTTP_400_BAD_REQUEST
+        ), f"Old backup code should be invalid after regenerate. Got {r19.status_code}: {r19.data}"
         assert "Invalid" in r19.data["detail"]
 
         # Verify lockout counter wasn't affected by the old-code attempt
         user.refresh_from_db()
-        assert user.backup_code_failed_attempts == 1, \
-            "Old code attempt should increment counter but not trigger lockout yet"
+        assert (
+            user.backup_code_failed_attempts == 1
+        ), "Old code attempt should increment counter but not trigger lockout yet"
 
 
 # ─── Throttle / Rate-Limit Tests ─────────────────────────────────────────────
@@ -1381,14 +1593,14 @@ class TestVerify2FALoginThrottle:
         # First 5 requests should all return 400 (invalid user)
         for i in range(5):
             r = api_client.post(AUTH_VERIFY_2FA_LOGIN, payload)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"Request {i+1} should return 400, got {r.status_code}"
+            assert r.status_code == status.HTTP_400_BAD_REQUEST, f"Request {i+1} should return 400, got {r.status_code}"
             assert "Invalid user" in r.data["detail"]
 
         # 6th request should be throttled (429)
         r6 = api_client.post(AUTH_VERIFY_2FA_LOGIN, payload)
-        assert r6.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"6th request should be throttled (429), got {r6.status_code}: {r6.data}"
+        assert (
+            r6.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        ), f"6th request should be throttled (429), got {r6.status_code}: {r6.data}"
         assert "throttled" in r6.data["detail"].lower()
 
     def test_throttle_is_per_ip_independent(self, db):
@@ -1402,8 +1614,9 @@ class TestVerify2FALoginThrottle:
         client_a = APIClient(REMOTE_ADDR="10.0.0.1")
         for i in range(5):
             r = client_a.post(AUTH_VERIFY_2FA_LOGIN, payload)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"IP-A request {i+1} should return 400, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_400_BAD_REQUEST
+            ), f"IP-A request {i+1} should return 400, got {r.status_code}"
         r_a6 = client_a.post(AUTH_VERIFY_2FA_LOGIN, payload)
         assert r_a6.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "throttled" in r_a6.data["detail"].lower()
@@ -1412,8 +1625,9 @@ class TestVerify2FALoginThrottle:
         client_b = APIClient(REMOTE_ADDR="10.0.0.2")
         for i in range(5):
             r = client_b.post(AUTH_VERIFY_2FA_LOGIN, payload)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"IP-B request {i+1} should return 400, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_400_BAD_REQUEST
+            ), f"IP-B request {i+1} should return 400, got {r.status_code}"
         r_b6 = client_b.post(AUTH_VERIFY_2FA_LOGIN, payload)
         assert r_b6.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "throttled" in r_b6.data["detail"].lower()
@@ -1436,10 +1650,13 @@ class TestVerify2FALoginThrottle:
         assert r6.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
         # Login endpoint should still work (different rate limit)
-        login = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        login = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert login.status_code == status.HTTP_200_OK
 
     def test_throttle_not_triggered_within_limit(self, api_client):
@@ -1452,8 +1669,7 @@ class TestVerify2FALoginThrottle:
         # Make 3 requests — all should return 400 (not throttled)
         for i in range(3):
             r = api_client.post(AUTH_VERIFY_2FA_LOGIN, payload)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"Request {i+1} should return 400, got {r.status_code}"
+            assert r.status_code == status.HTTP_400_BAD_REQUEST, f"Request {i+1} should return 400, got {r.status_code}"
             assert "Invalid user" in r.data["detail"]
 
 
@@ -1485,13 +1701,15 @@ class TestAuthLoginThrottle:
         # First 10 requests should all return 401 (invalid credentials)
         for i in range(10):
             r = api_client.post(AUTH_LOGIN, self.PAYLOAD)
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"Request {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"Request {i+1} should return 401, got {r.status_code}"
 
         # 11th request should be throttled (429)
         r11 = api_client.post(AUTH_LOGIN, self.PAYLOAD)
-        assert r11.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"11th request should be throttled (429), got {r11.status_code}: {r11.data}"
+        assert (
+            r11.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        ), f"11th request should be throttled (429), got {r11.status_code}: {r11.data}"
         assert "throttled" in r11.data["detail"].lower()
 
     def test_throttle_is_per_ip_independent(self, db):
@@ -1503,8 +1721,9 @@ class TestAuthLoginThrottle:
         client_a = APIClient(REMOTE_ADDR="10.0.0.1")
         for i in range(10):
             r = client_a.post(AUTH_LOGIN, self.PAYLOAD)
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"IP-A request {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"IP-A request {i+1} should return 401, got {r.status_code}"
         r_a11 = client_a.post(AUTH_LOGIN, self.PAYLOAD)
         assert r_a11.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "throttled" in r_a11.data["detail"].lower()
@@ -1513,8 +1732,9 @@ class TestAuthLoginThrottle:
         client_b = APIClient(REMOTE_ADDR="10.0.0.2")
         for i in range(10):
             r = client_b.post(AUTH_LOGIN, self.PAYLOAD)
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"IP-B request {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"IP-B request {i+1} should return 401, got {r.status_code}"
         r_b11 = client_b.post(AUTH_LOGIN, self.PAYLOAD)
         assert r_b11.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "throttled" in r_b11.data["detail"].lower()
@@ -1527,8 +1747,9 @@ class TestAuthLoginThrottle:
         # Make 5 requests — all should return 401 (not throttled)
         for i in range(5):
             r = api_client.post(AUTH_LOGIN, self.PAYLOAD)
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"Request {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"Request {i+1} should return 401, got {r.status_code}"
 
     def test_valid_login_also_counts_towards_throttle(self, api_client, user):
         """
@@ -1542,10 +1763,13 @@ class TestAuthLoginThrottle:
             assert r.status_code == status.HTTP_401_UNAUTHORIZED
 
         # 10th request with valid credentials — should succeed
-        r10 = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
+        r10 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
         assert r10.status_code == status.HTTP_200_OK
 
         # 11th request should be throttled (429)
@@ -1568,10 +1792,13 @@ class TestAuthLoginThrottle:
         assert r11.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
         # A different endpoint should still work
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": "00000000-0000-0000-0000-000000000000",
-            "code": "000000",
-        })
+        r = api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": "00000000-0000-0000-0000-000000000000",
+                "code": "000000",
+            },
+        )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
 
 
@@ -1602,11 +1829,15 @@ class TestCombinedThrottleAndBackupFlow:
         return api_client.post(AUTH_LOGIN, {"email": email, "password": password})
 
     def _verify_2fa(self, api_client, user_id, code):
-        return api_client.post(AUTH_VERIFY_2FA_LOGIN, {
-            "user_id": user_id, "code": code,
-        })
+        return api_client.post(
+            AUTH_VERIFY_2FA_LOGIN,
+            {
+                "user_id": user_id,
+                "code": code,
+            },
+        )
 
-    def test_combined_flow(self, api_client, user):
+    def test_combined_flow(self, api_client, user, lifted_2fa_throttles):
         """
         Complete combined flow covering backup codes, lockout, TOTP, and both throttles.
         """
@@ -1670,19 +1901,22 @@ class TestCombinedThrottleAndBackupFlow:
 
         # ── Trigger backup code lockout ───────────────────────────────────────
 
-        # 3 wrong attempts → lockout
+        # First 2 wrong attempts → 400 with remaining count; the 3rd reaches
+        # the lockout limit and is rejected immediately with 429.
         login4 = self._login(api_client, user.email, "TestPass@1234")
         uid4 = login4.data["user_id"]
 
-        for i in range(3):
+        for i in range(2):
             r = self._verify_2fa(api_client, uid4, f"WRONG-{i:05d}")
             assert r.status_code == status.HTTP_400_BAD_REQUEST
+        r = self._verify_2fa(api_client, uid4, "WRONG-00002")
+        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "try again in" in r.data["detail"].lower()
 
         # 4th attempt → 429 lockout (NOT throttle)
         r = self._verify_2fa(api_client, uid4, "WRONG-XXXXX")
         assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "try again in" in r.data["detail"].lower(), \
-            "Should be backup-code lockout, not throttle"
+        assert "try again in" in r.data["detail"].lower(), "Should be backup-code lockout, not throttle"
         assert "try again in" in r.data["detail"].lower()
 
         # Even a valid backup code (#3) rejected during lockout → 429
@@ -1696,71 +1930,77 @@ class TestCombinedThrottleAndBackupFlow:
         login6 = self._login(api_client, user.email, "TestPass@1234")
         totp_now = pyotp.TOTP(secret).now()
         r = self._verify_2fa(api_client, login6.data["user_id"], totp_now)
-        assert r.status_code == status.HTTP_200_OK, \
-            "TOTP should work during backup code lockout"
+        assert r.status_code == status.HTTP_200_OK, "TOTP should work during backup code lockout"
         assert "access" in r.data
-        token6 = r.data["access"]
 
         # ════════════════════════════════════════════════════════════════════
-        # PHASE 3 ── Exhaust verify-2fa-login throttle (5/min)
+        # PHASES 3–5 ── Exhaust both throttles at their real rates
         # ════════════════════════════════════════════════════════════════════
+        # The lockout phases above ran with lifted per-IP rates; these phases
+        # restore the real rates and start each throttle with a clean history.
+        from django.core.cache import cache
+        from rest_framework.throttling import SimpleRateThrottle
 
-        # Use non-existent user_id so requests fail at User.DoesNotExist
-        # without triggering backup-code logic or lockout.
-        throttle_payload = {
-            "user_id": self.NONEXISTENT_USER_ID,
-            "code": "000000",
-        }
+        real_rates = dict(SimpleRateThrottle.THROTTLE_RATES)
+        real_rates.update(auth_verify_2fa_login="5/minute", auth_login="10/minute")
+        with _patch_throttle_rates(real_rates):
+            cache.clear()
 
-        # 5 requests → all return 400 (invalid user)
-        for i in range(5):
+            # Use non-existent user_id so requests fail at User.DoesNotExist
+            # without triggering backup-code logic or lockout.
+            throttle_payload = {
+                "user_id": self.NONEXISTENT_USER_ID,
+                "code": "000000",
+            }
+
+            # 5 requests → all return 400 (invalid user)
+            for i in range(5):
+                r = api_client.post(AUTH_VERIFY_2FA_LOGIN, throttle_payload)
+                assert (
+                    r.status_code == status.HTTP_400_BAD_REQUEST
+                ), f"Verify-throttle request {i+1} should return 400, got {r.status_code}"
+                assert "Invalid user" in r.data["detail"]
+
+            # 6th → 429 throttle (NOT lockout)
             r = api_client.post(AUTH_VERIFY_2FA_LOGIN, throttle_payload)
-            assert r.status_code == status.HTTP_400_BAD_REQUEST, \
-                f"Verify-throttle request {i+1} should return 400, got {r.status_code}"
-            assert "Invalid user" in r.data["detail"]
+            assert (
+                r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            ), f"6th verify request should be throttled (429), got {r.status_code}: {r.data}"
+            assert "throttled" in r.data["detail"].lower(), "Should be DRF throttle, not backup-code lockout"
 
-        # 6th → 429 throttle (NOT lockout)
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, throttle_payload)
-        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"6th verify request should be throttled (429), got {r.status_code}: {r.data}"
-        assert "throttled" in r.data["detail"].lower(), \
-            "Should be DRF throttle, not backup-code lockout"
+            # Verify login endpoint still works (different throttle scope)
+            login7 = self._login(api_client, user.email, "TestPass@1234")
+            assert login7.status_code == status.HTTP_200_OK
 
-        # Verify login endpoint still works (different throttle scope)
-        login7 = self._login(api_client, user.email, "TestPass@1234")
-        assert login7.status_code == status.HTTP_200_OK
+            # ── PHASE 4 ── Exhaust login throttle (10/min) ──────────────────
+            # Clear only the login-scope history; the verify history from Phase 3
+            # must survive for the Phase 5 isolation check.
+            cache.delete("throttle_auth_login_127.0.0.1")
 
-        # ════════════════════════════════════════════════════════════════════
-        # PHASE 4 ── Exhaust login throttle (10/min)
-        # ════════════════════════════════════════════════════════════════════
+            # 10 requests with unknown email → 401
+            for i in range(10):
+                r = self._login(api_client, self.UNKNOWN_EMAIL, "WrongPass@1234")
+                assert (
+                    r.status_code == status.HTTP_401_UNAUTHORIZED
+                ), f"Login request {i+1} should return 401, got {r.status_code}"
 
-        # 10 requests with unknown email → 401
-        for i in range(10):
+            # 11th → 429 login throttle
             r = self._login(api_client, self.UNKNOWN_EMAIL, "WrongPass@1234")
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"Login request {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            ), f"11th login should be throttled (429), got {r.status_code}: {r.data}"
+            assert "throttled" in r.data["detail"].lower()
 
-        # 11th → 429 login throttle
-        r = self._login(api_client, self.UNKNOWN_EMAIL, "WrongPass@1234")
-        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS, \
-            f"11th login should be throttled (429), got {r.status_code}: {r.data}"
-        assert "throttled" in r.data["detail"].lower()
-
-        # ════════════════════════════════════════════════════════════════════
-        # PHASE 5 ── Verify endpoint isolation
-        # ════════════════════════════════════════════════════════════════════
-
-        # Login throttle exhausted, but verify-2fa-login is a different scope
-        # so it should still return 400, not 429
-        r = api_client.post(AUTH_VERIFY_2FA_LOGIN, throttle_payload)
-        # Still throttled from Phase 3 (same minute), but it's the verify-throttle,
-        # not the login throttle
-        assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-        assert "throttled" in r.data["detail"].lower()
+            # ── PHASE 5 ── Verify endpoint isolation ────────────────────────
+            # Login throttle exhausted, but verify-2fa-login is a different
+            # scope: it should still be throttled from Phase 3 (same minute),
+            # proving the two throttles are independent.
+            r = api_client.post(AUTH_VERIFY_2FA_LOGIN, throttle_payload)
+            assert r.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            assert "throttled" in r.data["detail"].lower()
 
         user.refresh_from_db()
-        assert user.backup_code_failed_attempts == 3, \
-            "Lockout state should be unchanged by throttle-only requests"
+        assert user.backup_code_failed_attempts == 3, "Lockout state should be unchanged by throttle-only requests"
 
 
 # ─── Axes Brute-Force Lockout Tests ──────────────────────────────────────────
@@ -1792,18 +2032,19 @@ class TestAxesLockout:
         # 5 failed attempts → each returns 401
         for i in range(5):
             r = api_client.post(AUTH_LOGIN, payload)
-            assert r.status_code == status.HTTP_401_UNAUTHORIZED, \
-                f"Attempt {i+1} should return 401, got {r.status_code}"
+            assert (
+                r.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"Attempt {i+1} should return 401, got {r.status_code}"
 
         # 6th attempt → 403 (axes lockout)
         r = api_client.post(AUTH_LOGIN, payload)
-        assert r.status_code == status.HTTP_403_FORBIDDEN, \
-            f"6th attempt should be locked out (403), got {r.status_code}"
+        assert (
+            r.status_code == status.HTTP_403_FORBIDDEN
+        ), f"6th attempt should be locked out (403), got {r.status_code}"
 
         # Verify the response contains a lockout message
         content = r.content.decode("utf-8", errors="replace").lower()
-        assert "locked" in content or "attempt" in content, \
-            "Lockout response should mention locked or attempts"
+        assert "locked" in content or "attempt" in content, "Lockout response should mention locked or attempts"
 
         # Clean up axes state for this test to avoid affecting other tests
         AccessAttempt.objects.filter(ip_address="127.0.0.1").delete()
@@ -1816,7 +2057,6 @@ class TestAxesLockout:
         one user has been locked out.
         """
         from tests.factories import UserFactory
-        from axes.models import AccessAttempt
 
         other_user = UserFactory(
             school=user.school,
@@ -1833,12 +2073,16 @@ class TestAxesLockout:
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
         # A different user should still be able to log in
-        r2 = api_client.post(AUTH_LOGIN, {
-            "email": other_user.email,
-            "password": "TestPass@1234",
-        })
-        assert r2.status_code == status.HTTP_200_OK, \
-            f"Different user should still be able to login, got {r2.status_code}"
+        r2 = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": other_user.email,
+                "password": "TestPass@1234",
+            },
+        )
+        assert (
+            r2.status_code == status.HTTP_200_OK
+        ), f"Different user should still be able to login, got {r2.status_code}"
         assert "access" in r2.data
 
         reset(ip="127.0.0.1")
@@ -1849,7 +2093,6 @@ class TestAxesLockout:
         Even with the correct password, a locked-out user should
         still receive a 403 lockout response until the cooldown expires.
         """
-        from axes.models import AccessAttempt  # used for cleanup
 
         # Trigger lockout with wrong password
         payload_wrong = {"email": user.email, "password": "WrongPass@1234"}
@@ -1857,11 +2100,13 @@ class TestAxesLockout:
             api_client.post(AUTH_LOGIN, payload_wrong)
 
         # Correct password during lockout should still get 403
-        r = api_client.post(AUTH_LOGIN, {
-            "email": user.email,
-            "password": "TestPass@1234",
-        })
-        assert r.status_code == status.HTTP_403_FORBIDDEN, \
-            "Correct password should still be blocked during lockout"
+        r = api_client.post(
+            AUTH_LOGIN,
+            {
+                "email": user.email,
+                "password": "TestPass@1234",
+            },
+        )
+        assert r.status_code == status.HTTP_403_FORBIDDEN, "Correct password should still be blocked during lockout"
 
         reset(ip="127.0.0.1")

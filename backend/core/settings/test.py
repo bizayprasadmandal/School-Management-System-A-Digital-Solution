@@ -34,7 +34,8 @@ DATABASES = {
         "PASSWORD": "sms_password",
         "HOST": "localhost",
         "PORT": 5432,
-        "ATOMIC_REQUESTS": True,
+        # ATOMIC_REQUESTS intentionally off — see comment in base.py (DRF
+        # set_rollback on 4xx would wipe Axes/backup-code failure counters.
     }
 }
 

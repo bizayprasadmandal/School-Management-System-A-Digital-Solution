@@ -126,7 +126,11 @@ ASGI_APPLICATION = "core.asgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL", default="postgresql://sms:sms@localhost:5432/sms_db"),
 }
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+# NOTE: ATOMIC_REQUESTS is intentionally NOT enabled. DRF's exception_handler
+# calls set_rollback() for every handled 4xx response, which would roll back the
+# whole request transaction — silently discarding writes made earlier in the
+# request (e.g. Axes brute-force AccessAttempt records and backup-code failure
+# counters). Flows that need atomicity use explicit transaction.atomic blocks.
 
 # ─── Cache (Redis) ────────────────────────────────────────────────────────────
 
@@ -148,8 +152,10 @@ SESSION_CACHE_ALIAS = "default"
 # ─── Auth ────────────────────────────────────────────────────────────────────
 
 AUTH_USER_MODEL = "auth_service.User"
+# Axes 6.x backends are monitoring-only (they never authenticate users), so
+# ModelBackend must follow the Axes backend to perform the real login.
 AUTHENTICATION_BACKENDS = [
-    "axes.backends.AxesStandaloneBackend",
+    "services.auth.backends.AxesNextAttemptLockoutBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
@@ -164,7 +170,20 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=30)
-# Default lockout response renders a template; axes provides a built-in handler
+# Login payloads carry `email`, not `username`, so track failures per email
+# (otherwise every user on the same IP shares one failure bucket).
+AXES_USERNAME_FORM_FIELD = "email"
+# Axes 6.x defaults to IP-only lockout ("ip_address") unless this legacy flag
+# is set — per-account (username + IP) buckets so one user's failures never
+# lock out everyone behind the same NAT/IP.
+AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP = True
+# Lock out on the attempt AFTER the 5th failure (not on the 5th itself), so
+# users see the 5 failed attempts as plain 401s and only the 6th is blocked.
+# With AXES_LOCK_OUT_AT_FAILURE=False the stock Axes never blocks, so the
+# blocking is re-implemented in services.auth.backends.AxesNextAttemptLockoutBackend,
+# which flags the request; core.exceptions.py turns that into a 403 because
+# the Django AxesMiddleware (raw request) cannot see the flag on the DRF request.
+AXES_LOCK_OUT_AT_FAILURE = False
 
 # ─── REST Framework ───────────────────────────────────────────────────────────
 
@@ -193,6 +212,8 @@ REST_FRAMEWORK = {
         # Anon login limit — raised in e2e environments via AUTH_LOGIN_THROTTLE_RATE
         # so suites (many sequential logins from one IP) aren't throttled mid-run.
         "auth_login": env("AUTH_LOGIN_THROTTLE_RATE", default="10/minute"),
+        # 2FA verification (TOTP + backup codes) per-IP limit.
+        "auth_verify_2fa_login": env("AUTH_VERIFY_2FA_THROTTLE_RATE", default="5/minute"),
     },
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
 }

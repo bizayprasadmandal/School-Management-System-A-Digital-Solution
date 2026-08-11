@@ -42,10 +42,15 @@ class AuthPasswordResetConfirmThrottle(AnonRateThrottle):
 
 class AuthVerify2FALoginThrottle(AnonRateThrottle):
     """
-    Limit 2FA verification (TOTP + backup code) attempts to 5 per minute per IP.
+    Limit 2FA verification (TOTP + backup code) attempts per minute per IP.
     This complements the per-account backup-code lockout (3 failed before 30min ban)
     by adding a per-IP rate limit before the request reaches the business logic.
+
+    Rate comes from ``DEFAULT_THROTTLE_RATES["auth_verify_2fa_login"]`` (default
+    5/minute; overridable via ``AUTH_VERIFY_2FA_THROTTLE_RATE`` and per-test
+    ``override_settings``). No class-level ``rate`` here on purpose: DRF skips
+    ``get_rate()`` (and therefore ``THROTTLE_RATES``) whenever the class
+    attribute is set.
     """
 
-    rate = "5/minute"
     scope = "auth_verify_2fa_login"
