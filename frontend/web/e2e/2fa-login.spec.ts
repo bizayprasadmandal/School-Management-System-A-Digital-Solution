@@ -42,6 +42,29 @@ async function interceptLoginWith2FA(page) {
 }
 
 /**
+ * Intercept the admin dashboard stats endpoint so AdminDashboard resolves
+ * past its loading skeleton and renders the greeting heading deterministically.
+ */
+async function interceptDashboardStats(page) {
+  await page.route(`${API_BASE}/reporting/dashboard-stats/`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        total_students: 120,
+        total_teachers: 15,
+        total_classrooms: 8,
+        attendance_today_pct: 94.5,
+        fees_collected_month: 120000,
+        fees_outstanding: 30000,
+        student_delta_pct: 3.2,
+        attendance_delta_pct: 1.4,
+      }),
+    });
+  });
+}
+
+/**
  * Intercept the verify-2fa-login endpoint to return a successful JWT response.
  * Used for both TOTP and backup code verification success.
  */
@@ -114,6 +137,7 @@ test.describe("2FA Login — TOTP Flow", () => {
   test("full TOTP flow: login → 2FA → enter code → dashboard", async ({ page }) => {
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
+    await interceptDashboardStats(page);
 
     // Step 1: Login — should detect 2FA and redirect to verification page
     await loginWith2FA(page);
@@ -239,6 +263,7 @@ test.describe("2FA Login — Backup Code Flow", () => {
   }) => {
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
+    await interceptDashboardStats(page);
 
     // Step 1: Login
     await loginWith2FA(page);
@@ -491,6 +516,7 @@ test.describe("2FA Login — Full End-to-End Flow", () => {
   test("complete flow: login → TOTP → admin dashboard", async ({ page }) => {
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
+    await interceptDashboardStats(page);
 
     // Step 1: Go to login page
     await page.goto(`${BASE}/login`);
@@ -531,6 +557,7 @@ test.describe("2FA Login — Full End-to-End Flow", () => {
   test("complete flow: login → backup code → admin dashboard", async ({ page }) => {
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
+    await interceptDashboardStats(page);
 
     // Step 1: Login
     await page.goto(`${BASE}/login`);
