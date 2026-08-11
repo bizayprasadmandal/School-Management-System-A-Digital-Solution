@@ -118,7 +118,12 @@ class GradeViewSet(viewsets.ModelViewSet):
         elif user.role == "parent":
             qs = qs.filter(student__guardians__user=user)
         elif user.role == "teacher":
-            qs = qs.filter(exam_schedule__assignment__teacher=user)
+            # Teachers may grade exams they invigilate or teach the subject for.
+            from django.db.models import Q
+
+            qs = qs.filter(
+                Q(exam_schedule__invigilator=user) | Q(exam_schedule__subject__assignments__teacher=user)
+            ).distinct()
 
         exam_id = self.request.query_params.get("exam_id")
         if exam_id:
@@ -129,9 +134,79 @@ class GradeViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_submit"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_submit", "history"]:
+            if self.action == "history":
+                return [IsAuthenticated(), IsSchoolAdmin()]
             return [IsAuthenticated(), IsTeacher()]
         return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        grade = serializer.save()
+        from .models import record_grade_change
+
+        record_grade_change(grade, "create", self.request.user)
+
+    def perform_update(self, serializer):
+        # Snapshot pre-mutation values for the audit trail.
+        # ``serializer.instance`` is mutated in place by save(), so copy the
+        # attribute values first.
+        import copy
+
+        old = copy.copy(serializer.instance)
+        grade = serializer.save()
+        from .models import record_grade_change
+
+        record_grade_change(grade, "update", self.request.user, old=old)
+
+    def perform_destroy(self, instance):
+        from .models import record_grade_change
+
+        record_grade_change(instance, "delete", self.request.user, old=instance)
+        instance.delete()
+
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request):
+        """
+        Immutable audit trail of all grade mutations in this school.
+        Filters: student_id, exam_schedule_id, action, limit.
+        """
+        from .models import GradeChangeLog
+
+        qs = GradeChangeLog.objects.filter(student__school=request.user.school).select_related(
+            "student__user", "exam_schedule__subject", "changed_by"
+        )
+
+        student_id = request.query_params.get("student_id")
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        exam_schedule_id = request.query_params.get("exam_schedule_id")
+        if exam_schedule_id:
+            qs = qs.filter(exam_schedule_id=exam_schedule_id)
+        action = request.query_params.get("action")
+        if action:
+            qs = qs.filter(action=action)
+
+        limit = min(int(request.query_params.get("limit", 100)), 500)
+        qs = qs[:limit]
+
+        data = [
+            {
+                "id": str(entry.id),
+                "student": str(entry.student_id),
+                "student_name": entry.student.user.full_name,
+                "admission_number": entry.student.admission_number,
+                "subject": entry.exam_schedule.subject.name,
+                "action": entry.action,
+                "marks_obtained_old": float(entry.marks_obtained_old) if entry.marks_obtained_old is not None else None,
+                "marks_obtained_new": float(entry.marks_obtained_new) if entry.marks_obtained_new is not None else None,
+                "is_absent_old": entry.is_absent_old,
+                "is_absent_new": entry.is_absent_new,
+                "changed_by": entry.changed_by.full_name if entry.changed_by else None,
+                "changed_at": entry.changed_at.isoformat(),
+            }
+            for entry in qs
+        ]
+        return Response(data)
 
     @action(detail=False, methods=["post"], url_path="bulk")
     def bulk_submit(self, request):
@@ -236,6 +311,7 @@ class GradeViewSet(viewsets.ModelViewSet):
                 marks_obtained = Decimal(marks_raw) if marks_raw else None
                 is_absent = row.get("is_absent", "").strip().lower() in ("yes", "true", "1")
 
+                existing = Grade.objects.filter(student=student, exam_schedule=schedule).first()
                 grade, created = Grade.objects.update_or_create(
                     student=student,
                     exam_schedule=schedule,
@@ -245,6 +321,14 @@ class GradeViewSet(viewsets.ModelViewSet):
                         "remarks": row.get("remarks", "").strip(),
                         "graded_by": request.user,
                     },
+                )
+                from .models import record_grade_change
+
+                record_grade_change(
+                    grade,
+                    "create" if created else "update",
+                    request.user,
+                    old=existing if existing is not None else None,
                 )
                 imported += 1
             except ExamSchedule.DoesNotExist:

@@ -3,12 +3,13 @@ Test Factories — factory_boy definitions for all SMS models.
 Use these in tests to create realistic fixture data with one line.
 """
 
-import factory
-import factory.django
-from factory import LazyAttribute, SubFactory, Sequence, fuzzy
+import random
 from datetime import date, timedelta
 from decimal import Decimal
-import random
+
+import factory
+import factory.django
+from factory import SubFactory
 
 
 class SchoolFactory(factory.django.DjangoModelFactory):
@@ -261,6 +262,34 @@ class FeeInvoiceFactory(factory.django.DjangoModelFactory):
     total_amount = Decimal("500.00")
     paid_amount = Decimal("0.00")
     status = "unpaid"
+
+
+class EnrollmentIntakeFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "admissions.EnrollmentIntake"
+
+    school = SubFactory(SchoolFactory)
+    name = factory.Sequence(lambda n: f"Intake {n}")
+    academic_year = factory.Sequence(lambda n: f"202{n}")
+    application_start = factory.LazyFunction(date.today)
+    application_end = factory.LazyFunction(lambda: date.today() + timedelta(days=60))
+    status = "open"
+
+
+class ApplicationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "admissions.Application"
+
+    school = SubFactory(SchoolFactory)
+    intake = SubFactory(EnrollmentIntakeFactory)
+    application_number = factory.Sequence(lambda n: f"APP-{n:06d}")
+    first_name = factory.Faker("first_name")
+    last_name = factory.Faker("last_name")
+    date_of_birth = factory.Faker("date_of_birth", minimum_age=5, maximum_age=18)
+    gender = factory.fuzzy.FuzzyChoice(["male", "female", "other"])
+    email = factory.Faker("email")
+    phone = factory.Sequence(lambda n: f"+1-555-{n:04d}")
+    status = "submitted"
 
 
 class AnnouncementFactory(factory.django.DjangoModelFactory):

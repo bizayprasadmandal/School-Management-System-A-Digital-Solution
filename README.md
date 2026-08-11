@@ -132,6 +132,19 @@ open http://localhost:3000
 
 ---
 
+## 📚 Documentation
+
+| Doc                                              | What it covers                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------- |
+| [`docs/PRD.md`](docs/PRD.md)                     | Product vision, personas, anchors, scope, pricing decision points |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)             | RICE-prioritized 30/60/90 plan with owner-gated items             |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)   | System architecture & data flow                                   |
+| [`docs/API.md`](docs/API.md)                     | API reference & contracts                                         |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)       | Production deployment (k8s/Terraform/CI)                          |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)     | Local development setup                                           |
+| [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) | Logging, Sentry, monitoring, worker observability                 |
+| [`CHANGELOG.md`](CHANGELOG.md)                   | Release history (Keep a Changelog)                                |
+
 ## 🔐 User Roles & Access
 
 | Role         | Dashboard   | Students        | Grades          | Attendance     | Fees          | Reports        |

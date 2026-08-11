@@ -1,0 +1,390 @@
+"""
+Test Suite — Gap-Closure Features
+Covers the audit-trail and analytics/import gaps identified in the
+real-world product audit:
+
+  1. Grade-change audit log (create/update/delete/bulk/import + history endpoint)
+  2. Reporting analytics: at-risk students, enrollment funnel, fee forecast
+  3. Attendance CSV bulk import
+  4. Fee invoice CSV bulk import
+"""
+
+from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
+from rest_framework import status
+from rest_framework.test import APIClient
+from tests.factories import (
+    AcademicYearFactory,
+    AdminUserFactory,
+    ApplicationFactory,
+    AttendanceRecordFactory,
+    ClassroomFactory,
+    EnrollmentFactory,
+    EnrollmentIntakeFactory,
+    ExamScheduleFactory,
+    FeeCategoryFactory,
+    FeeInvoiceFactory,
+    FeeStructureFactory,
+    GradeFactory,
+    GradeRecordFactory,
+    SchoolFactory,
+    StudentFactory,
+    TeacherUserFactory,
+)
+from tests.url_helpers import (
+    ATTENDANCE_IMPORT_CSV,
+    FEES_INVOICES_IMPORT_CSV,
+    GRADEBOOK_GRADES,
+    GRADEBOOK_GRADES_BULK,
+    GRADEBOOK_GRADES_HISTORY,
+    GRADEBOOK_GRADES_IMPORT_CSV,
+    REPORTING_AT_RISK_STUDENTS,
+    REPORTING_ENROLLMENT_FUNNEL,
+    REPORTING_FEE_FORECAST,
+)
+
+# ─── Shared fixtures ──────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def school(db):
+    return SchoolFactory()
+
+
+@pytest.fixture
+def admin(db, school):
+    return AdminUserFactory(school=school)
+
+
+@pytest.fixture
+def teacher(db, school):
+    return TeacherUserFactory(school=school)
+
+
+@pytest.fixture
+def api():
+    return APIClient()
+
+
+def auth(client, user, password="TestPass@1234"):
+    client.force_authenticate(user=user)
+    return client
+
+
+# ─── Grade-change audit trail ─────────────────────────────────────────────────
+
+
+class TestGradeAuditTrail:
+    def test_create_grade_logs_audit_entry(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        auth(api, teacher)
+        resp = api.post(
+            GRADEBOOK_GRADES,
+            {"student": str(student.id), "exam_schedule": schedule.id, "marks_obtained": "85.00", "is_absent": False},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+        # Audit trail review is admin-only; re-auth as an admin to read it.
+        auth(api, admin)
+        entries = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert len(entries) == 1
+        assert entries[0]["action"] == "create"
+        assert entries[0]["student_name"] == student.user.full_name
+        assert entries[0]["marks_obtained_new"] == 85.00
+        assert entries[0]["marks_obtained_old"] is None
+        assert entries[0]["changed_by"] == teacher.full_name
+
+    def test_update_grade_captures_old_and_new_values(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("50.00"))
+        auth(api, teacher)
+
+        resp = api.patch(
+            f"{GRADEBOOK_GRADES}{grade.id}/",
+            {"marks_obtained": "90.00"},
+            format="json",
+        )
+        assert resp.status_code == 200, resp.content
+
+        auth(api, admin)
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        # The factory-created grade predates the view, so only the update is logged.
+        assert len(history) == 1
+        assert history[0]["action"] == "update"
+        assert history[0]["marks_obtained_old"] == 50.00
+        assert history[0]["marks_obtained_new"] == 90.00
+
+    def test_delete_grade_logs_audit_entry(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule)
+        auth(api, teacher)
+
+        resp = api.delete(f"{GRADEBOOK_GRADES}{grade.id}/")
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+        auth(api, admin)
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert any(e["action"] == "delete" for e in history)
+
+    def test_bulk_submit_logs_audit_entries(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        auth(api, teacher)
+
+        resp = api.post(
+            GRADEBOOK_GRADES_BULK,
+            {
+                "exam_schedule_id": schedule.id,
+                "grades": [
+                    {"student_id": str(student.id), "marks_obtained": "77.50", "is_absent": False},
+                ],
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+        auth(api, admin)
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert len(history) == 1
+        assert history[0]["action"] == "create"
+        assert history[0]["marks_obtained_new"] == 77.50
+
+    def test_import_csv_logs_audit_entries(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        auth(api, teacher)
+
+        csv_data = (
+            "admission_number,exam_schedule_id,marks_obtained,is_absent,remarks\n"
+            f"{student.admission_number},{schedule.id},66.00,false,good\n"
+        )
+        resp = api.post(GRADEBOOK_GRADES_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["imported"] == 1
+
+        auth(api, admin)
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert len(history) == 1
+        assert history[0]["action"] == "create"
+        assert history[0]["marks_obtained_new"] == 66.00
+
+    def test_history_is_tenant_scoped(self, api, school, admin, teacher, db):
+        from services.gradebook.models import record_grade_change
+
+        other_school = SchoolFactory()
+        other_admin = AdminUserFactory(school=other_school)
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("70.00"))
+        record_grade_change(grade, "create", admin)
+
+        # An audit entry in ANOTHER school must not leak into this school's history.
+        other_student = StudentFactory(school=other_school)
+        other_schedule = ExamScheduleFactory(exam__school=other_school, classroom__school=other_school)
+        other_grade = GradeRecordFactory(
+            student=other_student, exam_schedule=other_schedule, marks_obtained=Decimal("80.00")
+        )
+        record_grade_change(other_grade, "create", other_admin)
+
+        auth(api, admin)
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        names = {e["admission_number"] for e in history}
+        assert other_student.admission_number not in names
+        assert student.admission_number in names
+
+
+# ─── Analytics: at-risk, funnel, forecast ─────────────────────────────────────
+
+
+class TestAnalytics:
+    def test_at_risk_students_flags_low_attendance(self, api, school, admin, db):
+        student = StudentFactory(school=school)
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+
+        # 2 records in the window: 1 present, 1 absent -> 50% < 80% threshold
+        today = date.today()
+        AttendanceRecordFactory(
+            student=student, classroom=classroom, academic_year=academic_year, date=today, status="P"
+        )
+        AttendanceRecordFactory(
+            student=student,
+            classroom=classroom,
+            academic_year=academic_year,
+            date=today - timedelta(days=1),
+            status="A",
+        )
+
+        auth(api, admin)
+        resp = api.get(REPORTING_AT_RISK_STUDENTS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["count"] == 1
+        assert data["students"][0]["admission_number"] == student.admission_number
+        assert data["students"][0]["attendance_pct"] == 50.0
+        assert "low_attendance" in data["students"][0]["reasons"]
+
+    def test_at_risk_students_excludes_healthy_students(self, api, school, admin, db):
+        student = StudentFactory(school=school)
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+        AttendanceRecordFactory(
+            student=student, classroom=classroom, academic_year=academic_year, date=date.today(), status="P"
+        )
+
+        auth(api, admin)
+        resp = api.get(REPORTING_AT_RISK_STUDENTS)
+        assert resp.json()["count"] == 0
+
+    def test_enrollment_funnel_counts_by_stage(self, api, school, admin, db):
+        intake = EnrollmentIntakeFactory(school=school)
+        ApplicationFactory(school=school, intake=intake, status="submitted")
+        ApplicationFactory(school=school, intake=intake, status="submitted")
+        ApplicationFactory(school=school, intake=intake, status="accepted")
+        ApplicationFactory(school=school, intake=intake, status="enrolled")
+
+        auth(api, admin)
+        resp = api.get(REPORTING_ENROLLMENT_FUNNEL)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_applications"] == 4
+        by_stage = {s["stage"]: s["count"] for s in data["funnel"]}
+        assert by_stage["submitted"] == 2
+        assert by_stage["accepted"] == 1
+        assert by_stage["enrolled"] == 1
+        assert data["conversion"]["accepted_to_enrolled"] == 100.0
+
+    def test_fee_forecast_returns_windows_and_history(self, api, school, admin, db):
+        student = StudentFactory(school=school)
+        academic_year = AcademicYearFactory(school=school)
+        fee_category = FeeCategoryFactory(school=school)
+        structure = FeeStructureFactory(
+            school=school, academic_year=academic_year, grade=GradeFactory(school=school), fee_category=fee_category
+        )
+        FeeInvoiceFactory(
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            due_date=date.today() + timedelta(days=10),
+            total_amount=Decimal("500.00"),
+        )
+
+        auth(api, admin)
+        resp = api.get(REPORTING_FEE_FORECAST)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["forecast_90d"]) == 3
+        assert data["forecast_90d"][0]["expected"] == 500.00
+        assert len(data["history_3m"]) == 3
+
+
+# ─── Attendance CSV import ────────────────────────────────────────────────────
+
+
+class TestAttendanceImport:
+    def test_import_creates_records(self, api, school, teacher, db):
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        student = StudentFactory(school=school)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+
+        auth(api, teacher)
+        csv_data = (
+            "admission_number,date,status,remarks\n"
+            f"{student.admission_number},{date.today().isoformat()},P,on time\n"
+            f"{student.admission_number},{(date.today() - timedelta(days=1)).isoformat()},A,sick\n"
+        )
+        resp = api.post(ATTENDANCE_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["imported"] == 2
+        assert resp.json()["errors"] == []
+
+    def test_import_rejects_unknown_student_and_bad_status(self, api, school, teacher, db):
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        student = StudentFactory(school=school)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+
+        auth(api, teacher)
+        csv_data = (
+            "admission_number,date,status\n"
+            "ADM-UNKNOWN,2026-08-10,P\n"
+            f"{student.admission_number},{date.today().isoformat()},X\n"
+        )
+        resp = api.post(ATTENDANCE_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["imported"] == 0
+        assert len(data["errors"]) == 2
+
+    def test_import_bad_date_and_no_enrollment_are_row_errors(self, api, school, teacher, db):
+        """
+        Unparseable dates and students without an active enrollment must be
+        per-row errors, never a 500 for the whole import.
+        """
+        AcademicYearFactory(school=school)
+        student = StudentFactory(school=school)  # no active enrollment
+
+        auth(api, teacher)
+        csv_data = "admission_number,date,status\n" f"{student.admission_number},not-a-date,P\n"
+        resp = api.post(ATTENDANCE_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["imported"] == 0
+        assert len(data["errors"]) >= 1
+
+
+# ─── Fee invoice CSV import ───────────────────────────────────────────────────
+
+
+class TestFeeInvoiceImport:
+    def test_import_creates_invoices(self, api, school, admin, db):
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        student = StudentFactory(school=school)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+        fee_category = FeeCategoryFactory(school=school, name="Tuition")
+        FeeStructureFactory(
+            school=school,
+            academic_year=academic_year,
+            grade=classroom.grade,
+            fee_category=fee_category,
+            amount=Decimal("500.00"),
+        )
+
+        auth(api, admin)
+        csv_data = (
+            "admission_number,fee_category_name,due_date,amount,discount_amount,notes\n"
+            f"{student.admission_number},Tuition,2026-09-10,500.00,0,Term fee\n"
+        )
+        resp = api.post(FEES_INVOICES_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["imported"] == 1
+        assert len(data["invoice_numbers"]) == 1
+        assert data["errors"] == []
+
+    def test_import_requires_existing_fee_structure(self, api, school, admin, db):
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        student = StudentFactory(school=school)
+        EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
+
+        auth(api, admin)
+        csv_data = (
+            "admission_number,fee_category_name,due_date,amount\n"
+            f"{student.admission_number},Missing Category,2026-09-10,500.00\n"
+        )
+        resp = api.post(FEES_INVOICES_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["imported"] == 0
+        assert any("no fee structure" in e for e in data["errors"])

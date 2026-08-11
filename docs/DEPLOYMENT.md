@@ -83,7 +83,7 @@ kubectl get pods -n sms -w
 
 ## Step 5 — Database Migrations
 
-> **Before the first deployment**, generate real migration files locally (`python manage.py makemigrations`) and commit them to the repo — only `auth_service` ships with a hand-written initial migration in this scaffold. Production should always apply pre-generated, reviewed migrations, never run `makemigrations` against a live database.
+> **Before the first deployment**, confirm the migration tree is complete and committed — all 22 services ship their own `0001_initial` migrations (68 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
 
 ```bash
 # Run as a one-off Job

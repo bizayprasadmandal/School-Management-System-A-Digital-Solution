@@ -76,6 +76,87 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=False, methods=["post"], url_path="import-csv")
+    def import_csv(self, request):
+        """
+        Bulk-import attendance from CSV data.
+        Expected CSV columns (header row required):
+        admission_number, date (YYYY-MM-DD), status (P/A/L/E/H),
+        remarks, classroom_name (optional)
+        Rows are upserted per (student, date); unknown students or
+        invalid statuses are reported as row errors.
+        """
+        import csv
+        import io
+
+        from services.students.models import AcademicYear
+
+        csv_text = request.data.get("csv_data", "")
+        if not csv_text:
+            return Response({"error": "csv_data field is required."}, status=400)
+
+        school = request.user.school
+        current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        if not current_year:
+            return Response({"error": "No current academic year set."}, status=400)
+
+        valid_statuses = [s for s, _ in AttendanceRecord.Status.choices]
+        reader = csv.DictReader(io.StringIO(csv_text))
+        imported = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                admission_number = row.get("admission_number", "").strip()
+                record_date = row.get("date", "").strip()
+                status_val = row.get("status", "").strip().upper()
+
+                if not admission_number or not record_date:
+                    errors.append(f"Row {row_num}: admission_number and date are required")
+                    continue
+                if status_val not in valid_statuses:
+                    errors.append(
+                        f"Row {row_num}: invalid status '{status_val}' (allowed: {', '.join(valid_statuses)})"
+                    )
+                    continue
+
+                student = Student.objects.filter(school=school, admission_number=admission_number).first()
+                if not student:
+                    errors.append(f"Row {row_num}: student with admission '{admission_number}' not found")
+                    continue
+
+                enrollment = student.enrollments.filter(is_active=True).first()
+                classroom = enrollment.classroom if enrollment else None
+                classroom_name = row.get("classroom_name", "").strip()
+                if classroom_name:
+                    from services.students.models import Classroom
+
+                    named = Classroom.objects.filter(school=school, name=classroom_name).first()
+                    if named:
+                        classroom = named
+
+                if not classroom:
+                    errors.append(f"Row {row_num}: no classroom resolved for admission '{admission_number}'")
+                    continue
+
+                AttendanceRecord.objects.update_or_create(
+                    student=student,
+                    date=record_date,
+                    defaults={
+                        "classroom": classroom,
+                        "academic_year": current_year,
+                        "status": status_val,
+                        "remarks": row.get("remarks", "").strip(),
+                        "recorded_by": request.user,
+                    },
+                )
+                imported += 1
+            except Exception as e:
+                # One bad row (e.g. unparseable date) must never 500 the whole import.
+                errors.append(f"Row {row_num}: {str(e)[:100]}")
+
+        return Response({"imported": imported, "errors": errors[:20]})
+
     @action(detail=False, methods=["get"], url_path="classroom-summary")
     def classroom_summary(self, request):
         """Attendance summary for a classroom on a given date."""

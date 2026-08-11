@@ -52,6 +52,7 @@ def student_attendance_summary(student_id: str) -> str:
 ATTENDANCE_BULK_RECORD = url("attendance/bulk-record/")
 ATTENDANCE_CLASSROOM_SUMMARY = url("attendance/classroom-summary/")
 ATTENDANCE_STUDENT_REPORT = url("attendance/student-report/")
+ATTENDANCE_IMPORT_CSV = url("attendance/import-csv/")
 
 
 def attendance_leave_approve(leave_id: int) -> str:
@@ -64,6 +65,7 @@ GRADEBOOK_EXAMS = url("gradebook/exams/")
 GRADEBOOK_GRADES_BULK = url("gradebook/grades/bulk/")
 GRADEBOOK_GRADES = url("gradebook/grades/")
 GRADEBOOK_GRADES_IMPORT_CSV = url("gradebook/grades/import-csv/")
+GRADEBOOK_GRADES_HISTORY = url("gradebook/grades/history/")
 GRADEBOOK_REPORT_CARDS = url("gradebook/report-cards/")
 
 
@@ -80,6 +82,7 @@ def gradebook_generate_report_cards(exam_id: str) -> str:
 FEES_INVOICES = url("fees/invoices/")
 FEES_PAYMENTS = url("fees/payments/")
 FEES_SCHOLARSHIPS = url("fees/scholarships/")
+FEES_INVOICES_IMPORT_CSV = url("fees/invoices/import-csv/")
 
 
 def fees_invoice_waive(invoice_id: str) -> str:
@@ -121,6 +124,9 @@ TIMETABLE_EVENTS_UPCOMING = url("timetable/events/upcoming/")
 REPORTING_DASHBOARD_STATS = url("reporting/dashboard-stats/")
 REPORTING_ATTENDANCE_REPORT = url("reporting/attendance-report/")
 REPORTING_FEE_REPORT = url("reporting/fee-report/")
+REPORTING_AT_RISK_STUDENTS = url("reporting/at-risk-students/")
+REPORTING_ENROLLMENT_FUNNEL = url("reporting/enrollment-funnel/")
+REPORTING_FEE_FORECAST = url("reporting/fee-forecast/")
 REPORTING_EXPORT_STUDENTS_CSV = url("reporting/export/students-csv/")
 REPORTING_EXPORT_ATTENDANCE_PDF = url("reporting/export/attendance-pdf/")
 

@@ -235,9 +235,12 @@ class TestAttendanceStreak:
     def test_streak_computes_correctly(
         self, teacher_auth_client, teacher_user, student, classroom, academic_year, enrollment
     ):
+        from django.utils import timezone
         from services.attendance.models import AttendanceRecord
 
-        today = date.today()
+        # Use timezone.now().date() (same source as the streak view) so the test
+        # is deterministic in any machine timezone, not just UTC CI runners.
+        today = timezone.now().date()
         # Create 3 consecutive present records ending today
         for i in range(3):
             AttendanceRecord.objects.create(

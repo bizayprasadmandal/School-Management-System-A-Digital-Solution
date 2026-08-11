@@ -115,19 +115,33 @@ class BulkGradeSerializer(serializers.Serializer):
 
     @transaction.atomic
     def save(self, graded_by=None):
+        from .models import record_grade_change
+
         schedule = self.validated_data["exam_schedule_id"]
         created_grades = []
         for entry in self.validated_data["grades"]:
-            marks = entry.get("marks_obtained")
-            grade, _ = Grade.objects.update_or_create(
+            marks = Decimal(str(marks)) if (marks := entry.get("marks_obtained")) is not None else None
+            is_absent = entry.get("is_absent", False)
+            remarks = entry.get("remarks", "")
+
+            # Snapshot pre-mutation values for the audit trail.
+            existing = Grade.objects.filter(student_id=entry["student_id"], exam_schedule=schedule).first()
+
+            grade, created = Grade.objects.update_or_create(
                 student_id=entry["student_id"],
                 exam_schedule=schedule,
                 defaults={
-                    "marks_obtained": Decimal(str(marks)) if marks is not None else None,
-                    "is_absent": entry.get("is_absent", False),
-                    "remarks": entry.get("remarks", ""),
+                    "marks_obtained": marks,
+                    "is_absent": is_absent,
+                    "remarks": remarks,
                     "graded_by": graded_by,
                 },
+            )
+            record_grade_change(
+                grade,
+                "create" if created else "update",
+                graded_by,
+                old=existing if existing is not None else None,
             )
             created_grades.append(grade)
         return created_grades

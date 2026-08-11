@@ -104,6 +104,103 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         invoice.save(update_fields=["status", "notes"])
         return Response({"detail": "Invoice waived."})
 
+    @action(detail=False, methods=["post"], url_path="import-csv")
+    def import_csv(self, request):
+        """
+        Bulk-import fee invoices from CSV data.
+        Expected CSV columns (header row required):
+        admission_number, fee_category_name, due_date (YYYY-MM-DD),
+        amount, discount_amount (optional), notes (optional)
+        The fee structure is resolved by (academic_year, grade, category)
+        from the student's active enrollment; missing structures are
+        reported as row errors instead of being created implicitly.
+        """
+        import csv
+        import io
+        import uuid
+
+        from services.students.models import AcademicYear
+
+        from .models import FeeStructure
+
+        csv_text = request.data.get("csv_data", "")
+        if not csv_text:
+            return Response({"error": "csv_data field is required."}, status=400)
+
+        school = request.user.school
+        current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        if not current_year:
+            return Response({"error": "No current academic year set."}, status=400)
+
+        reader = csv.DictReader(io.StringIO(csv_text))
+        imported = 0
+        errors = []
+        invoice_numbers = []
+
+        for row_num, row in enumerate(reader, start=2):
+            admission_number = row.get("admission_number", "").strip()
+            category_name = row.get("fee_category_name", "").strip()
+            due_date = row.get("due_date", "").strip()
+            amount_raw = row.get("amount", "").strip()
+
+            if not all([admission_number, category_name, due_date, amount_raw]):
+                errors.append(f"Row {row_num}: admission_number, fee_category_name, due_date and amount are required")
+                continue
+
+            from services.students.models import Student
+
+            student = Student.objects.filter(school=school, admission_number=admission_number).first()
+            if not student:
+                errors.append(f"Row {row_num}: student with admission '{admission_number}' not found")
+                continue
+
+            enrollment = student.enrollments.filter(is_active=True).first()
+            if not enrollment:
+                errors.append(f"Row {row_num}: student '{admission_number}' has no active enrollment")
+                continue
+
+            structure = FeeStructure.objects.filter(
+                school=school,
+                academic_year=current_year,
+                grade=enrollment.classroom.grade,
+                fee_category__name=category_name,
+            ).first()
+            if not structure:
+                errors.append(
+                    f"Row {row_num}: no fee structure for category '{category_name}' "
+                    f"in the current academic year for grade {enrollment.classroom.grade}"
+                )
+                continue
+
+            try:
+                from decimal import Decimal, InvalidOperation
+
+                amount = Decimal(amount_raw)
+                discount = Decimal(row.get("discount_amount", "0").strip() or "0")
+                invoice_number = f"IMP{uuid.uuid4().hex[:8].upper()}"
+                FeeInvoice.objects.create(
+                    invoice_number=invoice_number,
+                    student=student,
+                    academic_year=current_year,
+                    fee_structure=structure,
+                    due_date=due_date,
+                    base_amount=amount,
+                    discount_amount=discount,
+                    total_amount=amount - discount,
+                    status=FeeInvoice.Status.UNPAID,
+                    notes=row.get("notes", "").strip(),
+                    created_by=request.user,
+                )
+                imported += 1
+                invoice_numbers.append(invoice_number)
+            except (InvalidOperation, ValueError):
+                # Unparseable amounts or dates become per-row errors, never a 500.
+                errors.append(f"Row {row_num}: invalid amount or date in row")
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)[:100]}")
+
+        return Response({"imported": imported, "invoice_numbers": invoice_numbers, "errors": errors[:20]})
+
     @action(detail=False, methods=["post"], url_path="bulk-generate")
     def bulk_generate(self, request):
         """Generate invoices for all students in a grade for a fee structure."""

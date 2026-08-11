@@ -4,15 +4,16 @@ Gradebook Service — Exams, assessments, grades, report cards
 
 import uuid
 from decimal import Decimal
+
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from services.auth.models import User, School
-from services.students.models import Student, Classroom, AcademicYear
 from services.academics.models import Subject, TeacherAssignment
+from services.auth.models import School, User
+from services.students.models import AcademicYear, Classroom, Student
 
 
 class GradingScale(models.Model):
     """Configurable grading scale per school."""
+
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="grading_scales")
     name = models.CharField(max_length=100)
     is_default = models.BooleanField(default=False)
@@ -20,28 +21,37 @@ class GradingScale(models.Model):
     class Meta:
         db_table = "grading_scales"
 
+    def __str__(self):
+        return self.name
+
 
 class GradingScaleEntry(models.Model):
     scale = models.ForeignKey(GradingScale, on_delete=models.CASCADE, related_name="entries")
-    grade_letter = models.CharField(max_length=5)    # A+, A, B, etc.
+    grade_letter = models.CharField(max_length=5)  # A+, A, B, etc.
     min_percentage = models.DecimalField(max_digits=5, decimal_places=2)
     max_percentage = models.DecimalField(max_digits=5, decimal_places=2)
     grade_point = models.DecimalField(max_digits=3, decimal_places=1)  # GPA points
-    description = models.CharField(max_length=50)    # Excellent, Good, etc.
+    description = models.CharField(max_length=50)  # Excellent, Good, etc.
 
     class Meta:
         db_table = "grading_scale_entries"
         ordering = ["-min_percentage"]
 
+    def __str__(self):
+        return f"{self.scale} — {self.grade_letter} ({self.grade_point} pts)"
+
 
 class ExamType(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="exam_types")
-    name = models.CharField(max_length=100)          # Midterm, Final, Quiz, Assignment
+    name = models.CharField(max_length=100)  # Midterm, Final, Quiz, Assignment
     weightage = models.DecimalField(max_digits=5, decimal_places=2)  # % of total
     is_terminal = models.BooleanField(default=False)
 
     class Meta:
         db_table = "exam_types"
+
+    def __str__(self):
+        return self.name
 
 
 class Exam(models.Model):
@@ -66,9 +76,13 @@ class Exam(models.Model):
     class Meta:
         db_table = "exams"
 
+    def __str__(self):
+        return f"{self.name} ({self.status})"
+
 
 class ExamSchedule(models.Model):
     """Date/time for a specific subject exam."""
+
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="schedules")
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE)
@@ -76,9 +90,7 @@ class ExamSchedule(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     venue = models.CharField(max_length=100, blank=True)
-    invigilator = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="invigilated_exams"
-    )
+    invigilator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="invigilated_exams")
     max_marks = models.DecimalField(max_digits=6, decimal_places=2)
     passing_marks = models.DecimalField(max_digits=6, decimal_places=2)
 
@@ -86,14 +98,16 @@ class ExamSchedule(models.Model):
         db_table = "exam_schedules"
         unique_together = [("exam", "subject", "classroom")]
 
+    def __str__(self):
+        return f"{self.exam} — {self.subject} @ {self.classroom}"
+
 
 class Grade(models.Model):
     """Individual student grade for a specific exam-subject."""
+
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grades")
     exam_schedule = models.ForeignKey(ExamSchedule, on_delete=models.CASCADE, related_name="grades")
-    marks_obtained = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True
-    )
+    marks_obtained = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     is_absent = models.BooleanField(default=False)
     remarks = models.CharField(max_length=255, blank=True)
     graded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -119,6 +133,75 @@ class Grade(models.Model):
             return False
         return self.marks_obtained >= self.exam_schedule.passing_marks
 
+    def __str__(self):
+        return f"{self.student} — {self.exam_schedule.subject} [{self.marks_obtained}]"
+
+
+class GradeChangeLog(models.Model):
+    """
+    Immutable audit trail for every grade create/update/delete.
+    Records who changed what and when — supports forensic review
+    of grade tampering and compliance expectations (FERPA-adjacent).
+    """
+
+    class Action(models.TextChoices):
+        CREATE = "create", "Created"
+        UPDATE = "update", "Updated"
+        DELETE = "delete", "Deleted"
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grade_change_logs")
+    exam_schedule = models.ForeignKey(ExamSchedule, on_delete=models.CASCADE, related_name="grade_change_logs")
+    action = models.CharField(max_length=10, choices=Action.choices)
+    marks_obtained_old = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    marks_obtained_new = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    is_absent_old = models.BooleanField(null=True)
+    is_absent_new = models.BooleanField(null=True)
+    remarks_old = models.CharField(max_length=255, blank=True)
+    remarks_new = models.CharField(max_length=255, blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="grade_change_logs")
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "grade_change_logs"
+        ordering = ["-changed_at"]
+        indexes = [
+            models.Index(fields=["student", "exam_schedule"]),
+            models.Index(fields=["changed_by"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_action_display()} {self.student} [{self.exam_schedule.subject}] by {self.changed_by}"
+
+
+def record_grade_change(grade, action, changed_by, old=None):
+    """
+    Append an immutable audit entry for a grade mutation.
+
+    ``old`` is an optional snapshot of the pre-mutation values
+    (a model instance or object with marks_obtained/is_absent/remarks).
+    For deletes, the ``new`` fields record None — the value was removed,
+    not changed to itself. Safe on all paths; never raises.
+    """
+    changed_by_id = grade.graded_by_id if changed_by is None else getattr(changed_by, "id", changed_by)
+
+    old_marks = old.marks_obtained if old is not None else None
+    old_absent = old.is_absent if old is not None else None
+    old_remarks = old.remarks if old is not None else ""
+
+    is_delete = action == "delete"
+    GradeChangeLog.objects.create(
+        student=grade.student,
+        exam_schedule=grade.exam_schedule,
+        action=action,
+        marks_obtained_old=old_marks,
+        marks_obtained_new=None if is_delete else grade.marks_obtained,
+        is_absent_old=old_absent,
+        is_absent_new=None if is_delete else grade.is_absent,
+        remarks_old=old_remarks or "",
+        remarks_new="" if is_delete else grade.remarks or "",
+        changed_by_id=changed_by_id,
+    )
+
 
 class Assessment(models.Model):
     """Continuous assessment — homework, quizzes, projects."""
@@ -136,11 +219,14 @@ class Assessment(models.Model):
     due_date = models.DateField()
     max_marks = models.DecimalField(max_digits=6, decimal_places=2)
     description = models.TextField(blank=True)
-    attachment = models.FileField(upload_to="assessments/", null=True, blank=True)
+    attachment = models.FileField(upload_to="assessments/", null=True, blank=True)  # noqa: DJ01 — null for legacy rows
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "assessments"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_assessment_type_display()})"
 
 
 class AssessmentSubmission(models.Model):
@@ -148,13 +234,16 @@ class AssessmentSubmission(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="assessment_submissions")
     marks_obtained = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
-    file = models.FileField(upload_to="submissions/", null=True, blank=True)
+    file = models.FileField(upload_to="submissions/", null=True, blank=True)  # noqa: DJ01 — null for legacy rows
     remarks = models.TextField(blank=True)
     is_late = models.BooleanField(default=False)
 
     class Meta:
         db_table = "assessment_submissions"
         unique_together = [("assessment", "student")]
+
+    def __str__(self):
+        return f"{self.student} — {self.assessment.title} [{self.marks_obtained}]"
 
 
 class ReportCard(models.Model):
@@ -180,10 +269,15 @@ class ReportCard(models.Model):
     teacher_remarks = models.TextField(blank=True)
     principal_remarks = models.TextField(blank=True)
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
-    pdf_file = models.FileField(upload_to="report_cards/%Y/%m/", null=True, blank=True)
+    pdf_file = models.FileField(  # noqa: DJ01 — null for legacy rows
+        upload_to="report_cards/%Y/%m/", null=True, blank=True
+    )
     generated_at = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "report_cards"
         unique_together = [("student", "exam")]
+
+    def __str__(self):
+        return f"{self.student} — {self.exam.name} ({self.get_status_display()})"
