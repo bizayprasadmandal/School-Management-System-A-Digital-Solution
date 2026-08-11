@@ -173,6 +173,113 @@ class GradeChangeLog(models.Model):
         return f"{self.get_action_display()} {self.student} [{self.exam_schedule.subject}] by {self.changed_by}"
 
 
+class GradeChangeProposal(models.Model):
+    """
+    Pending grade change awaiting admin approval.
+
+    When a grade for a *published* exam (student report card status in
+    published/sent) is edited, the change is not applied directly — a
+    proposal is created instead. An admin approves it (the change is then
+    applied and written to the immutable GradeChangeLog) or rejects it.
+    """
+
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    class Action(models.TextChoices):
+        CREATE = "create", "Created"
+        UPDATE = "update", "Updated"
+        DELETE = "delete", "Deleted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grade_change_proposals")
+    exam_schedule = models.ForeignKey(ExamSchedule, on_delete=models.CASCADE, related_name="grade_change_proposals")
+    # The target grade. None for create proposals (the grade doesn't exist yet).
+    # SET_NULL: when an approved delete removes the grade, the proposal row
+    # survives so the review decision stays on record.
+    grade = models.ForeignKey(
+        Grade, on_delete=models.SET_NULL, null=True, blank=True, related_name="grade_change_proposals"
+    )
+    action = models.CharField(max_length=10, choices=Action.choices)
+    marks_obtained_new = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    is_absent_new = models.BooleanField(null=True)
+    remarks_new = models.CharField(max_length=255, blank=True)
+    reason = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PROPOSED)
+    proposed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="grade_change_proposals")
+    proposed_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="reviewed_grade_change_proposals"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        db_table = "grade_change_proposals"
+        ordering = ["-proposed_at"]
+        indexes = [
+            models.Index(fields=["student", "exam_schedule"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.get_action_display()} {self.student} [{self.exam_schedule.subject}] — {self.get_status_display()}"
+        )
+
+
+def grade_change_requires_approval(student, exam_schedule):
+    """
+    A grade change needs admin approval when the student's report card
+    for that exam has been published (or sent to parents).
+    """
+    return ReportCard.objects.filter(
+        exam=exam_schedule.exam,
+        student=student,
+        status__in=[ReportCard.Status.PUBLISHED, ReportCard.Status.SENT],
+    ).exists()
+
+
+def create_grade_change_proposal(
+    student,
+    exam_schedule,
+    action,
+    grade=None,
+    new_values=None,
+    proposed_by=None,
+    reason="",
+):
+    """
+    Create a proposal for a grade change on a published exam.
+    Supersedes any still-pending proposal for the same (student, schedule)
+    so there is never more than one live proposal per grade.
+    """
+    from django.utils import timezone
+
+    values = new_values or {}
+    GradeChangeProposal.objects.filter(
+        student=student, exam_schedule=exam_schedule, status=GradeChangeProposal.Status.PROPOSED
+    ).update(
+        status=GradeChangeProposal.Status.REJECTED,
+        reviewed_by=proposed_by,
+        reviewed_at=timezone.now(),
+        review_notes="Superseded by a newer proposal",
+    )
+    return GradeChangeProposal.objects.create(
+        student=student,
+        exam_schedule=exam_schedule,
+        grade=grade,
+        action=action,
+        marks_obtained_new=values.get("marks_obtained"),
+        is_absent_new=values.get("is_absent"),
+        remarks_new=values.get("remarks", "") or "",
+        reason=reason,
+        proposed_by=proposed_by,
+    )
+
+
 def record_grade_change(grade, action, changed_by, old=None):
     """
     Append an immutable audit entry for a grade mutation.

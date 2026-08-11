@@ -15,6 +15,7 @@ from decimal import Decimal
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
+from services.gradebook.models import Grade
 from tests.factories import (
     AcademicYearFactory,
     AdminUserFactory,
@@ -40,9 +41,12 @@ from tests.url_helpers import (
     GRADEBOOK_GRADES_BULK,
     GRADEBOOK_GRADES_HISTORY,
     GRADEBOOK_GRADES_IMPORT_CSV,
+    GRADEBOOK_PROPOSALS,
     REPORTING_AT_RISK_STUDENTS,
     REPORTING_ENROLLMENT_FUNNEL,
     REPORTING_FEE_FORECAST,
+    gradebook_proposal_approve,
+    gradebook_proposal_reject,
 )
 
 # ─── Shared fixtures ──────────────────────────────────────────────────────────
@@ -197,6 +201,194 @@ class TestGradeAuditTrail:
         names = {e["admission_number"] for e in history}
         assert other_student.admission_number not in names
         assert student.admission_number in names
+
+
+# ─── Grade-change approval workflow ──────────────────────────────────────────
+
+
+class TestGradeApprovalWorkflow:
+    @staticmethod
+    def _publish_report_card(student, schedule):
+        from django.utils import timezone
+        from services.gradebook.models import ReportCard
+
+        return ReportCard.objects.create(
+            student=student,
+            exam=schedule.exam,
+            academic_year=schedule.exam.academic_year,
+            status="published",
+            published_at=timezone.now(),
+        )
+
+    def test_update_published_grade_becomes_proposal_not_applied(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("50.00"))
+        self._publish_report_card(student, schedule)
+
+        auth(api, teacher)
+        resp = api.patch(f"{GRADEBOOK_GRADES}{grade.id}/", {"marks_obtained": "90.00"}, format="json")
+        assert resp.status_code == status.HTTP_202_ACCEPTED, resp.content
+        assert resp.json()["status"] == "pending_approval"
+
+        # Grade untouched; proposal created
+        grade.refresh_from_db()
+        assert grade.marks_obtained == Decimal("50.00")
+
+        auth(api, admin)
+        data = api.get(GRADEBOOK_PROPOSALS).json()
+        assert len(data["results"]) == 1
+        prop = data["results"][0]
+        assert prop["status"] == "proposed"
+        assert prop["action"] == "update"
+        assert float(prop["marks_obtained_new"]) == 90.0
+        assert float(prop["marks_obtained_current"]) == 50.0
+        assert prop["proposed_by"] == teacher.full_name
+
+    def test_approve_applies_change_and_writes_audit(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("50.00"))
+        self._publish_report_card(student, schedule)
+
+        auth(api, teacher)
+        proposed = api.patch(f"{GRADEBOOK_GRADES}{grade.id}/", {"marks_obtained": "90.00"}, format="json").json()
+
+        auth(api, admin)
+        resp = api.post(gradebook_proposal_approve(proposed["proposal_id"]), {}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["status"] == "approved"
+
+        grade.refresh_from_db()
+        assert grade.marks_obtained == Decimal("90.00")
+
+        # Approval lands in the immutable audit trail as a normal update
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert any(
+            e["action"] == "update" and e["marks_obtained_old"] == 50.0 and e["marks_obtained_new"] == 90.0
+            for e in history
+        )
+
+    def test_reject_leaves_grade_unchanged(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("50.00"))
+        self._publish_report_card(student, schedule)
+
+        auth(api, teacher)
+        proposed = api.patch(f"{GRADEBOOK_GRADES}{grade.id}/", {"marks_obtained": "90.00"}, format="json").json()
+
+        auth(api, admin)
+        resp = api.post(
+            gradebook_proposal_reject(proposed["proposal_id"]), {"notes": "Incorrect re-mark"}, format="json"
+        )
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["status"] == "rejected"
+
+        grade.refresh_from_db()
+        assert grade.marks_obtained == Decimal("50.00")
+
+        # No audit entry is written for a rejected change
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert not any(e["marks_obtained_new"] == 90.0 for e in history)
+
+        prop = api.get(GRADEBOOK_PROPOSALS).json()["results"][0]
+        assert prop["status"] == "rejected"
+        assert prop["review_notes"] == "Incorrect re-mark"
+
+    def test_delete_published_grade_requires_approval(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        grade = GradeRecordFactory(student=student, exam_schedule=schedule, marks_obtained=Decimal("50.00"))
+        self._publish_report_card(student, schedule)
+
+        auth(api, teacher)
+        resp = api.delete(f"{GRADEBOOK_GRADES}{grade.id}/")
+        assert resp.status_code == status.HTTP_202_ACCEPTED, resp.content
+        assert Grade.objects.filter(id=grade.id).exists()  # still there
+
+        auth(api, admin)
+        prop = api.get(GRADEBOOK_PROPOSALS).json()["results"][0]
+        assert prop["action"] == "delete"
+        api.post(gradebook_proposal_approve(prop["id"]), {}, format="json")
+
+        assert not Grade.objects.filter(id=grade.id).exists()
+        history = api.get(GRADEBOOK_GRADES_HISTORY).json()
+        assert any(e["action"] == "delete" for e in history)
+
+    def test_bulk_submit_splits_published_and_unpublished(self, api, school, admin, teacher, db):
+        published_student = StudentFactory(school=school)
+        unpublished_student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        self._publish_report_card(published_student, schedule)
+
+        auth(api, teacher)
+        resp = api.post(
+            GRADEBOOK_GRADES_BULK,
+            {
+                "exam_schedule_id": schedule.id,
+                "grades": [
+                    {"student_id": str(published_student.id), "marks_obtained": "85.00", "is_absent": False},
+                    {"student_id": str(unpublished_student.id), "marks_obtained": "75.00", "is_absent": False},
+                ],
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED, resp.content
+        data = resp.json()
+        assert data["graded"] == 1
+        assert data["pending_approval"] == 1
+
+        # Only the unpublished student's grade was created directly
+        assert Grade.objects.filter(student=unpublished_student).exists()
+        assert not Grade.objects.filter(student=published_student).exists()
+
+    def test_create_new_grade_on_published_exam_proposes_then_applies(self, api, school, admin, teacher, db):
+        student = StudentFactory(school=school)
+        schedule = ExamScheduleFactory(exam__school=school, classroom__school=school, invigilator=teacher)
+        self._publish_report_card(student, schedule)
+
+        auth(api, teacher)
+        resp = api.post(
+            GRADEBOOK_GRADES,
+            {"student": str(student.id), "exam_schedule": schedule.id, "marks_obtained": "88.00", "is_absent": False},
+            format="json",
+        )
+        # Retroactive grade on a published exam also goes through approval
+        assert resp.status_code == status.HTTP_202_ACCEPTED, resp.content
+        assert not Grade.objects.filter(student=student, exam_schedule=schedule).exists()
+
+        auth(api, admin)
+        prop = api.get(GRADEBOOK_PROPOSALS).json()["results"][0]
+        assert prop["action"] == "create"
+        api.post(gradebook_proposal_approve(prop["id"]), {}, format="json")
+
+        grade = Grade.objects.get(student=student, exam_schedule=schedule)
+        assert grade.marks_obtained == Decimal("88.00")
+
+    def test_proposals_are_tenant_scoped(self, api, school, admin, teacher, db):
+        from services.gradebook.models import create_grade_change_proposal
+
+        other_school = SchoolFactory()
+        other_admin = AdminUserFactory(school=other_school)
+        other_student = StudentFactory(school=other_school)
+        other_schedule = ExamScheduleFactory(exam__school=other_school, classroom__school=other_school)
+        create_grade_change_proposal(
+            student=other_student,
+            exam_schedule=other_schedule,
+            action="update",
+            proposed_by=other_admin,
+        )
+
+        own_student = StudentFactory(school=school)
+        own_schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
+        create_grade_change_proposal(student=own_student, exam_schedule=own_schedule, action="update")
+
+        auth(api, admin)
+        data = api.get(GRADEBOOK_PROPOSALS).json()
+        names = {p["student_name"] for p in data["results"]}
+        assert own_student.user.full_name in names
+        assert other_student.user.full_name not in names
 
 
 # ─── Analytics: at-risk, funnel, forecast ─────────────────────────────────────

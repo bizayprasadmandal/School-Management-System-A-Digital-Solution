@@ -134,6 +134,17 @@ test.describe("Admin — Attendance Page", () => {
 test.describe("Admin — Exams Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
+    // Catch-all first (most-recently-registered routes win, so anything
+    // registered after it overrides it). New page queries (e.g.
+    // /gradebook/proposals/) never 401 with the mock JWT and cascade
+    // into a logout; the academic-year and exams mocks below take precedence.
+    await page.route(`${API_BASE}/**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [], count: 0, next: null, previous: null }),
+      });
+    });
     await mockCurrentAcademicYear(page);
     await page.route(`${API_BASE}/gradebook/exams/**`, async (route) => {
       await route.fulfill({

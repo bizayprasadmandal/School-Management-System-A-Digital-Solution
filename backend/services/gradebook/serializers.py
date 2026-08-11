@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, ReportCard
+from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, GradeChangeProposal, ReportCard
 
 
 class ExamSerializer(serializers.ModelSerializer):
@@ -145,6 +145,50 @@ class BulkGradeSerializer(serializers.Serializer):
             )
             created_grades.append(grade)
         return created_grades
+
+
+class GradeChangeProposalSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    admission_number = serializers.CharField(source="student.admission_number", read_only=True)
+    subject = serializers.CharField(source="exam_schedule.subject.name", read_only=True)
+    exam = serializers.CharField(source="exam_schedule.exam.name", read_only=True)
+    max_marks = serializers.DecimalField(
+        source="exam_schedule.max_marks", max_digits=6, decimal_places=2, read_only=True
+    )
+    marks_obtained_current = serializers.SerializerMethodField()
+    proposed_by = serializers.CharField(source="proposed_by.full_name", read_only=True)
+    reviewed_by = serializers.CharField(source="reviewed_by.full_name", read_only=True)
+
+    class Meta:
+        model = GradeChangeProposal
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "admission_number",
+            "exam_schedule",
+            "subject",
+            "exam",
+            "max_marks",
+            "action",
+            "status",
+            "marks_obtained_new",
+            "marks_obtained_current",
+            "is_absent_new",
+            "remarks_new",
+            "reason",
+            "proposed_by",
+            "proposed_at",
+            "reviewed_by",
+            "reviewed_at",
+            "review_notes",
+        ]
+        read_only_fields = fields
+
+    def get_marks_obtained_current(self, obj):
+        if obj.grade is not None and obj.grade.marks_obtained is not None:
+            return float(obj.grade.marks_obtained)
+        return None
 
 
 class AssessmentSerializer(serializers.ModelSerializer):

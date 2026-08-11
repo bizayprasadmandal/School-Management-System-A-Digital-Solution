@@ -15,12 +15,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Assessment, AssessmentSubmission, Exam, Grade, ReportCard
+from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, GradeChangeProposal, ReportCard
 from .serializers import (
     AssessmentSerializer,
     AssessmentSubmissionSerializer,
     BulkGradeSerializer,
+    ExamScheduleSerializer,
     ExamSerializer,
+    GradeChangeProposalSerializer,
     GradeSerializer,
     ReportCardSerializer,
 )
@@ -76,6 +78,16 @@ class ExamViewSet(viewsets.ModelViewSet):
             status="published", published_at=timezone.now()
         )
         return Response({"published": updated})
+
+    @action(detail=True, methods=["get"], url_path="schedules")
+    def schedules(self, request, pk=None):
+        """Exam schedules (subject/classroom) for the teacher gradebook selector."""
+        exam = self.get_object()
+        qs = ExamSchedule.objects.filter(exam=exam).select_related("subject", "classroom")
+        classroom_id = request.query_params.get("classroom_id")
+        if classroom_id:
+            qs = qs.filter(classroom_id=classroom_id)
+        return Response(ExamScheduleSerializer(qs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="leaderboard")
     def leaderboard(self, request, pk=None):
@@ -146,6 +158,87 @@ class GradeViewSet(viewsets.ModelViewSet):
 
         record_grade_change(grade, "create", self.request.user)
 
+    def create(self, request, *args, **kwargs):
+        """Adding a grade to a published exam goes through admin approval too."""
+        from .models import create_grade_change_proposal, grade_change_requires_approval
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student = serializer.validated_data.get("student")
+        exam_schedule = serializer.validated_data.get("exam_schedule")
+        if student is not None and exam_schedule is not None and grade_change_requires_approval(student, exam_schedule):
+            proposal = create_grade_change_proposal(
+                student=student,
+                exam_schedule=exam_schedule,
+                action="create",
+                grade=None,
+                new_values=serializer.validated_data,
+                proposed_by=request.user,
+            )
+            return Response(
+                {
+                    "status": "pending_approval",
+                    "proposal_id": str(proposal.id),
+                    "detail": "Grade addition submitted for admin approval.",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Edits to a grade on a *published* exam are routed to an admin approval
+        proposal instead of being applied directly. Unpublished grades behave
+        as before (direct update + audit trail).
+        """
+        from .models import create_grade_change_proposal, grade_change_requires_approval
+
+        instance = self.get_object()
+        if grade_change_requires_approval(instance.student, instance.exam_schedule):
+            serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop("partial", False))
+            serializer.is_valid(raise_exception=True)
+            proposal = create_grade_change_proposal(
+                student=instance.student,
+                exam_schedule=instance.exam_schedule,
+                action="update",
+                grade=instance,
+                new_values=serializer.validated_data,
+                proposed_by=request.user,
+            )
+            return Response(
+                {
+                    "status": "pending_approval",
+                    "proposal_id": str(proposal.id),
+                    "detail": "Grade change submitted for admin approval.",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Deleting a grade on a published exam also requires admin approval."""
+        from .models import create_grade_change_proposal, grade_change_requires_approval
+
+        instance = self.get_object()
+        if grade_change_requires_approval(instance.student, instance.exam_schedule):
+            proposal = create_grade_change_proposal(
+                student=instance.student,
+                exam_schedule=instance.exam_schedule,
+                action="delete",
+                grade=instance,
+                proposed_by=request.user,
+                reason=request.data.get("reason", "") if isinstance(request.data, dict) else "",
+            )
+            return Response(
+                {
+                    "status": "pending_approval",
+                    "proposal_id": str(proposal.id),
+                    "detail": "Grade deletion submitted for admin approval.",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+        return super().destroy(request, *args, **kwargs)
+
     def perform_update(self, serializer):
         # Snapshot pre-mutation values for the audit trail.
         # ``serializer.instance`` is mutated in place by save(), so copy the
@@ -210,12 +303,72 @@ class GradeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk")
     def bulk_submit(self, request):
-        """Submit grades for all students in one exam schedule."""
+        """
+        Submit grades for all students in one exam schedule.
+        Entries for published exams become pending proposals; the rest are
+        applied directly and logged.
+        """
+        from django.db import transaction
+
+        from .models import create_grade_change_proposal, grade_change_requires_approval, record_grade_change
+
         serializer = BulkGradeSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        grades = serializer.save(graded_by=request.user)
+        schedule = serializer.validated_data["exam_schedule_id"]
+
+        graded = 0
+        pending = 0
+        with transaction.atomic():
+            for entry in serializer.validated_data["grades"]:
+                student_id = entry["student_id"]
+                student = schedule.exam.school.students.filter(id=student_id).first()
+                if not student:
+                    continue  # validated by caller; skip defensively
+
+                existing = Grade.objects.filter(student=student, exam_schedule=schedule).first()
+                new_values = {
+                    "marks_obtained": entry.get("marks_obtained"),
+                    "is_absent": entry.get("is_absent", False),
+                    "remarks": entry.get("remarks", ""),
+                }
+
+                if grade_change_requires_approval(student, schedule):
+                    create_grade_change_proposal(
+                        student=student,
+                        exam_schedule=schedule,
+                        action="update" if existing else "create",
+                        grade=existing,
+                        new_values=new_values,
+                        proposed_by=request.user,
+                    )
+                    pending += 1
+                    continue
+
+                marks = new_values["marks_obtained"]
+                grade, created = Grade.objects.update_or_create(
+                    student=student,
+                    exam_schedule=schedule,
+                    defaults={
+                        "marks_obtained": Decimal(str(marks)) if marks is not None else None,
+                        "is_absent": new_values["is_absent"],
+                        "remarks": new_values["remarks"] or "",
+                        "graded_by": request.user,
+                    },
+                )
+                record_grade_change(
+                    grade,
+                    "create" if created else "update",
+                    request.user,
+                    old=existing if existing is not None else None,
+                )
+                graded += 1
+
         return Response(
-            {"graded": len(grades), "exam_schedule_id": request.data.get("exam_schedule_id")},
+            {
+                "graded": graded,
+                "pending_approval": pending,
+                "exam_schedule_id": request.data.get("exam_schedule_id"),
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -285,10 +438,11 @@ class GradeViewSet(viewsets.ModelViewSet):
         if not csv_text:
             return Response({"error": "csv_data field is required."}, status=400)
 
-        from .models import ExamSchedule
+        from .models import ExamSchedule, create_grade_change_proposal, grade_change_requires_approval
 
         reader = csv.DictReader(io.StringIO(csv_text))
         imported = 0
+        pending = 0
         errors = []
 
         for row_num, row in enumerate(reader, start=2):
@@ -312,6 +466,23 @@ class GradeViewSet(viewsets.ModelViewSet):
                 is_absent = row.get("is_absent", "").strip().lower() in ("yes", "true", "1")
 
                 existing = Grade.objects.filter(student=student, exam_schedule=schedule).first()
+
+                if grade_change_requires_approval(student, schedule):
+                    create_grade_change_proposal(
+                        student=student,
+                        exam_schedule=schedule,
+                        action="update" if existing else "create",
+                        grade=existing,
+                        new_values={
+                            "marks_obtained": marks_obtained,
+                            "is_absent": is_absent,
+                            "remarks": row.get("remarks", "").strip(),
+                        },
+                        proposed_by=request.user,
+                    )
+                    pending += 1
+                    continue
+
                 grade, created = Grade.objects.update_or_create(
                     student=student,
                     exam_schedule=schedule,
@@ -341,9 +512,105 @@ class GradeViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "imported": imported,
+                "pending_approval": pending,
                 "errors": errors[:20],
             }
         )
+
+
+class GradeChangeProposalViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Admin review queue for grade changes proposed on published exams.
+    Approving applies the change (and writes it to the immutable audit
+    trail); rejecting leaves the grade untouched.
+    """
+
+    serializer_class = GradeChangeProposalSerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        qs = GradeChangeProposal.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "exam_schedule__subject", "exam_schedule__exam", "grade", "proposed_by", "reviewed_by"
+        )
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        exam_id = self.request.query_params.get("exam_id")
+        if exam_id:
+            qs = qs.filter(exam_schedule__exam_id=exam_id)
+        student_id = self.request.query_params.get("student_id")
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        return qs
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        """Apply the proposed change and append it to the audit trail."""
+        import copy
+
+        from django.db import transaction
+
+        from .models import record_grade_change
+
+        proposal = self.get_object()
+        if proposal.status != GradeChangeProposal.Status.PROPOSED:
+            return Response(
+                {"detail": f"Proposal is already {proposal.get_status_display()}."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            if proposal.action == GradeChangeProposal.Action.DELETE:
+                grade = proposal.grade
+                record_grade_change(grade, "delete", request.user, old=grade)
+                grade.delete()
+                # Detach so the review record survives (FK is SET_NULL).
+                proposal.grade = None
+            elif proposal.action == GradeChangeProposal.Action.CREATE:
+                # A create proposal may omit is_absent; the grade field is non-null.
+                grade = Grade.objects.create(
+                    student=proposal.student,
+                    exam_schedule=proposal.exam_schedule,
+                    marks_obtained=proposal.marks_obtained_new,
+                    is_absent=bool(proposal.is_absent_new),
+                    remarks=proposal.remarks_new,
+                    graded_by=request.user,
+                )
+                record_grade_change(grade, "create", request.user)
+            else:  # update
+                grade = proposal.grade
+                old = copy.copy(grade)
+                grade.marks_obtained = proposal.marks_obtained_new
+                if proposal.is_absent_new is not None:
+                    grade.is_absent = proposal.is_absent_new
+                if proposal.remarks_new:
+                    grade.remarks = proposal.remarks_new
+                grade.graded_by = request.user
+                grade.save()
+                record_grade_change(grade, "update", request.user, old=old)
+
+            proposal.status = GradeChangeProposal.Status.APPROVED
+            proposal.reviewed_by = request.user
+            proposal.reviewed_at = timezone.now()
+            proposal.save()
+
+        return Response({"status": "approved", "detail": "Grade change applied."})
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        """Reject the proposed change; the grade stays as-is."""
+        proposal = self.get_object()
+        if proposal.status != GradeChangeProposal.Status.PROPOSED:
+            return Response(
+                {"detail": f"Proposal is already {proposal.get_status_display()}."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proposal.status = GradeChangeProposal.Status.REJECTED
+        proposal.reviewed_by = request.user
+        proposal.reviewed_at = timezone.now()
+        proposal.review_notes = request.data.get("notes", "")[:500]
+        proposal.save()
+
+        return Response({"status": "rejected", "detail": "Grade change rejected."})
 
 
 class AssessmentViewSet(viewsets.ModelViewSet):

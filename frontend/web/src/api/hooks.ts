@@ -38,6 +38,7 @@ import type {
   AtRiskResponse,
   EnrollmentFunnelResponse,
   FeeForecastResponse,
+  GradeChangeProposal,
 } from "../types";
 import { VERIFICATION_REF } from "../types";
 
@@ -622,12 +623,46 @@ export function useEnrollmentFunnel() {
     staleTime: 10 * 60 * 1000, // 10 min — applications change slowly
   });
 }
-
 export function useFeeForecast() {
   return useQuery({
     queryKey: ["reporting", "fee-forecast"],
     queryFn: () => api.get<FeeForecastResponse>("/reporting/fee-forecast/"),
     staleTime: 10 * 60 * 1000, // 10 min — forecast windows are stable
+  });
+}
+
+// ─── Grade-change approval workflow ────────────────────────────────────────────
+
+export function useGradeChangeProposals(params?: {
+  status?: string;
+  exam_id?: string;
+  student_id?: string;
+}) {
+  return useQuery({
+    queryKey: ["gradebook", "proposals", params],
+    queryFn: () => api.get<PaginatedResponse<GradeChangeProposal>>("/gradebook/proposals/", params),
+    staleTime: 30_000, // 30s — review queue is time-sensitive
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useApproveGradeChangeProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/gradebook/proposals/${id}/approve/`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gradebook", "proposals"] });
+      qc.invalidateQueries({ queryKey: ["gradebook"] });
+    },
+  });
+}
+
+export function useRejectGradeChangeProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      api.post(`/gradebook/proposals/${id}/reject/`, { notes }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["gradebook", "proposals"] }),
   });
 }
 

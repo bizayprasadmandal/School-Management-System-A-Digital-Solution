@@ -66,7 +66,16 @@ GRADEBOOK_GRADES_BULK = url("gradebook/grades/bulk/")
 GRADEBOOK_GRADES = url("gradebook/grades/")
 GRADEBOOK_GRADES_IMPORT_CSV = url("gradebook/grades/import-csv/")
 GRADEBOOK_GRADES_HISTORY = url("gradebook/grades/history/")
+GRADEBOOK_PROPOSALS = url("gradebook/proposals/")
 GRADEBOOK_REPORT_CARDS = url("gradebook/report-cards/")
+
+
+def gradebook_proposal_approve(proposal_id: str) -> str:
+    return url(f"gradebook/proposals/{proposal_id}/approve/")
+
+
+def gradebook_proposal_reject(proposal_id: str) -> str:
+    return url(f"gradebook/proposals/{proposal_id}/reject/")
 
 
 def gradebook_exam_leaderboard(exam_id: str) -> str:

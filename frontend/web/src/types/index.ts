@@ -648,6 +648,29 @@ export interface FeeForecastResponse {
   history_3m: Array<{ month: string; collected: number }>;
 }
 
+export interface GradeChangeProposal {
+  id: string;
+  student: string;
+  student_name: string;
+  admission_number: string;
+  exam_schedule: number;
+  subject: string;
+  exam: string;
+  max_marks: number;
+  action: "create" | "update" | "delete";
+  status: "proposed" | "approved" | "rejected";
+  marks_obtained_new: number | null;
+  marks_obtained_current: number | null;
+  is_absent_new: boolean;
+  remarks_new: string;
+  reason: string;
+  proposed_by: string | null;
+  proposed_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string;
+}
+
 // ─── Common ────────────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
