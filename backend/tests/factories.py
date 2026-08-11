@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import factory
 import factory.django
+import factory.fuzzy  # noqa: F401 — load-bearing: enables `factory.fuzzy` attribute access
 from factory import SubFactory
 
 
