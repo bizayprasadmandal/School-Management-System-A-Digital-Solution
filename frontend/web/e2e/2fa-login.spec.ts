@@ -42,6 +42,23 @@ async function interceptLoginWith2FA(page) {
 }
 
 /**
+ * Catch-all for any other API request made after login (announcements,
+ * notifications, unread counts, …). Returning 200 with empty payloads
+ * prevents an accidental 401 from the fake JWT, which would trigger the
+ * refresh-token interceptor → logout → the authenticated layout unmounting
+ * mid-assertion (the historical source of this suite's flakiness).
+ */
+async function interceptRemainingApi(page) {
+  await page.route("**/api/v1/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [], count: 0, next: null, previous: null }),
+    });
+  });
+}
+
+/**
  * Intercept the admin dashboard stats endpoint so AdminDashboard resolves
  * past its loading skeleton and renders the greeting heading deterministically.
  */
@@ -135,6 +152,7 @@ async function enterTOTPCode(page, code: string) {
 
 test.describe("2FA Login — TOTP Flow", () => {
   test("full TOTP flow: login → 2FA → enter code → dashboard", async ({ page }) => {
+    await interceptRemainingApi(page);
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
     await interceptDashboardStats(page);
@@ -261,6 +279,7 @@ test.describe("2FA Login — Backup Code Flow", () => {
   test("full backup code flow: login → switch to backup → enter code → dashboard", async ({
     page,
   }) => {
+    await interceptRemainingApi(page);
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
     await interceptDashboardStats(page);
@@ -514,6 +533,7 @@ test.describe("2FA Login — Backup Code Lockout Handling", () => {
 
 test.describe("2FA Login — Full End-to-End Flow", () => {
   test("complete flow: login → TOTP → admin dashboard", async ({ page }) => {
+    await interceptRemainingApi(page);
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
     await interceptDashboardStats(page);
@@ -555,6 +575,7 @@ test.describe("2FA Login — Full End-to-End Flow", () => {
   });
 
   test("complete flow: login → backup code → admin dashboard", async ({ page }) => {
+    await interceptRemainingApi(page);
     await interceptLoginWith2FA(page);
     await interceptVerify2FASuccess(page);
     await interceptDashboardStats(page);
