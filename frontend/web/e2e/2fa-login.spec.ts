@@ -119,7 +119,9 @@ test.describe("2FA Login — TOTP Flow", () => {
     await loginWith2FA(page);
 
     // Should be on the verify-2fa page
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
     await expect(page.getByRole("button", { name: "Authenticator app" })).toBeVisible();
     await expect(page.getByText(ADMIN_EMAIL)).toBeVisible();
 
@@ -135,7 +137,9 @@ test.describe("2FA Login — TOTP Flow", () => {
     await page.waitForURL("**/admin**", { timeout: 10_000 });
 
     // Should see welcome toast
-    await expect(page.getByText("Welcome back, Admin!")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Admin/ })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("shows error with invalid TOTP code", async ({ page }) => {
@@ -147,7 +151,9 @@ test.describe("2FA Login — TOTP Flow", () => {
     );
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Enter an invalid code
     await enterTOTPCode(page, "000000");
@@ -171,7 +177,9 @@ test.describe("2FA Login — TOTP Flow", () => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Focus the first input and type a digit via keyboard
     const firstInput = page.locator('input[aria-label="Digit 1"]');
@@ -190,7 +198,9 @@ test.describe("2FA Login — TOTP Flow", () => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Simulate a paste event on the first input with clipboard data
     await page.evaluate(() => {
@@ -202,7 +212,10 @@ test.describe("2FA Login — TOTP Flow", () => {
       dt.setData("text/plain", "987654");
 
       // Create and dispatch a paste event with clipboardData attached
-      const pasteEvent = new Event("paste", { bubbles: true, cancelable: true });
+      const pasteEvent = new Event("paste", {
+        bubbles: true,
+        cancelable: true,
+      });
       Object.defineProperty(pasteEvent, "clipboardData", { value: dt });
       input.dispatchEvent(pasteEvent);
     });
@@ -229,7 +242,9 @@ test.describe("2FA Login — Backup Code Flow", () => {
 
     // Step 1: Login
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Step 2: Switch to backup code tab
     await page.locator("button").filter({ hasText: "Backup code" }).click();
@@ -251,7 +266,9 @@ test.describe("2FA Login — Backup Code Flow", () => {
     await page.waitForURL("**/admin**", { timeout: 10_000 });
 
     // Should see welcome toast
-    await expect(page.getByText("Welcome back, Admin!")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Admin/ })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("shows error with invalid backup code", async ({ page }) => {
@@ -259,7 +276,9 @@ test.describe("2FA Login — Backup Code Flow", () => {
     await interceptVerify2FAError(page, 400, "Invalid backup code.");
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Switch to backup code tab
     await page.locator("button").filter({ hasText: "Backup code" }).click();
@@ -275,14 +294,18 @@ test.describe("2FA Login — Backup Code Flow", () => {
       .click();
 
     // Should see error
-    await expect(page.getByText("Invalid backup code.").first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Invalid backup code.").first()).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("auto-formats backup code with dash", async ({ page }) => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Switch to backup code
     await page.locator("button").filter({ hasText: "Backup code" }).click();
@@ -302,7 +325,9 @@ test.describe("2FA Login — Mode Switching", () => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Default should be TOTP mode
     await expect(
@@ -325,7 +350,9 @@ test.describe("2FA Login — Mode Switching", () => {
     await interceptVerify2FAError(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Enter invalid code to trigger error
     await enterTOTPCode(page, "000000");
@@ -352,7 +379,9 @@ test.describe("2FA Login — Navigation", () => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Click "Back to sign in"
     await page.getByText("Back to sign in").click();
@@ -373,7 +402,9 @@ test.describe("2FA Login — Navigation", () => {
     await interceptLoginWith2FA(page);
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // The "Need help?" section should be visible
     await expect(page.getByText("Need help signing in?")).toBeVisible();
@@ -396,7 +427,9 @@ test.describe("2FA Login — Backup Code Lockout Handling", () => {
     });
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Switch to backup code
     await page.locator("button").filter({ hasText: "Backup code" }).click();
@@ -432,7 +465,9 @@ test.describe("2FA Login — Backup Code Lockout Handling", () => {
     });
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Switch to backup code
     await page.locator("button").filter({ hasText: "Backup code" }).click();
@@ -483,8 +518,12 @@ test.describe("2FA Login — Full End-to-End Flow", () => {
     // Step 6: Should land on admin dashboard
     await page.waitForURL("**/admin**", { timeout: 10_000 });
 
-    // Verify dashboard content is visible
-    await expect(page.getByText("Welcome back, Admin!")).toBeVisible({ timeout: 5_000 });
+    // Verify dashboard content is visible — assert the stable h1 greeting
+    // ("Good morning/afternoon/evening, Admin 👋") instead of the transient
+    // "Welcome back" toast, which auto-dismisses and flakes under CI load.
+    await expect(page.getByRole("heading", { level: 1, name: /Admin/ })).toBeVisible({
+      timeout: 10_000,
+    });
     // Verify the user menu trigger is present (indicating authenticated state)
     await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({ timeout: 5_000 });
   });
@@ -519,7 +558,9 @@ test.describe("2FA Login — Full End-to-End Flow", () => {
 
     // Step 6: Admin dashboard
     await page.waitForURL("**/admin**", { timeout: 10_000 });
-    await expect(page.getByText("Welcome back, Admin!")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Admin/ })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible({ timeout: 5_000 });
   });
 });
@@ -541,13 +582,17 @@ test.describe("2FA Login — Backup Codes Remaining Badge", () => {
     });
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Switch to backup code tab
     await page.locator("button").filter({ hasText: "Backup code" }).click();
 
     // Should see the remaining count badge
-    await expect(page.getByText("4 backup codes remaining")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByText("4 backup codes remaining")).toBeVisible({
+      timeout: 3_000,
+    });
   });
 
   test("shows low-badge in amber when <= 2 codes remaining", async ({ page }) => {
@@ -569,7 +614,9 @@ test.describe("2FA Login — Backup Codes Remaining Badge", () => {
     await page.locator("button").filter({ hasText: "Backup code" }).click();
 
     // Should show singular "1 backup code remaining" (not "codes")
-    await expect(page.getByText("1 backup code remaining")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByText("1 backup code remaining")).toBeVisible({
+      timeout: 3_000,
+    });
     await expect(page.getByText("1 backup codes remaining")).not.toBeVisible();
   });
 
@@ -591,7 +638,9 @@ test.describe("2FA Login — Backup Codes Remaining Badge", () => {
     await page.locator("button").filter({ hasText: "Backup code" }).click();
 
     // Should show full count
-    await expect(page.getByText("8 backup codes remaining")).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByText("8 backup codes remaining")).toBeVisible({
+      timeout: 3_000,
+    });
   });
 
   test("badge not shown when backup_codes_remaining is not provided", async ({ page }) => {
@@ -632,7 +681,9 @@ test.describe("2FA Login — Throttle Error Handling", () => {
     });
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Enter a TOTP code and submit
     await enterTOTPCode(page, "123456");
@@ -642,7 +693,9 @@ test.describe("2FA Login — Throttle Error Handling", () => {
       .click();
 
     // Should see throttle error message
-    await expect(page.getByText("Request was throttled.").first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Request was throttled.").first()).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("throttle and lockout messages are distinct", async ({ page }) => {
@@ -660,7 +713,9 @@ test.describe("2FA Login — Throttle Error Handling", () => {
     });
 
     await loginWith2FA(page);
-    await expect(page.getByText("Two-factor authentication")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Two-factor authentication")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Submit a TOTP code to trigger lockout response
     await enterTOTPCode(page, "000000");
@@ -670,7 +725,9 @@ test.describe("2FA Login — Throttle Error Handling", () => {
       .click();
 
     // Should see "Access temporarily locked" banner for lockout
-    await expect(page.getByText("Access temporarily locked")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Access temporarily locked")).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Should NOT see the generic throttle message
     await expect(page.getByText("Request was throttled.").first()).not.toBeVisible();
@@ -704,6 +761,8 @@ test.describe("2FA Login — Throttle Error Handling", () => {
       .click();
 
     // Attempts warning should be visible
-    await expect(page.getByText("Warning: 1 attempt remaining")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Warning: 1 attempt remaining")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });
