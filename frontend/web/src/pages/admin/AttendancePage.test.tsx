@@ -28,7 +28,7 @@ jest.mock("react-hot-toast", () => ({
 }));
 
 jest.mock("../../api/client", () => ({
-  api: { get: jest.fn() },
+  api: { get: jest.fn(), post: jest.fn() },
 }));
 
 jest.mock("../../api/hooks", () => ({
@@ -93,5 +93,15 @@ describe("Admin AttendancePage", () => {
     renderWithProviders(<AttendancePage />);
     await userEvent.selectOptions(screen.getByRole("combobox"), "1");
     expect(await screen.findByText("Alice Johnson")).toBeInTheDocument();
+  });
+
+  test("opens the CSV import wizard from the toolbar", async () => {
+    renderWithProviders(<AttendancePage />);
+    await userEvent.click(screen.getByText("Import CSV"));
+    // Modal opens with the upload dropzone and the attendance CSV format help
+    expect(screen.getByText("Drop CSV file here or click to browse")).toBeInTheDocument();
+    expect(
+      screen.getByText(/admission_number,date,status,remarks,classroom_name/),
+    ).toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@
  * export functionality, and payment modal.
  */
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -148,6 +148,13 @@ describe("rendering", () => {
       expect(screen.getByText("Generate Invoices")).toBeInTheDocument();
     });
   });
+
+  test("renders Import CSV button", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Import CSV")).toBeInTheDocument();
+    });
+  });
 });
 
 // ─── 2. Summary Cards ──────────────────────────────────────────────────────────
@@ -275,6 +282,48 @@ describe("filters", () => {
     await waitFor(() => {
       expect(screen.getByText("All Status")).toBeInTheDocument();
     });
+  });
+});
+
+// ─── 5.5 CSV Import Wizard ────────────────────────────────────────────────────
+
+describe("csv import wizard", () => {
+  test("opens the import wizard with the fee CSV format", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Import CSV"));
+    // Modal opens with upload dropzone + fee invoice CSV format help
+    expect(screen.getByText("Drop CSV file here or click to browse")).toBeInTheDocument();
+    expect(
+      screen.getByText(/admission_number,fee_category_name,due_date,amount/),
+    ).toBeInTheDocument();
+  });
+
+  test("submits csv_data to the invoices import endpoint", async () => {
+    (api.post as jest.Mock).mockResolvedValue({ imported: 2, errors: [] });
+
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Import CSV"));
+
+    // Switch to paste mode and fill CSV data (fireEvent.change is reliable
+    // for the controlled multiline textarea; userEvent.type stalls on \n)
+    await user.click(screen.getByText("Paste Data"));
+    fireEvent.change(screen.getByPlaceholderText("Paste CSV data here (include header row)..."), {
+      target: {
+        value:
+          "admission_number,fee_category_name,due_date,amount\nADM-001,Tuition,2024-07-01,5000\n",
+      },
+    });
+    await user.click(screen.getByText("Import Data"));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        "/fees/invoices/import-csv/",
+        expect.objectContaining({ csv_data: expect.stringContaining("ADM-001") }),
+      );
+    });
+    expect(await screen.findByText(/2 records imported/)).toBeInTheDocument();
   });
 });
 

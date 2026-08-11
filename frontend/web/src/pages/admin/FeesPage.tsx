@@ -4,20 +4,34 @@
 
 import React, { useState } from "react";
 import {
-  ArrowDownTrayIcon, BanknotesIcon, CheckCircleIcon, ClockIcon,
-  ExclamationCircleIcon, ReceiptPercentIcon, DocumentPlusIcon,
-  AcademicCapIcon, TagIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  BanknotesIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationCircleIcon,
+  ReceiptPercentIcon,
+  DocumentPlusIcon,
+  AcademicCapIcon,
+  TagIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 import type { FeeInvoice } from "../../types";
 import {
-  Button, Badge, Modal, DataTable, Input, Select, EmptyState,
+  Button,
+  Badge,
+  Modal,
+  DataTable,
+  Input,
+  Select,
+  EmptyState,
 } from "../../components/common";
 import type { Column, BadgeColor } from "../../components/common";
 import PaymentHistoryModal from "../../components/common/PaymentHistoryModal";
 import GenerateInvoicesModal from "../../components/common/GenerateInvoicesModal";
+import ImportCsvModal from "../../components/common/ImportCsvModal";
 import ScholarshipsPanel from "../../components/common/ScholarshipsPanel";
 import FeeCategoriesPanel from "../../components/common/FeeCategoriesPanel";
 import FeeStructuresPanel from "../../components/common/FeeStructuresPanel";
@@ -25,11 +39,11 @@ import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 
 const STATUS_CONFIG: Record<string, { label: string; color: BadgeColor }> = {
-  unpaid:    { label: "Unpaid",   color: "amber" },
-  paid:      { label: "Paid",     color: "green" },
-  overdue:   { label: "Overdue",  color: "red" },
-  partial:   { label: "Partial",  color: "blue" },
-  waived:    { label: "Waived",   color: "slate" },
+  unpaid: { label: "Unpaid", color: "amber" },
+  paid: { label: "Paid", color: "green" },
+  overdue: { label: "Overdue", color: "red" },
+  partial: { label: "Partial", color: "blue" },
+  waived: { label: "Waived", color: "slate" },
   cancelled: { label: "Cancelled", color: "slate" },
 };
 
@@ -44,11 +58,12 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
   const qc = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => api.post("/fees/payments/", {
-      invoice_id: invoice.id,
-      amount: parseFloat(amount),
-      payment_method: method,
-    }),
+    mutationFn: () =>
+      api.post("/fees/payments/", {
+        invoice_id: invoice.id,
+        amount: parseFloat(amount),
+        payment_method: method,
+      }),
     onSuccess: () => {
       toast.success("Payment recorded successfully");
       qc.invalidateQueries({ queryKey: ["fees"] });
@@ -66,8 +81,14 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
       size="md"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => mutate()} loading={isPending} disabled={!amount || parseFloat(amount) <= 0}>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => mutate()}
+            loading={isPending}
+            disabled={!amount || parseFloat(amount) <= 0}
+          >
             Record Payment
           </Button>
         </>
@@ -77,11 +98,15 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
         <div className="rounded-lg bg-slate-50 p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Total</span>
-            <span className="font-medium text-slate-900">${invoice.total_amount.toLocaleString()}</span>
+            <span className="font-medium text-slate-900">
+              ${invoice.total_amount.toLocaleString()}
+            </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Already Paid</span>
-            <span className="font-medium text-green-600">${invoice.paid_amount.toLocaleString()}</span>
+            <span className="font-medium text-green-600">
+              ${invoice.paid_amount.toLocaleString()}
+            </span>
           </div>
           <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2">
             <span>Outstanding</span>
@@ -95,22 +120,22 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
           min={0.01}
           max={invoice.outstanding_amount}
           value={amount}
-          onChange={e => setAmount(e.target.value)}
+          onChange={(e) => setAmount(e.target.value)}
         />
 
         <Select
           label="Payment Method"
           value={method}
-          onChange={e => setMethod(e.target.value)}
+          onChange={(e) => setMethod(e.target.value)}
           options={[
             { value: "cash", label: "Cash" },
             { value: "bank_transfer", label: "Bank Transfer" },
             { value: "card", label: "Card" },
             { value: "cheque", label: "Cheque" },
-          { value: "online", label: "Online Gateway" },
-          { value: "mobile", label: "Mobile Money" },
-          { value: "khalti", label: "Khalti" },
-          { value: "esewa", label: "eSewa" },
+            { value: "online", label: "Online Gateway" },
+            { value: "mobile", label: "Mobile Money" },
+            { value: "khalti", label: "Khalti" },
+            { value: "esewa", label: "eSewa" },
           ]}
         />
       </div>
@@ -127,13 +152,15 @@ export default function FeesPage() {
   const [payingInvoice, setPayingInvoice] = useState<FeeInvoice | null>(null);
   const [historyInvoice, setHistoryInvoice] = useState<FeeInvoice | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fees", "all-invoices", statusFilter, search],
-    queryFn: () => api.get<{ count: number; results: FeeInvoice[] }>("/fees/invoices/", {
-      status: statusFilter === "all" ? undefined : statusFilter,
-      search: search || undefined,
-    }),
+    queryFn: () =>
+      api.get<{ count: number; results: FeeInvoice[] }>("/fees/invoices/", {
+        status: statusFilter === "all" ? undefined : statusFilter,
+        search: search || undefined,
+      }),
   });
 
   const invoices = data?.results ?? [];
@@ -165,9 +192,10 @@ export default function FeesPage() {
   const summary = {
     total: invoices.reduce((s, i) => s + Number(i.total_amount), 0),
     collected: invoices.reduce((s, i) => s + Number(i.paid_amount), 0),
-    outstanding: invoices.filter(i => ["unpaid", "overdue", "partial"].includes(i.status))
+    outstanding: invoices
+      .filter((i) => ["unpaid", "overdue", "partial"].includes(i.status))
       .reduce((s, i) => s + Number(i.outstanding_amount), 0),
-    overdue: invoices.filter(i => i.status === "overdue").length,
+    overdue: invoices.filter((i) => i.status === "overdue").length,
   };
 
   const columns: Column<FeeInvoice>[] = [
@@ -185,7 +213,13 @@ export default function FeesPage() {
       key: "due_date",
       header: "Due Date",
       render: (inv) => (
-        <span className={dayjs(inv.due_date).isBefore(dayjs()) && inv.status === "unpaid" ? "text-red-600 font-medium" : "text-slate-600"}>
+        <span
+          className={
+            dayjs(inv.due_date).isBefore(dayjs()) && inv.status === "unpaid"
+              ? "text-red-600 font-medium"
+              : "text-slate-600"
+          }
+        >
           {dayjs(inv.due_date).format("MMM D, YYYY")}
         </span>
       ),
@@ -193,24 +227,41 @@ export default function FeesPage() {
     {
       key: "total_amount",
       header: "Total",
-      render: (inv) => <span className="font-medium text-slate-800">${Number(inv.total_amount).toLocaleString()}</span>,
+      render: (inv) => (
+        <span className="font-medium text-slate-800">
+          ${Number(inv.total_amount).toLocaleString()}
+        </span>
+      ),
     },
     {
       key: "paid_amount",
       header: "Paid",
-      render: (inv) => <span className="text-green-600">${Number(inv.paid_amount).toLocaleString()}</span>,
+      render: (inv) => (
+        <span className="text-green-600">${Number(inv.paid_amount).toLocaleString()}</span>
+      ),
     },
     {
       key: "outstanding_amount",
       header: "Outstanding",
-      render: (inv) => <span className="font-semibold text-red-600">${Number(inv.outstanding_amount).toLocaleString()}</span>,
+      render: (inv) => (
+        <span className="font-semibold text-red-600">
+          ${Number(inv.outstanding_amount).toLocaleString()}
+        </span>
+      ),
     },
     {
       key: "status",
       header: "Status",
       render: (inv) => {
-        const cfg = STATUS_CONFIG[inv.status] ?? { label: inv.status, color: "slate" as BadgeColor };
-        return <Badge color={cfg.color} dot>{cfg.label}</Badge>;
+        const cfg = STATUS_CONFIG[inv.status] ?? {
+          label: inv.status,
+          color: "slate" as BadgeColor,
+        };
+        return (
+          <Badge color={cfg.color} dot>
+            {cfg.label}
+          </Badge>
+        );
       },
     },
     {
@@ -227,11 +278,7 @@ export default function FeesPage() {
             Payments
           </Button>
           {["unpaid", "overdue", "partial"].includes(inv.status) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPayingInvoice(inv)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setPayingInvoice(inv)}>
               Record
             </Button>
           )}
@@ -267,7 +314,9 @@ export default function FeesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Fee Management</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Track invoices, payments and outstanding balances</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Track invoices, payments and outstanding balances
+          </p>
         </div>
         {tab === "invoices" && (
           <div className="flex items-center gap-2">
@@ -277,6 +326,13 @@ export default function FeesPage() {
               leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
             >
               Export CSV
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowImportModal(true)}
+              leftIcon={<ArrowUpTrayIcon className="h-4 w-4" />}
+            >
+              Import CSV
             </Button>
             <Button
               onClick={() => setShowGenerateModal(true)}
@@ -291,12 +347,35 @@ export default function FeesPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: "Total Invoiced",  value: `$${(summary.total / 1000).toFixed(1)}K`, color: "bg-indigo-500", icon: BanknotesIcon },
-          { label: "Collected",       value: `$${(summary.collected / 1000).toFixed(1)}K`, color: "bg-green-500", icon: CheckCircleIcon },
-          { label: "Outstanding",     value: `$${(summary.outstanding / 1000).toFixed(1)}K`, color: "bg-amber-500", icon: ClockIcon },
-          { label: "Overdue Invoices", value: summary.overdue, color: "bg-red-500", icon: ExclamationCircleIcon },
+          {
+            label: "Total Invoiced",
+            value: `$${(summary.total / 1000).toFixed(1)}K`,
+            color: "bg-indigo-500",
+            icon: BanknotesIcon,
+          },
+          {
+            label: "Collected",
+            value: `$${(summary.collected / 1000).toFixed(1)}K`,
+            color: "bg-green-500",
+            icon: CheckCircleIcon,
+          },
+          {
+            label: "Outstanding",
+            value: `$${(summary.outstanding / 1000).toFixed(1)}K`,
+            color: "bg-amber-500",
+            icon: ClockIcon,
+          },
+          {
+            label: "Overdue Invoices",
+            value: summary.overdue,
+            color: "bg-red-500",
+            icon: ExclamationCircleIcon,
+          },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+          <div
+            key={label}
+            className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 flex items-center gap-4"
+          >
             <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
               <Icon className="h-5 w-5 text-white" />
             </div>
@@ -317,12 +396,12 @@ export default function FeesPage() {
                 type="search"
                 placeholder="Search student name or invoice…"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <Select
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
+              onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: "all", label: "All Status" },
                 { value: "unpaid", label: "Unpaid" },
@@ -337,10 +416,7 @@ export default function FeesPage() {
           {/* Invoices table */}
           {!isLoading && invoices.length === 0 ? (
             <div className="rounded-xl bg-white shadow-sm border border-slate-100">
-              <EmptyState
-                icon={BanknotesIcon}
-                title="No invoices found"
-              />
+              <EmptyState icon={BanknotesIcon} title="No invoices found" />
             </div>
           ) : (
             <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
@@ -371,6 +447,19 @@ export default function FeesPage() {
             open={showGenerateModal}
             onClose={() => setShowGenerateModal(false)}
           />
+
+          <ImportCsvModal
+            open={showImportModal}
+            onClose={() => setShowImportModal(false)}
+            endpoint="/fees/invoices/import-csv/"
+            invalidateQueries={[["fees", "all-invoices"]]}
+            helpText={`admission_number,fee_category_name,due_date,amount,discount_amount,notes
+ADM-001,Tuition,2024-07-01,5000,,
+ADM-002,Library,2024-07-01,1200,100,
+
+The fee structure is resolved from the student's grade + category for the
+current academic year; missing structures become row errors.`}
+          />
         </>
       )}
 
@@ -383,7 +472,6 @@ export default function FeesPage() {
       )}
 
       {tab === "scholarships" && <ScholarshipsPanel />}
-
     </div>
   );
 }
