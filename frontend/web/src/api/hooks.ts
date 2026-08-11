@@ -2,12 +2,7 @@
  * TanStack Query hooks — typed data fetching for all SMS modules
  */
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
   PaginatedResponse,
@@ -40,6 +35,9 @@ import type {
   School,
   PlatformDashboardStats,
   SchoolAdminUser,
+  AtRiskResponse,
+  EnrollmentFunnelResponse,
+  FeeForecastResponse,
 } from "../types";
 import { VERIFICATION_REF } from "../types";
 
@@ -54,8 +52,10 @@ export const QK = {
     grades: (id: string) => ["students", id, "grades"] as const,
   },
   attendance: {
-    classroom: (classroomId: number, date: string) => ["attendance", "classroom", classroomId, date] as const,
-    student: (studentId: string, month: number, year: number) => ["attendance", "student", studentId, month, year] as const,
+    classroom: (classroomId: number, date: string) =>
+      ["attendance", "classroom", classroomId, date] as const,
+    student: (studentId: string, month: number, year: number) =>
+      ["attendance", "student", studentId, month, year] as const,
   },
   gradebook: {
     exams: (academicYearId: number) => ["gradebook", "exams", academicYearId] as const,
@@ -63,7 +63,8 @@ export const QK = {
     reportCards: (studentId: string) => ["gradebook", "reportCards", studentId] as const,
   },
   timetable: {
-    classroom: (classroomId: number, academicYearId: number) => ["timetable", classroomId, academicYearId] as const,
+    classroom: (classroomId: number, academicYearId: number) =>
+      ["timetable", classroomId, academicYearId] as const,
     teacher: (userId: string) => ["timetable", "teacher", userId] as const,
   },
   communication: {
@@ -102,8 +103,8 @@ export function useStudents(params?: {
   return useQuery({
     queryKey: QK.students.list(params),
     queryFn: () => api.get<PaginatedResponse<StudentListItem>>("/students/", params),
-    staleTime: 3 * 60 * 1000,               // 3 min — students may be updated by admin
-    placeholderData: keepPreviousData,       // show previous page while navigating
+    staleTime: 3 * 60 * 1000, // 3 min — students may be updated by admin
+    placeholderData: keepPreviousData, // show previous page while navigating
   });
 }
 
@@ -112,7 +113,7 @@ export function useStudent(id: string) {
     queryKey: QK.students.detail(id),
     queryFn: () => api.get<StudentDetail>(`/students/${id}/`),
     enabled: !!id,
-    staleTime: 2 * 60 * 1000,               // 2 min — profile edits by admin
+    staleTime: 2 * 60 * 1000, // 2 min — profile edits by admin
   });
 }
 
@@ -127,7 +128,8 @@ export function useCreateStudent() {
 export function useUpdateStudent(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<StudentDetail>) => api.patch<StudentDetail>(`/students/${id}/`, data),
+    mutationFn: (data: Partial<StudentDetail>) =>
+      api.patch<StudentDetail>(`/students/${id}/`, data),
     onSuccess: (updated) => {
       qc.setQueryData(QK.students.detail(id), updated);
       qc.invalidateQueries({ queryKey: QK.students.all });
@@ -135,10 +137,7 @@ export function useUpdateStudent(id: string) {
   });
 }
 
-export function useStudentAttendanceSummary(
-  studentId: string,
-  academicYearId?: number
-) {
+export function useStudentAttendanceSummary(studentId: string, academicYearId?: number) {
   return useQuery({
     queryKey: QK.students.attendance(studentId, { academic_year: academicYearId }),
     queryFn: () =>
@@ -146,8 +145,8 @@ export function useStudentAttendanceSummary(
         academic_year: academicYearId,
       }),
     enabled: !!studentId,
-    staleTime: 60 * 1000,                   // 1 min — attendance changes daily
-    gcTime: 5 * 60 * 1000,                  // keep in cache 5 min for SWR
+    staleTime: 60 * 1000, // 1 min — attendance changes daily
+    gcTime: 5 * 60 * 1000, // keep in cache 5 min for SWR
   });
 }
 
@@ -177,20 +176,15 @@ export function useClassroomAttendance(classroomId: number, date: string) {
         date,
       }),
     enabled: !!classroomId,
-    staleTime: 60 * 1000,                   // 1 min — teachers update attendance live
-    gcTime: 10 * 60 * 1000,                 // keep stale 10 min
+    staleTime: 60 * 1000, // 1 min — teachers update attendance live
+    gcTime: 10 * 60 * 1000, // keep stale 10 min
   });
 }
 
-export function useStudentMonthlyAttendance(
-  studentId: string,
-  month: number,
-  year: number
-) {
+export function useStudentMonthlyAttendance(studentId: string, month: number, year: number) {
   return useQuery({
     queryKey: QK.attendance.student(studentId, month, year),
-    queryFn: () =>
-      api.get(`/attendance/student-report/`, { student_id: studentId, month, year }),
+    queryFn: () => api.get(`/attendance/student-report/`, { student_id: studentId, month, year }),
     enabled: !!studentId,
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -217,7 +211,7 @@ export function useExams(academicYearId: number) {
     queryFn: () =>
       api.get<PaginatedResponse<Exam>>("/gradebook/exams/", { academic_year: academicYearId }),
     enabled: !!academicYearId,
-    staleTime: 5 * 60 * 1000,               // 5 min
+    staleTime: 5 * 60 * 1000, // 5 min
     placeholderData: keepPreviousData,
   });
 }
@@ -228,7 +222,7 @@ export function useReportCards(studentId: string) {
     queryFn: () =>
       api.get<PaginatedResponse<ReportCard>>("/gradebook/report-cards/", { student: studentId }),
     enabled: !!studentId,
-    staleTime: 10 * 60 * 1000,              // 10 min — report cards stable once published
+    staleTime: 10 * 60 * 1000, // 10 min — report cards stable once published
   });
 }
 
@@ -237,7 +231,12 @@ export function useSubmitGrades() {
   return useMutation({
     mutationFn: (data: {
       exam_schedule_id: number;
-      grades: Array<{ student_id: string; marks_obtained: number | null; is_absent: boolean; remarks?: string }>;
+      grades: Array<{
+        student_id: string;
+        marks_obtained: number | null;
+        is_absent: boolean;
+        remarks?: string;
+      }>;
     }) => api.post("/gradebook/grades/bulk/", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["gradebook"] }),
   });
@@ -246,8 +245,7 @@ export function useSubmitGrades() {
 export function useGenerateReportCards() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (examId: string) =>
-      api.post(`/gradebook/exams/${examId}/generate-report-cards/`),
+    mutationFn: (examId: string) => api.post(`/gradebook/exams/${examId}/generate-report-cards/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["gradebook"] }),
   });
 }
@@ -263,7 +261,7 @@ export function useClassroomTimetable(classroomId: number, academicYearId: numbe
         academic_year: academicYearId,
       }),
     enabled: !!classroomId && !!academicYearId,
-    staleTime: 15 * 60 * 1000,              // 15 min — timetable is semester-stable
+    staleTime: 15 * 60 * 1000, // 15 min — timetable is semester-stable
   });
 }
 
@@ -271,7 +269,7 @@ export function useSchoolEvents() {
   return useQuery({
     queryKey: ["school-events"],
     queryFn: () => api.get<PaginatedResponse<SchoolEvent>>("/timetable/events/"),
-    staleTime: 10 * 60 * 1000,               // 10 min
+    staleTime: 10 * 60 * 1000, // 10 min
   });
 }
 
@@ -281,9 +279,9 @@ export function useAnnouncements() {
   return useQuery({
     queryKey: QK.communication.announcements,
     queryFn: () => api.get<PaginatedResponse<Announcement>>("/communication/announcements/"),
-    staleTime: 60 * 1000,                    // 1 min — announcements are time-sensitive
+    staleTime: 60 * 1000, // 1 min — announcements are time-sensitive
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 3 * 60 * 1000,          // poll every 3 min
+    refetchInterval: 3 * 60 * 1000, // poll every 3 min
   });
 }
 
@@ -291,9 +289,9 @@ export function useNotifications() {
   return useQuery({
     queryKey: QK.communication.notifications,
     queryFn: () => api.get<PaginatedResponse<Notification>>("/communication/notifications/"),
-    staleTime: 30_000,        // 30s — notification list is live
-    refetchInterval: 5 * 60 * 1000,  // 5 min — WebSocket provides real-time delivery
-    gcTime: 5 * 60 * 1000,    // 5 min cache
+    staleTime: 30_000, // 30s — notification list is live
+    refetchInterval: 5 * 60 * 1000, // 5 min — WebSocket provides real-time delivery
+    gcTime: 5 * 60 * 1000, // 5 min cache
   });
 }
 
@@ -301,11 +299,9 @@ export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: QK.communication.unreadCount,
     queryFn: () =>
-      api
-        .get<{ count: number }>("/communication/notifications/unread-count/")
-        .then((r) => r.count),
+      api.get<{ count: number }>("/communication/notifications/unread-count/").then((r) => r.count),
     staleTime: 30_000,
-    refetchInterval: 30_000,   // lightweight count — keep at 30s for responsive badge
+    refetchInterval: 30_000, // lightweight count — keep at 30s for responsive badge
     gcTime: 5 * 60 * 1000,
   });
 }
@@ -317,16 +313,13 @@ export function useUnreadNotificationCount() {
 export function useUnreadVerificationCount(): number {
   const { data } = useNotifications();
   if (!data?.results) return 0;
-  return data.results.filter(
-    (n) => n.reference_type === VERIFICATION_REF && !n.read_at
-  ).length;
+  return data.results.filter((n) => n.reference_type === VERIFICATION_REF && !n.read_at).length;
 }
 
 export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api.patch(`/communication/notifications/${id}/mark-read/`, {}),
+    mutationFn: (id: string) => api.patch(`/communication/notifications/${id}/mark-read/`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.communication.notifications });
       qc.invalidateQueries({ queryKey: QK.communication.unreadCount });
@@ -351,7 +344,7 @@ export function useStudentInvoices(studentId: string) {
     queryFn: () =>
       api.get<PaginatedResponse<FeeInvoice>>("/fees/invoices/", { student: studentId }),
     enabled: !!studentId,
-    staleTime: 2 * 60 * 1000,                // 2 min — payment status can change
+    staleTime: 2 * 60 * 1000, // 2 min — payment status can change
     placeholderData: keepPreviousData,
   });
 }
@@ -369,7 +362,7 @@ export function useFeeStructures() {
   return useQuery({
     queryKey: ["fee-structures"],
     queryFn: () => api.get<PaginatedResponse<FeeStructure>>("/fees/structures/"),
-    staleTime: 5 * 60 * 1000,               // 5 min — structures change infrequently
+    staleTime: 5 * 60 * 1000, // 5 min — structures change infrequently
   });
 }
 
@@ -483,7 +476,7 @@ export function useGradeLevels() {
   return useQuery({
     queryKey: QK.grades.all,
     queryFn: () => api.get<PaginatedResponse<GradeLevel>>("/students/grades/"),
-    staleTime: 30 * 60 * 1000,               // 30 min — grade levels are static
+    staleTime: 30 * 60 * 1000, // 30 min — grade levels are static
   });
 }
 
@@ -492,8 +485,8 @@ export function useClassrooms(gradeId?: number, page: number = 1) {
     queryKey: QK.classrooms.list({ grade: gradeId, page }),
     queryFn: () =>
       api.get<PaginatedResponse<Classroom>>("/students/classrooms/", { grade: gradeId, page }),
-    staleTime: 10 * 60 * 1000,               // 10 min — classrooms change termly
-    placeholderData: keepPreviousData,       // keep old list while switching grade filter
+    staleTime: 10 * 60 * 1000, // 10 min — classrooms change termly
+    placeholderData: keepPreviousData, // keep old list while switching grade filter
   });
 }
 
@@ -501,7 +494,7 @@ export function useAcademicYears() {
   return useQuery({
     queryKey: QK.academicYears.all,
     queryFn: () => api.get<PaginatedResponse<AcademicYear>>("/students/academic-years/"),
-    staleTime: 30 * 60 * 1000,               // 30 min — academic years are rare-changing
+    staleTime: 30 * 60 * 1000, // 30 min — academic years are rare-changing
   });
 }
 
@@ -510,7 +503,8 @@ export function useAcademicYears() {
 export function useStudentAssessments(studentId?: string) {
   return useQuery({
     queryKey: ["assessments", "student", studentId],
-    queryFn: () => api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/", { student: studentId }),
+    queryFn: () =>
+      api.get<PaginatedResponse<Assessment>>("/gradebook/assessments/", { student: studentId }),
     enabled: !!studentId,
     staleTime: 2 * 60 * 1000,
   });
@@ -544,7 +538,8 @@ export function useCreateAssessment() {
 export function useSubmitAssessment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: FormData) => api.upload<AssessmentSubmission>("/gradebook/submissions/", data),
+    mutationFn: (data: FormData) =>
+      api.upload<AssessmentSubmission>("/gradebook/submissions/", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["submissions"] });
       qc.invalidateQueries({ queryKey: ["assessments"] });
@@ -555,7 +550,15 @@ export function useSubmitAssessment() {
 export function useGradeSubmission() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, marks_obtained, remarks }: { id: number; marks_obtained: number; remarks?: string }) =>
+    mutationFn: ({
+      id,
+      marks_obtained,
+      remarks,
+    }: {
+      id: number;
+      marks_obtained: number;
+      remarks?: string;
+    }) =>
       api.patch<AssessmentSubmission>(`/gradebook/submissions/${id}/`, { marks_obtained, remarks }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["submissions"] }),
   });
@@ -580,7 +583,7 @@ export function useCurrentAcademicYear() {
       api
         .get<PaginatedResponse<AcademicYear>>("/students/academic-years/", { is_current: true })
         .then((r) => r.results[0] ?? null),
-    staleTime: 30 * 60 * 1000,               // 30 min — changes once a year
+    staleTime: 30 * 60 * 1000, // 30 min — changes once a year
   });
 }
 
@@ -595,11 +598,36 @@ export function useTeacherAssignmentList() {
 export function useSubjects(gradeId: number) {
   return useQuery({
     queryKey: QK.subjects.byGrade(gradeId),
-    queryFn: () =>
-      api.get<PaginatedResponse<Subject>>("/academics/subjects/", { grade: gradeId }),
+    queryFn: () => api.get<PaginatedResponse<Subject>>("/academics/subjects/", { grade: gradeId }),
     enabled: !!gradeId,
-    staleTime: 30 * 60 * 1000,               // 30 min — subject lists are static
-    placeholderData: keepPreviousData,       // keep old subjects while switching grade
+    staleTime: 30 * 60 * 1000, // 30 min — subject lists are static
+    placeholderData: keepPreviousData, // keep old subjects while switching grade
+  });
+}
+
+// ─── Reporting / Analytics ────────────────────────────────────────────────────
+
+export function useAtRiskStudents() {
+  return useQuery({
+    queryKey: ["reporting", "at-risk"],
+    queryFn: () => api.get<AtRiskResponse>("/reporting/at-risk-students/"),
+    staleTime: 5 * 60 * 1000, // 5 min — risk flags recompute daily
+  });
+}
+
+export function useEnrollmentFunnel() {
+  return useQuery({
+    queryKey: ["reporting", "enrollment-funnel"],
+    queryFn: () => api.get<EnrollmentFunnelResponse>("/reporting/enrollment-funnel/"),
+    staleTime: 10 * 60 * 1000, // 10 min — applications change slowly
+  });
+}
+
+export function useFeeForecast() {
+  return useQuery({
+    queryKey: ["reporting", "fee-forecast"],
+    queryFn: () => api.get<FeeForecastResponse>("/reporting/fee-forecast/"),
+    staleTime: 10 * 60 * 1000, // 10 min — forecast windows are stable
   });
 }
 
@@ -609,7 +637,7 @@ export function useProfile() {
   return useQuery({
     queryKey: ["profile"],
     queryFn: () => api.get<User>("/auth/profile/"),
-    staleTime: 30 * 60 * 1000,               // 30 min — profile rarely changes
+    staleTime: 30 * 60 * 1000, // 30 min — profile rarely changes
   });
 }
 
@@ -632,7 +660,8 @@ export function useCounselingAppointments(params?: {
 }) {
   return useQuery({
     queryKey: ["counseling", "appointments", params],
-    queryFn: () => api.get<{ results: CounselingAppointment[] }>("/counseling/appointments/", params),
+    queryFn: () =>
+      api.get<{ results: CounselingAppointment[] }>("/counseling/appointments/", params),
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   });
@@ -662,9 +691,22 @@ export function useUpdateCounselingAppointment() {
 export function useCompleteAppointment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, notes, follow_up_needed, follow_up_date }: {
-      id: string; notes?: string; follow_up_needed?: boolean; follow_up_date?: string;
-    }) => api.post(`/counseling/appointments/${id}/complete/`, { notes, follow_up_needed, follow_up_date }),
+    mutationFn: ({
+      id,
+      notes,
+      follow_up_needed,
+      follow_up_date,
+    }: {
+      id: string;
+      notes?: string;
+      follow_up_needed?: boolean;
+      follow_up_date?: string;
+    }) =>
+      api.post(`/counseling/appointments/${id}/complete/`, {
+        notes,
+        follow_up_needed,
+        follow_up_date,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
   });
 }
@@ -729,8 +771,14 @@ export function useAssignReferral() {
 export function useActionReferral() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, outcome, intervention_plan }: {
-      id: string; outcome?: string; intervention_plan?: string;
+    mutationFn: ({
+      id,
+      outcome,
+      intervention_plan,
+    }: {
+      id: string;
+      outcome?: string;
+      intervention_plan?: string;
     }) => api.post(`/counseling/referrals/${id}/action_taken/`, { outcome, intervention_plan }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["counseling"] }),
   });

@@ -527,8 +527,20 @@ export const VERIFICATION_REF = "email_verification";
 
 // ─── Counseling ────────────────────────────────────────────────────────────
 
-export type CounselingAppointmentStatus = "scheduled" | "in_progress" | "completed" | "cancelled" | "no_show";
-export type CounselingAppointmentType = "academic" | "career" | "personal" | "behavioral" | "college" | "group" | "other";
+export type CounselingAppointmentStatus =
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+export type CounselingAppointmentType =
+  | "academic"
+  | "career"
+  | "personal"
+  | "behavioral"
+  | "college"
+  | "group"
+  | "other";
 
 export interface CounselingAppointment {
   id: string;
@@ -585,6 +597,55 @@ export interface CounselorDashboardStats {
   referrals_resolved: number;
   total_appointments: number;
   total_referrals: number;
+}
+
+// ─── Reporting / Analytics ────────────────────────────────────────────────────
+
+export interface AtRiskStudent {
+  student_id: string;
+  student_name: string;
+  admission_number: string;
+  classroom: string | null;
+  attendance_pct: number | null;
+  absent_days: number;
+  avg_percentage: number | null;
+  reasons: string[];
+}
+
+export interface AtRiskResponse {
+  threshold_attendance_pct: number;
+  window_days: number;
+  count: number;
+  students: AtRiskStudent[];
+}
+
+export interface EnrollmentFunnelStage {
+  stage: string;
+  count: number;
+}
+
+export interface EnrollmentFunnelResponse {
+  intake_id: string | null;
+  total_applications: number;
+  funnel: EnrollmentFunnelStage[];
+  conversion: {
+    submitted_to_accepted: number;
+    accepted_to_enrolled: number;
+  };
+}
+
+export interface FeeForecastWindow {
+  window_start: string;
+  window_end: string;
+  expected: number;
+  already_paid: number;
+}
+
+export interface FeeForecastResponse {
+  today: string;
+  overdue_total: number;
+  forecast_90d: FeeForecastWindow[];
+  history_3m: Array<{ month: string; collected: number }>;
 }
 
 // ─── Common ────────────────────────────────────────────────────────────────────

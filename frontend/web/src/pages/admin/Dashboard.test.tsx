@@ -13,7 +13,12 @@ import AdminDashboard from "./Dashboard";
 import { useAuthStore } from "../../store/authStore";
 import type { User } from "../../types";
 import { api } from "../../api/client";
-import { useAnnouncements } from "../../api/hooks";
+import {
+  useAnnouncements,
+  useAtRiskStudents,
+  useEnrollmentFunnel,
+  useFeeForecast,
+} from "../../api/hooks";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -40,6 +45,9 @@ jest.mock("../../api/client", () => ({
 
 jest.mock("../../api/hooks", () => ({
   useAnnouncements: jest.fn(),
+  useAtRiskStudents: jest.fn(),
+  useEnrollmentFunnel: jest.fn(),
+  useFeeForecast: jest.fn(),
 }));
 
 // Mock recharts to avoid rendering issues in test environment
@@ -110,6 +118,53 @@ const mockAnnouncements = {
   count: 2,
 };
 
+const mockAtRisk = {
+  threshold_attendance_pct: 80,
+  window_days: 30,
+  count: 1,
+  students: [
+    {
+      student_id: "s1",
+      student_name: "Jane Doe",
+      admission_number: "ADM-001",
+      classroom: "Grade 5 - A",
+      attendance_pct: 61,
+      absent_days: 4,
+      avg_percentage: 71.2,
+      reasons: ["low_attendance", "low_academics"],
+    },
+  ],
+};
+
+const mockFunnel = {
+  intake_id: null,
+  total_applications: 25,
+  funnel: [
+    { stage: "submitted", count: 25 },
+    { stage: "under_review", count: 18 },
+    { stage: "shortlisted", count: 12 },
+    { stage: "accepted", count: 8 },
+    { stage: "enrolled", count: 5 },
+    { stage: "rejected", count: 3 },
+    { stage: "waitlisted", count: 2 },
+  ],
+  conversion: { submitted_to_accepted: 32, accepted_to_enrolled: 62.5 },
+};
+
+const mockForecast = {
+  today: "2024-06-15",
+  overdue_total: 82000,
+  forecast_90d: [
+    { window_start: "2024-06-15", window_end: "2024-07-14", expected: 120000, already_paid: 30000 },
+    { window_start: "2024-07-15", window_end: "2024-08-13", expected: 95000, already_paid: 0 },
+  ],
+  history_3m: [
+    { month: "2024-03", collected: 410000 },
+    { month: "2024-04", collected: 388000 },
+    { month: "2024-05", collected: 445000 },
+  ],
+};
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function renderPage() {
@@ -136,6 +191,9 @@ beforeEach(() => {
   (api.get as jest.Mock).mockResolvedValue(mockDashboardStats);
 
   (useAnnouncements as jest.Mock).mockReturnValue({ data: mockAnnouncements });
+  (useAtRiskStudents as jest.Mock).mockReturnValue({ data: mockAtRisk });
+  (useEnrollmentFunnel as jest.Mock).mockReturnValue({ data: mockFunnel });
+  (useFeeForecast as jest.Mock).mockReturnValue({ data: mockForecast });
 });
 
 // ─── 1. Rendering ──────────────────────────────────────────────────────────────
@@ -174,6 +232,14 @@ describe("rendering", () => {
     });
   });
 
+  test("renders analytics section headings", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("At-Risk Students")).toBeInTheDocument();
+      expect(screen.getByText("Enrollment Funnel")).toBeInTheDocument();
+    });
+  });
+
   test("renders announcements section", async () => {
     renderPage();
     await waitFor(() => {
@@ -209,7 +275,7 @@ describe("KPI data display", () => {
   test("shows delta indicators for student count", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/2.5%/)).toBeInTheDocument();
+      expect(screen.getByText(/^2\.5\s*%$/)).toBeInTheDocument();
       expect(screen.getByText(/vs last month/)).toBeInTheDocument();
     });
   });
@@ -332,7 +398,67 @@ describe("chart rendering", () => {
   test("renders fee collection bar chart", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("bar-chart")).toBeInTheDocument();
+      // Two bar charts now: fee trend/forecast + enrollment funnel
+      expect(screen.getAllByTestId("bar-chart").length).toBeGreaterThan(0);
+    });
+  });
+});
+
+// ─── 9. Analytics Sections ─────────────────────────────────────────────────────
+
+describe("analytics sections", () => {
+  test("renders at-risk student name and reason chips", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+      expect(screen.getByText("Attendance")).toBeInTheDocument();
+      expect(screen.getByText("Academics")).toBeInTheDocument();
+      expect(screen.getByText("61%")).toBeInTheDocument();
+    });
+  });
+
+  test("shows flagged count badge", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("1 flagged")).toBeInTheDocument();
+    });
+  });
+
+  test("renders funnel stage labels and conversion rates", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("25 apps")).toBeInTheDocument();
+      expect(screen.getByText("Submitted → Accepted")).toBeInTheDocument();
+      expect(screen.getByText("Accepted → Enrolled")).toBeInTheDocument();
+      expect(screen.getByText("32%")).toBeInTheDocument();
+      expect(screen.getByText("62.5%")).toBeInTheDocument();
+    });
+  });
+
+  test("renders fee forecast overdue badge and 90-day chip", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/\$82K overdue/)).toBeInTheDocument();
+      expect(screen.getByText("90-day forecast")).toBeInTheDocument();
+    });
+  });
+
+  test("shows empty states when analytics return no data", async () => {
+    (useAtRiskStudents as jest.Mock).mockReturnValue({
+      data: { ...mockAtRisk, count: 0, students: [] },
+    });
+    (useEnrollmentFunnel as jest.Mock).mockReturnValue({
+      data: {
+        ...mockFunnel,
+        total_applications: 0,
+        funnel: mockFunnel.funnel.map((f) => ({ ...f, count: 0 })),
+      },
+    });
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("🎉 No students currently flagged")).toBeInTheDocument();
+      expect(screen.getByText("No applications yet")).toBeInTheDocument();
     });
   });
 });
