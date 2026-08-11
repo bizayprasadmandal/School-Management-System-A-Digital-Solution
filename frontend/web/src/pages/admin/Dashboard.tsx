@@ -54,30 +54,19 @@ interface DashboardStats {
   fees_outstanding: number;
   student_delta_pct: number;
   attendance_delta_pct: number;
+  attendance_week?: { day: string; present: number; absent: number }[];
+  grade_distribution?: { name: string; value: number }[];
 }
 
-const ATTENDANCE_TREND = [
-  { day: "Mon", present: 94, absent: 6 },
-  { day: "Tue", present: 91, absent: 9 },
-  { day: "Wed", present: 96, absent: 4 },
-  { day: "Thu", present: 88, absent: 12 },
-  { day: "Fri", present: 93, absent: 7 },
-];
-
-const GRADE_DISTRIBUTION = [
-  { name: "A+", value: 18, color: "#22c55e" },
-  { name: "A", value: 24, color: "#86efac" },
-  { name: "B", value: 31, color: "#60a5fa" },
-  { name: "C", value: 17, color: "#fbbf24" },
-  { name: "D", value: 7, color: "#f97316" },
-  { name: "F", value: 3, color: "#ef4444" },
-];
-
-const FEE_TREND = [
-  { label: "Jan", collected: 519000, expected: null },
-  { label: "Feb", collected: 548000, expected: null },
-  { label: "Mar", collected: 532000, expected: null },
-];
+const GRADE_COLORS: Record<string, string> = {
+  "A+": "#22c55e",
+  A: "#86efac",
+  "B+": "#3b82f6",
+  B: "#60a5fa",
+  C: "#fbbf24",
+  D: "#f97316",
+  F: "#ef4444",
+};
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
@@ -178,8 +167,7 @@ export default function AdminDashboard() {
         collected: f.already_paid,
         expected: f.expected,
       })) ?? [];
-    const combined = [...history, ...future];
-    return combined.length > 0 ? combined : FEE_TREND;
+    return [...history, ...future];
   }, [forecast]);
 
   if (isLoading) return <SkeletonDashboard />;
@@ -241,39 +229,45 @@ export default function AdminDashboard() {
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">
               This Week&apos;s Attendance
             </h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart
-                data={ATTENDANCE_TREND}
-                margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} unit="%" />
-                <Tooltip formatter={(v) => [`${v}%`]} />
-                <Area
-                  type="monotone"
-                  dataKey="present"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fill="url(#presentGrad)"
-                  name="Present"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="absent"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  fill="transparent"
-                  name="Absent"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {(stats?.attendance_week?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">
+                No attendance recorded yet
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart
+                  data={stats!.attendance_week!}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip formatter={(v) => [`${v}%`]} />
+                  <Area
+                    type="monotone"
+                    dataKey="present"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    fill="url(#presentGrad)"
+                    name="Present"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="absent"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    fill="transparent"
+                    name="Absent"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Grade distribution */}
@@ -281,25 +275,31 @@ export default function AdminDashboard() {
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">
               Grade Distribution
             </h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={GRADE_DISTRIBUTION}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {GRADE_DISTRIBUTION.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend iconSize={10} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                <Tooltip formatter={(v) => [`${v}%`]} />
-              </PieChart>
-            </ResponsiveContainer>
+            {(stats?.grade_distribution?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">
+                No published report cards yet
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={stats!.grade_distribution!}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {stats!.grade_distribution!.map((entry) => (
+                      <Cell key={entry.name} fill={GRADE_COLORS[entry.name] ?? "#94a3b8"} />
+                    ))}
+                  </Pie>
+                  <Legend iconSize={10} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v) => [`${v} students`]} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </ErrorBoundary>
@@ -330,6 +330,10 @@ export default function AdminDashboard() {
             {forecastError ? (
               <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-10">
                 Fee forecast unavailable
+              </p>
+            ) : feeTrendData.length === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-10">
+                No fee collections yet
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={200}>

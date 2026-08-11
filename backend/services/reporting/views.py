@@ -98,6 +98,43 @@ class ReportingViewSet(viewsets.ViewSet):
         total_teachers = User.objects.filter(school=school, role=UserRole.TEACHER, is_active=True).count()
         total_classrooms = Classroom.objects.filter(school=school).count()
 
+        # Last 5 days with attendance records — present % per day for the trend chart
+        attendance_days = (
+            AttendanceRecord.objects.filter(student__school=school)
+            .values("date")
+            .annotate(
+                total=Count("id"),
+                present=Count("id", filter=Q(status__in=["P", "L"])),
+            )
+            .order_by("-date")[:5]
+        )
+        attendance_week = []
+        for row in reversed(list(attendance_days)):
+            present_pct = round(row["present"] / row["total"] * 100, 1) if row["total"] else 0
+            attendance_week.append(
+                {
+                    "day": row["date"].strftime("%a"),
+                    "present": present_pct,
+                    "absent": round(100 - present_pct, 1),
+                }
+            )
+
+        # Grade distribution from published report cards (current academic year)
+        current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        rc_qs = ReportCard.objects.filter(
+            student__school=school,
+            status__in=["published", "sent"],
+        )
+        if current_year:
+            rc_qs = rc_qs.filter(academic_year=current_year)
+        grade_distribution = [
+            {"name": row["grade_letter"], "value": row["count"]}
+            for row in rc_qs.exclude(grade_letter="")
+            .values("grade_letter")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        ]
+
         student_delta = (
             ((total_students - prev_month_students) / prev_month_students * 100) if prev_month_students else 0
         )
@@ -112,6 +149,8 @@ class ReportingViewSet(viewsets.ViewSet):
             "fees_outstanding": float(fees_outstanding),
             "student_delta_pct": round(student_delta, 1),
             "attendance_delta_pct": round(attendance_delta, 1),
+            "attendance_week": attendance_week,
+            "grade_distribution": grade_distribution,
         }
 
         cache.set(cache_key, result, 300)  # 5 minute TTL

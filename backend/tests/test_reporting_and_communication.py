@@ -3,86 +3,104 @@ Test Suite — Reporting, Communication, Timetable, Attendance Extended
 Covers all previously untested service areas.
 """
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.factories import (
-    SchoolFactory, AdminUserFactory, TeacherUserFactory, StudentUserFactory,
-    ParentUserFactory, StudentFactory, ClassroomFactory, AcademicYearFactory,
-    GradeFactory, EnrollmentFactory, SubjectFactory, TeacherAssignmentFactory,
-    ExamFactory, ExamScheduleFactory, GradeRecordFactory, AttendanceRecordFactory,
-    FeeCategoryFactory, FeeStructureFactory, FeeInvoiceFactory,
-    AnnouncementFactory, NotificationFactory, PeriodFactory, TimetableSlotFactory,
-    SchoolEventFactory,
+    AcademicYearFactory,
+    AdminUserFactory,
+    AnnouncementFactory,
+    ClassroomFactory,
+    EnrollmentFactory,
+    FeeCategoryFactory,
+    FeeInvoiceFactory,
+    FeeStructureFactory,
+    GradeFactory,
+    NotificationFactory,
+    ParentUserFactory,
+    SchoolFactory,
+    StudentFactory,
+    StudentUserFactory,
+    TeacherUserFactory,
 )
 from tests.url_helpers import (
-    REPORTING_DASHBOARD_STATS, REPORTING_ATTENDANCE_REPORT,
-    REPORTING_FEE_REPORT, REPORTING_EXPORT_STUDENTS_CSV,
-    REPORTING_EXPORT_ATTENDANCE_PDF,
-    COMMUNICATION_ANNOUNCEMENTS, COMMUNICATION_NOTIFICATIONS,
+    COMMUNICATION_ANNOUNCEMENTS,
+    COMMUNICATION_MESSAGES,
     COMMUNICATION_NOTIFICATIONS_MARK_ALL_READ,
-    COMMUNICATION_NOTIFICATIONS_UNREAD_COUNT, COMMUNICATION_MESSAGES,
-    communication_announcement_detail, communication_announcement_publish,
-    TIMETABLE_SLOTS, TIMETABLE_PERIODS, TIMETABLE_EVENTS,
-    TIMETABLE_WEEKLY, TIMETABLE_TEACHER_SCHEDULE, TIMETABLE_EVENTS_UPCOMING,
-    ATTENDANCE_BULK_RECORD, ATTENDANCE_CLASSROOM_SUMMARY,
-    ATTENDANCE_STUDENT_REPORT, STUDENTS_LIST, student_detail,
-    AUTH_CHANGE_PASSWORD, AUTH_PROFILE, AUTH_ME, AUTH_PASSWORD_RESET,
-    AUTH_LOGIN,
-    FEES_INVOICES, FEES_PAYMENTS, FEES_SCHOLARSHIPS, fees_invoice_waive,
-    ACADEMICS_SUBJECTS, ACADEMICS_ASSIGNMENTS, ACADEMICS_MY_ASSIGNMENTS,
-    ACADEMICS_LESSON_PLANS, ACADEMICS_TEACHER_PROFILES,
+    COMMUNICATION_NOTIFICATIONS_UNREAD_COUNT,
+    REPORTING_ATTENDANCE_REPORT,
+    REPORTING_DASHBOARD_STATS,
+    REPORTING_EXPORT_ATTENDANCE_PDF,
+    REPORTING_EXPORT_STUDENTS_CSV,
+    REPORTING_FEE_REPORT,
+    communication_announcement_detail,
+    communication_announcement_publish,
 )
 
-
 # ─── Shared fixtures ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def school(db):
     return SchoolFactory()
 
+
 @pytest.fixture
 def admin(db, school):
     return AdminUserFactory(school=school)
+
 
 @pytest.fixture
 def teacher(db, school):
     return TeacherUserFactory(school=school)
 
+
 @pytest.fixture
 def student_user(db, school):
     return StudentUserFactory(school=school)
+
 
 @pytest.fixture
 def parent_user(db, school):
     return ParentUserFactory(school=school)
 
+
 @pytest.fixture
 def student(db, school, student_user):
     return StudentFactory(user=student_user, school=school)
+
 
 @pytest.fixture
 def academic_year(db, school):
     return AcademicYearFactory(school=school)
 
+
 @pytest.fixture
 def grade(db, school):
     return GradeFactory(school=school)
 
+
 @pytest.fixture
 def classroom(db, school, grade, academic_year, teacher):
     return ClassroomFactory(
-        school=school, grade=grade, academic_year=academic_year,
+        school=school,
+        grade=grade,
+        academic_year=academic_year,
         class_teacher=teacher,
     )
+
 
 @pytest.fixture
 def enrollment(db, student, classroom, academic_year):
     return EnrollmentFactory(
-        student=student, classroom=classroom, academic_year=academic_year,
+        student=student,
+        classroom=classroom,
+        academic_year=academic_year,
     )
+
 
 @pytest.fixture
 def admin_client(db, admin):
@@ -90,17 +108,20 @@ def admin_client(db, admin):
     c.force_authenticate(user=admin)
     return c
 
+
 @pytest.fixture
 def teacher_client(db, teacher):
     c = APIClient()
     c.force_authenticate(user=teacher)
     return c
 
+
 @pytest.fixture
 def student_client(db, student_user):
     c = APIClient()
     c.force_authenticate(user=student_user)
     return c
+
 
 @pytest.fixture
 def parent_client(db, parent_user):
@@ -111,6 +132,7 @@ def parent_client(db, parent_user):
 
 # ─── Reporting Tests ──────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestReportingAPI:
 
@@ -118,8 +140,12 @@ class TestReportingAPI:
         r = admin_client.get(REPORTING_DASHBOARD_STATS)
         assert r.status_code == status.HTTP_200_OK
         expected = {
-            "total_students", "total_teachers", "total_classrooms",
-            "attendance_today_pct", "fees_collected_month", "fees_outstanding",
+            "total_students",
+            "total_teachers",
+            "total_classrooms",
+            "attendance_today_pct",
+            "fees_collected_month",
+            "fees_outstanding",
         }
         assert expected.issubset(r.data.keys()), f"Missing keys: {expected - r.data.keys()}"
 
@@ -128,6 +154,18 @@ class TestReportingAPI:
         assert r.status_code == status.HTTP_200_OK
         assert r.data["total_students"] >= 1
         assert r.data["total_teachers"] >= 1
+
+    def test_dashboard_stats_includes_trend_and_grade_distribution(self, admin_client):
+        r = admin_client.get(REPORTING_DASHBOARD_STATS)
+        assert r.status_code == status.HTTP_200_OK
+        # Trend chart data: list of {day, present, absent}
+        assert isinstance(r.data["attendance_week"], list)
+        for row in r.data["attendance_week"]:
+            assert set(row.keys()) == {"day", "present", "absent"}
+        # Grade distribution: list of {name, value}
+        assert isinstance(r.data["grade_distribution"], list)
+        for row in r.data["grade_distribution"]:
+            assert set(row.keys()) == {"name", "value"}
 
     def test_attendance_report_accepts_date_range(self, admin_client):
         today = date.today()
@@ -142,21 +180,26 @@ class TestReportingAPI:
         cat = FeeCategoryFactory(school=school)
         grade_obj = GradeFactory(school=school)
         structure = FeeStructureFactory(
-            school=school, academic_year=academic_year,
-            grade=grade_obj, fee_category=cat,
+            school=school,
+            academic_year=academic_year,
+            grade=grade_obj,
+            fee_category=cat,
         )
         FeeInvoiceFactory(
-            student=student, academic_year=academic_year,
-            fee_structure=structure, status="paid",
-            paid_amount=Decimal("500"), total_amount=Decimal("500"),
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            status="paid",
+            paid_amount=Decimal("500"),
+            total_amount=Decimal("500"),
         )
         FeeInvoiceFactory(
-            student=student, academic_year=academic_year,
-            fee_structure=structure, status="unpaid",
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            status="unpaid",
         )
-        r = admin_client.get(
-            REPORTING_FEE_REPORT, {"academic_year_id": academic_year.id}
-        )
+        r = admin_client.get(REPORTING_FEE_REPORT, {"academic_year_id": academic_year.id})
         assert r.status_code == status.HTTP_200_OK
         assert "total_collected" in r.data
         assert "total_invoiced" in r.data
@@ -184,6 +227,7 @@ class TestReportingAPI:
 
 # ─── Communication Extended Tests ─────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestCommunicationExtended:
 
@@ -194,11 +238,12 @@ class TestCommunicationExtended:
         ann.refresh_from_db()
         assert ann.view_count >= initial_count
 
-    def test_student_cannot_see_teacher_only_announcement(
-        self, student_client, school, admin
-    ):
+    def test_student_cannot_see_teacher_only_announcement(self, student_client, school, admin):
         teacher_ann = AnnouncementFactory(
-            school=school, audience="teachers", is_draft=False, created_by=admin,
+            school=school,
+            audience="teachers",
+            is_draft=False,
+            created_by=admin,
         )
         r = student_client.get(COMMUNICATION_ANNOUNCEMENTS)
         assert r.status_code == status.HTTP_200_OK
@@ -212,7 +257,6 @@ class TestCommunicationExtended:
         assert str(draft.id) not in ids
 
     def test_notification_mark_all_read(self, student_client, student_user):
-        from services.communication.models import Notification
         n1 = NotificationFactory(user=student_user, status="sent")
         n2 = NotificationFactory(user=student_user, status="sent")
         r = student_client.post(COMMUNICATION_NOTIFICATIONS_MARK_ALL_READ)

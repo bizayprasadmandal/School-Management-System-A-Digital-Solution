@@ -98,6 +98,16 @@ const mockDashboardStats = {
   fees_outstanding: 51000,
   student_delta_pct: 2.5,
   attendance_delta_pct: -1.2,
+  attendance_week: [
+    { day: "Mon", present: 94.0, absent: 6.0 },
+    { day: "Tue", present: 91.0, absent: 9.0 },
+    { day: "Wed", present: 96.0, absent: 4.0 },
+  ],
+  grade_distribution: [
+    { name: "A+", value: 18 },
+    { name: "A", value: 24 },
+    { name: "B", value: 31 },
+  ],
 };
 
 const mockAnnouncements = {
