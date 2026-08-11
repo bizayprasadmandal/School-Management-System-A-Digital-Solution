@@ -37,6 +37,8 @@ AUTH_REGENERATE_BACKUP_CODES = url("auth/regenerate-backup-codes/")
 
 STUDENTS_LIST = url("students/")
 STUDENTS_PROMOTE = url("students/promote/")
+STUDENTS_IMPORT_CSV = url("students/import-csv/")
+CLASSROOMS_IMPORT_CSV = url("students/classrooms/import-csv/")
 
 
 def student_detail(student_id: str) -> str:
@@ -146,6 +148,7 @@ ACADEMICS_ASSIGNMENTS = url("academics/assignments/")
 ACADEMICS_MY_ASSIGNMENTS = url("academics/assignments/my-assignments/")
 ACADEMICS_LESSON_PLANS = url("academics/lesson-plans/")
 ACADEMICS_TEACHER_PROFILES = url("academics/teacher-profiles/")
+TEACHER_PROFILES_IMPORT_CSV = url("academics/teacher-profiles/import-csv/")
 
 # ─── Admissions ────────────────────────────────────────────────────────────────
 

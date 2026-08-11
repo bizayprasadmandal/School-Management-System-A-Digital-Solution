@@ -390,7 +390,7 @@ class ClassroomViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "import_csv"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -401,6 +401,100 @@ class ClassroomViewSet(viewsets.ModelViewSet):
             "user"
         )
         return Response(StudentListSerializer(students, many=True).data)
+
+    @extend_schema(summary="Import classrooms from CSV")
+    @action(detail=False, methods=["post"], url_path="import-csv")
+    def import_csv(self, request):
+        """
+        Bulk-import classrooms from CSV data.
+        Expected CSV columns (header row required):
+        grade_name, name, capacity, room_number, class_teacher_email, academic_year_name
+
+        - ``grade_name`` (e.g. "Grade 5") and ``name`` (e.g. "A") are required.
+        - If no ``academic_year_name`` is given, the current academic year is used.
+        - ``class_teacher_email`` is optional; must match an existing teacher user.
+        """
+        import csv
+        import io
+
+        from django.db import transaction
+
+        csv_text = request.data.get("csv_data", "")
+        if not csv_text:
+            return Response({"error": "csv_data field is required."}, status=400)
+
+        school = request.user.school
+        reader = csv.DictReader(io.StringIO(csv_text))
+        max_records = int(request.data.get("max_records", 100))
+        imported = 0
+        errors = []
+        row_count = 0
+
+        with transaction.atomic():
+            for row_num, row in enumerate(reader, start=2):
+                if row_count >= max_records:
+                    errors.append(f"Row {row_num}: Max records ({max_records}) reached, skipping remaining")
+                    break
+                try:
+                    grade_name = (row.get("grade_name") or "").strip()
+                    name = (row.get("name") or "").strip()
+                    if not grade_name or not name:
+                        errors.append(f"Row {row_num}: grade_name and name are required")
+                        continue
+                    grade = Grade.objects.filter(school=school, name=grade_name).first()
+                    if not grade:
+                        errors.append(f"Row {row_num}: grade '{grade_name}' not found")
+                        continue
+
+                    academic_year_name = (row.get("academic_year_name") or "").strip()
+                    if academic_year_name:
+                        academic_year = AcademicYear.objects.filter(school=school, name=academic_year_name).first()
+                        if not academic_year:
+                            errors.append(f"Row {row_num}: academic year '{academic_year_name}' not found")
+                            continue
+                    else:
+                        academic_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+                        if not academic_year:
+                            errors.append(f"Row {row_num}: no current academic year set")
+                            continue
+
+                    class_teacher = None
+                    teacher_email = (row.get("class_teacher_email") or "").strip()
+                    if teacher_email:
+                        from services.auth.models import User, UserRole
+
+                        class_teacher = User.objects.filter(
+                            email=teacher_email, school=school, role=UserRole.TEACHER
+                        ).first()
+                        if not class_teacher:
+                            errors.append(f"Row {row_num}: teacher '{teacher_email}' not found")
+                            continue
+
+                    try:
+                        capacity = int((row.get("capacity") or "40").strip() or 40)
+                    except ValueError:
+                        capacity = 40
+
+                    _, created = Classroom.objects.get_or_create(
+                        school=school,
+                        grade=grade,
+                        name=name,
+                        academic_year=academic_year,
+                        defaults={
+                            "capacity": capacity,
+                            "room_number": (row.get("room_number") or "").strip(),
+                            "class_teacher": class_teacher,
+                        },
+                    )
+                    if created:
+                        imported += 1
+                    else:
+                        errors.append(f"Row {row_num}: classroom '{name}' already exists for this grade/year")
+                    row_count += 1
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)[:100]}")
+
+        return Response({"imported": imported, "errors": errors[:20]})
 
 
 class GradeViewSet(viewsets.ModelViewSet):

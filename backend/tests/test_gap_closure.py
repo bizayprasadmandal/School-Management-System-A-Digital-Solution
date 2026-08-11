@@ -37,6 +37,7 @@ from tests.factories import (
 )
 from tests.url_helpers import (
     ATTENDANCE_IMPORT_CSV,
+    CLASSROOMS_IMPORT_CSV,
     FEES_INVOICES_IMPORT_CSV,
     GRADEBOOK_GRADES,
     GRADEBOOK_GRADES_BULK,
@@ -46,6 +47,7 @@ from tests.url_helpers import (
     REPORTING_AT_RISK_STUDENTS,
     REPORTING_ENROLLMENT_FUNNEL,
     REPORTING_FEE_FORECAST,
+    TEACHER_PROFILES_IMPORT_CSV,
     admissions_application_accept_offer,
     admissions_application_complete_tour,
     admissions_application_enroll,
@@ -773,3 +775,91 @@ class TestAdmissionsPipeline:
         # Send an offer on another school's application -> 404
         resp = api.post(admissions_application_send_offer(other_app.id), {}, format="json")
         assert resp.status_code == 404
+
+
+# ─── Onboarding imports: classrooms + teachers CSV ───────────────────────────
+
+
+class TestOnboardingImports:
+    def test_classroom_import_creates_classrooms(self, api, school, admin, db):
+        from services.students.models import Classroom
+
+        academic_year = AcademicYearFactory(school=school, is_current=True)
+        grade = GradeFactory(school=school, name="Grade 5")
+        teacher = TeacherUserFactory(school=school)
+
+        auth(api, admin)
+        csv_data = (
+            "grade_name,name,capacity,room_number,class_teacher_email\n"
+            f"Grade 5,A,40,201,{teacher.email}\n"
+            f"Grade 5,B,35,202,\n"
+        )
+        resp = api.post(CLASSROOMS_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["imported"] == 2
+        assert data["errors"] == []
+
+        a = Classroom.objects.get(grade=grade, name="A", academic_year=academic_year)
+        assert a.capacity == 40
+        assert a.class_teacher == teacher
+
+    def test_classroom_import_reports_missing_grade(self, api, school, admin, db):
+        AcademicYearFactory(school=school, is_current=True)
+
+        auth(api, admin)
+        csv_data = "grade_name,name,capacity\n" "Grade 99,A,40\n"
+        resp = api.post(CLASSROOMS_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["imported"] == 0
+        assert any("not found" in e for e in data["errors"])
+
+    def test_classroom_import_skips_duplicates(self, api, school, admin, db):
+        academic_year = AcademicYearFactory(school=school, is_current=True)
+        grade = GradeFactory(school=school, name="Grade 5")
+        ClassroomFactory(school=school, grade=grade, name="A", academic_year=academic_year)
+
+        auth(api, admin)
+        csv_data = "grade_name,name\n" "Grade 5,A\n"
+        resp = api.post(CLASSROOMS_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        data = resp.json()
+        assert data["imported"] == 0
+        assert any("already exists" in e for e in data["errors"])
+
+    def test_teacher_import_creates_user_and_profile(self, api, school, admin, db):
+        from services.academics.models import TeacherProfile
+        from services.auth.models import User
+
+        auth(api, admin)
+        csv_data = (
+            "email,first_name,last_name,employee_id,gender,qualification,joining_date,department\n"
+            "jane@school.edu,Jane,Doe,EMP-101,F,bachelor,2024-01-15,Mathematics\n"
+        )
+        resp = api.post(TEACHER_PROFILES_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["imported"] == 1
+        assert data["errors"] == []
+        assert "jane@school.edu" in data["generated_passwords"]  # secure password auto-generated
+
+        user = User.objects.get(email="jane@school.edu", school=school)
+        assert user.role == "teacher"
+        profile = TeacherProfile.objects.get(user=user)
+        assert profile.employee_id == "EMP-101"
+        assert profile.department == "Mathematics"
+
+    def test_teacher_import_rejects_duplicate_email(self, api, school, admin, db):
+        auth(api, admin)
+        csv_data = "email,first_name,last_name,employee_id,joining_date\n" f"{admin.email},Jane,Doe,EMP-1,2024-01-15\n"
+        resp = api.post(TEACHER_PROFILES_IMPORT_CSV, {"csv_data": csv_data}, format="json")
+        data = resp.json()
+        assert data["imported"] == 0
+        assert any("already exists" in e for e in data["errors"])
+
+    def test_onboarding_imports_are_admin_only(self, api, school, teacher, db):
+        auth(api, teacher)
+        resp = api.post(CLASSROOMS_IMPORT_CSV, {"csv_data": "grade_name,name\n"}, format="json")
+        assert resp.status_code == 403
+        resp = api.post(TEACHER_PROFILES_IMPORT_CSV, {"csv_data": "email\n"}, format="json")
+        assert resp.status_code == 403
