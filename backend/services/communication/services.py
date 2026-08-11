@@ -5,9 +5,10 @@ Handles multi-channel notification dispatch: push, email, SMS, in-app
 
 import logging
 from typing import Literal
-from django.utils import timezone
-from django.template import Template, Context
+
 from celery import shared_task
+from django.template import Context, Template
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +25,29 @@ class NotificationService:
     """
 
     @classmethod
-    def send(cls, user, template, context: dict, channels: list[Channel] = None):
+    def send(
+        cls,
+        user,
+        template,
+        context: dict,
+        channels: list[Channel] = None,
+        reference_type: str = "",
+        reference_id: str = "",
+    ):
         """
         Render template and dispatch to all specified channels.
         Falls back to user preference flags if channels not specified.
+        reference_type/reference_id are attached to delivery records so
+        callers can dedupe or link notifications to domain objects.
         """
         if channels is None:
             channels = []
-            if user.notify_push:   channels.append("push")
-            if user.notify_email:  channels.append("email")
-            if user.notify_sms:    channels.append("sms")
+            if user.notify_push:
+                channels.append("push")
+            if user.notify_email:
+                channels.append("email")
+            if user.notify_sms:
+                channels.append("sms")
             channels.append("in_app")
 
         for channel in channels:
@@ -42,6 +56,8 @@ class NotificationService:
                     user_id=str(user.id),
                     title=cls._render(template.push_title if template else "", context),
                     body=cls._render(template.push_body if template else "", context),
+                    reference_type=reference_type,
+                    reference_id=reference_id,
                 )
             elif channel == "email" and template and template.email_subject:
                 send_email_notification.delay(
@@ -72,15 +88,18 @@ class NotificationService:
 
 # ─── Celery tasks ─────────────────────────────────────────────────────────────
 
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
-def send_in_app_notification(self, user_id: str, title: str, body: str,
-                              reference_type: str = "", reference_id: str = ""):
+def send_in_app_notification(
+    self, user_id: str, title: str, body: str, reference_type: str = "", reference_id: str = ""
+):
     """Store in-app notification and broadcast via WebSocket."""
     try:
-        from .models import Notification
-        from services.auth.models import User
-        from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        from services.auth.models import User
+
+        from .models import Notification
 
         user = User.objects.get(id=user_id)
         notif = Notification.objects.create(
@@ -122,9 +141,9 @@ def send_in_app_notification(self, user_id: str, title: str, body: str,
 def send_email_notification(self, user_id: str, subject: str, body: str):
     """Send email via SendGrid."""
     try:
-        from services.auth.models import User
-        from django.core.mail import send_mail
         from django.conf import settings
+        from django.core.mail import send_mail
+        from services.auth.models import User
 
         user = User.objects.get(id=user_id)
         if not user.email or not user.notify_email:
@@ -139,6 +158,7 @@ def send_email_notification(self, user_id: str, subject: str, body: str):
         )
 
         from .models import Notification
+
         Notification.objects.create(
             user=user,
             title=subject,
@@ -159,8 +179,8 @@ def send_email_notification(self, user_id: str, subject: str, body: str):
 def send_sms_notification(self, user_id: str, body: str):
     """Send SMS via configured provider (Twilio, Vonage, or console fallback)."""
     try:
-        from services.auth.models import User
         from django.conf import settings
+        from services.auth.models import User
 
         user = User.objects.get(id=user_id)
         if not user.phone or not user.notify_sms:
@@ -172,16 +192,19 @@ def send_sms_notification(self, user_id: str, body: str):
         if provider == "vonage" and settings.VONAGE_API_KEY:
             # ── Vonage (Nexmo) ────────────────────────────────────────────────
             import vonage
+
             client = vonage.Client(
                 key=settings.VONAGE_API_KEY,
                 secret=settings.VONAGE_API_SECRET,
             )
             sms = vonage.Sms(client)
-            response = sms.send_message({
-                "from": settings.VONAGE_FROM_NUMBER or "EduSphere",
-                "to": user.phone,
-                "text": body,
-            })
+            response = sms.send_message(
+                {
+                    "from": settings.VONAGE_FROM_NUMBER or "EduSphere",
+                    "to": user.phone,
+                    "text": body,
+                }
+            )
             if response["messages"][0]["status"] == "0":
                 message_sid = response["messages"][0]["message-id"]
                 logger.info("SMS sent via Vonage to %s (ID: %s)", user.phone, message_sid)
@@ -192,13 +215,15 @@ def send_sms_notification(self, user_id: str, body: str):
             # ── Console/Logging (development) ─────────────────────────────────
             logger.info(
                 "[SMS CONSOLE] To: %s | Body: %s",
-                user.phone, body[:100],
+                user.phone,
+                body[:100],
             )
             message_sid = "console_log"
 
         else:
             # ── Twilio (default) ──────────────────────────────────────────────
             from twilio.rest import Client
+
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
             kwargs = {"body": body, "to": user.phone}
@@ -213,6 +238,7 @@ def send_sms_notification(self, user_id: str, body: str):
 
         # Record notification in DB
         from .models import Notification
+
         Notification.objects.create(
             user=user,
             title="SMS",
@@ -228,26 +254,24 @@ def send_sms_notification(self, user_id: str, body: str):
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_expo_push_notification(self, user_id: str, title: str, body: str,
-                                 data: dict = None):
+def send_expo_push_notification(self, user_id: str, title: str, body: str, data: dict = None):
     """Send Expo push notification (Expo Push API).
 
     This is the primary push delivery channel for the Expo React Native app.
     Falls back to Firebase FCM if the token is not an Expo token.
     """
     try:
-        from services.auth.models import User
-        from .models import DeviceToken, Notification
         import requests
         from django.conf import settings
+        from services.auth.models import User
+
+        from .models import DeviceToken, Notification
 
         user = User.objects.get(id=user_id)
         if not user.notify_push:
             return
 
-        tokens = DeviceToken.objects.filter(
-            user=user, is_active=True
-        ).values_list("token", "platform")
+        tokens = DeviceToken.objects.filter(user=user, is_active=True).values_list("token", "platform")
 
         if not tokens:
             return
@@ -289,7 +313,8 @@ def send_expo_push_notification(self, user_id: str, title: str, body: str,
                     failure_count += 1
                     logger.warning(
                         "Expo push failed for token %s: %s",
-                        token[:20], resp_data,
+                        token[:20],
+                        resp_data,
                     )
             else:
                 # Fallback to Firebase FCM for non-Expo tokens
@@ -328,7 +353,9 @@ def send_expo_push_notification(self, user_id: str, title: str, body: str,
 
         logger.info(
             "Expo push sent to user %s: %d success, %d failure",
-            user_id, success_count, failure_count,
+            user_id,
+            success_count,
+            failure_count,
         )
 
     except Exception as exc:
@@ -346,9 +373,9 @@ def broadcast_announcement(announcement_id: str):
     Send an announcement to all targeted users via their preferred channels.
     Runs as a background task after announcement is published.
     """
-    from .models import Announcement, NotificationTemplate
     from services.auth.models import User
-    from services.students.models import Student
+
+    from .models import Announcement, NotificationTemplate
 
     try:
         announcement = Announcement.objects.select_related("school").get(id=announcement_id)
@@ -372,14 +399,15 @@ def broadcast_announcement(announcement_id: str):
         qs = qs.filter(role__in=roles)
 
     channels = []
-    if announcement.send_push:   channels.append("push")
-    if announcement.send_email:  channels.append("email")
-    if announcement.send_sms:    channels.append("sms")
+    if announcement.send_push:
+        channels.append("push")
+    if announcement.send_email:
+        channels.append("email")
+    if announcement.send_sms:
+        channels.append("sms")
     channels.append("in_app")
 
-    template = NotificationTemplate.objects.filter(
-        school=school, event_type="announcement", is_active=True
-    ).first()
+    template = NotificationTemplate.objects.filter(school=school, event_type="announcement", is_active=True).first()
 
     context = {
         "school_name": school.name,
@@ -394,6 +422,8 @@ def broadcast_announcement(announcement_id: str):
 
     logger.info(
         "Announcement %s broadcast to %d users via %s",
-        announcement_id, dispatched, channels,
+        announcement_id,
+        dispatched,
+        channels,
     )
     return {"announcement_id": announcement_id, "dispatched": dispatched}

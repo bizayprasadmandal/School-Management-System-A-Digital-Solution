@@ -2,7 +2,25 @@
 
 from rest_framework import serializers
 
-from .models import Application, ApplicationDocument, ApplicationReview, EnrollmentIntake
+from .models import Application, ApplicationDocument, ApplicationReview, ApplicationTimelineEvent, EnrollmentIntake
+
+
+class ApplicationTimelineSerializer(serializers.ModelSerializer):
+    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default="")
+
+    class Meta:
+        model = ApplicationTimelineEvent
+        fields = [
+            "id",
+            "stage",
+            "stage_display",
+            "note",
+            "created_by",
+            "created_by_name",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class EnrollmentIntakeSerializer(serializers.ModelSerializer):
@@ -73,6 +91,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     documents = ApplicationDocumentSerializer(many=True, read_only=True)
     reviews = ApplicationReviewSerializer(many=True, read_only=True)
+    timeline = ApplicationTimelineSerializer(many=True, read_only=True)
 
     class Meta:
         model = Application
@@ -108,8 +127,14 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "submitted_at",
             "reviewed_by",
             "review_notes",
+            "tour_date",
+            "toured_at",
+            "offer_sent_at",
+            "offer_accepted_at",
+            "linked_student",
             "documents",
             "reviews",
+            "timeline",
             "created_at",
             "updated_at",
         ]

@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from services.gradebook.models import Grade
@@ -45,6 +46,12 @@ from tests.url_helpers import (
     REPORTING_AT_RISK_STUDENTS,
     REPORTING_ENROLLMENT_FUNNEL,
     REPORTING_FEE_FORECAST,
+    admissions_application_accept_offer,
+    admissions_application_complete_tour,
+    admissions_application_enroll,
+    admissions_application_schedule_tour,
+    admissions_application_send_offer,
+    admissions_application_update_status,
     gradebook_proposal_approve,
     gradebook_proposal_reject,
 )
@@ -391,6 +398,58 @@ class TestGradeApprovalWorkflow:
         assert other_student.user.full_name not in names
 
 
+# ─── Standard notification templates (all schools) ───────────────────────────
+
+
+class TestStandardNotificationTemplates:
+    def test_new_school_auto_seeds_standard_templates(self, school, db):
+        """A newly created school gets the 5 standard templates via post_save."""
+        from services.communication.models import NotificationTemplate
+
+        event_types = set(NotificationTemplate.objects.filter(school=school).values_list("event_type", flat=True))
+        assert event_types == {
+            "attendance_absent",
+            "fee_due",
+            "fee_overdue",
+            "report_card_published",
+            "announcement",
+        }
+
+    def test_seed_command_is_idempotent(self, school, db):
+        """Running the seed command twice never duplicates templates."""
+        from django.core.management import call_command
+        from services.communication.models import NotificationTemplate
+
+        call_command("seed_notification_templates", verbosity=0)
+        call_command("seed_notification_templates", verbosity=0)
+        assert NotificationTemplate.objects.filter(school=school).count() == 5
+
+    def test_send_fee_reminders_routes_through_template_and_dedupes(self, school, db):
+        """Invoices due in 3 days get a template-rendered reminder, once per invoice."""
+        from services.communication.models import Notification
+        from services.fees.tasks import send_fee_reminders
+
+        student = StudentFactory(school=school)
+        FeeInvoiceFactory(
+            student=student,
+            academic_year=AcademicYearFactory(school=school),
+            due_date=date.today() + timedelta(days=3),
+            status="unpaid",
+        )
+
+        result = send_fee_reminders()
+        assert result["reminders_sent"] == 1
+
+        reminder = Notification.objects.filter(user=student.user, title="Fee Reminder", channel="in_app").first()
+        assert reminder is not None
+        assert "Fee Reminder" in reminder.title
+        assert reminder.reference_type == "fee_invoice"
+
+        # Dedupe: a second run must not send again for the same invoice.
+        assert send_fee_reminders()["reminders_sent"] == 0
+        assert Notification.objects.filter(user=student.user, title="Fee Reminder", channel="in_app").count() == 1
+
+
 # ─── Analytics: at-risk, funnel, forecast ─────────────────────────────────────
 
 
@@ -580,3 +639,137 @@ class TestFeeInvoiceImport:
         data = resp.json()
         assert data["imported"] == 0
         assert any("no fee structure" in e for e in data["errors"])
+
+
+# ─── Admissions CRM pipeline (inquiry → tour → offer → enrolled) ─────────────
+
+
+class TestAdmissionsPipeline:
+    def test_schedule_tour_records_date_and_timeline(self, api, school, admin, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school))
+        auth(api, admin)
+        resp = api.post(admissions_application_schedule_tour(app.id), {"tour_date": "2026-09-15"}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["tour_date"] == "2026-09-15"
+        assert any(t["stage"] == "tour_scheduled" and t["created_by_name"] == admin.full_name for t in data["timeline"])
+
+    def test_complete_tour_requires_scheduled_tour(self, api, school, admin, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school))
+        auth(api, admin)
+
+        resp = api.post(admissions_application_complete_tour(app.id), {}, format="json")
+        assert resp.status_code == 400
+
+        api.post(admissions_application_schedule_tour(app.id), {"tour_date": "2026-09-15"}, format="json")
+        resp = api.post(admissions_application_complete_tour(app.id), {}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["toured_at"] is not None
+        assert any(t["stage"] == "tour_completed" for t in resp.json()["timeline"])
+
+    def test_send_offer_marks_accepted_and_sets_timeline(self, api, school, admin, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school), status="shortlisted")
+        auth(api, admin)
+        resp = api.post(admissions_application_send_offer(app.id), {}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["status"] == "accepted"
+        assert data["offer_sent_at"] is not None
+        assert any(t["stage"] == "offer_sent" for t in data["timeline"])
+
+    def test_send_offer_rejects_early_stages(self, api, school, admin, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school), status="submitted")
+        auth(api, admin)
+        resp = api.post(admissions_application_send_offer(app.id), {}, format="json")
+        assert resp.status_code == 400
+
+    def test_accept_offer_requires_sent_offer(self, api, school, admin, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school), status="accepted")
+        auth(api, admin)
+        resp = api.post(admissions_application_accept_offer(app.id), {}, format="json")
+        assert resp.status_code == 400
+
+        app.offer_sent_at = timezone.now()
+        app.save(update_fields=["offer_sent_at"])
+        resp = api.post(admissions_application_accept_offer(app.id), {}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert resp.json()["offer_accepted_at"] is not None
+
+    def test_enroll_creates_student_links_application(self, api, school, admin, db):
+        from services.auth.models import User
+
+        academic_year = AcademicYearFactory(school=school)
+        classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
+        app = ApplicationFactory(
+            school=school,
+            intake=EnrollmentIntakeFactory(school=school),
+            status="accepted",
+            offer_sent_at=timezone.now(),
+            email="candidate@example.com",
+        )
+        auth(api, admin)
+        resp = api.post(admissions_application_enroll(app.id), {"classroom_id": str(classroom.id)}, format="json")
+        assert resp.status_code == 200, resp.content
+        data = resp.json()
+        assert data["status"] == "enrolled"
+        assert data["linked_student"] is not None
+        assert data["generated_password"]  # secure password surfaced to the admin
+
+        app.refresh_from_db()
+        student = app.linked_student
+        assert student.school == school
+        assert student.enrollments.filter(classroom=classroom, academic_year=academic_year).exists()
+        assert User.objects.filter(email=app.email, school=school).exists()
+        assert any(t["stage"] == "enrolled" for t in data["timeline"])
+
+    def test_enroll_rejects_wrong_status_or_classroom(self, api, school, admin, db):
+        other_school = SchoolFactory()
+        other_classroom = ClassroomFactory(school=other_school, grade=GradeFactory(school=other_school))
+        app = ApplicationFactory(
+            school=school,
+            intake=EnrollmentIntakeFactory(school=school),
+            status="accepted",
+            offer_sent_at=timezone.now(),
+        )
+        auth(api, admin)
+
+        # Classroom from another school -> 400
+        resp = api.post(admissions_application_enroll(app.id), {"classroom_id": str(other_classroom.id)}, format="json")
+        assert resp.status_code == 400
+
+        # Not-accepted application -> 400
+        app2 = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school), status="submitted")
+        resp = api.post(
+            admissions_application_enroll(app2.id), {"classroom_id": str(other_classroom.id)}, format="json"
+        )
+        assert resp.status_code == 400
+
+    def test_update_status_logs_timeline_and_is_admin_only(self, api, school, admin, teacher, db):
+        app = ApplicationFactory(school=school, intake=EnrollmentIntakeFactory(school=school))
+        auth(api, teacher)
+        resp = api.post(admissions_application_update_status(app.id), {"status": "under_review"}, format="json")
+        assert resp.status_code == 403
+
+        auth(api, admin)
+        resp = api.post(admissions_application_update_status(app.id), {"status": "under_review"}, format="json")
+        assert resp.status_code == 200, resp.content
+        assert any(
+            t["stage"] == "status_changed" and "submitted → under_review" in t["note"] for t in resp.json()["timeline"]
+        )
+
+    def test_pipeline_actions_are_tenant_scoped(self, api, school, admin, db):
+        other_school = SchoolFactory()
+        other_app = ApplicationFactory(
+            school=other_school,
+            intake=EnrollmentIntakeFactory(school=other_school),
+            status="shortlisted",
+        )
+        auth(api, admin)
+
+        # Schedule a tour on another school's application -> 404 (scoped queryset)
+        resp = api.post(admissions_application_schedule_tour(other_app.id), {"tour_date": "2026-09-15"}, format="json")
+        assert resp.status_code == 404
+
+        # Send an offer on another school's application -> 404
+        resp = api.post(admissions_application_send_offer(other_app.id), {}, format="json")
+        assert resp.status_code == 404

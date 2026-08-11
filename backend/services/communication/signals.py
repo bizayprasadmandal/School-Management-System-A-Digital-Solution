@@ -1,31 +1,23 @@
-"""Communication signals — track announcement view counts."""
+"""Communication — signal handlers."""
+
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-import logging
+
 logger = logging.getLogger(__name__)
 
-@receiver(post_save, sender="communication.DirectMessage")
-def handle_message_sent(sender, instance, created, **kwargs):
-    """Push WebSocket notification when a direct message is created."""
-    if created:
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        import json
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f"notifications_{instance.recipient.id}",
-                    {
-                        "type": "push_notification",
-                        "notification": {
-                            "id": str(instance.id),
-                            "title": f"Message from {instance.sender.full_name}",
-                            "body": instance.content[:100],
-                            "created_at": instance.sent_at.isoformat(),
-                            "read_at": None,
-                        },
-                    },
-                )
-            except Exception as e:
-                logger.debug("WS push failed: %s", e)
+
+@receiver(post_save, sender="auth_service.School")
+def ensure_standard_templates_on_school_created(sender, instance, created, **kwargs):
+    """Every school gets the standard notification templates on creation."""
+    if not created:
+        return
+    from .templates import ensure_school_notification_templates
+
+    count = ensure_school_notification_templates(instance)
+    logger.info(
+        "Seeded %d standard notification templates for new school %s",
+        count,
+        instance.code,
+    )

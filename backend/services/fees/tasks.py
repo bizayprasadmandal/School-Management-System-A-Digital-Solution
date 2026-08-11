@@ -2,12 +2,13 @@
 Fees Service — Celery tasks for invoicing, fee reminders, overdue processing.
 """
 
-from celery import shared_task
-from django.utils import timezone
+import logging
+import uuid
 from datetime import timedelta
 from decimal import Decimal
-import uuid
-import logging
+
+from celery import shared_task
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,9 @@ def mark_overdue_invoices():
     applying late fees and sending Expo push + in-app notifications to
     students and parents.
     """
+    from services.communication.services import send_expo_push_notification, send_in_app_notification
+
     from .models import FeeInvoice
-    from services.communication.services import send_in_app_notification, send_expo_push_notification
 
     today = timezone.now().date()
 
@@ -72,9 +74,7 @@ def mark_overdue_invoices():
         )
 
         # Notify parents
-        for sg in student.studentguardian_set.filter(
-            guardian__user__isnull=False, portal_access=True
-        ):
+        for sg in student.studentguardian_set.filter(guardian__user__isnull=False, portal_access=True):
             parent_body = (
                 f"{student.user.full_name}'s fee payment of "
                 f"{invoice.outstanding_amount:,.2f} "
@@ -96,90 +96,82 @@ def mark_overdue_invoices():
 
         updated += 1
 
-    logger.info("mark_overdue_invoices completed", extra={
-        "marked_overdue": updated, "notifications_sent": updated,
-    })
+    logger.info(
+        "mark_overdue_invoices completed",
+        extra={
+            "marked_overdue": updated,
+            "notifications_sent": updated,
+        },
+    )
     return {"marked_overdue": updated}
 
 
 @shared_task
 def send_fee_reminders():
-    """Send reminders for invoices due in 3 days — in-app + Expo push to student and parents."""
+    """
+    Send reminders for invoices due in 3 days — routed through the standard
+    "fee_due" notification template so every channel (email/SMS/push/in-app)
+    renders consistently across all schools.
+    """
+    from services.communication.models import Notification, NotificationTemplate
+    from services.communication.services import NotificationService
+
     from .models import FeeInvoice
-    from services.communication.services import send_in_app_notification, send_expo_push_notification
 
     reminder_date = timezone.now().date() + timedelta(days=3)
     invoices = FeeInvoice.objects.filter(
         status__in=["unpaid", "partial"],
         due_date=reminder_date,
-    ).select_related("student__user")
+    ).select_related("student__user", "student__school")
     count = 0
     for invoice in invoices:
-        student = invoice.student
-        title = "Fee Payment Reminder"
-        body = (
-            f"Your fee payment of {invoice.outstanding_amount:,.2f} "
-            f"(Invoice #{invoice.invoice_number}) is due in 3 days."
-        )
-        push_data = {
-            "route": "Fees",
-            "reference_type": "fee_invoice",
-            "reference_id": str(invoice.id),
-        }
-
-        # Notify student
-        send_in_app_notification.delay(
-            user_id=str(student.user.id),
-            title=title,
-            body=body,
+        # Never double-remind: skip if an in-app reminder already exists for this invoice.
+        if Notification.objects.filter(
             reference_type="fee_invoice",
             reference_id=str(invoice.id),
-        )
-        send_expo_push_notification.delay(
-            user_id=str(student.user.id),
-            title=title,
-            body=body,
-            data=push_data,
-        )
+            channel="in_app",
+            title="Fee Reminder",
+        ).exists():
+            continue
 
-        # Notify parents
-        for sg in student.studentguardian_set.filter(
-            guardian__user__isnull=False, portal_access=True
-        ):
-            parent_body = (
-                f"{student.user.full_name}'s fee payment of "
-                f"{invoice.outstanding_amount:,.2f} "
-                f"(Invoice #{invoice.invoice_number}) is due in 3 days."
-            )
-            send_in_app_notification.delay(
-                user_id=str(sg.guardian.user.id),
-                title=title,
-                body=parent_body,
+        student = invoice.student
+        template = NotificationTemplate.objects.filter(
+            school=student.school, event_type="fee_due", is_active=True
+        ).first()
+        context = {
+            "student_name": student.user.full_name,
+            "amount": f"{invoice.outstanding_amount:,.2f}",
+            "due_date": invoice.due_date.strftime("%B %d, %Y"),
+        }
+
+        # Notify student + parents using each user's notification preferences.
+        users = [student.user] + [g.user for g in student.guardians.filter(user__isnull=False)]
+        for user in users:
+            NotificationService.send(
+                user=user,
+                template=template,
+                context=context,
                 reference_type="fee_invoice",
                 reference_id=str(invoice.id),
             )
-            send_expo_push_notification.delay(
-                user_id=str(sg.guardian.user.id),
-                title=title,
-                body=parent_body,
-                data=push_data,
-            )
         count += 1
 
-    logger.info("send_fee_reminders completed", extra={
-        "reminders_sent": count, "reminder_date": str(reminder_date),
-    })
+    logger.info(
+        "send_fee_reminders completed",
+        extra={
+            "reminders_sent": count,
+            "reminder_date": str(reminder_date),
+        },
+    )
     return {"reminders_sent": count}
-
-
-
 
 
 @shared_task
 def generate_bulk_invoices(structure_id: int, academic_year_id: int):
     """Generate fee invoices for all students in a grade."""
-    from .models import FeeStructure, FeeInvoice
     from services.students.models import Enrollment
+
+    from .models import FeeInvoice, FeeStructure
 
     structure = FeeStructure.objects.select_related("grade", "academic_year").get(id=structure_id)
     enrollments = Enrollment.objects.filter(
@@ -206,9 +198,14 @@ def generate_bulk_invoices(structure_id: int, academic_year_id: int):
         if new:
             created += 1
 
-    logger.info("generate_bulk_invoices completed", extra={
-        "created": created, "structure_id": structure_id, "academic_year_id": academic_year_id,
-    })
+    logger.info(
+        "generate_bulk_invoices completed",
+        extra={
+            "created": created,
+            "structure_id": structure_id,
+            "academic_year_id": academic_year_id,
+        },
+    )
     return {"created": created, "structure_id": structure_id}
 
 
@@ -216,26 +213,24 @@ def generate_bulk_invoices(structure_id: int, academic_year_id: int):
 def generate_receipt_pdf(payment_id: str):
     """Generate a printable receipt PDF for a payment and attach it to the payment record."""
     from .models import Payment
-    from django.core.files.base import ContentFile
 
     try:
-        payment = Payment.objects.select_related(
-            "invoice__student__user", "invoice__student__school"
-        ).get(id=payment_id)
-
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.lib import colors
-        from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table,
-            TableStyle, HRFlowable,
+        payment = Payment.objects.select_related("invoice__student__user", "invoice__student__school").get(
+            id=payment_id
         )
 
         import io
+
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import cm
+        from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm,
-                                topMargin=2*cm, bottomMargin=2*cm)
+        doc = SimpleDocTemplate(
+            buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm
+        )
 
         styles = getSampleStyleSheet()
         BRAND = colors.HexColor("#4F46E5")
@@ -258,20 +253,26 @@ def generate_receipt_pdf(payment_id: str):
             ["Method", payment.get_payment_method_display()],
             ["Date", payment.paid_at.strftime("%B %d, %Y %H:%M") if payment.paid_at else "—"],
         ]
-        t = Table(details, colWidths=[5*cm, 10*cm])
-        t.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ("PADDING", (0, 0), (-1, -1), 6),
-        ]))
+        t = Table(details, colWidths=[5 * cm, 10 * cm])
+        t.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("PADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         elements.append(t)
-        elements.append(Spacer(1, 1*cm))
-        elements.append(Paragraph(
-            f"Generated by EduSphere SMS",
-            ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=colors.grey),
-        ))
+        elements.append(Spacer(1, 1 * cm))
+        elements.append(
+            Paragraph(
+                "Generated by EduSphere SMS",
+                ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=colors.grey),
+            )
+        )
 
         doc.build(elements)
         buffer.seek(0)

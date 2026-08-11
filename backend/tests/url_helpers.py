@@ -147,6 +147,42 @@ ACADEMICS_MY_ASSIGNMENTS = url("academics/assignments/my-assignments/")
 ACADEMICS_LESSON_PLANS = url("academics/lesson-plans/")
 ACADEMICS_TEACHER_PROFILES = url("academics/teacher-profiles/")
 
+# ─── Admissions ────────────────────────────────────────────────────────────────
+
+ADMISSIONS_APPLICATIONS = url("admissions/applications/")
+ADMISSIONS_INTAKES = url("admissions/intakes/")
+ADMISSIONS_REVIEWS = url("admissions/reviews/")
+ADMISSIONS_DOCUMENTS = url("admissions/documents/")
+
+
+def admissions_application_submit(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/submit/")
+
+
+def admissions_application_update_status(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/update-status/")
+
+
+def admissions_application_schedule_tour(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/schedule-tour/")
+
+
+def admissions_application_complete_tour(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/complete-tour/")
+
+
+def admissions_application_send_offer(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/send-offer/")
+
+
+def admissions_application_accept_offer(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/accept-offer/")
+
+
+def admissions_application_enroll(app_id: str) -> str:
+    return url(f"admissions/applications/{app_id}/enroll/")
+
+
 # ─── Inventory ────────────────────────────────────────────────────────────────
 
 INVENTORY_ITEMS = url("inventory/items/")
