@@ -148,7 +148,7 @@ class SchoolSerializer(serializers.ModelSerializer):
         """Sum of all paid payments for this school (quick stat)."""
         from services.fees.models import Payment
 
-        result = Payment.objects.filter(invoice__student__user__school=obj, status="completed").aggregate(
+        result = Payment.objects.filter(invoice__student__user__school=obj, status="successful").aggregate(
             total=models.Sum("amount")
         )
         return result["total"] or 0

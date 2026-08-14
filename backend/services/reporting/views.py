@@ -48,7 +48,23 @@ class ReportingViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
-        school = request.user.school
+        school = request.school or request.user.school
+        if school is None:
+            # Super admins without a school context have no tenant data.
+            return Response(
+                {
+                    "total_students": 0,
+                    "total_teachers": 0,
+                    "total_classrooms": 0,
+                    "attendance_today_pct": 0,
+                    "fees_collected_month": 0,
+                    "fees_outstanding": 0,
+                    "student_delta_pct": 0,
+                    "attendance_delta_pct": 0,
+                    "attendance_week": [],
+                    "grade_distribution": [],
+                }
+            )
         cache_key = f"dashboard_stats_{school.id}"
 
         # Try cache first; returns None on miss or if Redis is unavailable
@@ -341,7 +357,10 @@ class ReportingViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"], url_path="refresh-dashboard")
     def refresh_dashboard(self, request):
         """Manually invalidate the dashboard-stats cache so next request rebuilds."""
-        cache_key = f"dashboard_stats_{request.user.school.id}"
+        school = request.school or request.user.school
+        if school is None:
+            return Response({"status": "no-school"})
+        cache_key = f"dashboard_stats_{school.id}"
         cache.delete(cache_key)
         logger.info("Dashboard stats cache invalidated by user %s", request.user.id)
         return Response({"status": "refreshed"})

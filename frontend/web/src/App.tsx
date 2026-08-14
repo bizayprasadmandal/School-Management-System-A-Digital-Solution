@@ -175,6 +175,15 @@ function RedirectIfAuth() {
   return <Navigate to="/login" replace />;
 }
 
+/**
+ * Admin index — super admins (who have no school of their own) land on the
+ * cross-school Platform Dashboard; school admins get the school dashboard.
+ */
+function AdminIndex() {
+  const { user } = useAuthStore();
+  return user?.role === "super_admin" ? <PlatformDashboard /> : <AdminDashboard />;
+}
+
 // ─── Loading fallback ─────────────────────────────────────────────────────────
 
 function PageLoader() {
@@ -221,7 +230,7 @@ function App() {
               {/* ── Admin routes ──────────────────────────── */}
               <Route element={<RequireAuth allowedRoles={["super_admin", "school_admin"]} />}>
                 <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminDashboard />} />
+                  <Route index element={<AdminIndex />} />
                   <Route path="students" element={<StudentsPage />} />
                   <Route path="students/:id" element={<StudentDetailPage />} />
                   <Route path="teachers" element={<TeachersPage />} />

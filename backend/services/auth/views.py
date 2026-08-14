@@ -839,7 +839,7 @@ class PlatformDashboardView(APIView):
         total_teachers = User.objects.filter(role="teacher").count()
 
         # Revenue across all schools
-        revenue_result = Payment.objects.filter(status="completed").aggregate(total=Sum("amount"))
+        revenue_result = Payment.objects.filter(status="successful").aggregate(total=Sum("amount"))
         total_revenue = revenue_result["total"] or 0
 
         # Schools by subscription tier
@@ -855,7 +855,7 @@ class PlatformDashboardView(APIView):
             School.objects.annotate(
                 school_revenue=Sum(
                     "users__student_profile__invoices__payments__amount",
-                    filter=Q(users__student_profile__invoices__payments__status="completed"),
+                    filter=Q(users__student_profile__invoices__payments__status="successful"),
                 )
             )
             .values("id", "name", "code", "school_revenue")
