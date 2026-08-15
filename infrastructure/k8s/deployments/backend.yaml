@@ -192,6 +192,29 @@ spec:
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: sms-backups-pvc
+
+---
+# ─── Backup Storage PVC ───────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sms-backups-pvc
+  namespace: sms
+  labels:
+    app: sms-backend
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "gp3"
+  resources:
+    requests:
+      storage: 20Gi
 
 ---
 # ─── HorizontalPodAutoscaler for Backend ─────────────────────────────────────

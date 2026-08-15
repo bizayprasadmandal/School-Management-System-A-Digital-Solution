@@ -97,6 +97,7 @@ services:
     volumes:
       - ./backend:/app
       - media_files:/app/media
+      - sms_backups:/backups
     ports:
       - "8000:8000"
     depends_on:
@@ -132,6 +133,7 @@ services:
       - FRONTEND_URL=http://localhost:3000
     volumes:
       - ./backend:/app
+      - sms_backups:/backups
     depends_on:
       - backend
       - redis
@@ -242,6 +244,7 @@ volumes:
   redis_data:
   minio_data:
   media_files:
+  sms_backups:
 
 networks:
   default:

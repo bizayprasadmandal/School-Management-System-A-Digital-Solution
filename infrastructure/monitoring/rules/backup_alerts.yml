@@ -11,7 +11,6 @@ groups:
   - name: sms_backup_monitoring
     interval: 1m
     rules:
-
       # ── Recording Rules ──────────────────────────────────────────────────
 
       # Normalised backup age (converts hours to a 0-1 score for dashboard
@@ -76,7 +75,7 @@ groups:
           description: |
             The most recent backup is only {{ $value | humanizeBytes }}.
             This could indicate a corrupt or empty pg_dump.  Verify manually:
-            /opt/sms/infrastructure/db/verify_backup.sh /backups/sms-daily-$(date +%Y-%m-%d).sql.gz
+            /opt/sms/infrastructure/db/verify_backup.sh "$(ls -t /backups/sms-daily-*.sql.gz | head -1)"
 
       # P2: Backup count is zero (backup job stopped)
       - alert: BackupJobStopped

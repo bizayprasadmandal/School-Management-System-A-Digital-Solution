@@ -24,10 +24,10 @@ services:
     container_name: sms_postgres_prod
     restart: always
     environment:
-      POSTGRES_DB:       ${POSTGRES_DB:-sms_db}
-      POSTGRES_USER:     ${POSTGRES_USER:-sms}
+      POSTGRES_DB: ${POSTGRES_DB:-sms_db}
+      POSTGRES_USER: ${POSTGRES_USER:-sms}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
-      PGDATA:            /var/lib/postgresql/data/pgdata
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -97,6 +97,7 @@ services:
     volumes:
       - media_files:/app/media
       - static_files:/app/staticfiles
+      - sms_backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,6 +136,8 @@ services:
       -c 4
       -Q default,notifications,reports
       --max-tasks-per-child 100
+    volumes:
+      - sms_backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -237,6 +240,8 @@ volumes:
   media_files:
     driver: local
   static_files:
+    driver: local
+  sms_backups:
     driver: local
 
 networks:
