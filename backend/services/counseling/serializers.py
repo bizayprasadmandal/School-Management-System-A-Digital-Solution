@@ -3,7 +3,8 @@ Counseling Service — Serializers.
 """
 
 from rest_framework import serializers
-from .models import CounselingAppointment, StudentReferral, CounselorProfile
+
+from .models import CounselingAppointment, CounselorProfile, StudentReferral
 
 
 class CounselingAppointmentSerializer(serializers.ModelSerializer):
@@ -40,11 +41,30 @@ class CounselingAppointmentCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CounselingAppointment
         fields = [
-            "counselor", "student", "appointment_type", "status",
-            "scheduled_date", "scheduled_time", "duration_minutes",
-            "location", "reason", "notes", "follow_up_needed",
-            "follow_up_date", "send_reminder",
+            "counselor",
+            "student",
+            "appointment_type",
+            "status",
+            "scheduled_date",
+            "scheduled_time",
+            "duration_minutes",
+            "location",
+            "reason",
+            "notes",
+            "follow_up_needed",
+            "follow_up_date",
+            "send_reminder",
         ]
+
+    def create(self, validated_data):
+        # send_reminder is a write-only flag, not a model field — pop it so the
+        # model is only created with real columns.
+        validated_data.pop("send_reminder", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("send_reminder", None)
+        return super().update(instance, validated_data)
 
 
 class StudentReferralSerializer(serializers.ModelSerializer):
@@ -82,9 +102,18 @@ class StudentReferralCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentReferral
         fields = [
-            "student", "assigned_to", "category", "priority", "status",
-            "reason", "notes", "intervention_plan", "outcome",
-            "follow_up_date", "is_confidential", "notify_counselor",
+            "student",
+            "assigned_to",
+            "category",
+            "priority",
+            "status",
+            "reason",
+            "notes",
+            "intervention_plan",
+            "outcome",
+            "follow_up_date",
+            "is_confidential",
+            "notify_counselor",
         ]
 
     def validate_reason(self, value):
@@ -92,24 +121,43 @@ class StudentReferralCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Reason must be at least 10 characters.")
         return value
 
+    def create(self, validated_data):
+        # notify_counselor is a write-only flag, not a model field — pop it so
+        # the model is only created with real columns.
+        validated_data.pop("notify_counselor", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("notify_counselor", None)
+        return super().update(instance, validated_data)
+
 
 class CounselorProfileSerializer(serializers.ModelSerializer):
     """Full counselor profile — used for GET responses."""
+
     full_name = serializers.CharField(source="user.full_name", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
 
     class Meta:
         model = CounselorProfile
         fields = [
-            "id", "user", "full_name", "email",
-            "specialties", "certifications", "office_hours", "bio",
-            "created_at", "updated_at",
+            "id",
+            "user",
+            "full_name",
+            "email",
+            "specialties",
+            "certifications",
+            "office_hours",
+            "bio",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class CounselorSelfProfileSerializer(serializers.ModelSerializer):
     """Serializer for counselors to update their own profile."""
+
     class Meta:
         model = CounselorProfile
         fields = ["specialties", "certifications", "office_hours", "bio"]
