@@ -57,11 +57,14 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
   const [method, setMethod] = useState("cash");
   const qc = useQueryClient();
 
+  const parsedAmount = parseFloat(amount);
+  const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
       api.post("/fees/payments/", {
         invoice_id: invoice.id,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         payment_method: method,
       }),
     onSuccess: () => {
@@ -71,6 +74,14 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
     },
     onError: () => toast.error("Failed to record payment"),
   });
+
+  const handleRecord = () => {
+    if (!amountValid) {
+      toast.error("Enter a valid amount greater than 0");
+      return;
+    }
+    mutate();
+  };
 
   return (
     <Modal
@@ -84,11 +95,7 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={() => mutate()}
-            loading={isPending}
-            disabled={!amount || parseFloat(amount) <= 0}
-          >
+          <Button onClick={handleRecord} loading={isPending} disabled={!amountValid}>
             Record Payment
           </Button>
         </>

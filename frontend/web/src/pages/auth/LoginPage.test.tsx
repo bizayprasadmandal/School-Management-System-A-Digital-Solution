@@ -53,7 +53,7 @@ const renderLoginPage = () =>
       <BrowserRouter>
         <LoginPage />
       </BrowserRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 
 // ─── Before each ───────────────────────────────────────────────────────────────
@@ -82,26 +82,18 @@ describe("rendering", () => {
   test("renders the form card with welcome text", () => {
     renderLoginPage();
     expect(screen.getByText("Welcome back")).toBeInTheDocument();
-    expect(
-      screen.getByText("Sign in to your account to continue")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Sign in to your account to continue")).toBeInTheDocument();
   });
 
   test("renders email and password fields", () => {
     renderLoginPage();
-    expect(
-      screen.getByPlaceholderText("you@school.edu")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("••••••••••")
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("you@school.edu")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("••••••••••")).toBeInTheDocument();
   });
 
   test("renders the sign in button", () => {
     renderLoginPage();
-    expect(
-      screen.getByRole("button", { name: /sign in/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 
   test("renders the forgot password link", () => {
@@ -111,19 +103,15 @@ describe("rendering", () => {
     expect(link).toHaveAttribute("href", "/forgot-password");
   });
 
-  test("renders the remember me checkbox", () => {
+  test("does not render the remember me checkbox (no backend support)", () => {
     renderLoginPage();
-    expect(
-      screen.getByLabelText(/keep me signed in/i)
-    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/keep me signed in/i)).not.toBeInTheDocument();
   });
 
-  test("renders demo credentials section", () => {
+  test("does not render demo credentials by default", () => {
     renderLoginPage();
-    expect(screen.getByText("Demo Credentials")).toBeInTheDocument();
-    expect(screen.getByText(/admin@school.edu/)).toBeInTheDocument();
-    expect(screen.getByText(/teacher@school.edu/)).toBeInTheDocument();
-    expect(screen.getByText(/student@school.edu/)).toBeInTheDocument();
+    expect(screen.queryByText("Demo Credentials")).not.toBeInTheDocument();
+    expect(screen.queryByText(/admin@school.edu/)).not.toBeInTheDocument();
   });
 });
 
@@ -136,9 +124,7 @@ describe("form validation", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Please enter a valid email address")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Please enter a valid email address")).toBeInTheDocument();
     });
   });
 
@@ -149,9 +135,7 @@ describe("form validation", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Please enter a valid email address")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Please enter a valid email address")).toBeInTheDocument();
     });
   });
 
@@ -163,9 +147,7 @@ describe("form validation", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Password is required")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Password is required")).toBeInTheDocument();
     });
   });
 
@@ -176,9 +158,7 @@ describe("form validation", () => {
     // Submit empty form to trigger errors
     await user.click(screen.getByRole("button", { name: /sign in/i }));
     await waitFor(() => {
-      expect(
-        screen.getByText("Please enter a valid email address")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Please enter a valid email address")).toBeInTheDocument();
     });
 
     // Fix the email
@@ -187,9 +167,7 @@ describe("form validation", () => {
     await user.tab(); // trigger validation on blur
 
     await waitFor(() => {
-      expect(
-        screen.queryByText("Please enter a valid email address")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Please enter a valid email address")).not.toBeInTheDocument();
     });
   });
 });
@@ -332,9 +310,7 @@ describe("successful login", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(
-        "Welcome back, Admin!"
-      );
+      expect(toast.success).toHaveBeenCalledWith("Welcome back, Admin!");
     });
   });
 });
@@ -356,9 +332,7 @@ describe("failed login", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Incorrect email or password")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Incorrect email or password")).toBeInTheDocument();
     });
   });
 
@@ -375,9 +349,7 @@ describe("failed login", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        "Too many attempts. Please wait 30 minutes."
-      );
+      expect(toast.error).toHaveBeenCalledWith("Too many attempts. Please wait 30 minutes.");
     });
   });
 
@@ -420,7 +392,7 @@ describe("submit button state", () => {
   test("button shows loading text during submission", async () => {
     // Make the API call never resolve
     (api.post as jest.Mock).mockImplementation(
-      () => new Promise(() => {}) // never resolves
+      () => new Promise(() => {}), // never resolves
     );
 
     renderLoginPage();
@@ -431,14 +403,10 @@ describe("submit button state", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Signing in…")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Signing in…")).toBeInTheDocument();
     });
 
     // Button should be disabled during submission
-    expect(
-      screen.getByRole("button", { name: /signing in/i })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /signing in/i })).toBeDisabled();
   });
 });

@@ -5,13 +5,27 @@
 import React, { memo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
-  HomeIcon, ClipboardDocumentCheckIcon, BookOpenIcon,
-  CalendarDaysIcon, ChatBubbleLeftRightIcon, BanknotesIcon,
-  AcademicCapIcon, Bars3Icon, XMarkIcon, DocumentTextIcon,
-  ArrowRightOnRectangleIcon, SunIcon, MoonIcon,
-  VideoCameraIcon, ChartBarIcon, Cog6ToothIcon,
-  MegaphoneIcon, ExclamationTriangleIcon,
-  UserGroupIcon, ReceiptPercentIcon, ArrowPathIcon,
+  HomeIcon,
+  ClipboardDocumentCheckIcon,
+  BookOpenIcon,
+  CalendarDaysIcon,
+  ChatBubbleLeftRightIcon,
+  BanknotesIcon,
+  AcademicCapIcon,
+  Bars3Icon,
+  XMarkIcon,
+  DocumentTextIcon,
+  ArrowRightOnRectangleIcon,
+  SunIcon,
+  MoonIcon,
+  VideoCameraIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  MegaphoneIcon,
+  ExclamationTriangleIcon,
+  UserGroupIcon,
+  ReceiptPercentIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -34,15 +48,15 @@ import { useDarkMode } from "../../hooks/useDarkMode";
 import type { User } from "../../types";
 
 const STUDENT_NAV = [
-  { label: "Dashboard",  to: "/student",               icon: HomeIcon },
-  { label: "Attendance", to: "/student/attendance",    icon: ClipboardDocumentCheckIcon },
-  { label: "My Grades",  to: "/student/grades",        icon: BookOpenIcon },
-  { label: "Assignments",to: "/student/assignments",   icon: DocumentTextIcon },
-  { label: "Timetable",  to: "/student/timetable",     icon: CalendarDaysIcon },
-  { label: "Conferences",to: "/student/conferences",   icon: VideoCameraIcon },
-  { label: "Messages",   to: "/student/messages",      icon: ChatBubbleLeftRightIcon },
-  { label: "Fees",       to: "/student/fees",           icon: BanknotesIcon },
-  { label: "Settings",   to: "/student/settings",        icon: Cog6ToothIcon },
+  { label: "Dashboard", to: "/student", icon: HomeIcon },
+  { label: "Attendance", to: "/student/attendance", icon: ClipboardDocumentCheckIcon },
+  { label: "My Grades", to: "/student/grades", icon: BookOpenIcon },
+  { label: "Assignments", to: "/student/assignments", icon: DocumentTextIcon },
+  { label: "Timetable", to: "/student/timetable", icon: CalendarDaysIcon },
+  { label: "Conferences", to: "/student/conferences", icon: VideoCameraIcon },
+  { label: "Messages", to: "/student/messages", icon: ChatBubbleLeftRightIcon },
+  { label: "Fees", to: "/student/fees", icon: BanknotesIcon },
+  { label: "Settings", to: "/student/settings", icon: Cog6ToothIcon },
 ];
 
 interface NavItem {
@@ -66,17 +80,29 @@ interface SidebarShellProps {
 }
 
 const SidebarShell = memo(function SidebarShell({
-  nav, accent, open, setOpen, user, logout, navigate, isDark, toggleDark,
-  verifyEmailPath, backupCodePath,}: SidebarShellProps) {
+  nav,
+  accent,
+  open,
+  setOpen,
+  user,
+  logout,
+  navigate,
+  isDark,
+  toggleDark,
+  verifyEmailPath,
+  backupCodePath,
+}: SidebarShellProps) {
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
       {open && (
         <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setOpen(false)} />
       )}
-      <aside className={clsx(
-        `fixed inset-y-0 left-0 z-30 flex w-64 flex-col ${accent} dark:brightness-110 transition-transform duration-300 lg:static lg:translate-x-0`,
-        open ? "translate-x-0" : "-translate-x-full"
-      )}>
+      <aside
+        className={clsx(
+          `fixed inset-y-0 left-0 z-30 flex w-64 flex-col ${accent} dark:brightness-110 transition-transform duration-300 lg:static lg:translate-x-0`,
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
         <div className="flex h-16 items-center justify-between px-5 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-white/90">
@@ -84,7 +110,11 @@ const SidebarShell = memo(function SidebarShell({
             </div>
             <span className="text-lg font-bold text-white">EduSphere</span>
           </div>
-          <button className="lg:hidden text-white/70" onClick={() => setOpen(false)}>
+          <button
+            className="lg:hidden text-white/70"
+            onClick={() => setOpen(false)}
+            aria-label="Close navigation menu"
+          >
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
@@ -94,12 +124,20 @@ const SidebarShell = memo(function SidebarShell({
         </div>
         <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
           {nav.map(({ label, to, icon: Icon }) => (
-            <NavLink key={to} to={to} end={to.split("/").length === 2}
+            <NavLink
+              key={to}
+              to={to}
+              end={to.split("/").length === 2}
               onClick={() => setOpen(false)}
-              className={({ isActive }) => clsx(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
-              )}>
+              className={({ isActive }) =>
+                clsx(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-white/15 text-white"
+                    : "text-white/60 hover:bg-white/10 hover:text-white",
+                )
+              }
+            >
               <Icon className="h-5 w-5 flex-shrink-0" />
               {label}
             </NavLink>
@@ -108,26 +146,36 @@ const SidebarShell = memo(function SidebarShell({
         <div className="border-t border-white/10 p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white font-semibold text-sm">
-              {user?.first_name?.[0]}{user?.last_name?.[0]}
+              {user?.first_name?.[0]}
+              {user?.last_name?.[0]}
             </div>
             <p className="flex-1 text-sm font-medium text-white truncate flex items-center gap-1.5">
               {user?.first_name}
-              {user && (
-                user.email_verified ? (
+              {user &&
+                (user.email_verified ? (
                   <span
                     className="inline-block h-2 w-2 rounded-full shrink-0 bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"
                     title="Email verified"
                   />
                 ) : (
                   <button
-                    onClick={(e) => { e.stopPropagation(); if (verifyEmailPath) navigate(verifyEmailPath); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (verifyEmailPath) navigate(verifyEmailPath);
+                    }}
                     className="inline-block h-2 w-2 rounded-full shrink-0 bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)] cursor-pointer hover:bg-amber-300 transition-colors"
                     title="Verify now"
                   />
-                )
-              )}
+                ))}
             </p>
-            <button onClick={() => { logout(); navigate("/login"); }} className="text-white/50 hover:text-white">
+            <button
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              aria-label="Sign out"
+              className="text-white/50 hover:text-white"
+            >
               <ArrowRightOnRectangleIcon className="h-5 w-5" />
             </button>
           </div>
@@ -136,7 +184,12 @@ const SidebarShell = memo(function SidebarShell({
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <header className="flex h-16 items-center justify-between bg-white dark:bg-slate-800 px-4 shadow-sm border-b border-slate-200 dark:border-slate-700 transition-colors duration-200">
-          <button className="lg:hidden text-slate-500 dark:text-slate-400" onClick={() => setOpen(true)}>
+          <button
+            className="lg:hidden text-slate-500 dark:text-slate-400"
+            onClick={() => setOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={open}
+          >
             <Bars3Icon className="h-6 w-6" />
           </button>
           <div className="flex-1" />
@@ -159,8 +212,18 @@ const SidebarShell = memo(function SidebarShell({
                 title="Email not verified — click to verify"
                 className="relative rounded-lg p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                  />
                 </svg>
                 <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
                   !
@@ -190,10 +253,15 @@ export function StudentLayout() {
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
-      nav={STUDENT_NAV} accent="bg-blue-800" open={open}
-      setOpen={setOpen} user={user} logout={logout}
+      nav={STUDENT_NAV}
+      accent="bg-blue-800"
+      open={open}
+      setOpen={setOpen}
+      user={user}
+      logout={logout}
       navigate={navigate}
-      isDark={isDark} toggleDark={toggleDark}
+      isDark={isDark}
+      toggleDark={toggleDark}
       verifyEmailPath="/student/verify-email"
     />
   );
@@ -204,13 +272,13 @@ export default StudentLayout;
 // ─── Accountant Layout ────────────────────────────────────────────────────────
 
 const ACCOUNTANT_NAV: NavItem[] = [
-  { label: "Dashboard",      to: "/accountant",              icon: HomeIcon },
-  { label: "Fee Management", to: "/accountant/fees",          icon: BanknotesIcon },
-  { label: "Payment History",to: "/accountant/payments",      icon: ReceiptPercentIcon },
-  { label: "Refunds",        to: "/accountant/refunds",      icon: ArrowPathIcon },
-  { label: "Reports",        to: "/accountant/reports",       icon: ChartBarIcon },
-  { label: "Conferences",    to: "/accountant/conferences",   icon: VideoCameraIcon },
-  { label: "Settings",       to: "/accountant/settings",      icon: Cog6ToothIcon },
+  { label: "Dashboard", to: "/accountant", icon: HomeIcon },
+  { label: "Fee Management", to: "/accountant/fees", icon: BanknotesIcon },
+  { label: "Payment History", to: "/accountant/payments", icon: ReceiptPercentIcon },
+  { label: "Refunds", to: "/accountant/refunds", icon: ArrowPathIcon },
+  { label: "Reports", to: "/accountant/reports", icon: ChartBarIcon },
+  { label: "Conferences", to: "/accountant/conferences", icon: VideoCameraIcon },
+  { label: "Settings", to: "/accountant/settings", icon: Cog6ToothIcon },
 ];
 
 export function AccountantLayout() {
@@ -221,10 +289,15 @@ export function AccountantLayout() {
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
-      nav={ACCOUNTANT_NAV} accent="bg-amber-800" open={open}
-      setOpen={setOpen} user={user} logout={logout}
+      nav={ACCOUNTANT_NAV}
+      accent="bg-amber-800"
+      open={open}
+      setOpen={setOpen}
+      user={user}
+      logout={logout}
       navigate={navigate}
-      isDark={isDark} toggleDark={toggleDark}
+      isDark={isDark}
+      toggleDark={toggleDark}
       verifyEmailPath="/accountant/verify-email"
       backupCodePath="/accountant/setup-2fa"
     />
@@ -234,12 +307,12 @@ export function AccountantLayout() {
 // ─── Librarian Layout ─────────────────────────────────────────────────────────
 
 const LIBRARIAN_NAV: NavItem[] = [
-  { label: "Dashboard",       to: "/librarian",              icon: HomeIcon },
-  { label: "Book Catalog",    to: "/librarian/books",        icon: BookOpenIcon },
-  { label: "Checkouts",       to: "/librarian/checkouts",    icon: ClipboardDocumentCheckIcon },
-  { label: "Fines",           to: "/librarian/fines",        icon: BanknotesIcon },
-  { label: "Announcements",   to: "/librarian/announcements",icon: MegaphoneIcon },
-  { label: "Settings",        to: "/librarian/settings",     icon: Cog6ToothIcon },
+  { label: "Dashboard", to: "/librarian", icon: HomeIcon },
+  { label: "Book Catalog", to: "/librarian/books", icon: BookOpenIcon },
+  { label: "Checkouts", to: "/librarian/checkouts", icon: ClipboardDocumentCheckIcon },
+  { label: "Fines", to: "/librarian/fines", icon: BanknotesIcon },
+  { label: "Announcements", to: "/librarian/announcements", icon: MegaphoneIcon },
+  { label: "Settings", to: "/librarian/settings", icon: Cog6ToothIcon },
 ];
 
 export function LibrarianLayout() {
@@ -250,10 +323,15 @@ export function LibrarianLayout() {
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
-      nav={LIBRARIAN_NAV} accent="bg-teal-800" open={open}
-      setOpen={setOpen} user={user} logout={logout}
+      nav={LIBRARIAN_NAV}
+      accent="bg-teal-800"
+      open={open}
+      setOpen={setOpen}
+      user={user}
+      logout={logout}
       navigate={navigate}
-      isDark={isDark} toggleDark={toggleDark}
+      isDark={isDark}
+      toggleDark={toggleDark}
       verifyEmailPath="/librarian/verify-email"
       backupCodePath="/librarian/setup-2fa"
     />
@@ -263,12 +341,12 @@ export function LibrarianLayout() {
 // ─── Counselor Layout ─────────────────────────────────────────────────────────
 
 const COUNSELOR_NAV: NavItem[] = [
-  { label: "Dashboard",       to: "/counselor",              icon: HomeIcon },
-  { label: "Appointments",    to: "/counselor/appointments", icon: CalendarDaysIcon },
-  { label: "Referrals",       to: "/counselor/referrals",    icon: UserGroupIcon },
-  { label: "Behavior",        to: "/counselor/behavior",     icon: ExclamationTriangleIcon },
-  { label: "Announcements",   to: "/counselor/announcements",icon: MegaphoneIcon },
-  { label: "Settings",        to: "/counselor/settings",     icon: Cog6ToothIcon },
+  { label: "Dashboard", to: "/counselor", icon: HomeIcon },
+  { label: "Appointments", to: "/counselor/appointments", icon: CalendarDaysIcon },
+  { label: "Referrals", to: "/counselor/referrals", icon: UserGroupIcon },
+  { label: "Behavior", to: "/counselor/behavior", icon: ExclamationTriangleIcon },
+  { label: "Announcements", to: "/counselor/announcements", icon: MegaphoneIcon },
+  { label: "Settings", to: "/counselor/settings", icon: Cog6ToothIcon },
 ];
 
 export function CounselorLayout() {
@@ -279,10 +357,15 @@ export function CounselorLayout() {
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
-      nav={COUNSELOR_NAV} accent="bg-pink-800" open={open}
-      setOpen={setOpen} user={user} logout={logout}
+      nav={COUNSELOR_NAV}
+      accent="bg-pink-800"
+      open={open}
+      setOpen={setOpen}
+      user={user}
+      logout={logout}
       navigate={navigate}
-      isDark={isDark} toggleDark={toggleDark}
+      isDark={isDark}
+      toggleDark={toggleDark}
       verifyEmailPath="/counselor/verify-email"
       backupCodePath="/counselor/setup-2fa"
     />
@@ -292,14 +375,14 @@ export function CounselorLayout() {
 // ─── Parent Layout ─────────────────────────────────────────────────────────────
 
 const PARENT_NAV: NavItem[] = [
-  { label: "Dashboard",  to: "/parent",             icon: HomeIcon },
-  { label: "My Children",to: "/parent/children",    icon: AcademicCapIcon },
-  { label: "Attendance", to: "/parent/attendance",  icon: ClipboardDocumentCheckIcon },
-  { label: "Grades",     to: "/parent/grades",      icon: BookOpenIcon },
-  { label: "Fees",       to: "/parent/fees",         icon: BanknotesIcon },
-  { label: "Conferences",to: "/parent/conferences",  icon: VideoCameraIcon },
-  { label: "Messages",   to: "/parent/messages",    icon: ChatBubbleLeftRightIcon },
-  { label: "Settings",   to: "/parent/settings",    icon: Cog6ToothIcon },
+  { label: "Dashboard", to: "/parent", icon: HomeIcon },
+  { label: "My Children", to: "/parent/children", icon: AcademicCapIcon },
+  { label: "Attendance", to: "/parent/attendance", icon: ClipboardDocumentCheckIcon },
+  { label: "Grades", to: "/parent/grades", icon: BookOpenIcon },
+  { label: "Fees", to: "/parent/fees", icon: BanknotesIcon },
+  { label: "Conferences", to: "/parent/conferences", icon: VideoCameraIcon },
+  { label: "Messages", to: "/parent/messages", icon: ChatBubbleLeftRightIcon },
+  { label: "Settings", to: "/parent/settings", icon: Cog6ToothIcon },
 ];
 
 export function ParentLayout() {
@@ -310,10 +393,15 @@ export function ParentLayout() {
   const [isDark, toggleDark] = useDarkMode();
   return (
     <SidebarShell
-      nav={PARENT_NAV} accent="bg-violet-800" open={open}
-      setOpen={setOpen} user={user} logout={logout}
+      nav={PARENT_NAV}
+      accent="bg-violet-800"
+      open={open}
+      setOpen={setOpen}
+      user={user}
+      logout={logout}
       navigate={navigate}
-      isDark={isDark} toggleDark={toggleDark}
+      isDark={isDark}
+      toggleDark={toggleDark}
       verifyEmailPath="/parent/verify-email"
       backupCodePath="/parent/setup-2fa"
     />

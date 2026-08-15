@@ -119,7 +119,7 @@ export default function StudentsPage() {
             <EyeIcon className="h-4 w-4" />
           </button>
           <button
-            onClick={() => navigate(`/admin/students/${student.id}/edit`)}
+            onClick={() => navigate(`/admin/students/${student.id}`)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
             title="Edit student"
           >

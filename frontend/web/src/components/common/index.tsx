@@ -2,7 +2,7 @@
  * Common UI Components — reusable across all role dashboards
  */
 
-import React from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
@@ -20,15 +20,25 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = React.memo(function Button({
-  variant = "primary", size = "md", loading, leftIcon, rightIcon,
-  children, className, disabled, ...props
+  variant = "primary",
+  size = "md",
+  loading,
+  leftIcon,
+  rightIcon,
+  children,
+  className,
+  disabled,
+  ...props
 }: ButtonProps) {
-  const base = "inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none";
+  const base =
+    "inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none";
   const variants = {
-    primary:   "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800 focus-visible:outline-indigo-600",
-    secondary: "bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 active:bg-slate-100",
-    danger:    "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800",
-    ghost:     "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
+    primary:
+      "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800 focus-visible:outline-indigo-600",
+    secondary:
+      "bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 active:bg-slate-100",
+    danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800",
+    ghost: "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
   };
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2.5 text-sm", lg: "px-6 py-3 text-base" };
   return (
@@ -37,9 +47,11 @@ export const Button = React.memo(function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading
-        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        : leftIcon}
+      {loading ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+      ) : (
+        leftIcon
+      )}
       {children}
       {!loading && rightIcon}
     </button>
@@ -56,13 +68,18 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   rightAddon?: React.ReactNode;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({
-  label, error, hint, leftAddon, rightAddon, className, id, ...props
-}, ref) {
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, error, hint, leftAddon, rightAddon, className, id, ...props },
+  ref,
+) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label htmlFor={inputId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      {label && (
+        <label htmlFor={inputId} className="text-xs font-semibold text-slate-700">
+          {label}
+        </label>
+      )}
       <div className="relative flex items-center">
         {leftAddon && <div className="absolute left-3 text-slate-400">{leftAddon}</div>}
         <input
@@ -71,10 +88,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
           className={clsx(
             "w-full rounded-xl border bg-white px-4 py-2.5 text-sm placeholder:text-slate-400 text-slate-900",
             "transition focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed",
-            error ? "border-red-300 focus:ring-red-400 focus:border-red-400" : "border-slate-200 focus:ring-indigo-500 focus:border-indigo-400",
+            error
+              ? "border-red-300 focus:ring-red-400 focus:border-red-400"
+              : "border-slate-200 focus:ring-indigo-500 focus:border-indigo-400",
             leftAddon && "pl-9",
             rightAddon && "pr-9",
-            className
+            className,
           )}
           {...props}
         />
@@ -95,13 +114,18 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   placeholder?: string;
 }
 
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select({
-  label, error, options, placeholder, className, id, ...props
-}, ref) {
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  { label, error, options, placeholder, className, id, ...props },
+  ref,
+) {
   const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label htmlFor={selectId} className="text-xs font-semibold text-slate-700">{label}</label>}
+      {label && (
+        <label htmlFor={selectId} className="text-xs font-semibold text-slate-700">
+          {label}
+        </label>
+      )}
       <select
         ref={ref}
         id={selectId}
@@ -109,12 +133,16 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
           "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 appearance-none cursor-pointer",
           "transition focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:cursor-not-allowed",
           error ? "border-red-300 focus:ring-red-400" : "border-slate-200 focus:ring-indigo-500",
-          className
+          className,
         )}
         {...props}
       >
         {placeholder && <option value="">{placeholder}</option>}
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
@@ -124,25 +152,46 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 export type BadgeColor = "green" | "red" | "amber" | "blue" | "purple" | "slate" | "indigo";
-interface BadgeProps { color?: BadgeColor; children: React.ReactNode; dot?: boolean; className?: string; }
+interface BadgeProps {
+  color?: BadgeColor;
+  children: React.ReactNode;
+  dot?: boolean;
+  className?: string;
+}
 
 const BADGE_COLORS: Record<BadgeColor, string> = {
-  green:  "bg-green-100 text-green-700",
-  red:    "bg-red-100 text-red-700",
-  amber:  "bg-amber-100 text-amber-700",
-  blue:   "bg-blue-100 text-blue-700",
+  green: "bg-green-100 text-green-700",
+  red: "bg-red-100 text-red-700",
+  amber: "bg-amber-100 text-amber-700",
+  blue: "bg-blue-100 text-blue-700",
   purple: "bg-purple-100 text-purple-700",
-  slate:  "bg-slate-100 text-slate-600",
+  slate: "bg-slate-100 text-slate-600",
   indigo: "bg-indigo-100 text-indigo-700",
 };
 const DOT_COLORS: Record<BadgeColor, string> = {
-  green: "bg-green-500", red: "bg-red-500", amber: "bg-amber-500",
-  blue: "bg-blue-500", purple: "bg-purple-500", slate: "bg-slate-400", indigo: "bg-indigo-500",
+  green: "bg-green-500",
+  red: "bg-red-500",
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  slate: "bg-slate-400",
+  indigo: "bg-indigo-500",
 };
 
-export const Badge = React.memo(function Badge({ color = "slate", dot, children, className }: BadgeProps) {
+export const Badge = React.memo(function Badge({
+  color = "slate",
+  dot,
+  children,
+  className,
+}: BadgeProps) {
   return (
-    <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", BADGE_COLORS[color], className)}>
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+        BADGE_COLORS[color],
+        className,
+      )}
+    >
       {dot && <span className={clsx("h-1.5 w-1.5 rounded-full", DOT_COLORS[color])} />}
       {children}
     </span>
@@ -159,29 +208,114 @@ interface ModalProps {
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
   footer?: React.ReactNode;
+  /** Disable closing the dialog with the Escape key (default false) */
+  disableEscape?: boolean;
 }
 
 const MODAL_SIZES = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-2xl" };
 
-export function Modal({ open, onClose, title, description, children, size = "md", footer }: ModalProps) {
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  size = "md",
+  footer,
+  disableEscape = false,
+}: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  // Move focus into the dialog when it opens; restore it to the previously
+  // focused element when it closes/unmounts.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    if (panel) {
+      const firstFocusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      (firstFocusable ?? panel).focus();
+    }
+    return () => {
+      previouslyFocused.current?.focus?.();
+    };
+  }, [open]);
+
+  // Escape-to-close + Tab focus trap while the dialog is open.
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!disableEscape) onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      if (focusables.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || active === panel)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose, disableEscape]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={clsx("relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]", MODAL_SIZES[size])}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        className={clsx(
+          "relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] focus:outline-none",
+          MODAL_SIZES[size],
+        )}
+      >
         {title && (
           <div className="flex items-start justify-between p-6 border-b border-slate-100">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+              <h2 id={titleId} className="text-lg font-bold text-slate-900">
+                {title}
+              </h2>
               {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
             </div>
-            <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors ml-4">
+            <button
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors ml-4"
+            >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
         )}
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
-        {footer && <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3">{footer}</div>}
+        {footer && (
+          <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -189,22 +323,43 @@ export function Modal({ open, onClose, title, description, children, size = "md"
 
 // ─── Spinner / Loading ────────────────────────────────────────────────────────
 
-export function Spinner({ size = "md", className }: { size?: "sm" | "md" | "lg"; className?: string }) {
+export function Spinner({
+  size = "md",
+  className,
+}: {
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
   const sizes = { sm: "h-4 w-4 border-2", md: "h-7 w-7 border-4", lg: "h-10 w-10 border-4" };
-  return <div className={clsx("animate-spin rounded-full border-indigo-500 border-t-transparent", sizes[size], className)} />;
+  return (
+    <div
+      className={clsx(
+        "animate-spin rounded-full border-indigo-500 border-t-transparent",
+        sizes[size],
+        className,
+      )}
+    />
+  );
 }
 
 // ─── Skeleton Loaders ─────────────────────────────────────────────────────────
 
 /** Base skeleton pulse block */
 function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700", className)} />;
+  return (
+    <div className={clsx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700", className)} />
+  );
 }
 
 /** Skeleton that mimics a card with title + 2 text lines */
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+    <div
+      className={clsx(
+        "rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700",
+        className,
+      )}
+    >
       <Skeleton className="h-4 w-1/3 mb-4" />
       <Skeleton className="h-8 w-2/3 mb-3" />
       <Skeleton className="h-3 w-full mb-2" />
@@ -214,9 +369,22 @@ export function SkeletonCard({ className }: { className?: string }) {
 }
 
 /** Skeleton that mimics a table with header + rows */
-export function SkeletonTable({ rows = 5, cols = 4, className }: { rows?: number; cols?: number; className?: string }) {
+export function SkeletonTable({
+  rows = 5,
+  cols = 4,
+  className,
+}: {
+  rows?: number;
+  cols?: number;
+  className?: string;
+}) {
   return (
-    <div className={clsx("rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden", className)}>
+    <div
+      className={clsx(
+        "rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden",
+        className,
+      )}
+    >
       {/* Header */}
       <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 flex gap-4">
         {Array.from({ length: cols }, (_, i) => (
@@ -225,7 +393,10 @@ export function SkeletonTable({ rows = 5, cols = 4, className }: { rows?: number
       </div>
       {/* Rows */}
       {Array.from({ length: rows }, (_, r) => (
-        <div key={r} className="flex gap-4 px-4 py-3 border-t border-slate-50 dark:border-slate-700/50">
+        <div
+          key={r}
+          className="flex gap-4 px-4 py-3 border-t border-slate-50 dark:border-slate-700/50"
+        >
           {Array.from({ length: cols }, (_, c) => (
             <Skeleton key={c} className={`h-4 ${c === 0 ? "flex-[2]" : "flex-1"}`} />
           ))}
@@ -238,7 +409,12 @@ export function SkeletonTable({ rows = 5, cols = 4, className }: { rows?: number
 /** Skeleton that mimics a KPI stat card */
 export function SkeletonStatCard({ className }: { className?: string }) {
   return (
-    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+    <div
+      className={clsx(
+        "rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700",
+        className,
+      )}
+    >
       <Skeleton className="h-3 w-1/2 mb-3" />
       <Skeleton className="h-8 w-1/3 mb-3" />
       <Skeleton className="h-3 w-2/3" />
@@ -249,7 +425,12 @@ export function SkeletonStatCard({ className }: { className?: string }) {
 /** Skeleton that mimics a chart/visualization area */
 export function SkeletonChart({ className }: { className?: string }) {
   return (
-    <div className={clsx("rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700", className)}>
+    <div
+      className={clsx(
+        "rounded-xl bg-white dark:bg-slate-800 p-5 border border-slate-100 dark:border-slate-700",
+        className,
+      )}
+    >
       <Skeleton className="h-3 w-1/4 mb-6" />
       <div className="flex items-end gap-2 h-40">
         <Skeleton className="flex-1 h-3/4" />
@@ -378,8 +559,18 @@ interface SkeletonPageProps {
  *     { type: "chart", count: 2, className: "grid grid-cols-1 gap-6 lg:grid-cols-3" },
  *   ]} />
  */
-export function SkeletonPage({ layout, count = 1, rows, cols, lines, sections, header, className }: SkeletonPageProps) {
-  const resolvedSections: SkeletonSection[] = sections ?? (layout ? [{ type: layout, count, rows, cols, lines }] : []);
+export function SkeletonPage({
+  layout,
+  count = 1,
+  rows,
+  cols,
+  lines,
+  sections,
+  header,
+  className,
+}: SkeletonPageProps) {
+  const resolvedSections: SkeletonSection[] =
+    sections ?? (layout ? [{ type: layout, count, rows, cols, lines }] : []);
 
   const renderSection = (sec: SkeletonSection, idx: number) => {
     const items = sec.count ?? 1;
@@ -396,27 +587,42 @@ export function SkeletonPage({ layout, count = 1, rows, cols, lines, sections, h
       case "card":
         return (
           <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => <SkeletonCard key={i} />)}
+            {Array.from({ length: items }, (_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         );
       case "stat-card":
         return (
           <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => <SkeletonStatCard key={i} />)}
+            {Array.from({ length: items }, (_, i) => (
+              <SkeletonStatCard key={i} />
+            ))}
           </div>
         );
       case "chart":
         return (
           <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => <SkeletonChart key={i} />)}
+            {Array.from({ length: items }, (_, i) => (
+              <SkeletonChart key={i} />
+            ))}
           </div>
         );
       case "table":
-        return <SkeletonTable key={idx} rows={sec.rows ?? 5} cols={sec.cols ?? 4} className={sec.className} />;
+        return (
+          <SkeletonTable
+            key={idx}
+            rows={sec.rows ?? 5}
+            cols={sec.cols ?? 4}
+            className={sec.className}
+          />
+        );
       case "text":
         return (
           <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => <SkeletonText key={i} lines={sec.lines ?? 3} />)}
+            {Array.from({ length: items }, (_, i) => (
+              <SkeletonText key={i} lines={sec.lines ?? 3} />
+            ))}
           </div>
         );
       default:
@@ -442,14 +648,21 @@ export function SkeletonDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <div className="lg:col-span-2">
+          <SkeletonChart />
+        </div>
         <SkeletonChart />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <div className="lg:col-span-2">
+          <SkeletonChart />
+        </div>
         <SkeletonCard />
       </div>
     </div>
@@ -480,9 +693,16 @@ interface DataTableProps<T> {
 }
 
 const DataTableInner = <T,>({
-  columns, data, loading, emptyMessage = "No data found",
-  rowKey, onRowClick,
-  page, total, pageSize, onPageChange,
+  columns,
+  data,
+  loading,
+  emptyMessage = "No data found",
+  rowKey,
+  onRowClick,
+  page,
+  total,
+  pageSize,
+  onPageChange,
 }: DataTableProps<T>) => {
   if (loading) return <SkeletonTable rows={5} cols={columns.length} />;
   return (
@@ -491,29 +711,47 @@ const DataTableInner = <T,>({
         <table className="min-w-full divide-y divide-slate-100">
           <thead className="bg-slate-50">
             <tr>
-              {columns.map(col => (
-                <th key={String(col.key)} className={clsx("px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide", col.className)}>
+              {columns.map((col) => (
+                <th
+                  key={String(col.key)}
+                  className={clsx(
+                    "px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide",
+                    col.className,
+                  )}
+                >
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 bg-white">
-            {data.length === 0
-              ? <tr><td colSpan={columns.length} className="text-center py-16 text-slate-400 text-sm">{emptyMessage}</td></tr>
-              : data.map(row => (
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-16 text-slate-400 text-sm">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              data.map((row) => (
                 <tr
                   key={rowKey(row)}
                   onClick={() => onRowClick?.(row)}
-                  className={clsx("hover:bg-slate-50/60 transition-colors", onRowClick && "cursor-pointer")}
+                  className={clsx(
+                    "hover:bg-slate-50/60 transition-colors",
+                    onRowClick && "cursor-pointer",
+                  )}
                 >
-                  {columns.map(col => (
-                    <td key={String(col.key)} className={clsx("px-4 py-3 text-sm text-slate-700", col.className)}>
+                  {columns.map((col) => (
+                    <td
+                      key={String(col.key)}
+                      className={clsx("px-4 py-3 text-sm text-slate-700", col.className)}
+                    >
                       {col.render ? col.render(row) : String((row as any)[col.key] ?? "—")}
                     </td>
                   ))}
                 </tr>
-              ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -535,18 +773,41 @@ interface PaginationProps {
   onChange: (page: number) => void;
 }
 
-export const Pagination = React.memo(function Pagination({ page, total, pageSize = 25, onChange }: PaginationProps) {
+export const Pagination = React.memo(function Pagination({
+  page,
+  total,
+  pageSize = 25,
+  onChange,
+}: PaginationProps) {
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
   return (
     <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 bg-white">
-      <p className="text-sm text-slate-500">Showing {start}–{end} of {total.toLocaleString()}</p>
+      <p className="text-sm text-slate-500">
+        Showing {start}–{end} of {total.toLocaleString()}
+      </p>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => onChange(page - 1)}>Previous</Button>
-        <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
-        <Button variant="secondary" size="sm" disabled={page === totalPages} onClick={() => onChange(page + 1)}>Next</Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={page === 1}
+          onClick={() => onChange(page - 1)}
+        >
+          Previous
+        </Button>
+        <span className="text-sm text-slate-600">
+          Page {page} of {totalPages}
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={page === totalPages}
+          onClick={() => onChange(page + 1)}
+        >
+          Next
+        </Button>
       </div>
     </div>
   );
@@ -571,9 +832,7 @@ export function ErrorState({
       <h3 className="mt-4 text-base font-semibold text-slate-800">
         {title ?? "Failed to load data"}
       </h3>
-      {message && (
-        <p className="mt-1 max-w-sm text-sm text-slate-500">{message}</p>
-      )}
+      {message && <p className="mt-1 max-w-sm text-sm text-slate-500">{message}</p>}
       {onRetry && (
         <button
           onClick={onRetry}
@@ -590,7 +849,10 @@ export function ErrorState({
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 export function EmptyState({
-  icon: Icon, title, description, action,
+  icon: Icon,
+  title,
+  description,
+  action,
 }: {
   icon?: React.ComponentType<{ className?: string }>;
   title: string;
@@ -621,17 +883,32 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({
-  open, title, message, confirmLabel = "Confirm", confirmVariant = "danger",
-  onConfirm, onCancel, loading,
+  open,
+  title,
+  message,
+  confirmLabel = "Confirm",
+  confirmVariant = "danger",
+  onConfirm,
+  onCancel,
+  loading,
 }: ConfirmDialogProps) {
   return (
-    <Modal open={open} onClose={onCancel} title={title} size="sm"
+    <Modal
+      open={open}
+      onClose={onCancel}
+      title={title}
+      size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel} disabled={loading}>Cancel</Button>
-          <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
+            {confirmLabel}
+          </Button>
         </>
-      }>
+      }
+    >
       <p className="text-sm text-slate-600">{message}</p>
     </Modal>
   );
@@ -639,14 +916,40 @@ export function ConfirmDialog({
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-export const Avatar = React.memo(function Avatar({ name = "?", src, size = "md", className }: {
-  name?: string; src?: string; size?: "sm" | "md" | "lg"; className?: string;
+export const Avatar = React.memo(function Avatar({
+  name = "?",
+  src,
+  size = "md",
+  className,
+}: {
+  name?: string;
+  src?: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
 }) {
   const sizes = { sm: "h-7 w-7 text-xs", md: "h-9 w-9 text-sm", lg: "h-12 w-12 text-base" };
-  const initials = (name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-  if (src) return <img src={src} alt={name} className={clsx("rounded-full object-cover flex-shrink-0", sizes[size], className)} />;
+  const initials = (name ?? "?")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  if (src)
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={clsx("rounded-full object-cover flex-shrink-0", sizes[size], className)}
+      />
+    );
   return (
-    <div className={clsx("rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center flex-shrink-0", sizes[size], className)}>
+    <div
+      className={clsx(
+        "rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center flex-shrink-0",
+        sizes[size],
+        className,
+      )}
+    >
       {initials}
     </div>
   );

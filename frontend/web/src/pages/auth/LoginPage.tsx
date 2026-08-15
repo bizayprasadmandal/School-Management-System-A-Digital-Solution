@@ -15,26 +15,17 @@ import { api } from "../../api/client";
 import { QK } from "../../api/hooks";
 import { trackEvent } from "../../utils/analytics";
 import { Button, Input } from "../../components/common";
+import { ROLE_ROUTES } from "../../utils/roleRoutes";
 import type { User, AuthTokens } from "../../types";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
-  remember_me: z.boolean().optional(),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
 
-const ROLE_ROUTES: Record<string, string> = {
-  super_admin:  "/admin",
-  school_admin: "/admin",
-  accountant:   "/admin",
-  teacher:      "/teacher",
-  student:      "/student",
-  parent:       "/parent",
-  librarian:    "/admin",
-  counselor:    "/admin",
-};
+const SHOW_DEMO_CREDENTIALS = process.env.REACT_APP_SHOW_DEMO_CREDENTIALS === "true";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -51,7 +42,7 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "", remember_me: false },
+    defaultValues: { email: "", password: "" },
   });
 
   const { ref: emailRef, ...emailReg } = register("email");
@@ -75,10 +66,10 @@ export default function LoginPage() {
     setNeedsVerification(false);
 
     try {
-      const response = await api.post<Record<string, unknown>>(
-        "/auth/login/",
-        { email: data.email, password: data.password }
-      );
+      const response = await api.post<Record<string, unknown>>("/auth/login/", {
+        email: data.email,
+        password: data.password,
+      });
 
       // ── 2FA check ────────────────────────────────────────────
       if (response.requires_2fa === true) {
@@ -150,7 +141,9 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-2xl dark:shadow-none">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in to your account to continue</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+            Sign in to your account to continue
+          </p>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
             {/* Email */}
@@ -167,7 +160,9 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Password
+                </label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
@@ -205,26 +200,8 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember me */}
-            <div className="flex items-center gap-2.5">
-              <input
-                {...register("remember_me")}
-                id="remember_me"
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="remember_me" className="text-sm text-slate-600">
-                Keep me signed in for 7 days
-              </label>
-            </div>
-
             {/* Submit */}
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-              className="w-full"
-            >
+            <Button type="submit" disabled={isSubmitting} loading={isSubmitting} className="w-full">
               {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -251,8 +228,8 @@ export default function LoginPage() {
                     Email not verified
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                    Some features are restricted until you verify your email
-                    address. Check your inbox or send a new verification link.
+                    Some features are restricted until you verify your email address. Check your
+                    inbox or send a new verification link.
                   </p>
                   <button
                     type="button"
@@ -262,11 +239,7 @@ export default function LoginPage() {
                   >
                     {resending ? (
                       <>
-                        <svg
-                          className="h-3.5 w-3.5 animate-spin"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                           <circle
                             className="opacity-25"
                             cx="12"
@@ -308,14 +281,22 @@ export default function LoginPage() {
           )}
 
           {/* Demo credentials hint */}
-          <div className="mt-6 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 dark:border dark:border-indigo-800/50">
-            <p className="text-xs font-semibold text-indigo-700 mb-2">Demo Credentials</p>
-            <div className="space-y-1 text-xs text-indigo-600">
-              <p>Admin: <span className="font-mono">admin@school.edu / Admin@1234</span></p>
-              <p>Teacher: <span className="font-mono">teacher@school.edu / Teacher@1234</span></p>
-              <p>Student: <span className="font-mono">student@school.edu / Student@1234</span></p>
+          {SHOW_DEMO_CREDENTIALS && (
+            <div className="mt-6 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 dark:border dark:border-indigo-800/50">
+              <p className="text-xs font-semibold text-indigo-700 mb-2">Demo Credentials</p>
+              <div className="space-y-1 text-xs text-indigo-600">
+                <p>
+                  Admin: <span className="font-mono">admin@school.edu / Admin@1234</span>
+                </p>
+                <p>
+                  Teacher: <span className="font-mono">teacher@school.edu / Teacher@1234</span>
+                </p>
+                <p>
+                  Student: <span className="font-mono">student@school.edu / Student@1234</span>
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-indigo-400/70 mt-6">

@@ -41,6 +41,9 @@ function ToggleSwitch({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={enabled ? "Enabled" : "Disabled"}
       onClick={() => !loading && onChange(!enabled)}
       disabled={loading}
       className={`h-6 w-11 rounded-full relative flex-shrink-0 transition-colors ${
@@ -70,8 +73,7 @@ function PaymentGatewaysSection() {
   });
 
   const updateConfig = useMutation({
-    mutationFn: (data: Record<string, boolean>) =>
-      api.post("/fees/gateway-config/", data),
+    mutationFn: (data: Record<string, boolean>) => api.post("/fees/gateway-config/", data),
     onSuccess: () => {
       toast.success("Payment gateway settings updated");
       qc.invalidateQueries({ queryKey: ["gateway-config"] });
@@ -129,12 +131,8 @@ function PaymentGatewaysSection() {
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    {name}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {description}
-                  </p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
                 </div>
               </div>
               <ToggleSwitch
@@ -164,8 +162,18 @@ function IntegrationsTab() {
   const zoomConnected = zoomStatus?.status === "connected";
 
   const integrations = [
-    { name: "Google Workspace", status: "connected" as const, color: "green" as const, description: "Email & calendar sync" },
-    { name: "Microsoft 365", status: "disconnected" as const, color: "slate" as const, description: "Office integration" },
+    {
+      name: "Google Workspace",
+      status: "connected" as const,
+      color: "green" as const,
+      description: "Email & calendar sync",
+    },
+    {
+      name: "Microsoft 365",
+      status: "disconnected" as const,
+      color: "slate" as const,
+      description: "Office integration",
+    },
     {
       name: "Zoom",
       status: zoomConnected ? ("connected" as const) : ("disconnected" as const),
@@ -173,17 +181,32 @@ function IntegrationsTab() {
       description: "Video conferencing (Server-to-Server OAuth)",
       configPath: "/admin/zoom-integration",
     },
-    { name: "Twilio", status: "disconnected" as const, color: "slate" as const, description: "SMS notifications" },
-    { name: "Firebase", status: "disconnected" as const, color: "slate" as const, description: "Push notifications" },
+    {
+      name: "Twilio",
+      status: "disconnected" as const,
+      color: "slate" as const,
+      description: "SMS notifications",
+    },
+    {
+      name: "Firebase",
+      status: "disconnected" as const,
+      color: "slate" as const,
+      description: "Push notifications",
+    },
   ];
 
   return (
     <div className="p-5 max-w-xl space-y-8">
       {/* External Integrations */}
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">External Integrations</h2>
+        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          External Integrations
+        </h2>
         {integrations.map(({ name, status, color, description, configPath }) => (
-          <div key={name} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+          <div
+            key={name}
+            className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-700"
+          >
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
                 {name[0]}
@@ -191,7 +214,9 @@ function IntegrationsTab() {
               <div>
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{description}</p>
-                <Badge color={color} dot>{status}</Badge>
+                <Badge color={color} dot>
+                  {status}
+                </Badge>
               </div>
             </div>
             <Button
@@ -214,16 +239,43 @@ function IntegrationsTab() {
   );
 }
 
-const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Los_Angeles","America/Toronto","Europe/London","Europe/Paris","Asia/Kolkata","Asia/Dhaka","Asia/Kathmandu","Asia/Dubai","Africa/Nairobi","Australia/Sydney"];
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TIMEZONES = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Europe/London",
+  "Europe/Paris",
+  "Asia/Kolkata",
+  "Asia/Dhaka",
+  "Asia/Kathmandu",
+  "Asia/Dubai",
+  "Africa/Nairobi",
+  "Australia/Sydney",
+];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 type TabKey = "my-profile" | "school" | "academic" | "notifications" | "integrations" | "security";
-const TABS: {id: TabKey; label: string}[] = [
-  {id:"my-profile",label:"My Profile"},
-  {id:"school",label:"School Profile"},
-  {id:"academic",label:"Academic Settings"},
-  {id:"notifications",label:"Notifications"},
-  {id:"integrations",label:"Integrations"},
-  {id:"security",label:"Security"},
+const TABS: { id: TabKey; label: string }[] = [
+  { id: "my-profile", label: "My Profile" },
+  { id: "school", label: "School Profile" },
+  { id: "academic", label: "Academic Settings" },
+  { id: "notifications", label: "Notifications" },
+  { id: "integrations", label: "Integrations" },
+  { id: "security", label: "Security" },
 ];
 
 export default function SettingsPage() {
@@ -241,7 +293,11 @@ export default function SettingsPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SchoolForm>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SchoolForm>({
     resolver: zodResolver(schoolSchema),
     defaultValues: {
       name: user?.school?.name ?? "",
@@ -259,21 +315,43 @@ export default function SettingsPage() {
     try {
       await api.patch(`/auth/schools/${user?.school?.id}/`, data);
       toast.success("School profile updated");
-    } catch { toast.error("Failed to update settings"); }
-    finally { setSaving(false); }
+    } catch {
+      toast.error("Failed to update settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-slate-900">Settings</h1><p className="text-sm text-slate-500 mt-0.5">Configure your school&apos;s system preferences</p></div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Configure your school&apos;s system preferences
+        </p>
+      </div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
         <div className="border-b border-slate-100 px-6 flex overflow-x-auto">
-          {TABS.map(t => <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab===t.id?"border-indigo-600 text-indigo-600":"border-transparent text-slate-500 hover:text-slate-800"}`}>{t.label}</button>)}
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === t.id
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {activeTab === "my-profile" && (
           <div className="p-5 max-w-2xl">
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-5">My Profile</h2>
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-5">
+              My Profile
+            </h2>
             <ProfileSettingsSection basePath="/admin" accent="indigo" />
           </div>
         )}
@@ -285,13 +363,30 @@ export default function SettingsPage() {
               <Input label="School Name" error={errors.name?.message} {...register("name")} />
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Phone" error={errors.phone?.message} {...register("phone")} />
-                <Input label="Email" type="email" error={errors.email?.message} {...register("email")} />
+                <Input
+                  label="Email"
+                  type="email"
+                  error={errors.email?.message}
+                  {...register("email")}
+                />
               </div>
-              <Input label="Website" error={errors.website?.message} {...register("website")} placeholder="https://yourschool.edu" />
+              <Input
+                label="Website"
+                error={errors.website?.message}
+                {...register("website")}
+                placeholder="https://yourschool.edu"
+              />
               <Input label="Address" error={errors.address?.message} {...register("address")} />
-              <Select label="Timezone" options={TIMEZONES.map(t => ({value:t,label:t}))} error={errors.timezone?.message} {...register("timezone")} />
+              <Select
+                label="Timezone"
+                options={TIMEZONES.map((t) => ({ value: t, label: t }))}
+                error={errors.timezone?.message}
+                {...register("timezone")}
+              />
               <div className="pt-2 flex justify-end">
-                <Button type="submit" variant="primary" loading={saving}>Save Changes</Button>
+                <Button type="submit" variant="primary" loading={saving}>
+                  Save Changes
+                </Button>
               </div>
             </form>
           </div>
@@ -300,14 +395,33 @@ export default function SettingsPage() {
         {activeTab === "academic" && (
           <div className="p-5 max-w-xl space-y-6">
             <h2 className="text-base font-semibold text-slate-800">Academic Year Settings</h2>
-            <Select label="Academic Year Start Month" options={MONTHS.map((m,i)=>({value:i+1,label:m}))} />
+            <Select
+              label="Academic Year Start Month"
+              options={MONTHS.map((m, i) => ({ value: i + 1, label: m }))}
+            />
             <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
-              <div><p className="text-sm font-semibold text-slate-800">Auto-promote students</p><p className="text-xs text-slate-500">Automatically promote passing students to next grade at year end</p></div>
-              <button className="h-6 w-11 rounded-full bg-indigo-500 relative flex-shrink-0"><span className="absolute right-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow" /></button>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Auto-promote students</p>
+                <p className="text-xs text-slate-500">
+                  Automatically promote passing students to next grade at year end
+                </p>
+              </div>
+              <button className="h-6 w-11 rounded-full bg-indigo-500 relative flex-shrink-0">
+                <span className="absolute right-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow" />
+              </button>
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
-              <div><p className="text-sm font-semibold text-slate-800">Attendance lock after days</p><p className="text-xs text-slate-500">Prevent editing attendance records after this many days</p></div>
-              <input type="number" defaultValue={3} className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Attendance lock after days</p>
+                <p className="text-xs text-slate-500">
+                  Prevent editing attendance records after this many days
+                </p>
+              </div>
+              <input
+                type="number"
+                defaultValue={3}
+                className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
           </div>
         )}
@@ -316,17 +430,55 @@ export default function SettingsPage() {
           <div className="p-5 max-w-xl space-y-4">
             <h2 className="text-base font-semibold text-slate-800">Notification Channels</h2>
             {[
-              { label: "Email Notifications", sub: "Send emails via SendGrid for important events", enabled: true },
-              { label: "SMS Notifications", sub: "Send SMS alerts via Twilio for urgent messages", enabled: false },
-              { label: "Push Notifications", sub: "Send mobile push via Firebase FCM", enabled: true },
-              { label: "Absence Alerts", sub: "Notify parents immediately when student is absent", enabled: true },
-              { label: "Fee Reminders", sub: "Send payment reminders 3 days before due date", enabled: true },
-              { label: "Result Publications", sub: "Notify students/parents when report cards are published", enabled: true },
+              {
+                label: "Email Notifications",
+                sub: "Send emails via SendGrid for important events",
+                enabled: true,
+              },
+              {
+                label: "SMS Notifications",
+                sub: "Send SMS alerts via Twilio for urgent messages",
+                enabled: false,
+              },
+              {
+                label: "Push Notifications",
+                sub: "Send mobile push via Firebase FCM",
+                enabled: true,
+              },
+              {
+                label: "Absence Alerts",
+                sub: "Notify parents immediately when student is absent",
+                enabled: true,
+              },
+              {
+                label: "Fee Reminders",
+                sub: "Send payment reminders 3 days before due date",
+                enabled: true,
+              },
+              {
+                label: "Result Publications",
+                sub: "Notify students/parents when report cards are published",
+                enabled: true,
+              },
             ].map(({ label, sub, enabled }) => (
-              <div key={label} className="flex items-center justify-between p-4 rounded-xl bg-slate-50">
-                <div><p className="text-sm font-semibold text-slate-800">{label}</p><p className="text-xs text-slate-500">{sub}</p></div>
-                <button className={`h-6 w-11 rounded-full relative flex-shrink-0 transition-colors ${enabled?"bg-indigo-500":"bg-slate-200"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled?"right-0.5":"left-0.5"}`} />
+              <div
+                key={label}
+                className="flex items-center justify-between p-4 rounded-xl bg-slate-50"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{label}</p>
+                  <p className="text-xs text-slate-500">{sub}</p>
+                </div>
+                <button
+                  className={`h-6 w-11 rounded-full relative flex-shrink-0 transition-colors ${
+                    enabled ? "bg-indigo-500" : "bg-slate-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                      enabled ? "right-0.5" : "left-0.5"
+                    }`}
+                  />
                 </button>
               </div>
             ))}
@@ -360,19 +512,15 @@ export default function SettingsPage() {
                       {user?.email_verified ? "Verified" : "Not Verified"}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {user?.email}
-                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
                   {!user?.email_verified && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                      Verify your email to unlock all features and receive
-                      important notifications.
+                      Verify your email to unlock all features and receive important notifications.
                     </p>
                   )}
                   {user?.email_verified && (
                     <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                      Your email is verified. You have full access to all
-                      features.
+                      Your email is verified. You have full access to all features.
                     </p>
                   )}
                 </div>
@@ -403,22 +551,24 @@ export default function SettingsPage() {
                 <div className="flex justify-between">
                   <dt className="text-slate-500 dark:text-slate-400">Joined</dt>
                   <dd className="text-slate-800 dark:text-slate-200 font-medium">
-                    {user?.date_joined
-                      ? new Date(user.date_joined).toLocaleDateString()
-                      : "—"}
+                    {user?.date_joined ? new Date(user.date_joined).toLocaleDateString() : "—"}
                   </dd>
                 </div>
                 <div className="flex justify-between items-center">
                   <dt className="text-slate-500 dark:text-slate-400">Two-Factor Auth</dt>
                   <dd className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      user?.two_factor_enabled
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-                    }`}>
-                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                        user?.two_factor_enabled ? "bg-green-500" : "bg-slate-400"
-                      }`} />
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        user?.two_factor_enabled
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-1.5 w-1.5 rounded-full ${
+                          user?.two_factor_enabled ? "bg-green-500" : "bg-slate-400"
+                        }`}
+                      />
                       {user?.two_factor_enabled ? "Enabled" : "Not configured"}
                     </span>
                     <button
@@ -432,7 +582,9 @@ export default function SettingsPage() {
                 </div>
                 {user?.two_factor_enabled && user?.backup_codes_remaining !== null && (
                   <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                    <dt className="text-slate-500 dark:text-slate-400 text-sm">Backup codes remaining</dt>
+                    <dt className="text-slate-500 dark:text-slate-400 text-sm">
+                      Backup codes remaining
+                    </dt>
                     <dd className="flex items-center gap-2">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -469,9 +621,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {activeTab === "integrations" && (
-          <IntegrationsTab />
-        )}
+        {activeTab === "integrations" && <IntegrationsTab />}
       </div>
     </div>
   );

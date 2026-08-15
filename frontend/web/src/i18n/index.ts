@@ -2,6 +2,8 @@
  * i18n — Internationalization configuration
  * Uses react-i18next with English as the default language.
  * Supports lazy-loaded translation namespaces for code splitting.
+ * NOTE: only English translations exist today; add locale files here
+ * before re-declaring additional SUPPORTED_LANGUAGES entries.
  */
 
 import i18n from "i18next";
@@ -14,10 +16,6 @@ import enAdmin from "./locales/en/admin.json";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English", nativeLabel: "English" },
-  { code: "fr", label: "French", nativeLabel: "Français" },
-  { code: "es", label: "Spanish", nativeLabel: "Español" },
-  { code: "ar", label: "Arabic", nativeLabel: "العربية" },
-  { code: "sw", label: "Swahili", nativeLabel: "Kiswahili" },
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]["code"];

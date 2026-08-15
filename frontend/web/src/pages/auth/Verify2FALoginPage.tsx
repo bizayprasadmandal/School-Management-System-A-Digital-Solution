@@ -25,22 +25,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, type NormalizedError } from "../../api/client";
 import { QK } from "../../api/hooks";
 import { trackEvent } from "../../utils/analytics";
+import { ROLE_ROUTES } from "../../utils/roleRoutes";
 import toast from "react-hot-toast";
 import clsx from "clsx";
 import type { User } from "../../types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const ROLE_ROUTES: Record<string, string> = {
-  super_admin: "/admin",
-  school_admin: "/admin",
-  accountant: "/admin",
-  teacher: "/teacher",
-  student: "/student",
-  parent: "/parent",
-  librarian: "/admin",
-  counselor: "/admin",
-};
 
 type AuthMode = "totp" | "backup";
 
