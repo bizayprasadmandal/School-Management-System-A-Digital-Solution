@@ -5,6 +5,7 @@ Celery application — configured for Django with auto-discovery of tasks
 import logging
 import logging.config
 import os
+from datetime import timedelta
 
 from celery import Celery
 from celery.schedules import crontab
@@ -38,6 +39,18 @@ app.conf.beat_schedule = {
     "cleanup-expired-tokens": {
         "task": "services.auth.tasks.cleanup_expired_tokens",
         "schedule": crontab(hour=2, minute=0),
+    },
+    # Cleanup expired email verification tokens daily
+    "cleanup-expired-verification-tokens": {
+        "task": "services.auth.tasks.cleanup_expired_verification_tokens",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
+    },
+    # Warn users when their 2FA backup codes run low — daily
+    "notify-low-backup-codes": {
+        "task": "services.auth.tasks.notify_low_backup_codes",
+        "schedule": timedelta(hours=24),
+        "options": {"expires": 3600},
     },
     # Generate timetable conflicts report every Sunday at 11 PM
     "timetable-conflict-check": {

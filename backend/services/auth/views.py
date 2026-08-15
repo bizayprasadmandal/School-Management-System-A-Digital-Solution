@@ -135,21 +135,39 @@ class LoginView(TokenObtainPairView):
     throttle_classes = [AuthLoginAnonThrottle]
 
     def post(self, request, *args, **kwargs):
+        email = request.data.get("email", "")
+        user = User.objects.filter(email=email).first() if email else None
+
+        # 2FA users must pass a TOTP/backup-code step before any JWT is minted.
+        # Issuing tokens here and discarding them would churn refresh-token
+        # state on every login attempt, so authenticate (Axes lockout still
+        # applies) and return only the challenge.
+        if user and user.two_factor_enabled and user.two_factor_secret:
+            from django.contrib.auth import authenticate
+
+            authenticated = authenticate(
+                request=request,
+                username=email,
+                password=request.data.get("password", ""),
+            )
+            if authenticated is None:
+                return Response(
+                    {"detail": "No active account found with the given credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+            return Response(
+                {
+                    "requires_2fa": True,
+                    "user_id": str(user.id),
+                    "backup_codes_remaining": user.backup_codes.filter(used=False).count(),
+                    "detail": ("2FA is enabled. Please provide your TOTP code " "via /auth/verify-2fa/"),
+                },
+                status=200,
+            )
+
         response = super().post(request, *args, **kwargs)
         if response.status_code == 200:
-            user = User.objects.get(email=request.data.get("email", ""))
-
-            # 2FA check — if enabled, require TOTP verification
-            if user.two_factor_enabled and user.two_factor_secret:
-                return Response(
-                    {
-                        "requires_2fa": True,
-                        "user_id": str(user.id),
-                        "backup_codes_remaining": user.backup_codes.filter(used=False).count(),
-                        "detail": ("2FA is enabled. Please provide your TOTP code " "via /auth/verify-2fa/"),
-                    },
-                    status=200,
-                )
+            user = User.objects.get(email=email)
 
             user.last_login_ip = _get_client_ip(request)
             user.save(update_fields=["last_login_ip"])
@@ -294,7 +312,7 @@ class RequestPasswordResetView(APIView):
             PasswordResetToken.objects.filter(user=user, used=False).update(used=True)
             PasswordResetToken.objects.create(
                 user=user,
-                token=token_str,
+                token=hashlib.sha256(token_str.encode()).hexdigest(),
                 expires_at=timezone.now() + timedelta(hours=2),
             )
             # Send email async
@@ -323,7 +341,9 @@ class ConfirmPasswordResetView(APIView):
         new_password = request.data.get("new_password", "")
 
         try:
-            reset_token = PasswordResetToken.objects.select_related("user").get(token=token_str, used=False)
+            reset_token = PasswordResetToken.objects.select_related("user").get(
+                token=hashlib.sha256(token_str.encode()).hexdigest(), used=False
+            )
         except PasswordResetToken.DoesNotExist:
             return Response({"detail": "Invalid or expired reset link."}, status=400)
 

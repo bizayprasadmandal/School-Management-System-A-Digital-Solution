@@ -42,7 +42,9 @@ repos:
         # Quote the comma-joined flag — an unquoted comma inside a YAML flow
         # sequence would split it, making flake8 treat "W503" as a filename.
         # F405 ignored: settings modules deliberately star-import from base.py.
-        args: [--max-line-length=120, "--extend-ignore=E203,F405,W503"]
+        # DJ01 ignored: the codebase deliberately uses null=True on image/file
+        # fields; removing it would require DB migrations with no behavior gain.
+        args: [--max-line-length=120, "--extend-ignore=E203,F405,W503,DJ01"]
         additional_dependencies: [flake8-django]
 
   - repo: https://github.com/pre-commit/mirrors-prettier

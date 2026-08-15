@@ -3,7 +3,8 @@ Auth Service — Custom User model supporting multiple roles and multi-tenancy
 """
 
 import uuid
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
@@ -70,9 +71,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """Central user model — one account per person, role-scoped per school."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    school = models.ForeignKey(
-        School, on_delete=models.CASCADE, related_name="users", null=True, blank=True
-    )
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="users", null=True, blank=True)
     email = models.EmailField(unique=True, db_index=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -130,9 +129,16 @@ class UserSession(models.Model):
     class Meta:
         db_table = "user_sessions"
 
+    def __str__(self):
+        return f"Session for {self.user.email} ({self.ip_address})"
+
 
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # SHA-256 hex digest of the plaintext reset token (same treatment as
+    # TwoFactorBackupCode.hashed_code). The plaintext is only ever sent in the
+    # reset email; it is never persisted. Tokens created before this hardening
+    # stored the raw value and are unrecoverable.
     token = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
@@ -141,6 +147,9 @@ class PasswordResetToken(models.Model):
     class Meta:
         db_table = "password_reset_tokens"
 
+    def __str__(self):
+        return f"Reset token for {self.user.email}"
+
     @property
     def is_expired(self):
         return timezone.now() > self.expires_at
@@ -148,6 +157,7 @@ class PasswordResetToken(models.Model):
 
 class EmailVerificationToken(models.Model):
     """Token for email verification — tied to a specific new email address."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_verification_tokens")
     email = models.EmailField()
@@ -174,10 +184,9 @@ class TwoFactorBackupCode(models.Model):
     Users get a set of codes during 2FA setup; each can be used once
     to bypass TOTP verification during login.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="backup_codes"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="backup_codes")
     hashed_code = models.CharField(max_length=64, db_index=True)
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -210,3 +219,7 @@ class AuditLog(models.Model):
     class Meta:
         db_table = "audit_logs"
         ordering = ["-timestamp"]
+
+    def __str__(self):
+        actor = self.user.email if self.user_id else "system"
+        return f"{self.action} on {self.resource_type} by {actor}"

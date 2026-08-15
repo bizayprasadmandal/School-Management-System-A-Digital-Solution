@@ -495,18 +495,26 @@ class TestPasswordResetAndEmailVerification:
         return api_client.post(AUTH_PASSWORD_RESET, {"email": email})
 
     def _create_reset_token(self, user):
-        """Helper: create a valid password reset token directly in the DB."""
+        """Helper: create a valid password reset token directly in the DB.
+
+        Tokens are stored hashed (SHA-256) in the model — the same way
+        RequestPasswordResetView persists them — so the plaintext value is
+        returned for the API request and the hash is what the confirm endpoint
+        looks up.
+        """
+        import hashlib
         import secrets
 
         from services.auth.models import PasswordResetToken
 
         token_str = secrets.token_urlsafe(48)
-        return PasswordResetToken.objects.create(
+        PasswordResetToken.objects.create(
             user=user,
-            token=token_str,
+            token=hashlib.sha256(token_str.encode()).hexdigest(),
             expires_at=timezone.now() + timedelta(hours=2),
             used=False,
         )
+        return token_str
 
     # ── Tests ────────────────────────────────────────────────────────────────
 
@@ -535,7 +543,7 @@ class TestPasswordResetAndEmailVerification:
         r = api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": token.token,
+                "token": token,
                 "new_password": new_password,
             },
         )
@@ -547,8 +555,10 @@ class TestPasswordResetAndEmailVerification:
         assert reset_user.check_password(new_password)
 
         # Token should be marked as used
-        token.refresh_from_db()
-        assert token.used is True
+        from services.auth.models import PasswordResetToken
+
+        stored = PasswordResetToken.objects.get(user=reset_user)
+        assert stored.used is True
 
         # Email should still be unverified (password reset doesn't affect this)
         assert reset_user.email_verified is False
@@ -565,7 +575,7 @@ class TestPasswordResetAndEmailVerification:
         api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": token.token,
+                "token": token,
                 "new_password": new_password,
             },
         )
@@ -590,7 +600,7 @@ class TestPasswordResetAndEmailVerification:
         r1 = api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": token.token,
+                "token": token,
                 "new_password": "NewPassAfterUse@123",
             },
         )
@@ -600,7 +610,7 @@ class TestPasswordResetAndEmailVerification:
         r2 = api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": token.token,
+                "token": token,
                 "new_password": "AnotherPass@456",
             },
         )
@@ -610,13 +620,15 @@ class TestPasswordResetAndEmailVerification:
     def test_expired_reset_token_rejected(self, api_client, reset_user):
         """An expired password reset token is rejected."""
         # Create a token that expired 1 hour ago
+        import hashlib
         import secrets
 
         from services.auth.models import PasswordResetToken
 
-        expired_token = PasswordResetToken.objects.create(
+        expired_token_str = secrets.token_urlsafe(48)
+        PasswordResetToken.objects.create(
             user=reset_user,
-            token=secrets.token_urlsafe(48),
+            token=hashlib.sha256(expired_token_str.encode()).hexdigest(),
             expires_at=timezone.now() - timedelta(hours=1),
             used=False,
         )
@@ -624,7 +636,7 @@ class TestPasswordResetAndEmailVerification:
         r = api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": expired_token.token,
+                "token": expired_token_str,
                 "new_password": "ExpiredPass@789",
             },
         )
@@ -665,7 +677,7 @@ class TestPasswordResetAndEmailVerification:
             r_conf = api_client.post(
                 AUTH_PASSWORD_RESET_CONFIRM,
                 {
-                    "token": token.token,
+                    "token": token,
                     "new_password": "MiddlewarePass@123",
                 },
             )
@@ -687,7 +699,7 @@ class TestPasswordResetAndEmailVerification:
         api_client.post(
             AUTH_PASSWORD_RESET_CONFIRM,
             {
-                "token": token.token,
+                "token": token,
                 "new_password": "NewPassKeepStatus@789",
             },
         )

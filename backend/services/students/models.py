@@ -3,13 +3,14 @@ Student Service — Core student information management models
 """
 
 import uuid
-from django.db import models
-from services.auth.models import User, School
+
+from django.db import models, transaction
+from services.auth.models import School, User
 
 
 class AcademicYear(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_years")
-    name = models.CharField(max_length=20)          # e.g. "2024-2025"
+    name = models.CharField(max_length=20)  # e.g. "2024-2025"
     start_date = models.DateField()
     end_date = models.DateField()
     is_current = models.BooleanField(default=False)
@@ -20,7 +21,18 @@ class AcademicYear(models.Model):
 
     def save(self, *args, **kwargs):
         if self.is_current:
-            AcademicYear.objects.filter(school=self.school, is_current=True).update(is_current=False)
+            # Demote the previously current year(s) inside a lock so two
+            # concurrent saves cannot interleave and leave multiple years
+            # marked current.
+            with transaction.atomic():
+                locked = list(
+                    AcademicYear.objects.select_for_update()
+                    .filter(school=self.school, is_current=True)
+                    .exclude(pk=self.pk)
+                    .values_list("pk", flat=True)
+                )
+                if locked:
+                    AcademicYear.objects.filter(pk__in=locked).update(is_current=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -29,6 +41,7 @@ class AcademicYear(models.Model):
 
 class Grade(models.Model):
     """Grade / Year level (e.g. Grade 1, Form 3, Year 10)."""
+
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="grades")
     name = models.CharField(max_length=50)
     level = models.PositiveSmallIntegerField()
@@ -45,14 +58,13 @@ class Grade(models.Model):
 
 class Classroom(models.Model):
     """A section/stream within a grade."""
+
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="classrooms")
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name="classrooms")
-    name = models.CharField(max_length=20)           # e.g. "3A", "3B"
+    name = models.CharField(max_length=20)  # e.g. "3A", "3B"
     capacity = models.PositiveSmallIntegerField(default=40)
     room_number = models.CharField(max_length=20, blank=True)
-    class_teacher = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="homeroom_class"
-    )
+    class_teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="homeroom_class")
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
 
     class Meta:
@@ -127,6 +139,7 @@ class Student(models.Model):
     @property
     def age(self):
         from django.utils import timezone
+
         today = timezone.now().date()
         return (today - self.date_of_birth).days // 365
 
@@ -175,6 +188,9 @@ class StudentGuardian(models.Model):
     class Meta:
         db_table = "student_guardians"
         unique_together = [("student", "guardian")]
+
+    def __str__(self):
+        return f"{self.student} ← {self.guardian.full_name} ({self.relationship})"
 
 
 class Enrollment(models.Model):
@@ -252,3 +268,6 @@ class Document(models.Model):
 
     class Meta:
         db_table = "student_documents"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_document_type_display()})"

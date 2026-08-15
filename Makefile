@@ -114,7 +114,7 @@ test-watch:
 
 lint:
 	@echo "── Backend lint ──"
-	$(COMPOSE) exec $(BACKEND_SVC) flake8 services/ core/ --max-line-length=120 --exclude=migrations
+	$(COMPOSE) exec $(BACKEND_SVC) flake8 services/ core/ --max-line-length=120 --extend-ignore=DJ01 --exclude=migrations
 	@echo "── Frontend lint ──"
 	cd frontend/web && npm run lint
 	@echo "✅  Lint passed"
