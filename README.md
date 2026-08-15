@@ -272,8 +272,11 @@ open http://localhost:3000
 
 - JWT access tokens (60 min) + rotating refresh tokens (7 days)
 - Brute-force protection via django-axes (5 attempts → 30 min lockout)
-- Optional 2FA (TOTP via pyotp)
-- Tenant isolation enforced at queryset level
+- Optional 2FA (TOTP via pyotp + hashed backup codes)
+- Password-reset tokens stored as SHA-256 digests (plaintext never persisted)
+- Role-based action allowlists (admin/teacher/staff gates on sensitive endpoints)
+- Tenant isolation enforced at queryset level and in middleware (the
+  `X-School-ID` header can never redirect a non-super-admin to another tenant)
 - Immutable audit log for all sensitive operations
 - HTTPS enforced (HSTS headers via Ingress annotations)
 - SQL injection prevention via Django ORM

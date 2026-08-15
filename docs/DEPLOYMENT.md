@@ -173,6 +173,24 @@ pg_dump -h localhost -U sms -d sms_db --no-owner --compress=9 \
   -f /backups/sms-manual-$(date +%Y%m%d).sql.gz
 ```
 
+### Automated Backups (Celery → S3)
+
+The `infrastructure` service exposes Celery tasks that archive the database and
+media to S3 on a schedule:
+
+- `create_backup` — `pg_dump` + media `tar.gz`, gzip, upload to `BACKUP_S3_BUCKET`
+  keyed by school code, then prune objects older than `BACKUP_RETENTION_DAYS`.
+- `restore_backup` — pull the latest archive from S3 and `pg_restore` it.
+
+Wire-up: the `backup` container/service in `docker-compose.yml` /
+`docker-compose.prod.yml` (and the backup Deployment in
+`infrastructure/k8s/deployments/backend.yaml`) run the beat schedule that triggers
+`create_backup` nightly. Configure `BACKUP_S3_BUCKET`, `BACKUP_RETENTION_DAYS`, and
+`AWS_*` credentials via environment / secrets (see `.env.example`).
+
+Backup health is monitored by `infrastructure/monitoring/rules/backup_alerts.yml`
+(backup not found / too old / S3 push failure) in Prometheus + Alertmanager.
+
 ### Verify Backup Integrity
 
 Always verify a backup after creating it (see `infrastructure/db/README.md`):

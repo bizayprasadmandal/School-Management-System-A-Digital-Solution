@@ -19,7 +19,24 @@ project uses [Semantic Versioning](https://semver.org/).
   records by admission number with per-row error reporting.
 - **Fee invoice CSV import** (`POST /api/v1/fees/invoices/import-csv/`): creates
   invoices resolved against existing fee structures, with per-row error reporting.
+- **S3 backup pipeline** (`infrastructure`): `create_backup` (DB dump + media
+  archive → S3, retention-pruned) and `restore_backup` tasks, wired into
+  docker-compose, Kubernetes, and Prometheus backup-alert rules.
 - Product & project artifacts: `CHANGELOG.md`, `docs/PRD.md`, `docs/ROADMAP.md`.
+
+### Security
+
+- **Password reset tokens are now stored as SHA-256 digests**; the plaintext is only
+  sent in the reset email and never persisted. Tokens created before this change are
+  unrecoverable by design.
+- **2FA login no longer mints and discards JWTs**: `LoginView` returns only the 2FA
+  challenge; the token is minted by `verify-2fa`.
+- **Role-based action allowlists** across gradebook, HR, attendance, students,
+  inventory, conferences, communication, reporting, and fees (admin/teacher/staff
+  gates; e.g. attendance CSV import is admin-only, teachers can bulk-submit grades).
+- **Tenant isolation hardening**: an authenticated non-super-admin can never be
+  redirected to another tenant via the `X-School-ID` header; reporting scopes to the
+  authenticated user's school.
 
 ### Fixed
 
@@ -29,6 +46,21 @@ project uses [Semantic Versioning](https://semver.org/).
   request.
 - Attendance streak test was timezone-dependent (`date.today()` vs
   `timezone.now().date()`); now deterministic on any machine timezone.
+- **Counseling create endpoints returned 500** when `send_reminder` /
+  `notify_counselor` flags were passed (write-only fields leaked into
+  `Model.save()`); serializers now pop them before saving.
+- **Communication `DeviceTokenView.destroy` raised `NameError`** (`DeviceToken` was
+  never imported); the token is now resolved from the model and deactivated.
+
+### Changed
+
+- `AcademicYear.save()` demotes the previous current year inside a
+  `select_for_update` lock so concurrent saves can't leave multiple current years.
+- Health readiness is Celery-soft: worker downtime no longer pulls the HTTP service
+  out of rotation; DB and cache remain hard checks.
+- Celery beat schedule consolidated in `core/celery.py` (added
+  `cleanup-expired-verification-tokens`, `notify-low-backup-codes`); removed the
+  duplicate from settings and the dead `cache_school_analytics` task.
 
 ## [2.0.0] - 2026-08
 

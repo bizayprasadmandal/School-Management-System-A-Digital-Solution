@@ -116,6 +116,12 @@ deploy/sms-backend`) and the Grafana dashboards for the same window.
 3. Fix → deploy → **mark resolved** in Sentry (the Regression alert will catch
    it if the fix doesn't hold).
 
+## Backup health alerts (Prometheus)
+
+Automated S3 backups are watched by `infrastructure/monitoring/rules/backup_alerts.yml`
+(backup not found / too old / S3 push failure). Alerts land in Alertmanager; see
+`docs/DEPLOYMENT.md` → "Automated Backups" for the schedule and S3 config.
+
 ## Next (when you care)
 
 - **Mobile native crash reports:** currently JS-level only (`enableNative:
