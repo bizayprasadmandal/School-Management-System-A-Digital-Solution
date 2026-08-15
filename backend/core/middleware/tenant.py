@@ -4,7 +4,7 @@ Supports both subdomain-based and header-based multi-tenancy.
 """
 
 import logging
-from django.http import JsonResponse
+
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -33,12 +33,25 @@ class TenantMiddleware:
         return self.get_response(request)
 
     def _resolve_school(self, request):
-        from services.auth.models import School
+        from services.auth.models import UserRole
 
         # 1. Header override (API clients / mobile)
         school_id = request.headers.get("X-School-ID")
         if school_id:
-            return self._get_school_cached(pk=school_id)
+            header_school = self._get_school_cached(pk=school_id)
+            # Authenticated users must never be redirected to another tenant
+            # via the header. The header may only confirm the user's own
+            # school; only super admins may use it to select a school. When
+            # the header disagrees, fall back to the user's own school.
+            if hasattr(request, "user") and request.user.is_authenticated:
+                is_super = getattr(request.user, "role", None) == UserRole.SUPER_ADMIN
+                if not is_super:
+                    user_school = getattr(request.user, "school", None)
+                    if user_school is not None:
+                        if header_school is None or header_school.pk != user_school.pk:
+                            return user_school
+            if header_school is not None:
+                return header_school
 
         # 2. Subdomain routing
         host = request.get_host().split(":")[0]  # strip port

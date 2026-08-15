@@ -7,7 +7,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember, IsTeacher
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsTeacher
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -146,10 +146,14 @@ class GradeViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_submit", "history"]:
-            if self.action == "history":
-                return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_submit"]:
             return [IsAuthenticated(), IsTeacher()]
+        if self.action == "history":
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action == "export_csv":
+            return [IsAuthenticated(), IsSchoolStaff()]
+        if self.action == "import_csv":
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):

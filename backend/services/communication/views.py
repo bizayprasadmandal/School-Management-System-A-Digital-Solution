@@ -2,23 +2,19 @@
 Communication Service — DRF Views for announcements, messages, notifications
 """
 
+from core.pagination import StandardResultsSetPagination
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count, Q
 from django.utils import timezone
-from django.db.models import Q, Count, Max, OuterRef, Subquery
-from rest_framework import viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
-from .models import Announcement, DirectMessage, Notification
-from .serializers import (
-    AnnouncementSerializer, DirectMessageSerializer, NotificationSerializer,
-    DeviceTokenSerializer,
-)
+from .models import Announcement, DeviceToken, DirectMessage, Notification
+from .serializers import AnnouncementSerializer, DeviceTokenSerializer, DirectMessageSerializer, NotificationSerializer
 from .services import broadcast_announcement
-from core.permissions import IsSchoolMember, IsTeacher, IsSchoolAdmin
-from core.pagination import StandardResultsSetPagination
 
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
@@ -45,9 +41,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
             qs = qs.filter(
                 is_draft=False,
                 audience__in=audience_map.get(user.role, ["all"]),
-            ).filter(
-                expires_at__isnull=True
-            ) | qs.filter(
+            ).filter(expires_at__isnull=True) | qs.filter(
                 is_draft=False,
                 audience__in=audience_map.get(user.role, ["all"]),
                 expires_at__gt=timezone.now(),
@@ -85,9 +79,8 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     def mark_read(self, request, pk=None):
         announcement = self.get_object()
         from .models import AnnouncementRead
-        AnnouncementRead.objects.get_or_create(
-            announcement=announcement, user=request.user
-        )
+
+        AnnouncementRead.objects.get_or_create(announcement=announcement, user=request.user)
         announcement.view_count += 1
         announcement.save(update_fields=["view_count"])
         return Response({"detail": "Marked as read."})
@@ -100,19 +93,14 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
 
     serializer_class = DirectMessageSerializer
     pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
     http_method_names = ["get", "post", "delete"]
 
     def get_queryset(self):
         user = self.request.user
-        return DirectMessage.objects.filter(
-            sender=user
-        ) | DirectMessage.objects.filter(
-            recipient=user
-        ).exclude(
+        return DirectMessage.objects.filter(sender=user) | DirectMessage.objects.filter(recipient=user).exclude(
             is_deleted_recipient=True
-        ).select_related(
-            "sender", "recipient"
-        ).order_by("-sent_at")
+        ).select_related("sender", "recipient").order_by("-sent_at")
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
@@ -120,44 +108,50 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="conversation/(?P<user_id>[^/.]+)")
     def conversation(self, request, user_id=None):
         """Retrieve conversation thread between the authenticated user and another."""
+        from django.contrib.auth import get_user_model
+        from rest_framework.exceptions import PermissionDenied
+
         user = request.user
+        User = get_user_model()
+        try:
+            other = User.objects.get(id=user_id)
+        except (User.DoesNotExist, ValueError):
+            raise PermissionDenied("Conversation partner not found.")
+        # Cross-school messaging is not allowed: the conversation partner must
+        # belong to the same school as the caller.
+        if other.school != user.school:
+            raise PermissionDenied("You can only message users in your school.")
+
         messages = DirectMessage.objects.filter(
-            sender=user, recipient_id=user_id,
+            sender=user,
+            recipient_id=user_id,
         ) | DirectMessage.objects.filter(
-            sender_id=user_id, recipient=user,
+            sender_id=user_id,
+            recipient=user,
         )
-        messages = messages.select_related(
-            "sender", "recipient"
-        ).order_by("sent_at")
+        messages = messages.select_related("sender", "recipient").order_by("sent_at")
 
         # Mark received messages as read
-        messages.filter(recipient=user, status="delivered").update(
-            status="read", read_at=timezone.now()
-        )
+        messages.filter(recipient=user, status="delivered").update(status="read", read_at=timezone.now())
 
         page = self.paginate_queryset(messages)
         if page is not None:
-            return self.get_paginated_response(
-                DirectMessageSerializer(page, many=True).data
-            )
+            return self.get_paginated_response(DirectMessageSerializer(page, many=True).data)
         return Response(DirectMessageSerializer(messages, many=True).data)
 
     @action(detail=False, methods=["get"], url_path="inbox")
     def inbox(self, request):
         """Latest message per conversation partner."""
-        from django.db.models import Q, Count
         user = request.user
-        messages = DirectMessage.objects.filter(
-            Q(sender=user) | Q(recipient=user)
-        ).order_by("-sent_at")
+        messages = DirectMessage.objects.filter(Q(sender=user) | Q(recipient=user)).order_by("-sent_at")
 
         # Single query for unread counts per sender (avoids N+1 per partner)
-        unread_counts = DirectMessage.objects.filter(
-            recipient=user, status__in=["sent", "delivered"]
-        ).values("sender").annotate(count=Count("id"))
-        unread_map = {
-            str(item["sender"]): item["count"] for item in unread_counts
-        }
+        unread_counts = (
+            DirectMessage.objects.filter(recipient=user, status__in=["sent", "delivered"])
+            .values("sender")
+            .annotate(count=Count("id"))
+        )
+        unread_map = {str(item["sender"]): item["count"] for item in unread_counts}
 
         seen_partners = set()
         threads = []
@@ -165,16 +159,18 @@ class DirectMessageViewSet(viewsets.ModelViewSet):
             partner = msg.recipient if msg.sender == user else msg.sender
             if partner.id not in seen_partners:
                 seen_partners.add(partner.id)
-                threads.append({
-                    "partner": {
-                        "id": str(partner.id),
-                        "name": partner.full_name,
-                        "role": partner.role,
-                        "avatar": partner.avatar.url if partner.avatar else None,
-                    },
-                    "last_message": DirectMessageSerializer(msg).data,
-                    "unread_count": unread_map.get(str(partner.id), 0),
-                })
+                threads.append(
+                    {
+                        "partner": {
+                            "id": str(partner.id),
+                            "name": partner.full_name,
+                            "role": partner.role,
+                            "avatar": partner.avatar.url if partner.avatar else None,
+                        },
+                        "last_message": DirectMessageSerializer(msg).data,
+                        "unread_count": unread_map.get(str(partner.id), 0),
+                    }
+                )
         return Response(threads)
 
 
@@ -202,16 +198,14 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="mark-all-read")
     def mark_all_read(self, request):
-        count = Notification.objects.filter(
-            user=request.user, read_at__isnull=True
-        ).update(status="read", read_at=timezone.now())
+        count = Notification.objects.filter(user=request.user, read_at__isnull=True).update(
+            status="read", read_at=timezone.now()
+        )
         return Response({"marked_read": count})
 
     @action(detail=False, methods=["get"], url_path="unread-count")
     def unread_count(self, request):
-        count = Notification.objects.filter(
-            user=request.user, channel="in_app", read_at__isnull=True
-        ).count()
+        count = Notification.objects.filter(user=request.user, channel="in_app", read_at__isnull=True).count()
         return Response({"count": count})
 
 
@@ -242,9 +236,7 @@ class DeviceTokenView(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         """Deactivate a push token by its value (not ID)."""
         # pk here is the token string from the URL
-        updated = DeviceToken.objects.filter(
-            user=request.user, token=pk
-        ).update(is_active=False)
+        updated = DeviceToken.objects.filter(user=request.user, token=pk).update(is_active=False)
         if updated:
             return Response({"detail": "Token deactivated."})
         return Response(

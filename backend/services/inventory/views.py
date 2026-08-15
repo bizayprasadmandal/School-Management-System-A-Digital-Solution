@@ -5,7 +5,7 @@ import logging
 from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
 from django.db import transaction as db_transaction
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -79,6 +79,8 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action == "adjust_stock":
+            return [IsAuthenticated(), IsSchoolStaff()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -153,6 +155,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action == "receive_items":
+            return [IsAuthenticated(), IsSchoolStaff()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def create(self, request, *args, **kwargs):

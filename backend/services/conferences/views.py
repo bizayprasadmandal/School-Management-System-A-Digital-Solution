@@ -22,6 +22,17 @@ logger = logging.getLogger(__name__)
 ADMIN_ROLES = ("school_admin", "super_admin", "admin")
 
 
+class IsAdminOrTeacher(permissions.BasePermission):
+    """Only school admins and teachers may perform this action."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and (request.user.role in ADMIN_ROLES or request.user.role == "teacher")
+        )
+
+
 class IsAdminOrTeacherOrReadStudentParent(permissions.BasePermission):
     """Admins and teachers can CRUD; students/parents read-only for their own school."""
 
@@ -61,6 +72,15 @@ class ConferenceSlotViewSet(viewsets.ModelViewSet):
         if self.action in ("create", "update", "partial_update"):
             return ConferenceSlotCreateUpdateSerializer
         return ConferenceSlotSerializer
+
+    def get_permissions(self):
+        # Zoom creation/deletion and completing a conference are
+        # admin/teacher-only actions. Everything else (CRUD via the class
+        # permission, booking, cancelling) keeps the existing rule: admins
+        # and teachers may mutate, students/parents read + book/cancel.
+        if self.action in ("complete", "create_zoom_meeting", "delete_zoom_meeting"):
+            return [IsAdminOrTeacher()]
+        return [IsAdminOrTeacherOrReadStudentParent()]
 
     def get_queryset(self):
         user = self.request.user

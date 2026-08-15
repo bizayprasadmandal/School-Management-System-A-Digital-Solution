@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from services.attendance.models import AttendanceRecord
 from services.fees.models import FeeInvoice, Payment
 from services.gradebook.models import ReportCard
-from services.students.models import AcademicYear, Classroom, Student
+from services.students.models import AcademicYear, Classroom, Enrollment, Student
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,10 @@ class ReportingViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
-        school = request.school or request.user.school
+        # Always scope to the authenticated user's school — never the
+        # header-resolved request.school, so a spoofed X-School-ID header
+        # cannot read another school's analytics.
+        school = request.user.school
         if school is None:
             # Super admins without a school context have no tenant data.
             return Response(
@@ -180,13 +183,19 @@ class ReportingViewSet(viewsets.ViewSet):
         Query params: attendance_threshold (default 80), days (default 30),
         academic_threshold_pct (optional).
         """
-        from django.db.models import Count, Q
+        from django.db.models import Count, Prefetch, Q
 
         school = request.user.school
         attendance_threshold = float(request.query_params.get("attendance_threshold", 80))
         days = min(int(request.query_params.get("days", 30)), 365)
         academic_threshold = request.query_params.get("academic_threshold_pct")
         academic_threshold = float(academic_threshold) if academic_threshold else None
+
+        cache_key = f"at_risk_students_{school.id}_{attendance_threshold}_{days}_{academic_threshold}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         since = timezone.now().date() - timedelta(days=days)
 
         current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
@@ -216,7 +225,19 @@ class ReportingViewSet(viewsets.ViewSet):
                 .values_list("student_id", "avg_pct")
             )
 
-        students = Student.objects.filter(school=school, is_active=True).select_related("user")
+        students = (
+            Student.objects.filter(school=school, is_active=True)
+            .select_related("user")
+            .prefetch_related(
+                Prefetch(
+                    "enrollments",
+                    queryset=Enrollment.objects.filter(is_active=True)
+                    .select_related("classroom__grade")
+                    .order_by("pk"),
+                    to_attr="active_enrollments",
+                )
+            )
+        )
         at_risk = []
         for student in students.iterator(chunk_size=200):
             att = attendance_map.get(student.id)
@@ -230,9 +251,7 @@ class ReportingViewSet(viewsets.ViewSet):
             if avg_pct is not None and avg_pct < academic_threshold:
                 reasons.append("low_academics")
             if reasons:
-                current_enrollment = (
-                    student.enrollments.filter(is_active=True).select_related("classroom__grade").first()
-                )
+                current_enrollment = student.active_enrollments[0] if student.active_enrollments else None
                 at_risk.append(
                     {
                         "student_id": str(student.id),
@@ -247,14 +266,14 @@ class ReportingViewSet(viewsets.ViewSet):
                 )
 
         at_risk.sort(key=lambda s: (s["attendance_pct"] if s["attendance_pct"] is not None else 101))
-        return Response(
-            {
-                "threshold_attendance_pct": attendance_threshold,
-                "window_days": days,
-                "count": len(at_risk),
-                "students": at_risk,
-            }
-        )
+        result = {
+            "threshold_attendance_pct": attendance_threshold,
+            "window_days": days,
+            "count": len(at_risk),
+            "students": at_risk,
+        }
+        cache.set(cache_key, result, 300)  # 5 minute TTL
+        return Response(result)
 
     @action(detail=False, methods=["get"], url_path="enrollment-funnel")
     def enrollment_funnel(self, request):
@@ -357,7 +376,8 @@ class ReportingViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"], url_path="refresh-dashboard")
     def refresh_dashboard(self, request):
         """Manually invalidate the dashboard-stats cache so next request rebuilds."""
-        school = request.school or request.user.school
+        # Scope to the authenticated user's school (see dashboard_stats).
+        school = request.user.school
         if school is None:
             return Response({"status": "no-school"})
         cache_key = f"dashboard_stats_{school.id}"

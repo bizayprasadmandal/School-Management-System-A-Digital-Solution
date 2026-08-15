@@ -3,7 +3,7 @@ Student Service — ViewSets with role-based access
 """
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
 from django.db.models import CharField, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 from django.utils import timezone
@@ -91,7 +91,13 @@ class StudentViewSet(viewsets.ModelViewSet):
         return StudentDetailSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "promote"]:
+        if self.action == "documents":
+            # Uploading documents is staff/admin-only; students/parents may
+            # still read their own documents.
+            if self.request.method == "POST":
+                return [IsAuthenticated(), IsSchoolStaff()]
+            return [IsAuthenticated(), IsSchoolMember()]
+        if self.action in ["create", "update", "partial_update", "destroy", "promote", "restore", "import_csv"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 

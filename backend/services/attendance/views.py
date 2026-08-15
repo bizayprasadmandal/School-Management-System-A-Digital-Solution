@@ -4,11 +4,12 @@ Attendance Service — Views for recording and querying attendance
 
 from datetime import date, timedelta
 
-from core.permissions import IsSchoolAdmin, IsSchoolMember, IsTeacher
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsTeacher
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.students.models import Student
@@ -47,7 +48,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "bulk_record"]:
             return [IsAuthenticated(), IsTeacher()]
-        if self.action == "destroy":
+        if self.action in ["destroy", "import_csv"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -160,17 +161,23 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="classroom-summary")
     def classroom_summary(self, request):
         """Attendance summary for a classroom on a given date."""
+        from services.students.models import Classroom
+
         classroom_id = request.query_params.get("classroom_id")
         target_date = request.query_params.get("date", date.today().isoformat())
 
         if not classroom_id:
             return Response({"error": "classroom_id is required"}, status=400)
 
-        records = AttendanceRecord.objects.filter(classroom_id=classroom_id, date=target_date).select_related(
-            "student__user"
-        )
+        # Tenant isolation: the classroom must belong to the caller's school.
+        try:
+            classroom = Classroom.objects.get(id=classroom_id, school=request.user.school)
+        except Classroom.DoesNotExist:
+            raise PermissionDenied("Classroom not found in your school.")
 
-        students_in_class = Student.objects.filter(enrollments__classroom_id=classroom_id, enrollments__is_active=True)
+        records = AttendanceRecord.objects.filter(classroom=classroom, date=target_date).select_related("student__user")
+
+        students_in_class = Student.objects.filter(enrollments__classroom=classroom, enrollments__is_active=True)
         total = students_in_class.count()
         recorded = records.count()
 
@@ -331,6 +338,28 @@ class AttendanceLeaveViewSet(viewsets.ModelViewSet):
         if user.role == "parent":
             return qs.filter(student__guardians__user=user)
         return AttendanceLeave.objects.none()
+
+    def get_permissions(self):
+        # Approving/rejecting leave is a staff decision — never the student
+        # themselves and never a parent. Teachers are scoped to their own
+        # classes via the queryset above.
+        if self.action in ["approve", "reject"]:
+            return [IsAuthenticated(), IsSchoolStaff()]
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        student = serializer.validated_data.get("student")
+        if student is not None:
+            if student.school != user.school:
+                raise PermissionDenied("You can only request leave for students in your school.")
+            if user.role == "student" and student.user != user:
+                raise PermissionDenied("You can only request leave for yourself.")
+            if user.role == "parent" and not student.guardians.filter(user=user).exists():
+                raise PermissionDenied("You can only request leave for your own children.")
+        serializer.save()
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):

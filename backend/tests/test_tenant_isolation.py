@@ -174,12 +174,13 @@ def test_bulk_grades_rejects_foreign_school_exam_schedule(api_client, school_a, 
 
 
 def test_grade_csv_import_rejects_foreign_school_exam_schedule(api_client, school_a, school_b):
-    teacher = TeacherUserFactory(school=school_a, email="teacher-b@test.edu", email_verified=True)
+    # CSV import is admin-only (it writes grade records directly).
+    admin = AdminUserFactory(school=school_a, email="admin-gb@test.edu", email_verified=True)
     foreign_exam = ExamFactory(school=school_b)
     foreign_schedule = ExamScheduleFactory(exam=foreign_exam)
 
     csv_text = "admission_number,exam_schedule_id,marks_obtained\n" f"ADM-X,{foreign_schedule.id},90\n"
-    resp = _auth(api_client, teacher).post(
+    resp = _auth(api_client, admin).post(
         GRADEBOOK_GRADES_IMPORT_CSV,
         {"csv_data": csv_text},
         format="json",
