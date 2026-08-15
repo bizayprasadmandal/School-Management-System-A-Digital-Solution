@@ -135,6 +135,37 @@ class TestStripeWebhook:
 
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
+    @override_settings(STRIPE_WEBHOOK_SECRET="", STRIPE_WEBHOOK_REQUIRE_SIGNATURE=True)
+    def test_missing_webhook_secret_fails_closed(self, api):
+        """No STRIPE_WEBHOOK_SECRET with signature requirement on → webhook rejected (no fail-open)."""
+        FeeInvoiceFactory()
+        resp = api.post(
+            FEES_STRIPE_WEBHOOK,
+            _stripe_event("payment_intent.succeeded", "pi_y", amount_received=100),
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_amount_mismatch_marks_payment_failed_and_does_not_credit_invoice(self, api):
+        """Gateway amount must match Payment.amount (cents) or the payment is rejected."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"))
+        _make_pending_payment(invoice, transaction_id="pi_mismatch", method="online", amount="500.00")
+
+        resp = api.post(
+            FEES_STRIPE_WEBHOOK,
+            _stripe_event("payment_intent.succeeded", "pi_mismatch", amount_received=1000),
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_200_OK
+        payment = Payment.objects.get(transaction_id="pi_mismatch")
+        assert payment.status == Payment.Status.FAILED
+        assert payment.gateway_response.get("status") == "amount_mismatch"
+        invoice.refresh_from_db()
+        assert invoice.paid_amount == Decimal("0.00")
+        assert invoice.status == FeeInvoice.Status.UNPAID
+
 
 @pytest.mark.django_db
 class TestKhaltiVerify:
@@ -217,6 +248,31 @@ class TestKhaltiVerify:
         resp = api.post(FEES_NEPALI_VERIFY, {"gateway": "khalti"}, format="json")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_amount_mismatch_marks_payment_failed_and_returns_400(self, api):
+        """Khalti's verified total_amount (paisa) must match Payment.amount."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"))
+        _make_pending_payment(invoice, transaction_id="pidx_mm", method="khalti", amount="500.00")
+
+        with mock.patch("services.fees.nepali_views.requests.post") as mock_post:
+            mock_post.return_value.status_code = 200
+            mock_post.return_value.json.return_value = {
+                "status": "Completed",
+                "transaction_id": "khalti_txn_mm",
+                "total_amount": 99999,
+            }
+            resp = api.post(
+                FEES_NEPALI_VERIFY,
+                {"gateway": "khalti", "pidx": "pidx_mm"},
+                format="json",
+            )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        payment = Payment.objects.get(transaction_id="pidx_mm")
+        assert payment.status == Payment.Status.FAILED
+        assert payment.gateway_response.get("status") == "amount_mismatch"
+        invoice.refresh_from_db()
+        assert invoice.paid_amount == Decimal("0.00")
+
 
 @pytest.mark.django_db
 class TestEsewaVerify:
@@ -276,3 +332,56 @@ class TestEsewaVerify:
             format="json",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_amount_mismatch_marks_payment_failed_and_returns_400(self, api):
+        """Client-supplied amount is ignored; gateway total must match Payment.amount."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"))
+        txn_uuid = str(uuid4())
+        _make_pending_payment(invoice, transaction_id=f"ESEWA-{txn_uuid}", method="esewa", amount="500.00")
+
+        with mock.patch("services.fees.nepali_views.requests.get") as mock_get:
+            mock_get.return_value.status_code = 200
+            mock_get.return_value.json.return_value = {
+                "status": "COMPLETE",
+                "ref_id": "esewa_ref_mm",
+                "total_amount": "999.00",
+            }
+            resp = api.post(
+                FEES_NEPALI_VERIFY,
+                {"gateway": "esewa", "transaction_uuid": txn_uuid, "total_amount": "500.00"},
+                format="json",
+            )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        payment = Payment.objects.get(transaction_id=f"ESEWA-{txn_uuid}")
+        assert payment.status == Payment.Status.FAILED
+        assert payment.gateway_response.get("gateway_status") == "amount_mismatch"
+        invoice.refresh_from_db()
+        assert invoice.paid_amount == Decimal("0.00")
+
+    def test_spoofed_client_amount_does_not_change_status_api_amount(self, api):
+        """The amount sent to the eSewa status API comes from our records."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"))
+        txn_uuid = str(uuid4())
+        _make_pending_payment(invoice, transaction_id=f"ESEWA-{txn_uuid}", method="esewa", amount="500.00")
+
+        with mock.patch("services.fees.nepali_views.requests.get") as mock_get:
+            mock_get.return_value.status_code = 200
+            mock_get.return_value.json.return_value = {
+                "status": "COMPLETE",
+                "ref_id": "esewa_ref_ok",
+                "total_amount": "500.00",
+            }
+            resp = api.post(
+                FEES_NEPALI_VERIFY,
+                {"gateway": "esewa", "transaction_uuid": txn_uuid, "total_amount": "1.00"},
+                format="json",
+            )
+
+            # The status API must be queried with the server-side amount.
+            _, kwargs = mock_get.call_args
+            assert kwargs["params"]["total_amount"] == "500"
+
+        assert resp.status_code == status.HTTP_200_OK
+        payment = Payment.objects.get(transaction_id=f"ESEWA-{txn_uuid}")
+        assert payment.status == Payment.Status.SUCCESSFUL

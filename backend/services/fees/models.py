@@ -3,14 +3,15 @@ Fees Service — Fee structure, invoicing, payments, and receipts
 """
 
 import uuid
+
 from django.db import models
-from services.auth.models import User, School
-from services.students.models import Student, AcademicYear, Grade
+from services.auth.models import School, User
+from services.students.models import AcademicYear, Grade, Student
 
 
 class FeeCategory(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="fee_categories")
-    name = models.CharField(max_length=100)         # Tuition, Transport, Hostel, etc.
+    name = models.CharField(max_length=100)  # Tuition, Transport, Hostel, etc.
     description = models.TextField(blank=True)
     is_mandatory = models.BooleanField(default=True)
     is_recurring = models.BooleanField(default=True)
@@ -33,13 +34,16 @@ class FeeStructure(models.Model):
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE)
     fee_category = models.ForeignKey(FeeCategory, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    due_day = models.PositiveSmallIntegerField(default=10)   # day of month
+    due_day = models.PositiveSmallIntegerField(default=10)  # day of month
     late_fee_per_day = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = "fee_structures"
         unique_together = [("academic_year", "grade", "fee_category")]
+
+    def __str__(self):
+        return f"{self.grade} — {self.fee_category.name} ({self.amount})"
 
 
 class FeeInvoice(models.Model):
@@ -103,7 +107,7 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
-    transaction_id = models.CharField(max_length=255, blank=True)
+    transaction_id = models.CharField(max_length=255, blank=True, db_index=True)
     gateway_response = models.JSONField(default=dict)
     receipt_number = models.CharField(max_length=30, unique=True)
     paid_at = models.DateTimeField(null=True, blank=True)
@@ -123,9 +127,7 @@ class Scholarship(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="scholarships")
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
-    discount_type = models.CharField(
-        max_length=10, choices=[("percent", "Percentage"), ("fixed", "Fixed Amount")]
-    )
+    discount_type = models.CharField(max_length=10, choices=[("percent", "Percentage"), ("fixed", "Fixed Amount")])
     discount_value = models.DecimalField(max_digits=8, decimal_places=2)
     applies_to_categories = models.ManyToManyField(FeeCategory, blank=True)
     reason = models.TextField()
@@ -135,14 +137,19 @@ class Scholarship(models.Model):
     class Meta:
         db_table = "scholarships"
 
+    def __str__(self):
+        return f"{self.name} — {self.student} ({self.discount_type})"
+
 
 class PaymentGatewayConfig(models.Model):
     """
     Per-school configuration for which payment gateways are enabled.
     Only one config row per school.
     """
+
     school = models.OneToOneField(
-        School, on_delete=models.CASCADE,
+        School,
+        on_delete=models.CASCADE,
         related_name="payment_gateway_config",
         primary_key=True,
     )

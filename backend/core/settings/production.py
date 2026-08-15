@@ -120,3 +120,21 @@ DATABASES["default"]["CONN_MAX_AGE"] = 60
 # ─── Email Verification Enforcement ────────────────────────────────────────────
 
 EMAIL_VERIFICATION_ENFORCED = True
+
+# ─── Stripe webhook (production) ───────────────────────────────────────────────
+# Fail closed: without STRIPE_WEBHOOK_SECRET the webhook endpoint rejects every
+# request. This overrides base.py's DEBUG-derived default so that a production
+# deployment with DEBUG=True can never silently accept unsigned webhooks.
+
+STRIPE_WEBHOOK_REQUIRE_SIGNATURE = env.bool("STRIPE_WEBHOOK_REQUIRE_SIGNATURE", default=True)
+
+# ─── Payment gateway base URLs (production) ───────────────────────────────────
+# Override the sandbox defaults from base.py with the live gateway hosts. The
+# values are still env-driven (KHALTI_BASE_URL / ESEWA_BASE_URL /
+# ESEWA_STATUS_BASE_URL), but a production deployment that omits them falls
+# back to the PRODUCTION endpoints — never the sandbox ones — so money can
+# never silently flow into a test gateway.
+
+KHALTI_BASE_URL = env("KHALTI_BASE_URL", default="https://khalti.com")
+ESEWA_BASE_URL = env("ESEWA_BASE_URL", default="https://epay.esewa.com.np")
+ESEWA_STATUS_BASE_URL = env("ESEWA_STATUS_BASE_URL", default="https://esewa.com.np")

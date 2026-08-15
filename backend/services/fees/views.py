@@ -17,6 +17,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -88,7 +89,7 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate", "waive"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate", "waive", "import_csv"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -213,6 +214,12 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Tenant isolation: the fee structure must belong to the caller's
+        # school, otherwise the queued task would generate invoices against a
+        # foreign structure.
+        if not FeeStructure.objects.filter(id=structure_id, school=request.user.school).exists():
+            raise PermissionDenied("Fee structure not found in your school.")
+
         from .tasks import generate_bulk_invoices
 
         task = generate_bulk_invoices.delay(structure_id, academic_year_id)
@@ -264,11 +271,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
         elif invoice.paid_amount > 0:
             invoice.status = FeeInvoice.Status.PARTIAL
         invoice.save(update_fields=["paid_amount", "status"])
-
-        # Generate receipt PDF in background
-        from .tasks import generate_receipt_pdf
-
-        generate_receipt_pdf.delay(str(payment.id))
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

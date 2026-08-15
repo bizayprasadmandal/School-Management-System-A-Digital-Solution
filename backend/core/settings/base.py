@@ -251,33 +251,9 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-CELERY_BEAT_SCHEDULE = {
-    "cleanup-expired-tokens": {
-        "task": "services.auth.tasks.cleanup_expired_tokens",
-        "schedule": timedelta(hours=24),
-        "options": {"expires": 3600},
-    },
-    "cleanup-expired-verification-tokens": {
-        "task": "services.auth.tasks.cleanup_expired_verification_tokens",
-        "schedule": timedelta(hours=24),
-        "options": {"expires": 3600},
-    },
-    "notify-low-backup-codes": {
-        "task": "services.auth.tasks.notify_low_backup_codes",
-        "schedule": timedelta(hours=24),
-        "options": {"expires": 3600},
-    },
-    "mark-overdue-invoices": {
-        "task": "services.fees.tasks.mark_overdue_invoices",
-        "schedule": timedelta(hours=24),
-        "options": {"expires": 3600},
-    },
-    "send-fee-reminders": {
-        "task": "services.fees.tasks.send_fee_reminders",
-        "schedule": timedelta(hours=24),
-        "options": {"expires": 3600},
-    },
-}
+# The beat schedule lives in one place: `core/celery.py` (app.conf.beat_schedule),
+# which is assigned after config_from_object so it always wins. Keeping a
+# second copy here caused drift and stale DB entries.
 
 # ─── Storage (S3) ─────────────────────────────────────────────────────────────
 
@@ -361,6 +337,11 @@ ZOOM_CLIENT_SECRET = env("ZOOM_CLIENT_SECRET", default="")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+# When True (and STRIPE_WEBHOOK_SECRET is unset) the webhook endpoint REJECTS
+# requests instead of parsing them unsigned — fail-closed. Defaults to the
+# inverse of DEBUG (lenient in dev, strict in prod); production.py forces
+# True so production can never silently accept unsigned webhooks.
+STRIPE_WEBHOOK_REQUIRE_SIGNATURE = env.bool("STRIPE_WEBHOOK_REQUIRE_SIGNATURE", default=not DEBUG)
 
 # ─── Nepali Payment Gateways ─────────────────────────────────────────────────
 
@@ -368,6 +349,16 @@ KHALTI_SECRET_KEY = env("KHALTI_SECRET_KEY", default="")
 KHALTI_MERCHANT_ID = env("KHALTI_MERCHANT_ID", default="")
 ESEWA_MERCHANT_CODE = env("ESEWA_MERCHANT_CODE", default="")
 ESEWA_SECRET_KEY = env("ESEWA_SECRET_KEY", default="")
+
+# Gateway API base URLs. Dev defaults are the sandbox endpoints; production
+# deployments MUST override these with the live gateway hosts (see
+# production.py for the fail-safe production defaults):
+#   KHALTI_BASE_URL          — https://khalti.com
+#   ESEWA_BASE_URL           — https://epay.esewa.com.np (payment form)
+#   ESEWA_STATUS_BASE_URL    — https://esewa.com.np (status check + refund)
+KHALTI_BASE_URL = env("KHALTI_BASE_URL", default="https://dev.khalti.com")
+ESEWA_BASE_URL = env("ESEWA_BASE_URL", default="https://rc-epay.esewa.com.np")
+ESEWA_STATUS_BASE_URL = env("ESEWA_STATUS_BASE_URL", default="https://rc.esewa.com.np")
 
 # ─── Internationalization ─────────────────────────────────────────────────────
 

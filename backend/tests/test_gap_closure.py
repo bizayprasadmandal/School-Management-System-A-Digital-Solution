@@ -171,7 +171,8 @@ class TestGradeAuditTrail:
     def test_import_csv_logs_audit_entries(self, api, school, admin, teacher, db):
         student = StudentFactory(school=school)
         schedule = ExamScheduleFactory(exam__school=school, classroom__school=school)
-        auth(api, teacher)
+        # CSV import is admin-only (it writes grade records directly).
+        auth(api, admin)
 
         csv_data = (
             "admission_number,exam_schedule_id,marks_obtained,is_absent,remarks\n"
@@ -439,7 +440,7 @@ class TestStandardNotificationTemplates:
             status="unpaid",
         )
 
-        result = send_fee_reminders()
+        result = send_fee_reminders(school.id)
         assert result["reminders_sent"] == 1
 
         reminder = Notification.objects.filter(user=student.user, title="Fee Reminder", channel="in_app").first()
@@ -448,7 +449,7 @@ class TestStandardNotificationTemplates:
         assert reminder.reference_type == "fee_invoice"
 
         # Dedupe: a second run must not send again for the same invoice.
-        assert send_fee_reminders()["reminders_sent"] == 0
+        assert send_fee_reminders(school.id)["reminders_sent"] == 0
         assert Notification.objects.filter(user=student.user, title="Fee Reminder", channel="in_app").count() == 1
 
 
@@ -543,13 +544,13 @@ class TestAnalytics:
 
 
 class TestAttendanceImport:
-    def test_import_creates_records(self, api, school, teacher, db):
+    def test_import_creates_records(self, api, school, admin, db):
         academic_year = AcademicYearFactory(school=school)
         classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
         student = StudentFactory(school=school)
         EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
 
-        auth(api, teacher)
+        auth(api, admin)
         csv_data = (
             "admission_number,date,status,remarks\n"
             f"{student.admission_number},{date.today().isoformat()},P,on time\n"
@@ -560,13 +561,13 @@ class TestAttendanceImport:
         assert resp.json()["imported"] == 2
         assert resp.json()["errors"] == []
 
-    def test_import_rejects_unknown_student_and_bad_status(self, api, school, teacher, db):
+    def test_import_rejects_unknown_student_and_bad_status(self, api, school, admin, db):
         academic_year = AcademicYearFactory(school=school)
         classroom = ClassroomFactory(school=school, grade=GradeFactory(school=school), academic_year=academic_year)
         student = StudentFactory(school=school)
         EnrollmentFactory(student=student, classroom=classroom, academic_year=academic_year)
 
-        auth(api, teacher)
+        auth(api, admin)
         csv_data = (
             "admission_number,date,status\n"
             "ADM-UNKNOWN,2026-08-10,P\n"
@@ -578,7 +579,7 @@ class TestAttendanceImport:
         assert data["imported"] == 0
         assert len(data["errors"]) == 2
 
-    def test_import_bad_date_and_no_enrollment_are_row_errors(self, api, school, teacher, db):
+    def test_import_bad_date_and_no_enrollment_are_row_errors(self, api, school, admin, db):
         """
         Unparseable dates and students without an active enrollment must be
         per-row errors, never a 500 for the whole import.
@@ -586,7 +587,7 @@ class TestAttendanceImport:
         AcademicYearFactory(school=school)
         student = StudentFactory(school=school)  # no active enrollment
 
-        auth(api, teacher)
+        auth(api, admin)
         csv_data = "admission_number,date,status\n" f"{student.admission_number},not-a-date,P\n"
         resp = api.post(ATTENDANCE_IMPORT_CSV, {"csv_data": csv_data}, format="json")
         assert resp.status_code == 200, resp.content
