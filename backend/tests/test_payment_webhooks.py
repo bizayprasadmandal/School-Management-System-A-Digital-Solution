@@ -18,7 +18,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 from services.fees.models import FeeInvoice, Payment
 from tests.factories import FeeInvoiceFactory
-from tests.url_helpers import FEES_NEPALI_VERIFY, FEES_STRIPE_WEBHOOK
+from tests.url_helpers import FEES_NEPALI_REFUND, FEES_NEPALI_VERIFY, FEES_STRIPE_WEBHOOK
 
 
 @pytest.fixture
@@ -385,3 +385,147 @@ class TestEsewaVerify:
         assert resp.status_code == status.HTTP_200_OK
         payment = Payment.objects.get(transaction_id=f"ESEWA-{txn_uuid}")
         assert payment.status == Payment.Status.SUCCESSFUL
+
+
+@pytest.mark.django_db(transaction=True)
+class TestConcurrentProcessing:
+    """The verify/refund flows must credit/debit each invoice exactly once,
+    even when two requests race with the same transaction id."""
+
+    def _race(self, func, n=2, timeout=120):
+        import threading
+
+        from django.db import connections
+
+        barrier = threading.Barrier(n)
+        results = {}
+
+        def _run(i):
+            barrier.wait(timeout=timeout)
+            try:
+                results[i] = func()
+            except Exception as exc:  # noqa: BLE001 - surfaced via the assertions below
+                results[i] = exc
+            finally:
+                # Close only this thread's DB connections so racing requests
+                # can't leak connections past test teardown (and so pytest
+                # doesn't report unhandled thread exceptions on run exit).
+                thread_id = threading.get_ident()
+                for conn in connections.all():
+                    if getattr(conn, "_thread_ident", None) == thread_id:
+                        conn.close()
+
+        threads = [threading.Thread(target=_run, args=(i,), name=f"race-{i}") for i in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=timeout)
+        return results
+
+    def _assert_no_thread_errors(self, results):
+        errors = {k: v for k, v in results.items() if isinstance(v, Exception)}
+        assert not errors, f"race thread(s) raised: {errors}"
+
+    def test_concurrent_khalti_verify_credits_invoice_once(self):
+        """Two simultaneous verify calls with the same pidx must not double-credit."""
+        from services.fees.nepali_views import _mark_payment_successful
+
+        invoice = FeeInvoiceFactory(total_amount=Decimal("1000.00"), paid_amount=Decimal("0.00"), status="unpaid")
+        payment = _make_pending_payment(invoice, transaction_id="pidx_race", method="khalti", amount="500.00")
+
+        def call():
+            return _mark_payment_successful(
+                payment,
+                {"khalti_pidx": "pidx_race", "transaction_id": "txn_race", "status": "Completed"},
+            )
+
+        results = self._race(call)
+
+        self._assert_no_thread_errors(results)
+        assert sum(results.values()) == 1  # exactly one caller performed the transition
+        payment.refresh_from_db()
+        invoice.refresh_from_db()
+        assert payment.status == Payment.Status.SUCCESSFUL
+        assert invoice.paid_amount == Decimal("500.00")  # credited exactly once
+
+    def test_concurrent_esewa_verify_credits_invoice_once(self):
+        from services.fees.nepali_views import _mark_payment_successful
+
+        invoice = FeeInvoiceFactory(total_amount=Decimal("1000.00"), paid_amount=Decimal("0.00"), status="unpaid")
+        payment = _make_pending_payment(invoice, transaction_id="ESEWA-race", method="esewa", amount="400.00")
+
+        def call():
+            return _mark_payment_successful(
+                payment,
+                {"esewa_transaction_uuid": "race", "esewa_ref_id": "ref", "status": "COMPLETE"},
+            )
+
+        results = self._race(call)
+
+        self._assert_no_thread_errors(results)
+        assert sum(results.values()) == 1
+        invoice.refresh_from_db()
+        assert invoice.paid_amount == Decimal("400.00")
+
+    def test_concurrent_stripe_webhook_credits_invoice_once(self):
+        invoice = FeeInvoiceFactory(total_amount=Decimal("1000.00"), paid_amount=Decimal("0.00"), status="unpaid")
+        _make_pending_payment(invoice, transaction_id="pi_race", method="online", amount="500.00")
+
+        def call():
+            from rest_framework.test import APIClient
+
+            client = APIClient()
+            resp = client.post(
+                FEES_STRIPE_WEBHOOK,
+                _stripe_event("payment_intent.succeeded", "pi_race", amount_received=50000),
+                format="json",
+            )
+            return resp.status_code
+
+        results = self._race(call)
+        self._assert_no_thread_errors(results)
+        assert set(results.values()) == {status.HTTP_200_OK}
+
+        invoice.refresh_from_db()
+        assert invoice.paid_amount == Decimal("500.00")  # credited exactly once
+
+    def test_concurrent_refund_debits_invoice_once(self):
+        """Two racing refunds for the same successful payment must not double-refund."""
+        from rest_framework.test import APIClient
+        from tests.factories import AdminUserFactory
+
+        admin = AdminUserFactory()
+        invoice = FeeInvoiceFactory(
+            total_amount=Decimal("1000.00"),
+            paid_amount=Decimal("500.00"),
+            status="partial",
+            student__school=admin.school,
+        )
+        payment = _make_pending_payment(invoice, transaction_id="pidx_refund_race", method="khalti", amount="500.00")
+        payment.status = Payment.Status.SUCCESSFUL
+        payment.save(update_fields=["status"])
+
+        def call():
+            with mock.patch("services.fees.nepali_views.requests.post") as mock_post:
+                mock_post.return_value.status_code = 200
+                mock_post.return_value.json.return_value = {"refund": {"state": "completed"}}
+                client = APIClient()
+                client.force_authenticate(user=admin)
+                resp = client.post(
+                    FEES_NEPALI_REFUND,
+                    {"payment_id": str(payment.id)},
+                    format="json",
+                )
+                return resp.status_code
+
+        results = self._race(call)
+        self._assert_no_thread_errors(results)
+
+        # Exactly one request executes the refund (200); the loser is rejected
+        # with 400 because the payment is already REFUNDED inside the lock.
+        assert list(results.values()).count(status.HTTP_200_OK) == 1
+        assert list(results.values()).count(status.HTTP_400_BAD_REQUEST) == 1
+        payment.refresh_from_db()
+        invoice.refresh_from_db()
+        assert payment.status == Payment.Status.REFUNDED
+        assert invoice.paid_amount == Decimal("0.00")  # debited exactly once

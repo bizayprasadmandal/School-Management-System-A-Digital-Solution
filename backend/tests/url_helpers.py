@@ -96,6 +96,7 @@ FEES_SCHOLARSHIPS = url("fees/scholarships/")
 FEES_INVOICES_IMPORT_CSV = url("fees/invoices/import-csv/")
 FEES_STRIPE_WEBHOOK = url("fees/stripe/webhook/")
 FEES_NEPALI_VERIFY = url("fees/nepali/verify/")
+FEES_NEPALI_REFUND = url("fees/nepali/refund/")
 
 
 def fees_invoice_waive(invoice_id: str) -> str:

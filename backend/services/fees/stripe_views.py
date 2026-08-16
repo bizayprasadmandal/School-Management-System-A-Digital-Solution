@@ -279,20 +279,32 @@ def _handle_payment_success(payment_intent):
     from django.db import transaction as db_transaction
 
     with db_transaction.atomic():
-        # Lock the invoice row
-        invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
+        # Re-read the payment row under FOR UPDATE so concurrent webhook
+        # deliveries for the same PaymentIntent cannot both pass the earlier
+        # status=PENDING lookup and double-credit the invoice.
+        locked = Payment.objects.select_for_update().get(pk=payment.pk)
+        if locked.status != Payment.Status.PENDING:
+            logger.info(
+                "Stripe webhook: payment %s already processed (status=%s) — skipping duplicate credit",
+                locked.receipt_number,
+                locked.status,
+            )
+            return
 
-        payment.status = Payment.Status.SUCCESSFUL
-        payment.paid_at = timezone.now()
-        payment.gateway_response = {
+        # Lock the invoice row
+        invoice = FeeInvoice.objects.select_for_update().get(id=locked.invoice_id)
+
+        locked.status = Payment.Status.SUCCESSFUL
+        locked.paid_at = timezone.now()
+        locked.gateway_response = {
             "stripe_id": pi_id,
             "amount_received": amount_received,
             "status": "succeeded",
         }
-        payment.save(update_fields=["status", "paid_at", "gateway_response"])
+        locked.save(update_fields=["status", "paid_at", "gateway_response"])
 
         # Update invoice paid_amount and status
-        invoice.paid_amount += payment.amount
+        invoice.paid_amount += locked.amount
         if invoice.paid_amount >= invoice.total_amount:
             invoice.status = FeeInvoice.Status.PAID
         elif invoice.paid_amount > 0:
@@ -303,7 +315,7 @@ def _handle_payment_success(payment_intent):
             "Payment successful: %s on invoice %s ($%.2f)",
             pi_id,
             invoice.invoice_number,
-            payment.amount,
+            locked.amount,
         )
 
 

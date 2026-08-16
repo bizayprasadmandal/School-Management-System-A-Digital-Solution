@@ -719,42 +719,44 @@ def refund_nepali_payment(request):
     if not payment_id:
         return Response({"detail": "payment_id is required."}, status=400)
 
-    try:
-        payment = Payment.objects.get(
-            id=payment_id,
-            invoice__student__school=request.user.school,
-            payment_method__in=["khalti", "esewa"],
-        )
-    except Payment.DoesNotExist:
-        return Response({"detail": "Payment not found."}, status=404)
-
-    if payment.status != Payment.Status.SUCCESSFUL:
-        return Response(
-            {"detail": f"Payment status is '{payment.status}' — can only refund successful payments."},
-            status=400,
-        )
-
-    if payment.payment_method == "khalti":
-        ok, detail = _khalti_refund(payment, reason)
-    elif payment.payment_method == "esewa":
-        ok, detail = _esewa_refund(payment, reason)
-    else:
-        return Response({"detail": "Unsupported payment gateway."}, status=400)
-
-    if not ok:
-        logger.error(
-            "Nepali refund failed for %s (%s): %s",
-            payment.receipt_number,
-            payment.payment_method,
-            detail,
-        )
-        return Response(
-            {"detail": f"Refund failed: {detail}"},
-            status=502,
-        )
-
+    # Serialize concurrent refunds on the payment row itself: the SUCCESSFUL
+    # status check, the gateway refund call, and the invoice adjustment all
+    # run under this lock, so two racing refunds cannot both pass the status
+    # check, hit the gateway refund API twice, or subtract the amount twice.
     with transaction.atomic():
-        invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
+        try:
+            payment = Payment.objects.select_for_update().get(
+                id=payment_id,
+                invoice__student__school=request.user.school,
+                payment_method__in=["khalti", "esewa"],
+            )
+        except Payment.DoesNotExist:
+            return Response({"detail": "Payment not found."}, status=404)
+
+        if payment.status != Payment.Status.SUCCESSFUL:
+            return Response(
+                {"detail": f"Payment status is '{payment.status}' — can only refund successful payments."},
+                status=400,
+            )
+
+        if payment.payment_method == "khalti":
+            ok, detail = _khalti_refund(payment, reason)
+        elif payment.payment_method == "esewa":
+            ok, detail = _esewa_refund(payment, reason)
+        else:
+            return Response({"detail": "Unsupported payment gateway."}, status=400)
+
+        if not ok:
+            logger.error(
+                "Nepali refund failed for %s (%s): %s",
+                payment.receipt_number,
+                payment.payment_method,
+                detail,
+            )
+            return Response(
+                {"detail": f"Refund failed: {detail}"},
+                status=502,
+            )
 
         payment.status = Payment.Status.REFUNDED
         gw_response = payment.gateway_response or {}
@@ -764,6 +766,7 @@ def refund_nepali_payment(request):
         payment.gateway_response = gw_response
         payment.save(update_fields=["status", "gateway_response"])
 
+        invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
         invoice.paid_amount -= payment.amount
         if invoice.paid_amount <= 0:
             invoice.paid_amount = 0
@@ -793,22 +796,46 @@ def refund_nepali_payment(request):
 # ─── Internal Helpers ────────────────────────────────────────────────────────
 
 
-def _mark_payment_successful(payment: Payment, gateway_data: dict) -> None:
-    """Mark a pending Payment as successful and update the invoice."""
-    with transaction.atomic():
-        invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
+def _mark_payment_successful(payment: Payment, gateway_data: dict) -> bool:
+    """Mark a pending Payment as successful and update the invoice.
 
-        payment.status = Payment.Status.SUCCESSFUL
-        payment.paid_at = timezone.now()
-        payment.gateway_response = {
-            **(payment.gateway_response or {}),
+    Returns True if THIS call performed the PENDING -> SUCCESSFUL transition
+    and credited the invoice; False if the payment was already processed by a
+    concurrent request (the row is re-read under a row lock, so racing verify
+    calls serialize here and only the first one credits the invoice).
+
+    The amount the gateway recorded is verified against ``payment.amount`` by
+    the caller before this is reached; this helper only guards the transition.
+    """
+    with transaction.atomic():
+        # Re-read the payment row under FOR UPDATE so two concurrent verify
+        # requests with the same transaction_id cannot both pass the earlier
+        # status=PENDING lookup and double-credit the invoice.
+        locked = Payment.objects.select_for_update().get(pk=payment.pk)
+        if locked.status != Payment.Status.PENDING:
+            logger.info(
+                "Payment %s already processed (status=%s) — skipping duplicate credit",
+                locked.receipt_number,
+                locked.status,
+            )
+            return False
+
+        invoice = FeeInvoice.objects.select_for_update().get(id=locked.invoice_id)
+
+        locked.status = Payment.Status.SUCCESSFUL
+        locked.paid_at = timezone.now()
+        locked.gateway_response = {
+            **(locked.gateway_response or {}),
             **gateway_data,
         }
-        payment.save(update_fields=["status", "paid_at", "gateway_response"])
+        locked.save(update_fields=["status", "paid_at", "gateway_response"])
 
-        invoice.paid_amount += payment.amount
+        invoice.paid_amount += locked.amount
         if invoice.paid_amount >= invoice.total_amount:
             invoice.status = FeeInvoice.Status.PAID
         elif invoice.paid_amount > 0:
             invoice.status = FeeInvoice.Status.PARTIAL
+        else:
+            invoice.status = FeeInvoice.Status.UNPAID
         invoice.save(update_fields=["paid_amount", "status"])
+        return True
