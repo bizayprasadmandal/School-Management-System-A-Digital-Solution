@@ -31,7 +31,7 @@ PG_HOST="${PGHOST:-localhost}"
 PG_PORT="${PGPORT:-5432}"
 PG_USER="${PGUSER:-sms}"
 
-if [ -z "$PG_PASSWORD" ]; then
+if [ -z "$PGPASSWORD" ]; then
     echo "Error: PGPASSWORD is required (set it to the PostgreSQL password before running)." >&2
     exit 1
 fi

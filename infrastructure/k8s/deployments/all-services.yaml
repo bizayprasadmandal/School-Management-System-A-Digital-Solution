@@ -351,6 +351,8 @@ spec:
           port: 9121
         - protocol: TCP
           port: 9187
+        - protocol: TCP
+          port: 8080
         - protocol: UDP
           port: 53
         - protocol: TCP

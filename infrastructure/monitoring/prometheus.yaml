@@ -56,6 +56,15 @@ data:
             replacement: '${1}:9100'
             target_label: __address__
 
+      # Kubernetes object metrics (required by kube_pod_container_status_* rules)
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ["kube-state-metrics:8080"]
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'kube_pod_container_status_restarts_total|kube_pod_container_status_running|kube_pod_status_phase'
+            action: keep
+
       # Backup metrics come from the node_exporter textfile collector:
       # backend/infrastructure/db/backup_metrics.sh writes sms_backup_* metrics
       # into the textfile directory, served on the node exporter's :9100 port,
@@ -280,7 +289,21 @@ spec:
           configMap:
             name: prometheus-config
         - name: storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
+
+---
+# ─── Prometheus Persistent Volume Claim ───────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: sms
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 50Gi
 
 ---
 # ─── Grafana Dashboard Provisioning ConfigMap ──────────────────────────────────
@@ -936,6 +959,8 @@ spec:
               mountPath: /var/lib/grafana
             - name: dashboards
               mountPath: /etc/grafana/provisioning/dashboards
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
           resources:
             requests:
               cpu: "100m"
@@ -1323,3 +1348,57 @@ spec:
                 name: alertmanager
                 port:
                   number: 9093
+
+---
+# ─── kube-state-metrics ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        app: kube-state-metrics
+    spec:
+      serviceAccountName: prometheus-sa
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.10.1
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: sms
+spec:
+  selector:
+    app: kube-state-metrics
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

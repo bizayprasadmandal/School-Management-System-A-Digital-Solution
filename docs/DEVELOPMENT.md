@@ -48,7 +48,7 @@ pip install -r requirements.txt
 docker compose up -d postgres redis minio
 
 python manage.py makemigrations  # generates real migrations for students/academics/etc.;
-                                  # only auth_service ships a hand-written initial migration
+                                  # all 22 service apps ship their own migrations (50 files total)
 python manage.py migrate
 python manage.py seed_demo_data
 python manage.py runserver
