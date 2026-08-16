@@ -185,6 +185,9 @@ prod-env:
 	@echo "🔐  Generating production environment..."
 	@# Generate a random Django SECRET_KEY
 	$(eval SECRET := $(shell openssl rand -base64 48 | tr -dc 'a-zA-Z0-9_+=' | head -c 50))
+	@# Generate random DB and Redis passwords
+	$(eval DB_PASS := $(shell openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24))
+	$(eval REDIS_PASS := $(shell openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24))
 	@# Create SSL directory
 	@mkdir -p infrastructure/nginx/ssl
 	@# Generate self-signed SSL cert for localhost
@@ -205,16 +208,16 @@ prod-env:
 		"TIME_ZONE=UTC" \
 		"" \
 		"# ─── Database ───────────────────────────────────────────────────" \
-		"DATABASE_URL=postgresql://sms:sms_password@postgres:5432/sms_db" \
+		"DATABASE_URL=postgresql://sms:$(DB_PASS)@postgres:5432/sms_db" \
 		"POSTGRES_DB=sms_db" \
 		"POSTGRES_USER=sms" \
-		"POSTGRES_PASSWORD=sms_password" \
+		"POSTGRES_PASSWORD=$(DB_PASS)" \
 		"" \
 		"# ─── Database backup (daily Celery beat task) ────────────────────" \
 		"PGHOST=postgres" \
 		"PGPORT=5432" \
 		"PGUSER=sms" \
-		"PGPASSWORD=sms_password" \
+		"PGPASSWORD=$(DB_PASS)" \
 		"PGDATABASE=sms_db" \
 		"SMS_BACKUP_DIR=/backups" \
 		"SMS_BACKUP_RETENTION_DAYS=30" \
@@ -223,10 +226,10 @@ prod-env:
 		"BACKUP_S3_REGION=us-east-1" \
 		"" \
 		"# ─── Redis ─────────────────────────────────────────────────────" \
-		"REDIS_URL=redis://:redis_password@redis:6379/0" \
-		"REDIS_PASSWORD=redis_password" \
-		"CELERY_BROKER_URL=redis://:redis_password@redis:6379/1" \
-		"CELERY_RESULT_BACKEND=redis://:redis_password@redis:6379/1" \
+		"REDIS_URL=redis://:$(REDIS_PASS)@redis:6379/0" \
+		"REDIS_PASSWORD=$(REDIS_PASS)" \
+		"CELERY_BROKER_URL=redis://:$(REDIS_PASS)@redis:6379/1" \
+		"CELERY_RESULT_BACKEND=redis://:$(REDIS_PASS)@redis:6379/1" \
 		"" \
 		"# ─── CORS ──────────────────────────────────────────────────────" \
 		"CORS_ALLOWED_ORIGINS=http://localhost:80,https://localhost:443,http://localhost:3000" \

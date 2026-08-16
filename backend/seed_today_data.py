@@ -5,17 +5,17 @@ so the admin dashboard shows real numbers.
 Run: python manage.py shell < seed_today_data.py
 """
 
-from datetime import date, timedelta
-from decimal import Decimal
-from django.db import transaction
-from django.utils import timezone
 import random
 import sys
+from datetime import timedelta
 
-from services.auth.models import User, UserRole
-from services.students.models import Student, Enrollment, AcademicYear
+from django.db import transaction
+from django.utils import timezone
 from services.attendance.models import AttendanceRecord
-from services.fees.models import FeeInvoice, Payment
+from services.auth.models import User, UserRole
+from services.fees.ledger import credit_invoice
+from services.fees.models import FeeInvoice
+from services.students.models import AcademicYear, Enrollment, Student
 
 today = timezone.now().date()
 yesterday = today - timedelta(days=1)
@@ -40,9 +40,7 @@ print(f"Seeding today ({today}) and yesterday ({yesterday}) attendance for {len(
 with transaction.atomic():
     today_created = 0
     for student in students:
-        enrollment = Enrollment.objects.filter(
-            student=student, academic_year=ay, is_active=True
-        ).first()
+        enrollment = Enrollment.objects.filter(student=student, academic_year=ay, is_active=True).first()
         if not enrollment:
             continue
 
@@ -64,7 +62,8 @@ with transaction.atomic():
             remarks = "Left early"
 
         _, created = AttendanceRecord.objects.get_or_create(
-            student=student, date=today,
+            student=student,
+            date=today,
             defaults={
                 "classroom": enrollment.classroom,
                 "academic_year": ay,
@@ -80,9 +79,7 @@ with transaction.atomic():
     # Yesterday
     yesterday_created = 0
     for student in students:
-        enrollment = Enrollment.objects.filter(
-            student=student, academic_year=ay, is_active=True
-        ).first()
+        enrollment = Enrollment.objects.filter(student=student, academic_year=ay, is_active=True).first()
         if not enrollment:
             continue
 
@@ -104,7 +101,8 @@ with transaction.atomic():
             remarks = "Half day"
 
         _, created = AttendanceRecord.objects.get_or_create(
-            student=student, date=yesterday,
+            student=student,
+            date=yesterday,
             defaults={
                 "classroom": enrollment.classroom,
                 "academic_year": ay,
@@ -135,10 +133,11 @@ with transaction.atomic():
 
         # Use sequence-based receipt number to avoid collisions
         from services.fees.models import Payment as P
+
         max_receipt = P.objects.filter(receipt_number__startswith="RCT-TODAY-").count()
         safe_receipt = f"RCT-TODAY-{inv.student.admission_number}-{payments_created + max_receipt + 1:04d}"
 
-        Payment.objects.create(
+        P.objects.create(
             invoice=inv,
             amount=pay_amt,
             payment_method=pay_method,
@@ -150,11 +149,9 @@ with transaction.atomic():
         )
         payments_created += 1
 
-        inv.paid_amount += pay_amt
-        inv.status = "paid" if inv.paid_amount >= inv.total_amount else "partial"
-        inv.save(update_fields=["paid_amount", "status"])
+        credit_invoice(inv, pay_amt)
 
-print(f"\nDone!")
+print("\nDone!")
 print(f"  Today's attendance: {today_created} records")
 print(f"  Yesterday's attendance: {yesterday_created} records")
 print(f"  Current-month payments: {payments_created} records")

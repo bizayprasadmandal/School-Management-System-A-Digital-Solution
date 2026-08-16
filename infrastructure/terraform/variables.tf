@@ -53,9 +53,8 @@ variable "allowed_cidr_blocks" {
 }
 
 variable "eks_public_access_cidrs" {
-  description = "CIDR blocks allowed to reach the public EKS API endpoint (operator/VPN ranges)"
+  description = "CIDR blocks allowed to reach the public EKS API endpoint (required — operator/VPN ranges, no default)"
   type        = list(string)
-  default     = ["10.0.0.0/8"]
 }
 
 variable "monthly_budget_usd" {

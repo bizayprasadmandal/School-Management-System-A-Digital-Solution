@@ -10,6 +10,7 @@ cluster_name = "edusphere-sms"
 # Required — no defaults:
 db_password           = "REPLACE_WITH_STRONG_DB_PASSWORD"
 grafana_admin_password = "REPLACE_WITH_STRONG_GRAFANA_PASSWORD"
+eks_public_access_cidrs = ["203.0.113.10/32"]  # required — operator/VPN ranges for the public EKS API endpoint
 
 # Optional:
 db_username = "sms"
@@ -17,9 +18,6 @@ db_name     = "sms_db"
 
 # CIDRs allowed to reach RDS/Redis in addition to the VPC CIDR (usually none):
 allowed_cidr_blocks = []
-
-# CIDRs allowed to reach the public EKS API endpoint (operator/VPN ranges):
-eks_public_access_cidrs = ["203.0.113.10/32"]
 
 # Monthly cost budget in USD (0 disables):
 monthly_budget_usd = 500
