@@ -73,6 +73,17 @@ services:
       - DEBUG=True
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
+      # ─── Database backup connection (daily Celery beat task) ────────────
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=${PGUSER:-sms}
+      - PGPASSWORD=${PGPASSWORD:-sms_password}
+      - PGDATABASE=${PGDATABASE:-sms_db}
+      - SMS_BACKUP_DIR=/backups
+      - SMS_BACKUP_RETENTION_DAYS=${SMS_BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_PREFIX=${BACKUP_S3_PREFIX:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-}
       - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -120,6 +131,17 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
+      # ─── Database backup connection (daily Celery beat task) ────────────
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=${PGUSER:-sms}
+      - PGPASSWORD=${PGPASSWORD:-sms_password}
+      - PGDATABASE=${PGDATABASE:-sms_db}
+      - SMS_BACKUP_DIR=/backups
+      - SMS_BACKUP_RETENTION_DAYS=${SMS_BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_PREFIX=${BACKUP_S3_PREFIX:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-}
       - SECRET_KEY=${SECRET_KEY}
       - SENTRY_DSN=${SENTRY_DSN}
       # ─── Gmail SMTP (real email delivery) ───────────────────────────────

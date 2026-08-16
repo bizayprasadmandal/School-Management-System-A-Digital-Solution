@@ -1,11 +1,9 @@
 # ─── Prometheus Recording & Alert Rules — Database Backup Monitoring
 #
 # These rules consume metrics exported by the node_exporter textfile collector
-# script at infrastructure/db/backup_metrics.sh.  Apply them to Prometheus
-# by adding this file to rule_files in the prometheus config, e.g.:
-#
-#   rule_files:
-#     - "/etc/prometheus/rules/*.yml"
+# script at backend/infrastructure/db/backup_metrics.sh.  They are embedded in
+# the prometheus-config ConfigMap (infrastructure/monitoring/prometheus.yaml)
+# as rules/backup_alerts.yml and mounted under /etc/prometheus/rules.
 #
 groups:
   - name: sms_backup_monitoring
@@ -44,7 +42,7 @@ groups:
           description: |
             The latest database backup is {{ $value }} hours old.
             Threshold is 36 hours.  Check the backup cron job on {{ $labels.instance }}.
-            Runbook: https://github.com/your-org/sms/infrastructure/db/README.md
+            Runbook: backend/infrastructure/db/README.md
 
       # P2: Backup verification has not succeeded recently
       - alert: BackupVerificationStale
@@ -75,7 +73,7 @@ groups:
           description: |
             The most recent backup is only {{ $value | humanizeBytes }}.
             This could indicate a corrupt or empty pg_dump.  Verify manually:
-            /opt/sms/infrastructure/db/verify_backup.sh "$(ls -t /backups/sms-daily-*.sql.gz | head -1)"
+            /opt/sms/backend/infrastructure/db/verify_backup.sh "$(ls -t /backups/sms-daily-*.sql.gz | head -1)"
 
       # P2: Backup count is zero (backup job stopped)
       - alert: BackupJobStopped

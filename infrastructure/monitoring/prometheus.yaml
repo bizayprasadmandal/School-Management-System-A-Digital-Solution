@@ -29,10 +29,10 @@ data:
         metrics_path: /metrics
         scrape_interval: 30s
 
-      # Celery metrics (via Flower or custom exporter)
+      # Celery metrics (Flower's built-in /metrics endpoint)
       - job_name: sms-celery
         static_configs:
-          - targets: ["sms-flower:5555"]
+          - targets: ["sms-flower-svc:5555"]
         metrics_path: /metrics
         scrape_interval: 30s
 
@@ -56,35 +56,10 @@ data:
             replacement: '${1}:9100'
             target_label: __address__
 
-      # Backup metrics via node_exporter textfile collector
-      # The backup_metrics.sh script (infrastructure/db/backup_metrics.sh)
-      # writes to node_exporter's --collector.textfile.directory, which
-      # is served alongside /metrics on port 9100.
-      - job_name: sms-backup
-        kubernetes_sd_configs:
-          - role: pod
-            selectors:
-              - role: pod
-                label: app.kubernetes.io/component=backup
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
-            regex: backup
-            action: keep
-          - source_labels: [__meta_kubernetes_pod_container_port_number]
-            regex: '9100'
-            action: keep
-        metrics_path: /metrics
-        # If pod autodiscovery is not available, fall back to a static target:
-        # static_configs:
-        #   - targets: ["backup-host:9100"]
-
-      # Alternatively, scrape backup metrics from the same node exporter
-      # that is already in the 'node' job above.  The textfile collector
-      # automatically exposes files in its directory alongside the normal
-      # node exporter metrics, so no extra job is strictly needed — the
-      # 'sms_backup_*' metrics will appear under the 'node' job.  This
-      # separate job exists for dedicated backup hosts that run only the
-      # textfile collector, not the full node exporter.
+      # Backup metrics come from the node_exporter textfile collector:
+      # backend/infrastructure/db/backup_metrics.sh writes sms_backup_* metrics
+      # into the textfile directory, served on the node exporter's :9100 port,
+      # so they appear under the 'node' job above (no dedicated backup job needed).
 
   rules/sms_alerts.yml: |
     groups:
@@ -131,7 +106,9 @@ data:
 
           # Celery task queue backed up
           - alert: CeleryQueueBacklog
-            expr: celery_queue_length > 500
+            expr: |
+              sum(increase(flower_task_received_total[15m])) -
+              sum(increase(flower_task_processed_total[15m])) > 500
             for: 5m
             labels:
               severity: warning
@@ -155,6 +132,107 @@ data:
               severity: critical
             annotations:
               summary: "Pod {{ $labels.pod }} is crash-looping"
+
+  rules/backup_alerts.yml: |
+    groups:
+      - name: sms_backup_monitoring
+        interval: 1m
+        rules:
+          - record: job:sms_backup_freshness:ratio
+            expr: |
+              clamp_max(
+                clamp_min(
+                  1.0 - (sms_backup_age_hours / 24.0),
+                  0.0
+                ),
+                1.0
+              )
+
+          - record: job:sms_backup_growth_bytes_per_day:rate
+            expr: |
+              deriv(sms_backup_size_bytes[7d])
+
+          - alert: BackupMissing
+            expr: sms_backup_age_hours > 36
+            for: 5m
+            labels:
+              severity: critical
+              pagerduty: p1
+            annotations:
+              summary: "No recent database backup (last backup {{ $value | humanizeDuration }} ago)"
+              description: |
+                The latest database backup is {{ $value }} hours old.
+                Threshold is 36 hours.  Check the backup cron job on {{ $labels.instance }}.
+                Runbook: backend/infrastructure/db/README.md
+
+          - alert: BackupVerificationStale
+            expr: sms_backup_verify_status == 0
+            for: 3h
+            labels:
+              severity: warning
+              pagerduty: p2
+            annotations:
+              summary: "Backup verification has not succeeded in the last 2 hours"
+              description: |
+                The sms_backup_verify_status metric is 0, meaning verification
+                either failed or hasn't run recently.  Check the verify cron job
+                and inspect /var/log/sms-backup-verify.log on the backup host.
+
+          - alert: BackupSizeAnomaly
+            expr: |
+              sms_backup_size_bytes < 1000000
+              and
+              sms_backup_age_hours < 2
+            for: 5m
+            labels:
+              severity: warning
+              pagerduty: p2
+            annotations:
+              summary: "Latest backup is suspiciously small (< 1 MB)"
+              description: |
+                The most recent backup is only {{ $value | humanizeBytes }}.
+                This could indicate a corrupt or empty pg_dump.  Verify manually:
+                backend/infrastructure/db/verify_backup.sh "$(ls -t /backups/sms-daily-*.sql.gz | head -1)"
+
+          - alert: BackupJobStopped
+            expr: sms_backup_count == 0
+            for: 10m
+            labels:
+              severity: warning
+              pagerduty: p2
+            annotations:
+              summary: "No backup files found in the backup directory"
+              description: |
+                The backup directory {{ $labels.instance }}:/backups contains
+                zero backup files.  The daily backup job may have stopped.
+                Check the cron scheduler and disk space.
+
+          - alert: BackupRetentionTooShort
+            expr: sms_backup_oldest_days < 30
+            for: 24h
+            labels:
+              severity: info
+              pagerduty: p3
+            annotations:
+              summary: "Backup retention period is less than 30 days"
+              description: |
+                The oldest backup is only {{ $value }} days old.
+                Target retention is 90 days.  Check the prune cron job
+                and backup retention configuration.
+
+          - alert: BackupGrowthAccelerating
+            expr: |
+              job:sms_backup_growth_bytes_per_day:rate > 50000000
+            for: 7d
+            labels:
+              severity: info
+              pagerduty: p3
+            annotations:
+              summary: "Backup size growing faster than 50 MB/day"
+              description: |
+                Backup size is increasing at {{ $value | humanizeBytes }}/day.
+                Projected annual growth: {{ $value * 365 | humanizeBytes }}.
+                Review database cleanup and archiving strategy.
 
 ---
 # ─── Prometheus Deployment ────────────────────────────────────────────────────
@@ -182,6 +260,7 @@ spec:
             - "--storage.tsdb.path=/prometheus"
             - "--storage.tsdb.retention.time=30d"
             - "--web.enable-lifecycle"
+            - "--web.external-url=https://monitoring.edusphere.school/prometheus"
           ports:
             - containerPort: 9090
           volumeMounts:
@@ -847,7 +926,9 @@ spec:
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
             - name: GF_SERVER_ROOT_URL
-              value: "https://monitoring.edusphere.school"
+              value: "https://monitoring.edusphere.school/grafana"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
           ports:
             - containerPort: 3000
           volumeMounts:
@@ -862,9 +943,383 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: grafana-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: grafana-pvc
         - name: dashboards
           configMap:
             name: grafana-dashboards
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+
+---
+# ─── Grafana Persistent Volume Claim ───────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: sms
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# ─── Grafana Datasource Provisioning ───────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: sms
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: false
+
+---
+# ─── Grafana Service ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: sms
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# ─── Prometheus ServiceAccount + RBAC ──────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-sa
+  namespace: sms
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/proxy", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-sa
+    namespace: sms
+
+---
+# ─── Prometheus Service ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: sms
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+---
+# ─── Node Exporter DaemonSet (scraped by the 'node' job on :9100) ───────────────
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: sms
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.7.0
+          args:
+            - "--path.rootfs=/host"
+            - "--collector.textfile.directory=/host/var/lib/sms-backup-metrics"
+          ports:
+            - name: metrics
+              containerPort: 9100
+              hostPort: 9100
+          volumeMounts:
+            - name: root
+              mountPath: /host
+              readOnly: true
+      volumes:
+        - name: root
+          hostPath:
+            path: /
+
+---
+# ─── PostgreSQL Exporter ───────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-exporter
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-exporter
+  template:
+    metadata:
+      labels:
+        app: postgres-exporter
+    spec:
+      containers:
+        - name: postgres-exporter
+          image: prometheuscommunity/postgres-exporter:v0.15.0
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "postgresql://sms:$(POSTGRES_PASSWORD)@sms-postgres-svc:5432/sms_db?sslmode=disable"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: postgres-password
+          ports:
+            - containerPort: 9187
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9187
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter
+  namespace: sms
+spec:
+  selector:
+    app: postgres-exporter
+  ports:
+    - port: 9187
+      targetPort: 9187
+  type: ClusterIP
+
+---
+# ─── Redis Exporter ────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-exporter
+  template:
+    metadata:
+      labels:
+        app: redis-exporter
+    spec:
+      containers:
+        - name: redis-exporter
+          image: oliver006/redis_exporter:v1.62.0
+          args:
+            - "--redis.addr=redis://sms-redis-svc:6379"
+          ports:
+            - containerPort: 9121
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9121
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: sms
+spec:
+  selector:
+    app: redis-exporter
+  ports:
+    - port: 9121
+      targetPort: 9121
+  type: ClusterIP
+
+---
+# ─── Alertmanager ──────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: sms
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ["alertname", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: "default"
+    receivers:
+      - name: "default"
+        # No external receiver configured — add webhook/email/slack here.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: sms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          args:
+            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9093
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: alertmanager-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: sms
+spec:
+  selector:
+    app: alertmanager
+  ports:
+    - port: 9093
+      targetPort: 9093
+  type: ClusterIP
+
+---
+# ─── Monitoring Ingress ────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sms-monitoring-ingress
+  namespace: sms
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - monitoring.edusphere.school
+      secretName: sms-monitoring-tls-secret
+  rules:
+    - host: monitoring.edusphere.school
+      http:
+        paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
+          - path: /prometheus
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+          - path: /alertmanager
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager
+                port:
+                  number: 9093

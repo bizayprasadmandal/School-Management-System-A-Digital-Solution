@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # GHCR rejects uppercase characters in image names, but github.repository
 # (e.g. .../School-Management-System-A-Digital-Solution) can contain them and
 # can't be lowercased via GitHub expression syntax. Each job that builds or
@@ -42,9 +46,9 @@ jobs:
       # Coverage gate: floor measured at 70% (last green run) — 68 leaves headroom.
       - name: Run tests
         working-directory: backend
-        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov-fail-under=68 --cov-report=xml -q
-      # Publish coverage to Codecov (public repo — no token needed once the repo
-      # is activated at codecov.io). fail_ci_if_error keeps a Codecov hiccup from
+        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov=core --cov-fail-under=68 --cov-report=xml -q
+      # Publish coverage to Codecov. The token secret is optional (public
+      # repos work without it); fail_ci_if_error keeps a Codecov hiccup from
       # ever failing the build; `if: always()` lets the badge track the trend
       # even when the gate drops a run.
       - name: Upload coverage to Codecov
@@ -53,6 +57,37 @@ jobs:
         with:
           files: backend/coverage.xml
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  backend-test-slow:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: sms_test, POSTGRES_USER: sms, POSTGRES_PASSWORD: test_password }
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        options: --health-cmd "redis-cli ping" --health-interval 10s
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://sms:test_password@localhost:5432/sms_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-test-secret-key
+      DEBUG: "True"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          { python-version: "3.12", cache: pip, cache-dependency-path: backend/requirements.txt }
+      - run: pip install -r backend/requirements.txt
+      # Slow-marked tests are excluded from the fast CI run above; run them
+      # here so they're still exercised on every push instead of being skipped
+      # indefinitely.
+      - name: Run slow tests
+        working-directory: backend
+        run: pytest tests/ --tb=short --timeout=300 -m "slow" -q
 
   e2e-test:
     runs-on: ubuntu-latest
@@ -151,7 +186,7 @@ jobs:
         working-directory: frontend/web
       - name: Run frontend tests
         working-directory: frontend/web
-        run: npx react-scripts test --watchAll=false --passWithNoTests
+        run: npx react-scripts test --watchAll=false
       - name: Build
         working-directory: frontend/web
         env: { REACT_APP_API_URL: https://api.example.com/api/v1, CI: "false" }
@@ -176,6 +211,9 @@ jobs:
       - name: Typecheck
         working-directory: frontend/mobile
         run: npx tsc --noEmit
+      - name: Unit tests (jest)
+        working-directory: frontend/mobile
+        run: npx jest --ci
       # Metro export validates the full import graph (catches missing modules,
       # bad imports, syntax errors) without needing a native toolchain.
       - name: Bundle check (Metro export)
@@ -205,10 +243,10 @@ jobs:
           args: detect --source . --redact --verbose
 
       # Python dependency CVEs — REPORT ONLY (never blocks). pip-audit's newer
-      # releases removed the --fail-on flag, and Django 4.2 (EOL) carries known
-      # high-severity CVEs, so a hard gate would be permanently red. The full
-      # report prints here every run; convert to a hard gate after the Django
-      # 5.2 upgrade.
+      # releases removed the --fail-on flag, so a hard gate would be
+      # permanently red on any unpatched transitive dep. The full report
+      # prints here every run; convert to a hard gate once dependencies are
+      # clean and pin a pip-audit version that supports the flag again.
       - name: pip-audit — Python dependency CVEs (report)
         run: |
           python -m pip install --quiet pip-audit

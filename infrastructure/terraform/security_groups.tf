@@ -3,14 +3,14 @@
 # RDS Security Group
 resource "aws_security_group" "rds" {
   name        = "${var.cluster_name}-rds-sg"
-  description = "Allow PostgreSQL from EKS nodes"
+  description = "Allow PostgreSQL from EKS nodes (VPC CIDR)"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    cidr_blocks     = var.allowed_cidr_blocks
+    cidr_blocks     = concat([module.vpc.vpc_cidr_block], var.allowed_cidr_blocks)
     description     = "PostgreSQL from VPC"
   }
 
@@ -34,7 +34,7 @@ resource "aws_security_group" "redis" {
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
+    cidr_blocks = concat([module.vpc.vpc_cidr_block], var.allowed_cidr_blocks)
     description = "Redis from VPC"
   }
 

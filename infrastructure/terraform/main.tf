@@ -1,6 +1,8 @@
 # ─── EduSphere SMS — AWS EKS Infrastructure (Terraform) ─────────────────────
 # Provisions: VPC, EKS cluster, managed node groups, RDS PostgreSQL,
-# ElastiCache Redis, S3 bucket, ECR repositories, ALB, Route53, ACM
+# ElastiCache Redis, S3 bucket, ECR repositories, ACM certificate.
+# (ALB/Route53/Helm chart installs are applied via the ingress-nginx
+# controller and Kubernetes manifests after `terraform apply`.)
 
 terraform {
   required_version = ">= 1.7.0"
@@ -18,13 +20,6 @@ terraform {
       version = "~> 2.12"
     }
   }
-  backend "s3" {
-    bucket         = "edusphere-terraform-state"
-    key            = "production/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "edusphere-terraform-locks"
-  }
 }
 
 provider "aws" {
@@ -37,15 +32,6 @@ provider "aws" {
     }
   }
 }
-
-# ─── Variables ────────────────────────────────────────────────────────────────
-
-variable "aws_region"    { default = "us-east-1" }
-variable "environment"   { default = "production" }
-variable "cluster_name"  { default = "edusphere-sms" }
-variable "cluster_version" { default = "1.29" }
-variable "db_password"   { sensitive = true }
-variable "domain_name"   { default = "edusphere.school" }
 
 # ─── VPC ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +74,11 @@ module "eks" {
   subnet_ids               = module.vpc.private_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
-  cluster_endpoint_public_access = true
+  # Public API access is restricted to the CIDRs in var.eks_public_access_cidrs
+  # (operator/VPN ranges); private access is enabled for in-VPC connectivity.
+  cluster_endpoint_public_access       = true
+  cluster_endpoint_public_access_cidrs = var.eks_public_access_cidrs
+  cluster_endpoint_private_access      = true
 
   # Managed node groups
   eks_managed_node_groups = {
@@ -155,7 +145,6 @@ module "rds" {
 
   deletion_protection = true
   skip_final_snapshot = false
-  final_snapshot_identifier = "${var.cluster_name}-final"
 
   performance_insights_enabled = true
   monitoring_interval          = 60
@@ -181,6 +170,7 @@ resource "aws_elasticache_replication_group" "redis" {
   subnet_group_name          = aws_elasticache_subnet_group.main.name
   security_group_ids         = [aws_security_group.redis.id]
   snapshot_retention_limit   = 3
+  auth_token                 = var.redis_password != "" ? var.redis_password : null
 }
 
 # ─── S3 Bucket (Documents & Media) ───────────────────────────────────────────
@@ -224,13 +214,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
 
 resource "aws_ecr_repository" "backend" {
   name                 = "${var.cluster_name}/backend"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   image_scanning_configuration { scan_on_push = true }
 }
 
 resource "aws_ecr_repository" "frontend" {
   name                 = "${var.cluster_name}/frontend"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
   image_scanning_configuration { scan_on_push = true }
 }
 
@@ -242,13 +232,3 @@ resource "aws_acm_certificate" "main" {
   validation_method         = "DNS"
   lifecycle { create_before_destroy = true }
 }
-
-# ─── Outputs ─────────────────────────────────────────────────────────────────
-
-output "eks_cluster_endpoint"    { value = module.eks.cluster_endpoint }
-output "eks_cluster_name"        { value = module.eks.cluster_name }
-output "rds_endpoint"            { value = module.rds.db_instance_endpoint }
-output "redis_endpoint"          { value = aws_elasticache_replication_group.redis.primary_endpoint_address }
-output "s3_bucket"               { value = aws_s3_bucket.documents.bucket }
-output "ecr_backend_url"         { value = aws_ecr_repository.backend.repository_url }
-output "ecr_frontend_url"        { value = aws_ecr_repository.frontend.repository_url }

@@ -30,7 +30,11 @@ VERIFY_DB="sms_backup_verify_$(date +%s)"
 PG_HOST="${PGHOST:-localhost}"
 PG_PORT="${PGPORT:-5432}"
 PG_USER="${PGUSER:-sms}"
-PG_PASSWORD="${PGPASSWORD:-sms}"
+
+if [ -z "$PG_PASSWORD" ]; then
+    echo "Error: PGPASSWORD is required (set it to the PostgreSQL password before running)." >&2
+    exit 1
+fi
 
 cleanup() {
     echo "Cleaning up verification database..."

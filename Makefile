@@ -210,6 +210,18 @@ prod-env:
 		"POSTGRES_USER=sms" \
 		"POSTGRES_PASSWORD=sms_password" \
 		"" \
+		"# ─── Database backup (daily Celery beat task) ────────────────────" \
+		"PGHOST=postgres" \
+		"PGPORT=5432" \
+		"PGUSER=sms" \
+		"PGPASSWORD=sms_password" \
+		"PGDATABASE=sms_db" \
+		"SMS_BACKUP_DIR=/backups" \
+		"SMS_BACKUP_RETENTION_DAYS=30" \
+		"BACKUP_S3_BUCKET=" \
+		"BACKUP_S3_PREFIX=sms-backups" \
+		"BACKUP_S3_REGION=us-east-1" \
+		"" \
 		"# ─── Redis ─────────────────────────────────────────────────────" \
 		"REDIS_URL=redis://:redis_password@redis:6379/0" \
 		"REDIS_PASSWORD=redis_password" \

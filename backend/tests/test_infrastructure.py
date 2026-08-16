@@ -53,11 +53,11 @@ class FakeProc:
 
 def _install_env(monkeypatch, tmp_path):
     monkeypatch.setattr(tasks, "BACKUP_DIR", str(tmp_path))
-    monkeypatch.setattr(tasks, "PG_HOST", "dbhost")
-    monkeypatch.setattr(tasks, "PG_PORT", "5432")
-    monkeypatch.setattr(tasks, "PG_USER", "dbuser")
-    monkeypatch.setattr(tasks, "PG_PASSWORD", "secret")
-    monkeypatch.setattr(tasks, "PG_DATABASE", "dbname")
+    monkeypatch.setenv("PGHOST", "dbhost")
+    monkeypatch.setenv("PGPORT", "5432")
+    monkeypatch.setenv("PGUSER", "dbuser")
+    monkeypatch.setenv("PGPASSWORD", "secret")
+    monkeypatch.setenv("PGDATABASE", "dbname")
     monkeypatch.setattr(tasks, "RETENTION_DAYS", 30)
     monkeypatch.setattr(tasks, "BACKUP_S3_BUCKET", "")
     monkeypatch.setattr(tasks, "BACKUP_S3_PREFIX", "")

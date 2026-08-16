@@ -34,8 +34,44 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "db_username" {
+  description = "RDS master username (used in the DATABASE_URL output)"
+  type        = string
+  default     = "sms"
+}
+
+variable "db_name" {
+  description = "RDS database name (used in the DATABASE_URL output)"
+  type        = string
+  default     = "sms_db"
+}
+
+variable "allowed_cidr_blocks" {
+  description = "Extra CIDR blocks allowed to reach RDS/Redis (in addition to the VPC CIDR)"
+  type        = list(string)
+  default     = []
+}
+
+variable "eks_public_access_cidrs" {
+  description = "CIDR blocks allowed to reach the public EKS API endpoint (operator/VPN ranges)"
+  type        = list(string)
+  default     = ["10.0.0.0/8"]
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly AWS cost budget in USD (0 disables the budget alert)"
+  type        = number
+  default     = 0
+}
+
+variable "alert_email" {
+  description = "Email address for budget and cost alerts"
+  type        = string
+  default     = ""
+}
+
 variable "redis_password" {
-  description = "ElastiCache Redis password"
+  description = "ElastiCache Redis auth token (optional; empty disables Redis AUTH)"
   type        = string
   sensitive   = true
   default     = ""
@@ -48,10 +84,9 @@ variable "domain_name" {
 }
 
 variable "grafana_admin_password" {
-  description = "Grafana admin password"
+  description = "Grafana admin password (required — no default)"
   type        = string
   sensitive   = true
-  default     = "ChangeMe123!"
 }
 
 variable "node_instance_types" {

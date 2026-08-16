@@ -13,15 +13,33 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 BACKUP_DIR = os.environ.get("SMS_BACKUP_DIR", "/backups")
-PG_HOST = os.environ.get("PGHOST", "postgres")
-PG_PORT = os.environ.get("PGPORT", "5432")
-PG_USER = os.environ.get("PGUSER", "sms")
-PG_PASSWORD = os.environ.get("PGPASSWORD", "sms")
-PG_DATABASE = os.environ.get("PGDATABASE", "sms_db")
 RETENTION_DAYS = int(os.environ.get("SMS_BACKUP_RETENTION_DAYS", "30"))
 BACKUP_S3_BUCKET = os.environ.get("BACKUP_S3_BUCKET", "")
 BACKUP_S3_PREFIX = os.environ.get("BACKUP_S3_PREFIX", "")
 BACKUP_S3_REGION = os.environ.get("BACKUP_S3_REGION", "")
+
+
+def _pg_connection() -> dict:
+    """Resolve pg_dump connection settings.
+
+    Explicit PG* environment variables win; otherwise the Django
+    ``DATABASES["default"]`` configuration (derived from DATABASE_URL) is
+    used. This keeps the backup in sync with whatever database the app
+    actually connects to — docker-compose, Kubernetes (sms-postgres-svc),
+    or a local override — instead of hardcoding a default host.
+    """
+    from django.conf import settings
+
+    db = settings.DATABASES["default"]
+    return {
+        "host": os.environ.get("PGHOST") or db.get("HOST") or "postgres",
+        "port": os.environ.get("PGPORT") or db.get("PORT") or "5432",
+        "user": os.environ.get("PGUSER") or db.get("USER") or "sms",
+        "password": (
+            os.environ.get("PGPASSWORD") if os.environ.get("PGPASSWORD") is not None else db.get("PASSWORD") or ""
+        ),
+        "database": os.environ.get("PGDATABASE") or db.get("NAME") or "sms_db",
+    }
 
 
 @shared_task(
@@ -45,19 +63,20 @@ def create_database_backup(self):
     filepath = os.path.join(BACKUP_DIR, filename)
 
     # Build pg_dump command
+    conn = _pg_connection()
     env = os.environ.copy()
-    env["PGPASSWORD"] = PG_PASSWORD
+    env["PGPASSWORD"] = conn["password"]
 
     cmd = [
         "pg_dump",
         "-h",
-        PG_HOST,
+        conn["host"],
         "-p",
-        PG_PORT,
+        conn["port"],
         "-U",
-        PG_USER,
+        conn["user"],
         "-d",
-        PG_DATABASE,
+        conn["database"],
         "--no-owner",
         "--no-acl",
         "--format=plain",  # plain text format pipes well through gzip

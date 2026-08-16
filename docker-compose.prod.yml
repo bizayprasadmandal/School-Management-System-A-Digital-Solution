@@ -16,6 +16,17 @@ x-backend-env: &backend-env
   env_file: .env.production
   environment:
     DJANGO_SETTINGS_MODULE: core.settings.production
+    # ─── Database backup connection (daily Celery beat task) ────────────────
+    PGHOST: postgres
+    PGPORT: "5432"
+    PGUSER: ${PGUSER:-sms}
+    PGPASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+    PGDATABASE: ${POSTGRES_DB:-sms_db}
+    SMS_BACKUP_DIR: /backups
+    SMS_BACKUP_RETENTION_DAYS: ${SMS_BACKUP_RETENTION_DAYS:-30}
+    BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+    BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-}
+    BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
 
 services:
   # ─── PostgreSQL ───────────────────────────────────────────────────────────

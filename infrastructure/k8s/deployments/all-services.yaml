@@ -78,6 +78,46 @@ spec:
   type: ClusterIP
 
 ---
+# ─── PostgreSQL init scripts ──────────────────────────────────────────────────
+# Mirrors infrastructure/docker/postgres/init.sql so the StatefulSet mounts
+# the same extensions/tuning at first boot in Kubernetes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: sms
+data:
+  init.sql: |
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+    CREATE EXTENSION IF NOT EXISTS "unaccent";
+    CREATE EXTENSION IF NOT EXISTS "btree_gist";
+
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_ts_config WHERE cfgname = 'sms_search') THEN
+            CREATE TEXT SEARCH CONFIGURATION sms_search (COPY = english);
+        END IF;
+    END
+    $$;
+    ALTER TEXT SEARCH CONFIGURATION sms_search
+        ALTER MAPPING FOR hword, hword_part, word
+        WITH unaccent, english_stem;
+
+    ALTER SYSTEM SET shared_buffers = '256MB';
+    ALTER SYSTEM SET effective_cache_size = '768MB';
+    ALTER SYSTEM SET maintenance_work_mem = '64MB';
+    ALTER SYSTEM SET checkpoint_completion_target = '0.9';
+    ALTER SYSTEM SET wal_buffers = '16MB';
+    ALTER SYSTEM SET default_statistics_target = '100';
+    ALTER SYSTEM SET random_page_cost = '1.1';
+    ALTER SYSTEM SET effective_io_concurrency = '200';
+    ALTER SYSTEM SET work_mem = '16MB';
+    ALTER SYSTEM SET max_connections = '200';
+
+    SELECT pg_reload_conf();
+
+---
 # ─── PostgreSQL StatefulSet ───────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: StatefulSet
@@ -257,6 +297,9 @@ stringData:
   postgres-password: "REPLACE_DB_PASSWORD"
   aws-access-key-id: "REPLACE_AWS_KEY"
   aws-secret-access-key: "REPLACE_AWS_SECRET"
+  sentry-dsn: "REPLACE_SENTRY_DSN"
+  flower-password: "REPLACE_FLOWER_PASSWORD"
+  grafana-admin-password: "REPLACE_GRAFANA_ADMIN_PASSWORD"
 
 ---
 # ─── Network Policy — isolate SMS namespace ───────────────────────────────────
@@ -279,7 +322,55 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
   egress:
-    - {}  # Allow all egress (external APIs, email, etc.)
+    # DNS (kube-dns) + internal services only. External HTTPS egress (S3,
+    # Stripe/Khalti/eSewa, SendGrid, Twilio, FCM) is allowed via the node
+    # CIDR rule below — tighten to the cluster's node CIDR or use an
+    # egress gateway for a stricter posture.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 5555
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 9121
+        - protocol: TCP
+          port: 9187
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Prometheus node discovery + node-exporter scraping on the node CIDR
+    # (EKS nodes default to 10.0.0.0/16 — adjust to the cluster's actual CIDR)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 10250
+        - protocol: TCP
+          port: 9100
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
 
 ---
 # ─── PodDisruptionBudget — ensure availability during upgrades ────────────────
@@ -305,3 +396,15 @@ spec:
   selector:
     matchLabels:
       app: sms-frontend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sms-celery-pdb
+  namespace: sms
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sms-celery-worker

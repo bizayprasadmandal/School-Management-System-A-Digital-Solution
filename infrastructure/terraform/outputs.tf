@@ -70,3 +70,14 @@ output "redis_url" {
   value       = "redis://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
   sensitive   = true
 }
+
+output "backend_sa_role_arn" {
+  description = "IRSA role ARN for the sms-backend-sa service account (substitute into the k8s annotation)"
+  value       = aws_iam_role.sms_backend_sa.arn
+}
+
+output "grafana_admin_password" {
+  description = "Grafana admin password (set the same value into the sms-secrets secret)"
+  value       = var.grafana_admin_password
+  sensitive   = true
+}

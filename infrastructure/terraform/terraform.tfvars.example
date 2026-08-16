@@ -1,0 +1,44 @@
+# ─── terraform.tfvars.example ─────────────────────────────────────────────────
+# Copy to terraform.tfvars and fill in real values:
+#   cp terraform.tfvars.example terraform.tfvars
+# Then: terraform init && terraform plan
+
+aws_region   = "us-east-1"
+environment  = "production"
+cluster_name = "edusphere-sms"
+
+# Required — no defaults:
+db_password           = "REPLACE_WITH_STRONG_DB_PASSWORD"
+grafana_admin_password = "REPLACE_WITH_STRONG_GRAFANA_PASSWORD"
+
+# Optional:
+db_username = "sms"
+db_name     = "sms_db"
+
+# CIDRs allowed to reach RDS/Redis in addition to the VPC CIDR (usually none):
+allowed_cidr_blocks = []
+
+# CIDRs allowed to reach the public EKS API endpoint (operator/VPN ranges):
+eks_public_access_cidrs = ["203.0.113.10/32"]
+
+# Monthly cost budget in USD (0 disables):
+monthly_budget_usd = 500
+alert_email        = "ops@your-school.edu"
+
+# Redis AUTH token (empty disables Redis AUTH on ElastiCache):
+redis_password = "REPLACE_WITH_REDIS_AUTH_TOKEN"
+
+domain_name = "edusphere.school"
+
+# Node groups:
+node_instance_types   = ["t3.medium", "t3.large"]
+worker_instance_types = ["m5.large"]
+db_instance_class     = "db.t3.medium"
+db_storage_gb         = 100
+redis_node_type       = "cache.t3.medium"
+backup_retention_days = 7
+enable_deletion_protection = true
+
+tags = {
+  Team = "platform"
+}
