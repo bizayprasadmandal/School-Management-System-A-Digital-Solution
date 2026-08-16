@@ -83,7 +83,7 @@ kubectl get pods -n sms -w
 
 ## Step 5 — Database Migrations
 
-> **Before the first deployment**, confirm the migration tree is complete and committed — all 22 services ship their own `0001_initial` migrations (68 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
+> **Before the first deployment**, confirm the migration tree is complete and committed — all 22 services ship their own `0001_initial` migrations (50 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
 
 ```bash
 # Run as a one-off Job
@@ -158,7 +158,7 @@ kubectl patch hpa sms-backend-hpa -n sms \
 ## Backup & Recovery
 
 > 💡 **Full documentation for backup verification, automated strategy, PITR, and
-> disaster recovery runbooks is available at `infrastructure/db/README.md`.**
+> disaster recovery runbooks is available at `backend/infrastructure/db/README.md`.**
 
 ### Database Backup
 
@@ -173,30 +173,31 @@ pg_dump -h localhost -U sms -d sms_db --no-owner --compress=9 \
   -f /backups/sms-manual-$(date +%Y%m%d).sql.gz
 ```
 
-### Automated Backups (Celery → S3)
+### Automated Backups (Celery → disk + S3)
 
-The `infrastructure` service exposes Celery tasks that archive the database and
-media to S3 on a schedule:
+The `services.infrastructure` app exposes the Celery task
+`create_database_backup` (scheduled nightly via Celery Beat) that dumps the
+database with `pg_dump`, gzip-compresses it into `SMS_BACKUP_DIR`, optionally
+mirrors it to `BACKUP_S3_BUCKET`/`BACKUP_S3_PREFIX`, and prunes files older
+than `SMS_BACKUP_RETENTION_DAYS`. On Kubernetes the dump directory is backed
+by the `sms-backups-pvc` PersistentVolumeClaim.
 
-- `create_backup` — `pg_dump` + media `tar.gz`, gzip, upload to `BACKUP_S3_BUCKET`
-  keyed by school code, then prune objects older than `BACKUP_RETENTION_DAYS`.
-- `restore_backup` — pull the latest archive from S3 and `pg_restore` it.
-
-Wire-up: the `backup` container/service in `docker-compose.yml` /
-`docker-compose.prod.yml` (and the backup Deployment in
-`infrastructure/k8s/deployments/backend.yaml`) run the beat schedule that triggers
-`create_backup` nightly. Configure `BACKUP_S3_BUCKET`, `BACKUP_RETENTION_DAYS`, and
-`AWS_*` credentials via environment / secrets (see `.env.example`).
+Configure `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`,
+`SMS_BACKUP_DIR`, `SMS_BACKUP_RETENTION_DAYS`, `BACKUP_S3_BUCKET`,
+`BACKUP_S3_PREFIX`, `BACKUP_S3_REGION`, and `AWS_*` credentials via
+environment / secrets (see `.env.example`).
 
 Backup health is monitored by `infrastructure/monitoring/rules/backup_alerts.yml`
-(backup not found / too old / S3 push failure) in Prometheus + Alertmanager.
+(backup missing / stale verification / small dump / stopped job) in Prometheus +
+Alertmanager, exported by `backend/infrastructure/db/backup_metrics.sh` through
+the node_exporter textfile collector.
 
 ### Verify Backup Integrity
 
-Always verify a backup after creating it (see `infrastructure/db/README.md`):
+Always verify a backup after creating it (see `backend/infrastructure/db/README.md`):
 
 ```bash
-./infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
+PGPASSWORD=<db-password> ./backend/infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
 ```
 
 ### Restore from Snapshot

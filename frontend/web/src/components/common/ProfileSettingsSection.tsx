@@ -31,12 +31,12 @@ interface ProfileSettingsSectionProps {
 }
 
 const ACCENT_MAP: Record<string, { icon: string; toggle: string }> = {
-  violet:  { icon: "text-violet-600", toggle: "bg-violet-600" },
+  violet: { icon: "text-violet-600", toggle: "bg-violet-600" },
   emerald: { icon: "text-emerald-600", toggle: "bg-emerald-600" },
-  blue:    { icon: "text-blue-600", toggle: "bg-blue-600" },
-  pink:    { icon: "text-pink-600", toggle: "bg-pink-600" },
-  amber:   { icon: "text-amber-600", toggle: "bg-amber-600" },
-  teal:    { icon: "text-teal-600", toggle: "bg-teal-600" },
+  blue: { icon: "text-blue-600", toggle: "bg-blue-600" },
+  pink: { icon: "text-pink-600", toggle: "bg-pink-600" },
+  amber: { icon: "text-amber-600", toggle: "bg-amber-600" },
+  teal: { icon: "text-teal-600", toggle: "bg-teal-600" },
 };
 
 export default function ProfileSettingsSection({
@@ -141,7 +141,8 @@ export default function ProfileSettingsSection({
     const formData = new FormData();
     formData.append("avatar", file);
 
-    api.upload<{ avatar: string; detail: string }>("/auth/upload-avatar/", formData)
+    api
+      .upload<{ avatar: string; detail: string }>("/auth/upload-avatar/", formData)
       .then((res) => {
         toast.success("Avatar updated!");
         qc.invalidateQueries({ queryKey: ["profile"] });
@@ -156,7 +157,8 @@ export default function ProfileSettingsSection({
   };
 
   const handleRemoveAvatar = () => {
-    api.delete("/auth/upload-avatar/")
+    api
+      .delete("/auth/upload-avatar/")
       .then(() => {
         toast.success("Avatar removed.");
         qc.invalidateQueries({ queryKey: ["profile"] });
@@ -179,8 +181,8 @@ export default function ProfileSettingsSection({
       if (err?.fieldErrors) {
         setPwdErrors(
           Object.fromEntries(
-            Object.entries(err.fieldErrors).map(([k, v]) => [k, (v as string[]).join(", ")])
-          )
+            Object.entries(err.fieldErrors).map(([k, v]) => [k, (v as string[]).join(", ")]),
+          ),
         );
       } else {
         toast.error(err?.message || "Failed to change password.");
@@ -192,8 +194,10 @@ export default function ProfileSettingsSection({
     e.preventDefault();
     const errors: Record<string, string> = {};
     if (!pwdForm.old_password) errors.old_password = "Current password is required.";
-    if (pwdForm.new_password.length < 8) errors.new_password = "Password must be at least 8 characters.";
-    if (pwdForm.new_password !== pwdForm.confirm_password) errors.confirm_password = "Passwords do not match.";
+    if (pwdForm.new_password.length < 8)
+      errors.new_password = "Password must be at least 8 characters.";
+    if (pwdForm.new_password !== pwdForm.confirm_password)
+      errors.confirm_password = "Passwords do not match.";
     setPwdErrors(errors);
     if (Object.keys(errors).length > 0) return;
     changePassword.mutate({
@@ -220,7 +224,12 @@ export default function ProfileSettingsSection({
           <div className="relative group">
             <div className="h-24 w-24 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
               ) : (
                 <UserCircleIcon className="h-14 w-14 text-indigo-400" />
               )}
@@ -239,9 +248,7 @@ export default function ProfileSettingsSection({
             <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
               {profile?.full_name || "Your Name"}
             </p>
-            <p className="text-xs text-slate-500 mt-0.5 mb-3">
-              JPEG, PNG, or WebP. Max 5MB.
-            </p>
+            <p className="text-xs text-slate-500 mt-0.5 mb-3">JPEG, PNG, or WebP. Max 5MB.</p>
             <div className="flex gap-2">
               <input
                 ref={fileInputRef}
@@ -371,9 +378,21 @@ export default function ProfileSettingsSection({
         </div>
         <div className="p-5 space-y-4">
           {[
-            { key: "notify_email" as const, label: "Email Notifications", desc: "Receive updates via email about grades, attendance, and school announcements" },
-            { key: "notify_sms" as const, label: "SMS Notifications", desc: "Receive text messages for urgent announcements and fee reminders" },
-            { key: "notify_push" as const, label: "Push Notifications", desc: "Receive in-app notifications when logged into the portal" },
+            {
+              key: "notify_email" as const,
+              label: "Email Notifications",
+              desc: "Receive updates via email about grades, attendance, and school announcements",
+            },
+            {
+              key: "notify_sms" as const,
+              label: "SMS Notifications",
+              desc: "Receive text messages for urgent announcements and fee reminders",
+            },
+            {
+              key: "notify_push" as const,
+              label: "Push Notifications",
+              desc: "Receive in-app notifications when logged into the portal",
+            },
           ].map(({ key, label, desc }) => (
             <div key={key} className="flex items-center justify-between py-2">
               <div className="flex-1">
@@ -384,9 +403,7 @@ export default function ProfileSettingsSection({
                 <input
                   type="checkbox"
                   checked={notifPrefs[key]}
-                  onChange={(e) =>
-                    setNotifPrefs((p) => ({ ...p, [key]: e.target.checked }))
-                  }
+                  onChange={(e) => setNotifPrefs((p) => ({ ...p, [key]: e.target.checked }))}
                   className="peer sr-only"
                 />
                 <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-slate-800 dark:peer-checked:bg-indigo-500 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500" />
@@ -415,7 +432,9 @@ export default function ProfileSettingsSection({
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between py-2">
             <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Email Verification</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Email Verification
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {profile?.email_verified
                   ? "Your email is verified"
@@ -432,7 +451,9 @@ export default function ProfileSettingsSection({
           </div>
           <div className="flex items-center justify-between py-2">
             <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Two-Factor Authentication</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Two-Factor Authentication
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {profile?.two_factor_enabled
                   ? "2FA is enabled — extra security for your account"

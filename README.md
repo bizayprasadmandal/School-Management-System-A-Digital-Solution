@@ -32,15 +32,16 @@ A production-grade, multi-tenant School Management System built with Django, Rea
        └─────────────────────┴─────────────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────────┐
-│                         MICROSERVICES LAYER (Django)                        │
+│                       APPLICATION LAYER (Django)                             │
+│                 Single deployable — modular service apps                     │
 │                                                                             │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │  Auth    │ │ Students │ │Academics │ │Attendance│ │   Gradebook      │ │
-│  │ Service  │ │ Service  │ │ Service  │ │ Service  │ │   Service        │ │
+│  │  app     │ │  app     │ │  app     │ │  app     │ │   app            │ │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────────────┘ │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────────────────┐  │
-│  │Timetable │ │  Comms   │ │  Fees    │ │      Reporting Service       │  │
-│  │ Service  │ │ Service  │ │ Service  │ │  (PDF · CSV · Analytics)     │  │
+│  │Timetable │ │  Comms   │ │  Fees    │ │      Reporting app            │  │
+│  │  app     │ │  app     │ │  app     │ │  (PDF · CSV · Analytics)     │  │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────────────────┘  │
 └────────────────────────────────────┬───────────────────────────────────────┘
                                      │

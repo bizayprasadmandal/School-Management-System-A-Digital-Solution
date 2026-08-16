@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "../store/authStore";
-import type { UserRole } from "../types";
 
 // ─── useDebounce ─────────────────────────────────────────────────────────────
 
@@ -230,45 +229,6 @@ export function useChatSocket(
   );
 
   return { status, sendMessage, sendTyping, isTyping };
-}
-
-// ─── usePermission ────────────────────────────────────────────────────────────
-
-const ROLE_HIERARCHY: Record<UserRole, number> = {
-  super_admin: 100,
-  school_admin: 80,
-  accountant: 60,
-  teacher: 50,
-  counselor: 45,
-  librarian: 40,
-  student: 20,
-  parent: 20,
-};
-
-export function usePermission() {
-  const { user } = useAuthStore();
-
-  const hasRole = useCallback(
-    (...roles: UserRole[]) => {
-      return !!user && roles.includes(user.role);
-    },
-    [user],
-  );
-
-  const hasMinRole = useCallback(
-    (minRole: UserRole) => {
-      if (!user) return false;
-      return ROLE_HIERARCHY[user.role] >= ROLE_HIERARCHY[minRole];
-    },
-    [user],
-  );
-
-  const isAdmin = hasRole("school_admin", "super_admin");
-  const isTeacher = hasRole("teacher");
-  const isStudent = hasRole("student");
-  const isParent = hasRole("parent");
-
-  return { hasRole, hasMinRole, isAdmin, isTeacher, isStudent, isParent, user };
 }
 
 // ─── usePagination ───────────────────────────────────────────────────────────

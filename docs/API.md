@@ -2,11 +2,11 @@
 
 ## Base URL
 
-| Environment | URL |
-|-------------|-----|
-| Production | `https://api.edusphere.school/api/v1` |
-| Staging | `https://staging-api.edusphere.school/api/v1` |
-| Local | `http://localhost:8000/api/v1` |
+| Environment | URL                                           |
+| ----------- | --------------------------------------------- |
+| Production  | `https://api.edusphere.school/api/v1`         |
+| Staging     | `https://staging-api.edusphere.school/api/v1` |
+| Local       | `http://localhost:8000/api/v1`                |
 
 ## Authentication
 
@@ -29,6 +29,7 @@ Content-Type: application/json
 ```
 
 **Response 200:**
+
 ```json
 {
   "access": "<jwt_access_token>",
@@ -85,15 +86,15 @@ Authorization: Bearer <token>
 
 **Query parameters:**
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `search` | string | Search by name or admission number |
-| `gender` | M\|F\|O | Filter by gender |
-| `is_active` | boolean | Filter active/inactive |
-| `grade` | integer | Filter by grade level |
-| `classroom` | integer | Filter by classroom |
-| `page` | integer | Page number |
-| `page_size` | integer | Results per page (max 200) |
+| Param       | Type    | Description                        |
+| ----------- | ------- | ---------------------------------- |
+| `search`    | string  | Search by name or admission number |
+| `gender`    | M\|F\|O | Filter by gender                   |
+| `is_active` | boolean | Filter active/inactive             |
+| `grade`     | integer | Filter by grade level              |
+| `classroom` | integer | Filter by classroom                |
+| `page`      | integer | Page number                        |
+| `page_size` | integer | Results per page (max 200)         |
 
 ### Get Student
 
@@ -131,6 +132,7 @@ GET /students/{id}/attendance-summary/?academic_year=1
 ```
 
 **Response:**
+
 ```json
 {
   "total_days": 120,
@@ -185,6 +187,7 @@ GET /attendance/classroom-summary/?classroom_id=5&date=2024-11-15
 ```
 
 **Response:**
+
 ```json
 {
   "date": "2024-11-15",
@@ -246,6 +249,7 @@ POST /gradebook/exams/{id}/generate-report-cards/
 ```
 
 **Response 202 (async):**
+
 ```json
 {
   "detail": "Report card generation queued.",
@@ -375,7 +379,14 @@ query MyDashboard {
     status
   }
   myGrades {
-    examSchedule { subject { name } exam { name } }
+    examSchedule {
+      subject {
+        name
+      }
+      exam {
+        name
+      }
+    }
     marksObtained
     percentage
     isPass
@@ -423,29 +434,29 @@ mutation ClearNotifications {
 
 **Server → Client events:**
 
-| Type | Payload |
-|------|---------|
+| Type           | Payload                                                   |
+| -------------- | --------------------------------------------------------- |
 | `notification` | `{ type, notification: { id, title, body, created_at } }` |
-| `unread_count` | `{ type, count: 7 }` |
+| `unread_count` | `{ type, count: 7 }`                                      |
 
 **Client → Server:**
 
-| Type | Payload |
-|------|---------|
+| Type        | Payload                             |
+| ----------- | ----------------------------------- |
 | `mark_read` | `{ type, notification_id: "uuid" }` |
 
 ### Chat Channel
 
 `wss://api.edusphere.school/ws/chat/{recipient_id}/?token=<jwt>`
 
-| Direction | Type | Payload |
-|-----------|------|---------|
-| C→S | `message` | `{ type, content }` |
-| C→S | `typing` | `{ type, is_typing: true }` |
-| C→S | `read_receipt` | `{ type, message_ids: ["uuid"] }` |
-| S→C | `chat_message` | `{ type, message: { id, content, sender_id, sent_at } }` |
-| S→C | `typing_indicator` | `{ type, user_id, is_typing }` |
-| S→C | `read_receipt` | `{ type, reader_id, message_ids, read_at }` |
+| Direction | Type               | Payload                                                  |
+| --------- | ------------------ | -------------------------------------------------------- |
+| C→S       | `message`          | `{ type, content }`                                      |
+| C→S       | `typing`           | `{ type, is_typing: true }`                              |
+| C→S       | `read_receipt`     | `{ type, message_ids: ["uuid"] }`                        |
+| S→C       | `chat_message`     | `{ type, message: { id, content, sender_id, sent_at } }` |
+| S→C       | `typing_indicator` | `{ type, user_id, is_typing }`                           |
+| S→C       | `read_receipt`     | `{ type, reader_id, message_ids, read_at }`              |
 
 ---
 
@@ -467,34 +478,39 @@ mutation ClearNotifications {
 
 **HTTP status codes used:**
 
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 201 | Created |
-| 202 | Accepted (async task queued) |
-| 204 | No Content (delete) |
-| 400 | Bad Request / Validation Error |
-| 401 | Unauthenticated |
-| 403 | Forbidden (insufficient permissions) |
-| 404 | Not Found |
-| 429 | Rate Limited |
-| 500 | Internal Server Error |
+| Code | Meaning                              |
+| ---- | ------------------------------------ |
+| 200  | Success                              |
+| 201  | Created                              |
+| 202  | Accepted (async task queued)         |
+| 204  | No Content (delete)                  |
+| 400  | Bad Request / Validation Error       |
+| 401  | Unauthenticated                      |
+| 403  | Forbidden (insufficient permissions) |
+| 404  | Not Found                            |
+| 429  | Rate Limited                         |
+| 500  | Internal Server Error                |
 
 ---
 
 ## Rate Limits
 
-| Client Type | Limit |
-|-------------|-------|
-| Anonymous | 100 requests / hour |
-| Authenticated | 1000 requests / hour |
-| Bulk operations | 50 requests / hour |
+| Client Type       | Limit                |
+| ----------------- | -------------------- |
+| Anonymous         | 50 requests / hour   |
+| Authenticated     | 500 requests / hour  |
+| Login (anonymous) | 10 requests / minute |
+| 2FA verification  | 5 requests / minute  |
+
+The `auth_login` and `auth_verify_2fa_login` rates are configurable via the
+`AUTH_LOGIN_THROTTLE_RATE` and `AUTH_VERIFY_2FA_THROTTLE_RATE` environment
+variables. All limits are defined in `backend/core/settings/base.py`.
 
 Rate limit headers returned on every response:
 
 ```
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 847
+X-RateLimit-Limit: 500
+X-RateLimit-Remaining: 347
 X-RateLimit-Reset: 1701388800
 ```
 
@@ -502,8 +518,8 @@ X-RateLimit-Reset: 1701388800
 
 ## Interactive API Docs
 
-| Format | URL |
-|--------|-----|
-| Swagger UI | `https://api.edusphere.school/api/docs/` |
-| ReDoc | `https://api.edusphere.school/api/redoc/` |
+| Format         | URL                                        |
+| -------------- | ------------------------------------------ |
+| Swagger UI     | `https://api.edusphere.school/api/docs/`   |
+| ReDoc          | `https://api.edusphere.school/api/redoc/`  |
 | OpenAPI Schema | `https://api.edusphere.school/api/schema/` |

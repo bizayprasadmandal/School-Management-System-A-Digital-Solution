@@ -19,9 +19,11 @@ project uses [Semantic Versioning](https://semver.org/).
   records by admission number with per-row error reporting.
 - **Fee invoice CSV import** (`POST /api/v1/fees/invoices/import-csv/`): creates
   invoices resolved against existing fee structures, with per-row error reporting.
-- **S3 backup pipeline** (`infrastructure`): `create_backup` (DB dump + media
-  archive → S3, retention-pruned) and `restore_backup` tasks, wired into
-  docker-compose, Kubernetes, and Prometheus backup-alert rules.
+- **Database backup pipeline** (`infrastructure`): Celery task `create_database_backup`
+  (pg_dump → gzip → local `SMS_BACKUP_DIR`, optional S3 mirror with
+  `BACKUP_S3_BUCKET`, retention-pruned via `SMS_BACKUP_RETENTION_DAYS`), wired into
+  docker-compose, Kubernetes (sms-backups-pvc volume), and Prometheus backup-alert
+  rules; `verify_backup.sh` for restore validation.
 - Product & project artifacts: `CHANGELOG.md`, `docs/PRD.md`, `docs/ROADMAP.md`.
 
 ### Security
@@ -69,7 +71,7 @@ project uses [Semantic Versioning](https://semver.org/).
 - 24 modular Django services (students, attendance, gradebook, fees, academics,
   timetable, communication, reporting, HR, library, hostel, inventory, sports,
   transportation, health clinic, cafeteria, behavior, conferences, admissions,
-  alumni, infrastructure, auth) with per-service migrations (68 files).
+  alumni, infrastructure, auth) with per-service migrations (50 files).
 - Multi-tenant school isolation with dedicated tenant-isolation test suite.
 - Auth: JWT, 2FA (TOTP + backup codes), email verification, generated secure
   passwords, rate limiting, account lockout.
