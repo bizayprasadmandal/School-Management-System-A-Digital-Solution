@@ -264,13 +264,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         payment = serializer.save(collected_by=request.user)
 
-        # Update invoice paid_amount and status
-        invoice.paid_amount += payment.amount
-        if invoice.paid_amount >= invoice.total_amount:
-            invoice.status = FeeInvoice.Status.PAID
-        elif invoice.paid_amount > 0:
-            invoice.status = FeeInvoice.Status.PARTIAL
-        invoice.save(update_fields=["paid_amount", "status"])
+        from .ledger import credit_invoice
+
+        invoice = credit_invoice(invoice, payment.amount)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

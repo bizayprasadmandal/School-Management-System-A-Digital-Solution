@@ -303,13 +303,9 @@ def _handle_payment_success(payment_intent):
         }
         locked.save(update_fields=["status", "paid_at", "gateway_response"])
 
-        # Update invoice paid_amount and status
-        invoice.paid_amount += locked.amount
-        if invoice.paid_amount >= invoice.total_amount:
-            invoice.status = FeeInvoice.Status.PAID
-        elif invoice.paid_amount > 0:
-            invoice.status = FeeInvoice.Status.PARTIAL
-        invoice.save(update_fields=["paid_amount", "status"])
+        from .ledger import credit_invoice
+
+        invoice = credit_invoice(invoice, locked.amount)
 
         logger.info(
             "Payment successful: %s on invoice %s ($%.2f)",
@@ -409,9 +405,10 @@ def refund_payment(request):
 
         from django.db import transaction as db_transaction
 
+        from .ledger import debit_invoice
+
         with db_transaction.atomic():
-            # Lock the invoice row
-            invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
+            invoice = debit_invoice(payment.invoice, payment.amount)
 
             # Update the payment record
             payment.status = Payment.Status.REFUNDED
@@ -428,17 +425,6 @@ def refund_payment(request):
                 "refund_reason": reason,
             }
             payment.save(update_fields=["status", "notes", "gateway_response"])
-
-            # Revert the invoice paid_amount and status
-            invoice.paid_amount -= payment.amount
-            if invoice.paid_amount <= 0:
-                invoice.paid_amount = 0
-                invoice.status = FeeInvoice.Status.UNPAID
-            elif invoice.paid_amount < invoice.total_amount:
-                invoice.status = FeeInvoice.Status.PARTIAL
-            else:
-                invoice.status = FeeInvoice.Status.PAID
-            invoice.save(update_fields=["paid_amount", "status"])
 
         logger.info(
             "Payment refunded: %s on invoice %s ($%.2f) — refund_id=%s",

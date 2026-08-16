@@ -279,7 +279,7 @@ def _initiate_esewa(invoice, amount, return_url, request):
         message.encode("utf-8"),
         hashlib.sha256,
     ).digest()
-    signature_b64 = __import__("base64").b64encode(signature).decode("utf-8")
+    signature_b64 = base64.b64encode(signature).decode("utf-8")
 
     # Create pending payment record
     _create_pending_payment(
@@ -766,16 +766,9 @@ def refund_nepali_payment(request):
         payment.gateway_response = gw_response
         payment.save(update_fields=["status", "gateway_response"])
 
-        invoice = FeeInvoice.objects.select_for_update().get(id=payment.invoice_id)
-        invoice.paid_amount -= payment.amount
-        if invoice.paid_amount <= 0:
-            invoice.paid_amount = 0
-            invoice.status = FeeInvoice.Status.UNPAID
-        elif invoice.paid_amount < invoice.total_amount:
-            invoice.status = FeeInvoice.Status.PARTIAL
-        else:
-            invoice.status = FeeInvoice.Status.PAID
-        invoice.save(update_fields=["paid_amount", "status"])
+        from .ledger import debit_invoice
+
+        invoice = debit_invoice(payment.invoice, payment.amount)
 
     logger.info(
         "Nepali payment refunded: %s (%s) on invoice %s",
@@ -830,12 +823,7 @@ def _mark_payment_successful(payment: Payment, gateway_data: dict) -> bool:
         }
         locked.save(update_fields=["status", "paid_at", "gateway_response"])
 
-        invoice.paid_amount += locked.amount
-        if invoice.paid_amount >= invoice.total_amount:
-            invoice.status = FeeInvoice.Status.PAID
-        elif invoice.paid_amount > 0:
-            invoice.status = FeeInvoice.Status.PARTIAL
-        else:
-            invoice.status = FeeInvoice.Status.UNPAID
-        invoice.save(update_fields=["paid_amount", "status"])
+        from .ledger import credit_invoice
+
+        credit_invoice(invoice, locked.amount)
         return True
