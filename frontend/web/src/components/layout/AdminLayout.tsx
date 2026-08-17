@@ -2,8 +2,8 @@
  * AdminLayout — Sidebar + topbar shell for administrators
  */
 
-import React, { useState, useCallback } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   HomeIcon,
   UsersIcon,
@@ -34,8 +34,6 @@ import {
   HeartIcon,
   GlobeAltIcon,
   DocumentTextIcon,
-  GlobeAmericasIcon,
-  // Cafeteria uses existing BookOpenIcon
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import SchoolSwitcher from "../common/SchoolSwitcher";
@@ -49,44 +47,77 @@ import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBa
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import clsx from "clsx";
 import NotificationPanel from "./NotificationPanel";
+import SidebarNav, { flattenSections, type SidebarNavSection } from "./SidebarNav";
 
-interface NavItem {
-  label: string;
-  to: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
-}
-
-const NAV_ITEMS: NavItem[] = [
+const NAV_SECTIONS: SidebarNavSection[] = [
   { label: "Dashboard", to: "/admin", icon: HomeIcon },
-  { label: "Students", to: "/admin/students", icon: UsersIcon },
-  { label: "Teachers", to: "/admin/teachers", icon: AcademicCapIcon },
-  { label: "Classrooms", to: "/admin/classrooms", icon: BuildingLibraryIcon },
-  { label: "Timetable", to: "/admin/timetable", icon: CalendarDaysIcon },
-  { label: "Attendance", to: "/admin/attendance", icon: ClipboardDocumentCheckIcon },
-  { label: "Examinations", to: "/admin/exams", icon: BookOpenIcon },
-  { label: "Report Cards", to: "/admin/report-cards", icon: DocumentChartBarIcon },
-  { label: "Announcements", to: "/admin/announcements", icon: MegaphoneIcon },
-  { label: "Bulk Messages", to: "/admin/bulk-messages", icon: PaperAirplaneIcon },
-  { label: "Fee Management", to: "/admin/fees", icon: BanknotesIcon },
-  { label: "Event Calendar", to: "/admin/events", icon: CalendarDaysIcon },
-  { label: "Library", to: "/admin/library", icon: BookOpenIcon },
-  { label: "Behavior", to: "/admin/behavior", icon: ExclamationTriangleIcon },
-  { label: "Conferences", to: "/admin/conferences", icon: VideoCameraIcon },
-  { label: "Analytics", to: "/admin/reports", icon: ChartBarIcon },
-  { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
-  { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
-  { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
-  { label: "Hostel", to: "/admin/hostel", icon: BuildingOffice2Icon },
-  { label: "Sports", to: "/admin/sports", icon: TrophyIcon },
-  { label: "Health", to: "/admin/health", icon: HeartIcon },
-  { label: "Alumni", to: "/admin/alumni", icon: GlobeAltIcon },
-  { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
-  { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
-  { label: "Zoom Integration", to: "/admin/zoom-integration", icon: VideoCameraIcon },
-  { label: "Audit Log", to: "/admin/audit-logs", icon: ShieldExclamationIcon },
+  {
+    title: "Academics",
+    icon: AcademicCapIcon,
+    items: [
+      { label: "Students", to: "/admin/students", icon: UsersIcon },
+      { label: "Teachers", to: "/admin/teachers", icon: AcademicCapIcon },
+      { label: "Classrooms", to: "/admin/classrooms", icon: BuildingLibraryIcon },
+      { label: "Timetable", to: "/admin/timetable", icon: CalendarDaysIcon },
+      { label: "Attendance", to: "/admin/attendance", icon: ClipboardDocumentCheckIcon },
+      { label: "Examinations", to: "/admin/exams", icon: BookOpenIcon },
+      { label: "Report Cards", to: "/admin/report-cards", icon: DocumentChartBarIcon },
+    ],
+  },
+  {
+    title: "Communication",
+    icon: MegaphoneIcon,
+    items: [
+      { label: "Announcements", to: "/admin/announcements", icon: MegaphoneIcon },
+      { label: "Bulk Messages", to: "/admin/bulk-messages", icon: PaperAirplaneIcon },
+      { label: "Event Calendar", to: "/admin/events", icon: CalendarDaysIcon },
+      { label: "Conferences", to: "/admin/conferences", icon: VideoCameraIcon },
+      { label: "Zoom Integration", to: "/admin/zoom-integration", icon: VideoCameraIcon },
+    ],
+  },
+  {
+    title: "Finance & Operations",
+    icon: BanknotesIcon,
+    items: [
+      { label: "Fee Management", to: "/admin/fees", icon: BanknotesIcon },
+      { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
+      { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
+      { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
+      { label: "Hostel", to: "/admin/hostel", icon: BuildingOffice2Icon },
+      { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
+      { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
+    ],
+  },
+  {
+    title: "Student Life",
+    icon: TrophyIcon,
+    items: [
+      { label: "Library", to: "/admin/library", icon: BookOpenIcon },
+      { label: "Behavior", to: "/admin/behavior", icon: ExclamationTriangleIcon },
+      { label: "Sports", to: "/admin/sports", icon: TrophyIcon },
+      { label: "Health", to: "/admin/health", icon: HeartIcon },
+      { label: "Alumni", to: "/admin/alumni", icon: GlobeAltIcon },
+    ],
+  },
+  {
+    title: "Insights & Administration",
+    icon: ChartBarIcon,
+    items: [
+      { label: "Analytics", to: "/admin/reports", icon: ChartBarIcon },
+      { label: "Audit Log", to: "/admin/audit-logs", icon: ShieldExclamationIcon },
+    ],
+  },
   { label: "Settings", to: "/admin/settings", icon: Cog6ToothIcon },
 ];
+
+const PLATFORM_SECTION: SidebarNavSection = {
+  title: "Platform Management",
+  icon: BuildingOffice2Icon,
+  items: [
+    { label: "Platform Dashboard", to: "/admin/platform", icon: ChartBarIcon },
+    { label: "Schools", to: "/admin/platform/schools", icon: BuildingOffice2Icon },
+  ],
+};
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -99,10 +130,11 @@ export default function AdminLayout() {
   const activeSchool = useSchoolContextStore((s) => s.activeSchool);
   const activeSchoolName = activeSchool?.name || user?.school?.name;
 
-  const PLATFORM_NAV_ITEMS: NavItem[] = [
-    { label: "Platform Dashboard", to: "/admin/platform", icon: ChartBarIcon },
-    { label: "Schools", to: "/admin/platform/schools", icon: BuildingOffice2Icon },
-  ];
+  const navSections = useMemo(
+    () => [...NAV_SECTIONS, ...(isSuperAdmin ? [PLATFORM_SECTION] : [])],
+    [isSuperAdmin],
+  );
+  const commandItems = useMemo(() => flattenSections(navSections), [navSections]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -162,58 +194,8 @@ export default function AdminLayout() {
         )}
 
         {/* Nav links */}
-        <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
-          {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/admin"}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "text-indigo-300 hover:bg-white/5 hover:text-white",
-                )
-              }
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {label}
-            </NavLink>
-          ))}
-
-          {/* ── Platform Management (Super Admin only) ────────────── */}
-          {isSuperAdmin && (
-            <>
-              <div className="flex items-center gap-2 pt-4 pb-1">
-                <GlobeAmericasIcon className="h-4 w-4 text-indigo-400" />
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-indigo-400">
-                  Platform
-                </span>
-                <div className="flex-1 border-t border-indigo-800/50" />
-              </div>
-              {PLATFORM_NAV_ITEMS.map(({ label, to, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={to === "/admin/platform"}
-                  onClick={() => setSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    clsx(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-purple-500/20 text-purple-200"
-                        : "text-indigo-300 hover:bg-white/5 hover:text-white",
-                    )
-                  }
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {label}
-                </NavLink>
-              ))}
-            </>
-          )}
+        <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4">
+          <SidebarNav sections={navSections} onNavigate={() => setSidebarOpen(false)} />
         </nav>
 
         {/* User info */}
@@ -285,7 +267,7 @@ export default function AdminLayout() {
 
           <div className="flex items-center gap-2">
             {/* Command palette */}
-            <CommandPalette items={NAV_ITEMS} accent="indigo" />
+            <CommandPalette items={commandItems} accent="indigo" />
 
             {/* School switcher (super admin only) */}
             {isSuperAdmin && <SchoolSwitcher />}

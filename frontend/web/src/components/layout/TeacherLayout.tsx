@@ -2,8 +2,8 @@
  * TeacherLayout — Sidebar shell for teachers
  */
 
-import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   HomeIcon,
   ClipboardDocumentCheckIcon,
@@ -29,16 +29,23 @@ import EmailVerificationBanner from "../../components/common/EmailVerificationBa
 import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBanner";
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import { useDarkMode } from "../../hooks/useDarkMode";
+import SidebarNav, { flattenSections } from "./SidebarNav";
 
-const NAV = [
+const NAV_SECTIONS = [
   { label: "Dashboard", to: "/teacher", icon: HomeIcon },
-  { label: "Attendance", to: "/teacher/attendance", icon: ClipboardDocumentCheckIcon },
-  { label: "Gradebook", to: "/teacher/gradebook", icon: BookOpenIcon },
-  { label: "Assignments", to: "/teacher/assignments", icon: DocumentTextIcon },
-  { label: "Timetable", to: "/teacher/timetable", icon: CalendarDaysIcon },
+  {
+    title: "Teaching",
+    icon: AcademicCapIcon,
+    items: [
+      { label: "Attendance", to: "/teacher/attendance", icon: ClipboardDocumentCheckIcon },
+      { label: "Gradebook", to: "/teacher/gradebook", icon: BookOpenIcon },
+      { label: "Assignments", to: "/teacher/assignments", icon: DocumentTextIcon },
+      { label: "Timetable", to: "/teacher/timetable", icon: CalendarDaysIcon },
+      { label: "Lesson Plans", to: "/teacher/lesson-plans", icon: DocumentTextIcon },
+      { label: "Conferences", to: "/teacher/conferences", icon: UsersIcon },
+    ],
+  },
   { label: "Messages", to: "/teacher/messages", icon: ChatBubbleLeftRightIcon },
-  { label: "Lesson Plans", to: "/teacher/lesson-plans", icon: DocumentTextIcon },
-  { label: "Conferences", to: "/teacher/conferences", icon: UsersIcon },
   { label: "Settings", to: "/teacher/settings", icon: Cog6ToothIcon },
 ];
 
@@ -48,6 +55,7 @@ export default function TeacherLayout() {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [isDark, toggleDark] = useDarkMode();
+  const commandItems = useMemo(() => flattenSections(NAV_SECTIONS), []);
 
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
@@ -80,26 +88,8 @@ export default function TeacherLayout() {
           <p className="text-sm font-medium text-white truncate">{user?.full_name}</p>
           <p className="text-xs text-emerald-400">Teacher</p>
         </div>
-        <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
-          {NAV.map(({ label, to, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/teacher"}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "text-emerald-300 hover:bg-white/5 hover:text-white",
-                )
-              }
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {label}
-            </NavLink>
-          ))}
+        <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-4">
+          <SidebarNav sections={NAV_SECTIONS} onNavigate={() => setOpen(false)} />
         </nav>
         <div className="border-t border-emerald-800 dark:border-emerald-900 p-4">
           <div className="flex items-center gap-3">
@@ -155,7 +145,7 @@ export default function TeacherLayout() {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             {/* Command palette */}
-            <CommandPalette items={NAV} accent="emerald" />
+            <CommandPalette items={commandItems} accent="emerald" />
 
             {/* Dark mode toggle */}
             <button
