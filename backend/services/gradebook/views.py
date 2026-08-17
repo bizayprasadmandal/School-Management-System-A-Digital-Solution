@@ -7,11 +7,12 @@ from decimal import Decimal
 from uuid import UUID
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsTeacher
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsStudent, IsTeacher
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -93,7 +94,11 @@ class ExamViewSet(viewsets.ModelViewSet):
     def leaderboard(self, request, pk=None):
         """Top-N students by percentage for this exam."""
         exam = self.get_object()
-        limit = int(request.query_params.get("limit", 10))
+        try:
+            limit = int(request.query_params.get("limit", 10))
+        except (TypeError, ValueError):
+            limit = 10
+        limit = min(max(limit, 1), 50)
         report_cards = (
             ReportCard.objects.filter(exam=exam, status__in=["published", "sent"])
             .select_related("student__user")
@@ -283,7 +288,11 @@ class GradeViewSet(viewsets.ModelViewSet):
         if action:
             qs = qs.filter(action=action)
 
-        limit = min(int(request.query_params.get("limit", 100)), 500)
+        try:
+            limit = int(request.query_params.get("limit", 100))
+        except (TypeError, ValueError):
+            limit = 100
+        limit = min(max(limit, 1), 500)
         qs = qs[:limit]
 
         data = [
@@ -647,10 +656,32 @@ class AssessmentSubmissionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(assessment__assignment__teacher=user)
         return qs.select_related("student__user", "assessment")
 
+    def get_permissions(self):
+        # Only the student themself may submit; only teachers/admins may grade
+        # (set marks). This closes the self-grading hole where a student could
+        # POST a submission with marks_obtained pre-filled.
+        if self.action == "create":
+            return [IsAuthenticated(), IsStudent()]
+        if self.action in ["update", "partial_update"]:
+            return [IsAuthenticated(), IsTeacher()]
+        if self.action == "destroy":
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
     def perform_create(self, serializer):
         from services.students.models import Student
 
-        student = Student.objects.get(user=self.request.user)
+        user = self.request.user
+        student = Student.objects.filter(user=user).first()
+        if student is None:
+            raise PermissionDenied("No student profile found for your account.")
+
+        # Tenant isolation on the write path: the assessment must belong to the
+        # student's own school (assessment -> assignment -> teacher.school).
+        assessment = serializer.validated_data.get("assessment")
+        if assessment is not None and assessment.assignment.teacher.school_id != student.school_id:
+            raise PermissionDenied("Assessment not found in your school.")
+
         serializer.save(student=student)
 
 

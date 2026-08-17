@@ -436,7 +436,13 @@ class TestStandardNotificationTemplates:
         FeeInvoiceFactory(
             student=student,
             academic_year=AcademicYearFactory(school=school),
-            due_date=date.today() + timedelta(days=3),
+            # Use the same date source as the task (timezone.now().date(),
+            # not date.today()/timezone.localdate()) — the task looks up
+            # invoices by timezone.now().date() + 3, and the alternatives are
+            # machine-local, so on a host whose local timezone is ahead of
+            # the settings timezone the dates diverge and the reminder is
+            # never found (same bug class as the old attendance-streak test).
+            due_date=timezone.now().date() + timedelta(days=3),
             status="unpaid",
         )
 

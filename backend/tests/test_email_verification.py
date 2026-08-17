@@ -161,9 +161,9 @@ class TestSendVerificationEmail:
         assert "own email" in r.data["email"][0].lower()
 
     def test_send_accepts_custom_verification_base_url(self, unverified_client):
-        """Custom verification base URL is used in the email."""
+        """A custom base URL matching the app's own origin is used in the email."""
         client, user = unverified_client
-        custom_url = "https://myapp.com/auth"
+        custom_url = "http://localhost:3000/custom/auth"  # matches FRONTEND_URL origin
         r = client.post(
             AUTH_SEND_VERIFICATION,
             {
@@ -172,6 +172,17 @@ class TestSendVerificationEmail:
         )
         assert r.status_code == status.HTTP_200_OK
         assert custom_url in mail.outbox[0].body
+
+    def test_send_rejects_foreign_verification_base_url(self, unverified_client):
+        """A foreign-origin base URL is rejected (phishing/link-injection guard)."""
+        client, user = unverified_client
+        r = client.post(
+            AUTH_SEND_VERIFICATION,
+            {
+                "verification_base_url": "https://myapp.com/auth",
+            },
+        )
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_send_audit_log_created(self, unverified_client):
         """An audit log entry is created for the send action."""

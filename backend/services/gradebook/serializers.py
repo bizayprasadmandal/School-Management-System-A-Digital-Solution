@@ -243,6 +243,18 @@ class AssessmentSubmissionSerializer(serializers.ModelSerializer):
     assessment_title = serializers.CharField(source="assessment.title", read_only=True)
     percentage = serializers.SerializerMethodField()
 
+    def validate(self, attrs):
+        """
+        Students may submit WITHOUT marks; only a teacher may set marks via
+        update. This closes the self-grading hole where a student POSTed a
+        submission with marks_obtained pre-filled (and the post_save signal
+        then crashed on a missing attribute, 500-ing while persisting the marks).
+        """
+        request = self.context.get("request")
+        if request is not None and request.method == "POST" and attrs.get("marks_obtained") is not None:
+            raise serializers.ValidationError({"marks_obtained": "Marks can only be set by a teacher."})
+        return attrs
+
     class Meta:
         model = AssessmentSubmission
         fields = [

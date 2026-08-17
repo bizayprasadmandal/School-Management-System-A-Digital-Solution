@@ -43,6 +43,25 @@ logger = logging.getLogger(__name__)
 BACKUP_CODE_COUNT = 8
 
 
+def _is_allowed_origin(url: str, fallback_url: str) -> bool:
+    """
+    True only when ``url`` is an http(s) URL whose origin (scheme + netloc)
+    matches the application's own origin. Used to validate client-supplied
+    redirect/verification URLs before embedding them in emails, so an attacker
+    cannot inject a link to a foreign/phishing origin into platform email.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return False
+        allowed = urlparse(fallback_url)
+        return parsed.scheme == allowed.scheme and parsed.netloc == allowed.netloc
+    except (ValueError, TypeError):
+        return False
+
+
 def _get_client_ip(request):
     """Extract the client IP from the request, respecting proxies."""
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -320,7 +339,15 @@ class RequestPasswordResetView(APIView):
             from services.communication.tasks import send_email_notification
 
             frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
-            reset_url = request.data.get("reset_url", f"{frontend_url}/reset-password/{token_str}")
+            # Client-supplied reset URLs must match the app's own origin — never
+            # embed an arbitrary link (phishing/link-injection) in reset emails.
+            reset_url = request.data.get("reset_url", "")
+            if reset_url and not _is_allowed_origin(reset_url, frontend_url):
+                return Response(
+                    {"reset_url": ["reset_url must use the application's own origin."]},
+                    status=400,
+                )
+            reset_url = reset_url or f"{frontend_url}/reset-password/{token_str}"
             send_email_notification.delay(
                 user_id=str(user.id),
                 subject="Password Reset Request",
@@ -586,10 +613,16 @@ class SendEmailVerificationView(APIView):
         from django.conf import settings
 
         frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
-        base_url = request.data.get(
-            "verification_base_url",
-            frontend_url,
-        )
+        # Client-supplied base URLs must match the app's own origin — never
+        # embed an arbitrary link (phishing/link-injection) in verification
+        # emails.
+        base_url = request.data.get("verification_base_url", "")
+        if base_url and not _is_allowed_origin(base_url, frontend_url):
+            return Response(
+                {"verification_base_url": ["verification_base_url must use the application's own origin."]},
+                status=400,
+            )
+        base_url = base_url or frontend_url
         verify_url = f"{base_url}/verify-email/{token_str}"
 
         # Send email asynchronously

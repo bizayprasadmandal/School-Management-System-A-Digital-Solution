@@ -5,8 +5,9 @@ Real-time messaging, notification delivery, and live attendance updates
 
 import json
 import logging
-from channels.generic.websocket import AsyncWebsocketConsumer
+
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         self.user = user
         recipient_id = self.scope["url_route"]["kwargs"]["recipient_id"]
+        # The recipient must exist and be in the same school, otherwise a user
+        # could open a chat room with an arbitrary/foreign user id.
+        recipient = await self.get_recipient(recipient_id)
+        if recipient is None or recipient.school_id != user.school_id:
+            await self.close(code=4003)
+            return
+
         ids = sorted([str(user.id), str(recipient_id)])
         self.room_name = f"chat_{ids[0]}_{ids[1]}"
         self.room_group_name = f"ws_{self.room_name}"
@@ -121,9 +129,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # ── DB helpers (sync → async bridge) ─────────────────────────────────────
 
     @database_sync_to_async
-    def save_message(self, recipient_id, content):
-        from .models import DirectMessage
+    def get_recipient(self, recipient_id):
         from services.auth.models import User
+
+        try:
+            return User.objects.filter(id=recipient_id).first()
+        except (ValueError, TypeError):
+            return None
+
+    @database_sync_to_async
+    def save_message(self, recipient_id, content):
+        from services.auth.models import User
+
+        from .models import DirectMessage
+
         try:
             recipient = User.objects.get(id=recipient_id, school=self.user.school)
             return DirectMessage.objects.create(
@@ -138,6 +157,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def mark_messages_read(self, message_ids):
         from .models import DirectMessage
+
         DirectMessage.objects.filter(
             id__in=message_ids,
             recipient=self.user,
@@ -182,30 +202,36 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def push_notification(self, event):
         """Called by the server to push a notification to this user."""
-        await self.send(text_data=json.dumps({
-            "type": "notification",
-            "notification": event["notification"],
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "notification",
+                    "notification": event["notification"],
+                }
+            )
+        )
 
     async def unread_count_update(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "unread_count",
-            "count": event["count"],
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "unread_count",
+                    "count": event["count"],
+                }
+            )
+        )
 
     @database_sync_to_async
     def get_unread_count(self):
         from .models import Notification
-        return Notification.objects.filter(
-            user=self.user, channel="in_app", read_at__isnull=True
-        ).count()
+
+        return Notification.objects.filter(user=self.user, channel="in_app", read_at__isnull=True).count()
 
     @database_sync_to_async
     def mark_notification_read(self, notif_id):
         from .models import Notification
-        Notification.objects.filter(
-            id=notif_id, user=self.user
-        ).update(status="read", read_at=timezone.now())
+
+        Notification.objects.filter(id=notif_id, user=self.user).update(status="read", read_at=timezone.now())
 
 
 class AttendanceLiveConsumer(AsyncWebsocketConsumer):
@@ -230,6 +256,14 @@ class AttendanceLiveConsumer(AsyncWebsocketConsumer):
         self.date = kwargs.get("date", timezone.now().date().isoformat())
         self.group_name = f"attendance_classroom_{self.classroom_id}_{self.date}"
 
+        # Tenant isolation: the classroom must belong to the caller's school,
+        # otherwise any teacher/admin could enumerate integer classroom IDs and
+        # stream another school's live attendance snapshot.
+        classroom = await self.get_classroom(self.classroom_id)
+        if classroom is None or classroom.school_id != user.school_id:
+            await self.close(code=4003)
+            return
+
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
@@ -243,21 +277,33 @@ class AttendanceLiveConsumer(AsyncWebsocketConsumer):
 
     async def attendance_update(self, event):
         """Receives broadcast from attendance view after a record is saved."""
-        await self.send(text_data=json.dumps({
-            "type": "attendance_update",
-            "record": event["record"],
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "attendance_update",
+                    "record": event["record"],
+                }
+            )
+        )
+
+    @database_sync_to_async
+    def get_classroom(self, classroom_id):
+        from services.students.models import Classroom
+
+        try:
+            return Classroom.objects.filter(id=classroom_id).first()
+        except (ValueError, TypeError):
+            return None
 
     @database_sync_to_async
     def get_snapshot(self):
         from services.attendance.models import AttendanceRecord
         from services.students.models import Student
-        records = AttendanceRecord.objects.filter(
-            classroom_id=self.classroom_id, date=self.date
-        ).select_related("student__user")
-        total = Student.objects.filter(
-            enrollments__classroom_id=self.classroom_id, enrollments__is_active=True
-        ).count()
+
+        records = AttendanceRecord.objects.filter(classroom_id=self.classroom_id, date=self.date).select_related(
+            "student__user"
+        )
+        total = Student.objects.filter(enrollments__classroom_id=self.classroom_id, enrollments__is_active=True).count()
         return {
             "date": self.date,
             "total_students": total,

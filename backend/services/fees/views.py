@@ -205,6 +205,8 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="bulk-generate")
     def bulk_generate(self, request):
         """Generate invoices for all students in a grade for a fee structure."""
+        from services.students.models import AcademicYear
+
         structure_id = request.data.get("fee_structure_id")
         academic_year_id = request.data.get("academic_year_id")
 
@@ -214,11 +216,14 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Tenant isolation: the fee structure must belong to the caller's
-        # school, otherwise the queued task would generate invoices against a
-        # foreign structure.
+        # Tenant isolation: the fee structure AND the academic year must belong
+        # to the caller's school, otherwise the queued task would generate
+        # invoices against a foreign structure or a foreign academic year
+        # (cross-tenant write on the money path).
         if not FeeStructure.objects.filter(id=structure_id, school=request.user.school).exists():
             raise PermissionDenied("Fee structure not found in your school.")
+        if not AcademicYear.objects.filter(id=academic_year_id, school=request.user.school).exists():
+            raise PermissionDenied("Academic year not found in your school.")
 
         from .tasks import generate_bulk_invoices
 

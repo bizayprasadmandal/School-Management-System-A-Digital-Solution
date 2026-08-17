@@ -16,12 +16,18 @@ class IsSchoolMember(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated and request.user.school)
 
     def has_object_permission(self, request, view, obj):
-        # Support objects with direct school FK or nested ones
+        # Support objects with direct school FK or nested ones. Fail CLOSED:
+        # an object we cannot prove belongs to the caller's school is denied.
         if hasattr(obj, "school"):
-            return obj.school == request.user.school
+            return obj.school_id == request.user.school_id
         if hasattr(obj, "student"):
-            return obj.student.school == request.user.school
-        return True
+            return obj.student.school_id == request.user.school_id
+        if hasattr(obj, "user") and getattr(obj.user, "school_id", None) is not None:
+            return obj.user.school_id == request.user.school_id
+        # Direct messages carry sender/recipient instead of school/student
+        if hasattr(obj, "sender") and hasattr(obj, "recipient"):
+            return obj.sender_id == request.user.id or obj.recipient_id == request.user.id
+        return False
 
 
 class IsSchoolAdmin(permissions.BasePermission):

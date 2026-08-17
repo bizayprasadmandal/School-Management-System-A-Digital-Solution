@@ -63,8 +63,14 @@ class IdempotencyMiddleware:
             # Idempotency-Key is recommended but not required for all endpoints
             return self.get_response(request)
 
-        # Create a cache key from the idempotency key + request path
-        cache_key = f"idempotency:{hashlib.sha256(idempotency_key.encode()).hexdigest()}:{request.path}"
+        # Create a cache key from the idempotency key + request path + caller
+        # credential. Binding the key to the Authorization header (or session
+        # user) prevents one client from replaying/stealing another's cached
+        # response when they happen to use the same key value on the same path.
+        caller = request.META.get("HTTP_AUTHORIZATION", "")
+        if not caller and getattr(request, "user", None) is not None:
+            caller = getattr(request.user, "id", "") or ""
+        cache_key = f"idempotency:{hashlib.sha256((idempotency_key + caller).encode()).hexdigest()}:{request.path}"
 
         # Atomically claim the key (Redis SETNX semantics via cache.add).
         # Only the caller that wins the claim may execute the action; this

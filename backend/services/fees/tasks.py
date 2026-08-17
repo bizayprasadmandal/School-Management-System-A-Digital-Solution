@@ -179,10 +179,14 @@ def generate_bulk_invoices(structure_id: int, academic_year_id: int):
     from .models import FeeInvoice, FeeStructure
 
     structure = FeeStructure.objects.select_related("grade", "academic_year").get(id=structure_id)
+    # Defense in depth: even if the view-level checks are bypassed, only ever
+    # generate invoices for students of the structure's own school — never for
+    # enrollments that merely share a grade/academic_year with another tenant.
     enrollments = Enrollment.objects.filter(
         classroom__grade=structure.grade,
         academic_year_id=academic_year_id,
         is_active=True,
+        student__school=structure.school,
     ).select_related("student")
 
     created = 0

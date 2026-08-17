@@ -32,6 +32,38 @@ class TenantMiddleware:
         request.school = school
         return self.get_response(request)
 
+    @staticmethod
+    def _resolve_user(request):
+        """
+        Resolve the authenticated user at middleware time.
+
+        Django middleware runs before DRF's view-level authentication, so for
+        JWT clients `request.user` is still AnonymousUser here (only session
+        auth is populated by AuthenticationMiddleware). The email-verification
+        middleware uses the same pattern; this one additionally honors the test
+        client's forced user.
+        """
+        from django.contrib.auth.models import AnonymousUser
+
+        forced = getattr(request, "_force_auth_user", None)
+        if forced is not None:
+            return forced
+        if getattr(request, "user", None) is not None and request.user.is_authenticated:
+            return request.user
+
+        auth = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth.startswith("Bearer "):
+            try:
+                from rest_framework_simplejwt.tokens import AccessToken
+                from services.auth.models import User
+
+                token = AccessToken(auth[7:])
+                user = User.objects.filter(id=token["user_id"], is_active=True).first()
+                return user or AnonymousUser()
+            except Exception:
+                return AnonymousUser()
+        return AnonymousUser()
+
     def _resolve_school(self, request):
         from services.auth.models import UserRole
 
@@ -43,10 +75,16 @@ class TenantMiddleware:
             # via the header. The header may only confirm the user's own
             # school; only super admins may use it to select a school. When
             # the header disagrees, fall back to the user's own school.
-            if hasattr(request, "user") and request.user.is_authenticated:
-                is_super = getattr(request.user, "role", None) == UserRole.SUPER_ADMIN
+            #
+            # The user is resolved from the JWT here (not just session auth):
+            # previously the guard only worked for session-authenticated
+            # requests, so a JWT client of any role could override the tenant
+            # via the header.
+            user = self._resolve_user(request)
+            if user.is_authenticated:
+                is_super = getattr(user, "role", None) == UserRole.SUPER_ADMIN
                 if not is_super:
-                    user_school = getattr(request.user, "school", None)
+                    user_school = getattr(user, "school", None)
                     if user_school is not None:
                         if header_school is None or header_school.pk != user_school.pk:
                             return user_school
@@ -69,6 +107,7 @@ class TenantMiddleware:
         return None
 
     def _get_school_cached(self, pk=None, subdomain=None):
+        from django.core.exceptions import ValidationError
         from services.auth.models import School
 
         if pk:
@@ -77,13 +116,16 @@ class TenantMiddleware:
             if cached_pk is not None:
                 try:
                     return School.objects.get(pk=cached_pk, is_active=True)
-                except School.DoesNotExist:
+                except (School.DoesNotExist, ValidationError, ValueError, TypeError):
                     return None
             try:
                 school = School.objects.get(pk=pk, is_active=True)
                 cache.set(cache_key, school.pk, timeout=300)
                 return school
-            except School.DoesNotExist:
+            except (School.DoesNotExist, ValidationError, ValueError, TypeError):
+                # Django UUIDField raises ValidationError (not ValueError) for a
+                # malformed (non-UUID) header value — it must never bubble up
+                # as a 500 from middleware.
                 return None
 
         if subdomain:

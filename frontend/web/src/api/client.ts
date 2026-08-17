@@ -25,16 +25,20 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${tokens.access}`;
     }
 
-    // Super admin school context — add X-School-ID header
-    // The backend TenantMiddleware uses this to override the tenant context.
+    // Super admin school context — add X-School-ID header.
+    // The backend TenantMiddleware uses this to override the tenant context,
+    // but only super admins may select another school: gate the header on the
+    // role so a tampered localStorage store can't make a regular user's
+    // requests carry a foreign X-School-ID.
+    const { user } = useAuthStore.getState();
     const { activeSchool } = useSchoolContextStore.getState();
-    if (activeSchool?.id) {
+    if (user?.role === "super_admin" && activeSchool?.id) {
       config.headers["X-School-ID"] = activeSchool.id;
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // ─── Response interceptor — token refresh ─────────────────────────────────────
@@ -106,7 +110,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(normalizeError(error));
-  }
+  },
 );
 
 // ─── Error normalization ───────────────────────────────────────────────────────
@@ -153,20 +157,15 @@ function normalizeError(error: AxiosError): NormalizedError {
 // ─── Typed helpers ─────────────────────────────────────────────────────────────
 
 export const api = {
-  get: <T>(url: string, params?: object) =>
-    apiClient.get<T>(url, { params }).then((r) => r.data),
+  get: <T>(url: string, params?: object) => apiClient.get<T>(url, { params }).then((r) => r.data),
 
-  post: <T>(url: string, data?: unknown) =>
-    apiClient.post<T>(url, data).then((r) => r.data),
+  post: <T>(url: string, data?: unknown) => apiClient.post<T>(url, data).then((r) => r.data),
 
-  patch: <T>(url: string, data?: unknown) =>
-    apiClient.patch<T>(url, data).then((r) => r.data),
+  patch: <T>(url: string, data?: unknown) => apiClient.patch<T>(url, data).then((r) => r.data),
 
-  put: <T>(url: string, data?: unknown) =>
-    apiClient.put<T>(url, data).then((r) => r.data),
+  put: <T>(url: string, data?: unknown) => apiClient.put<T>(url, data).then((r) => r.data),
 
-  delete: <T = void>(url: string) =>
-    apiClient.delete<T>(url).then((r) => r.data),
+  delete: <T = void>(url: string) => apiClient.delete<T>(url).then((r) => r.data),
 
   upload: <T>(url: string, formData: FormData) =>
     // Don't set Content-Type manually — axios detects FormData and sets the

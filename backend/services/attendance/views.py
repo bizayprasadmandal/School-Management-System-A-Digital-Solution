@@ -2,7 +2,7 @@
 Attendance Service — Views for recording and querying attendance
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsTeacher
 from django.utils import timezone
@@ -164,7 +164,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         from services.students.models import Classroom
 
         classroom_id = request.query_params.get("classroom_id")
-        target_date = request.query_params.get("date", date.today().isoformat())
+        target_date = request.query_params.get("date", timezone.localdate().isoformat())
 
         if not classroom_id:
             return Response({"error": "classroom_id is required"}, status=400)
@@ -200,8 +200,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     def student_report(self, request):
         """Monthly attendance report for a student."""
         student_id = request.query_params.get("student_id")
-        month = int(request.query_params.get("month", date.today().month))
-        year = int(request.query_params.get("year", date.today().year))
+        try:
+            month = int(request.query_params.get("month", timezone.localdate().month))
+            year = int(request.query_params.get("year", timezone.localdate().year))
+        except (TypeError, ValueError):
+            return Response({"error": "month and year must be integers"}, status=400)
+        if not (1 <= month <= 12):
+            return Response({"error": "month must be between 1 and 12"}, status=400)
 
         if not student_id:
             return Response({"error": "student_id is required"}, status=400)
