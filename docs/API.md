@@ -379,17 +379,12 @@ query MyDashboard {
     status
   }
   myGrades {
-    examSchedule {
-      subject {
-        name
-      }
-      exam {
-        name
-      }
-    }
+    id
     marksObtained
     percentage
     isPass
+    remarks
+    gradedAt
   }
   announcements(limit: 5) {
     id

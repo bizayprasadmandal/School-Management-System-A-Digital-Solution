@@ -7,6 +7,7 @@ from decimal import Decimal
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
 from django.db import transaction as db_transaction
+from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -34,7 +35,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
-        return Category.objects.filter(school=self.request.user.school)
+        return Category.objects.filter(school=self.request.user.school).annotate(item_count=Count("items"))
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

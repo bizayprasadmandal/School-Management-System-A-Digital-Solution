@@ -46,6 +46,7 @@ import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBa
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import type { User } from "../../types";
+import NotificationPanel from "./NotificationPanel";
 
 const STUDENT_NAV = [
   { label: "Dashboard", to: "/student", icon: HomeIcon },
@@ -92,6 +93,7 @@ const SidebarShell = memo(function SidebarShell({
   verifyEmailPath,
   backupCodePath,
 }: SidebarShellProps) {
+  const [notifOpen, setNotifOpen] = useState(false);
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
       {open && (
@@ -231,7 +233,7 @@ const SidebarShell = memo(function SidebarShell({
               </button>
             )}
 
-            <NotificationBell onClick={() => {}} />
+            <NotificationBell onClick={() => setNotifOpen((v) => !v)} />
             <UserMenuDropdown verifyEmailPath={verifyEmailPath} />
           </div>
         </header>
@@ -241,6 +243,9 @@ const SidebarShell = memo(function SidebarShell({
           <AnimatedOutlet />
         </main>
       </div>
+
+      {/* Notification slide-in panel — fixed position, outside main content flow */}
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   );
 });

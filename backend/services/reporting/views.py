@@ -342,6 +342,15 @@ class ReportingViewSet(viewsets.ViewSet):
         school = request.user.school
         today = timezone.now().date()
 
+        cache_key = f"fee_forecast_{school.id}"
+
+        # Try cache first; returns None on miss or if Redis is unavailable
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        logger.debug("Fee forecast cache miss for school %s", school.id)
+
         invoices = FeeInvoice.objects.filter(student__school=school)
         due_soon = invoices.filter(due_date__gte=today, due_date__lte=today + timedelta(days=90))
         overdue = invoices.filter(due_date__lt=today, status__in=["unpaid", "partial"])
@@ -375,14 +384,14 @@ class ReportingViewSet(viewsets.ViewSet):
             )
             history.append({"month": str(month_start)[:7], "collected": float(collected)})
 
-        return Response(
-            {
-                "today": str(today),
-                "overdue_total": float(overdue.aggregate(t=Sum("total_amount") - Sum("paid_amount"))["t"] or 0),
-                "forecast_90d": forecast,
-                "history_3m": history,
-            }
-        )
+        result = {
+            "today": str(today),
+            "overdue_total": float(overdue.aggregate(t=Sum("total_amount") - Sum("paid_amount"))["t"] or 0),
+            "forecast_90d": forecast,
+            "history_3m": history,
+        }
+        cache.set(cache_key, result, 300)  # 5 minute TTL
+        return Response(result)
 
     @action(detail=False, methods=["post"], url_path="refresh-dashboard")
     def refresh_dashboard(self, request):

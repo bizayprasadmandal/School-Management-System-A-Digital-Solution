@@ -31,9 +31,6 @@ import duration from "dayjs/plugin/duration";
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 
-// ─── i18n — Internationalization ────────────────────────────────────────────
-import "./i18n";
-
 // ─── Main App ────────────────────────────────────────────────────────────────
 import App from "./App";
 

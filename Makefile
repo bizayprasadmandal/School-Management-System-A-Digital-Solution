@@ -70,7 +70,6 @@ bash:
 
 ## ── Database ─────────────────────────────────────────────────────────────────
 migrate:
-	$(COMPOSE) exec $(BACKEND_SVC) python manage.py makemigrations
 	$(COMPOSE) exec $(BACKEND_SVC) python manage.py migrate
 	@echo "✅  Migrations applied"
 
@@ -271,7 +270,6 @@ prod-local: prod-env
 
 prod-migrate:
 	@echo "📦  Running production migrations..."
-	$(COMPOSE_PROD) exec backend python manage.py makemigrations
 	$(COMPOSE_PROD) exec backend python manage.py migrate
 	@echo "✅  Production migrations applied"
 
@@ -289,8 +287,11 @@ install-mobile:
 	cd frontend/mobile && npm ci
 
 docs-serve:
+	@echo "ℹ️  Docs live in docs/ as Markdown (no mkdocs.yml in this repo);"
+	@echo "   preview README.md directly or use a Markdown previewer."
+	@echo "   If you add an mkdocs.yml later, this target will serve it:"
 	@which mkdocs >/dev/null 2>&1 || pip install mkdocs mkdocs-material
-	mkdocs serve
+	@test -f mkdocs.yml && mkdocs serve || true
 
 check-env:
 	@echo "── Checking required environment variables ──"

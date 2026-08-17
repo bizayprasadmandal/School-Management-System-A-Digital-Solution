@@ -83,7 +83,7 @@ kubectl get pods -n sms -w
 
 ## Step 5 — Database Migrations
 
-> **Before the first deployment**, confirm the migration tree is complete and committed — all 22 services ship their own `0001_initial` migrations (50 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
+> **Before the first deployment**, confirm the migration tree is complete and committed — all 23 services ship their own `0001_initial` migrations (53 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
 
 ```bash
 # Run as a one-off Job

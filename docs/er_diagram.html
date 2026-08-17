@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="description" content="Entity relationship diagram for the School Management System — 23 services, multi-tenant RBAC architecture.">
+<meta name="keywords" content="school management, ER diagram, entity relationship, multi-tenant, RBAC">
 <title>SMS — Entity Relationship Diagram</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
@@ -14,6 +16,14 @@ header .subtitle { color: #8b949e; font-size: 13px; }
 header .legend { display: flex; gap: 16px; font-size: 12px; align-items: center; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 6px; }
 .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+.legend-item:nth-child(1) .legend-dot { background: #0f3460; }
+.legend-item:nth-child(2) .legend-dot { background: #16213e; }
+.legend-item:nth-child(3) .legend-dot { background: #2d6a4f; }
+.legend-item:nth-child(4) .legend-dot { background: #0d7377; }
+.legend-item:nth-child(5) .legend-dot { background: #5a189a; }
+.legend-item:nth-child(6) .legend-dot { background: #e07a5f; }
+.legend-item:nth-child(7) .legend-dot { background: #e63946; }
+.legend-item:nth-child(8) .legend-dot { background: #3d405b; }
 #mynetwork { width: 100%; height: calc(100vh - 70px); }
 .vis-network:focus { outline: none; }
 .tooltip { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; font-size: 12px; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); pointer-events: none; display: none; z-index: 1000; }
@@ -30,22 +40,26 @@ header .legend { display: flex; gap: 16px; font-size: 12px; align-items: center;
 <header>
   <div>
     <h1>🏫 School Management System — ER Diagram</h1>
-    <div class="subtitle">20 services · 60+ entities · Multi-tenant RBAC architecture</div>
+    <div class="subtitle">23 services · 60+ entities · Multi-tenant RBAC architecture</div>
   </div>
   <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#0f3460"></div> Auth/Core</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#16213e"></div> Students</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#2d6a4f"></div> Fees</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#0d7377"></div> Gradebook</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#5a189a"></div> Attendance</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#e07a5f"></div> Academics</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#e63946"></div> Transport</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#3d405b"></div> HR</div>
+    <div class="legend-item"><div class="legend-dot"></div> Auth/Core</div>
+    <div class="legend-item"><div class="legend-dot"></div> Students</div>
+    <div class="legend-item"><div class="legend-dot"></div> Fees</div>
+    <div class="legend-item"><div class="legend-dot"></div> Gradebook</div>
+    <div class="legend-item"><div class="legend-dot"></div> Attendance</div>
+    <div class="legend-item"><div class="legend-dot"></div> Academics</div>
+    <div class="legend-item"><div class="legend-dot"></div> Transport</div>
+    <div class="legend-item"><div class="legend-dot"></div> HR</div>
   </div>
 </header>
 
 <div id="mynetwork"></div>
-<div class="tooltip" id="tooltip"><h3 id="tt-title"></h3><p id="tt-fields"></p><p id="tt-rels"></p></div>
+<div class="tooltip" id="tooltip">
+  <h3 id="tt-title"></h3>
+  <p id="tt-fields"></p>
+  <p id="tt-rels"></p>
+</div>
 <div class="controls">
   <button onclick="zoomIn()">➕ Zoom In</button>
   <button onclick="zoomOut()">➖ Zoom Out</button>

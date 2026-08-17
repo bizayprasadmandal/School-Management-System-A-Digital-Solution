@@ -4,6 +4,7 @@ import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -29,7 +30,7 @@ class SportViewSet(viewsets.ModelViewSet):
     filterset_fields = ["category", "is_active"]
 
     def get_queryset(self):
-        return Sport.objects.filter(school=self.request.user.school)
+        return Sport.objects.filter(school=self.request.user.school).annotate(team_count=Count("teams"))
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -52,6 +53,7 @@ class TeamViewSet(viewsets.ModelViewSet):
             Team.objects.filter(school=self.request.user.school)
             .select_related("sport", "coach")
             .prefetch_related("members__student__user")
+            .annotate(member_count=Count("members", filter=Q(members__status="active")))
         )
 
     def get_permissions(self):

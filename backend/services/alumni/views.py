@@ -2,6 +2,8 @@
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count, IntegerField, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -87,7 +89,16 @@ class AlumniChapterViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active", "country"]
 
     def get_queryset(self):
-        return AlumniChapter.objects.filter(school=self.request.user.school)
+        city_member_count = Subquery(
+            AlumniProfile.objects.filter(city__iexact=OuterRef("city"))
+            .values("city")
+            .annotate(count=Count("id"))
+            .values("count"),
+            output_field=IntegerField(),
+        )
+        return AlumniChapter.objects.filter(school=self.request.user.school).annotate(
+            member_count=Coalesce(city_member_count, Value(0))
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

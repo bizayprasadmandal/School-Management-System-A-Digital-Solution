@@ -43,8 +43,7 @@ export const studentApi = {
   list: (params?: Record<string, unknown>) =>
     mobileApiClient.get("/students/", { params }).then((r) => r.data),
 
-  detail: (id: string) =>
-    mobileApiClient.get(`/students/${id}/`).then((r) => r.data),
+  detail: (id: string) => mobileApiClient.get(`/students/${id}/`).then((r) => r.data),
 
   attendanceSummary: (id: string, academicYearId?: number) =>
     mobileApiClient
@@ -95,14 +94,12 @@ export const gradebookApi = {
 // ─── Timetable ────────────────────────────────────────────────────────────────
 
 export const timetableApi = {
-  mySchedule: () =>
-    mobileApiClient.get("/timetable/my-schedule/").then((r) => r.data),
+  mySchedule: () => mobileApiClient.get("/timetable/my-schedule/").then((r) => r.data),
 
   events: (params?: Record<string, unknown>) =>
     mobileApiClient.get("/timetable/events/", { params }).then((r) => r.data),
 
-  upcomingEvents: () =>
-    mobileApiClient.get("/timetable/events/upcoming/").then((r) => r.data),
+  upcomingEvents: () => mobileApiClient.get("/timetable/events/upcoming/").then((r) => r.data),
 };
 
 // ─── Communication ────────────────────────────────────────────────────────────
@@ -127,9 +124,7 @@ export const communicationApi = {
 
 export const feesApi = {
   invoices: (studentId: string) =>
-    mobileApiClient
-      .get("/fees/invoices/", { params: { student: studentId } })
-      .then((r) => r.data),
+    mobileApiClient.get("/fees/invoices/", { params: { student: studentId } }).then((r) => r.data),
 };
 
 // ─── Classrooms / Structure ──────────────────────────────────────────────────
@@ -137,4 +132,23 @@ export const feesApi = {
 export const structureApi = {
   classrooms: (params?: Record<string, unknown>) =>
     mobileApiClient.get("/students/classrooms/", { params }).then((r) => r.data),
+};
+
+// ─── Library ──────────────────────────────────────────────────────────────────
+
+export const libraryApi = {
+  books: (params?: Record<string, unknown>) =>
+    mobileApiClient.get("/library/books/", { params }).then((r) => r.data),
+};
+
+// ─── Counseling ───────────────────────────────────────────────────────────────
+
+export const counselingApi = {
+  dashboardStats: () => mobileApiClient.get("/counseling/dashboard/stats/").then((r) => r.data),
+
+  appointments: (params?: Record<string, unknown>) =>
+    mobileApiClient.get("/counseling/appointments/", { params }).then((r) => r.data),
+
+  referrals: (params?: Record<string, unknown>) =>
+    mobileApiClient.get("/counseling/referrals/", { params }).then((r) => r.data),
 };

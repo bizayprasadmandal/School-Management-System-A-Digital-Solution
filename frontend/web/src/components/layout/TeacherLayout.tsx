@@ -30,6 +30,7 @@ import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBa
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import SidebarNav, { flattenSections } from "./SidebarNav";
+import NotificationPanel from "./NotificationPanel";
 
 const NAV_SECTIONS = [
   { label: "Dashboard", to: "/teacher", icon: HomeIcon },
@@ -51,6 +52,7 @@ const NAV_SECTIONS = [
 
 export default function TeacherLayout() {
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
@@ -182,7 +184,7 @@ export default function TeacherLayout() {
               </button>
             )}
 
-            <NotificationBell onClick={() => {}} />
+            <NotificationBell onClick={() => setNotifOpen((v) => !v)} />
             <UserMenuDropdown verifyEmailPath="/teacher/verify-email" accent="emerald" />
           </div>
         </header>
@@ -192,6 +194,9 @@ export default function TeacherLayout() {
           <AnimatedOutlet />
         </main>
       </div>
+
+      {/* Notification slide-in panel — fixed position, outside main content flow */}
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   );
 }

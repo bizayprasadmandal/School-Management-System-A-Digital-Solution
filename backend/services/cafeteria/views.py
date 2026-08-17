@@ -2,6 +2,7 @@
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +19,7 @@ class MealMenuViewSet(viewsets.ModelViewSet):
     filterset_fields = ["meal_type", "date", "is_active"]
 
     def get_queryset(self):
-        return MealMenu.objects.filter(school=self.request.user.school)
+        return MealMenu.objects.filter(school=self.request.user.school).annotate(booking_count=Count("bookings"))
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

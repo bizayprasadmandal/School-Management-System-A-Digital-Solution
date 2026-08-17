@@ -1,7 +1,8 @@
 """Sports & Extracurriculars serializers."""
 
 from rest_framework import serializers
-from .models import Sport, Team, TeamMember, SportEvent, SportAchievement
+
+from .models import Sport, SportAchievement, SportEvent, Team, TeamMember
 
 
 class SportSerializer(serializers.ModelSerializer):
@@ -10,9 +11,22 @@ class SportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Sport
-        fields = ["id", "name", "category", "category_display", "description", "min_players", "max_players", "is_active", "team_count", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "category",
+            "category_display",
+            "description",
+            "min_players",
+            "max_players",
+            "is_active",
+            "team_count",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
-    def get_team_count(self, obj): return obj.teams.count()
+
+    def get_team_count(self, obj):
+        return getattr(obj, "team_count", obj.teams.count())
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
@@ -34,9 +48,25 @@ class TeamSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Team
-        fields = ["id", "sport", "sport_name", "name", "gender", "gender_display", "coach", "coach_name", "assistant_coach", "is_active", "members", "member_count", "created_at"]
+        fields = [
+            "id",
+            "sport",
+            "sport_name",
+            "name",
+            "gender",
+            "gender_display",
+            "coach",
+            "coach_name",
+            "assistant_coach",
+            "is_active",
+            "members",
+            "member_count",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
-    def get_member_count(self, obj): return obj.members.filter(status="active").count()
+
+    def get_member_count(self, obj):
+        return getattr(obj, "member_count", obj.members.filter(status="active").count())
 
 
 class SportEventSerializer(serializers.ModelSerializer):
@@ -46,7 +76,25 @@ class SportEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SportEvent
-        fields = ["id", "sport", "sport_name", "team", "team_name", "title", "event_type", "opponent", "location", "event_date", "status", "status_display", "home_score", "opponent_score", "result", "notes", "created_at"]
+        fields = [
+            "id",
+            "sport",
+            "sport_name",
+            "team",
+            "team_name",
+            "title",
+            "event_type",
+            "opponent",
+            "location",
+            "event_date",
+            "status",
+            "status_display",
+            "home_score",
+            "opponent_score",
+            "result",
+            "notes",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -57,5 +105,20 @@ class SportAchievementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SportAchievement
-        fields = ["id", "student", "student_name", "team", "team_name", "event", "event_title", "title", "description", "position", "level", "awarded_date", "certificate_url", "created_at"]
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "team",
+            "team_name",
+            "event",
+            "event_title",
+            "title",
+            "description",
+            "position",
+            "level",
+            "awarded_date",
+            "certificate_url",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]

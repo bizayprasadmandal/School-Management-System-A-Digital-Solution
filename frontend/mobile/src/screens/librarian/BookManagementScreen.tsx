@@ -1,7 +1,15 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { mobileApi } from "../../api/client";
+import { libraryApi } from "../../services/api";
 import { Card } from "../../components";
 
 const BRAND = "#0ea5e9";
@@ -11,14 +19,19 @@ export default function BookManagementScreen() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["mob-books", search],
-    queryFn: () => mobileApi.get<any>(`/library/books/${search ? `?search=${search}` : ""}`),
+    queryFn: () => libraryApi.books(search ? { search } : undefined),
   });
 
   const books = data?.results ?? [];
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={BRAND} />}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={BRAND} />
+      }
+    >
       {/* Search */}
       <TextInput
         style={styles.searchInput}
@@ -28,7 +41,9 @@ export default function BookManagementScreen() {
         onChangeText={setSearch}
       />
 
-      <Text style={styles.count}>{data?.count ?? books.length} book{(data?.count ?? books.length) !== 1 ? "s" : ""}</Text>
+      <Text style={styles.count}>
+        {data?.count ?? books.length} book{(data?.count ?? books.length) !== 1 ? "s" : ""}
+      </Text>
 
       {books.map((b: any) => (
         <Card key={b.id} style={styles.bookCard}>
@@ -52,8 +67,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f8fafc" },
   content: { padding: 16, paddingBottom: 40 },
   searchInput: {
-    backgroundColor: "#fff", borderRadius: 12, padding: 14, fontSize: 14,
-    borderWidth: 1, borderColor: "#e2e8f0", marginBottom: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 12,
   },
   count: { fontSize: 12, color: "#94a3b8", marginBottom: 12 },
   bookCard: { marginBottom: 10, padding: 14 },

@@ -22,6 +22,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.memo(function Button({
   variant = "primary",
   size = "md",
+  type = "button",
   loading,
   leftIcon,
   rightIcon,
@@ -43,6 +44,7 @@ export const Button = React.memo(function Button({
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2.5 text-sm", lg: "px-6 py-3 text-base" };
   return (
     <button
+      type={type}
       className={clsx(base, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
       {...props}
@@ -508,141 +510,6 @@ export function SkeletonStudentDashboard() {
   );
 }
 
-// ─── SkeletonSection types ───────────────────────────────────────────────────
-
-export type SkeletonSectionType = "card" | "stat-card" | "chart" | "table" | "text";
-
-export interface SkeletonSection {
-  type: SkeletonSectionType;
-  /** Number of items to render (cards, stat-cards, or chart items) */
-  count?: number;
-  /** Rows for table type (default 5) */
-  rows?: number;
-  /** Columns for table type (default 4) */
-  cols?: number;
-  /** Lines for text type (default 3) */
-  lines?: number;
-  /** Wrapper className, e.g. "grid grid-cols-1 gap-4 sm:grid-cols-2" */
-  className?: string;
-}
-
-interface SkeletonPageProps {
-  /** Single layout type — shorthand for a one-section skeleton */
-  layout?: SkeletonSectionType;
-  /** Number of items for the shorthand layout (cards, stat-cards, etc.) */
-  count?: number;
-  /** Rows for table shorthand */
-  rows?: number;
-  /** Columns for table shorthand */
-  cols?: number;
-  /** Lines for text shorthand */
-  lines?: number;
-  /** Multi-section config for complex page layouts */
-  sections?: SkeletonSection[];
-  /** Optional heading skeleton shown above all sections */
-  header?: boolean;
-  /** Optional className on the root wrapper */
-  className?: string;
-}
-
-/**
- * Flexible skeleton page — compose a loading placeholder from
- * section types (card, stat-card, chart, table, text).
- *
- * Shorthand examples:
- *   <SkeletonPage layout="card" count={3} />
- *   <SkeletonPage layout="table" rows={6} cols={5} />
- *
- * Multi-section example:
- *   <SkeletonPage header sections={[
- *     { type: "stat-card", count: 4, className: "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" },
- *     { type: "chart", count: 2, className: "grid grid-cols-1 gap-6 lg:grid-cols-3" },
- *   ]} />
- */
-export function SkeletonPage({
-  layout,
-  count = 1,
-  rows,
-  cols,
-  lines,
-  sections,
-  header,
-  className,
-}: SkeletonPageProps) {
-  const resolvedSections: SkeletonSection[] =
-    sections ?? (layout ? [{ type: layout, count, rows, cols, lines }] : []);
-
-  const renderSection = (sec: SkeletonSection, idx: number) => {
-    const items = sec.count ?? 1;
-    let wrapperClass = sec.className ?? "";
-
-    // Auto-grid for cards/stat-cards when no custom className
-    if (!sec.className && (sec.type === "card" || sec.type === "stat-card")) {
-      if (items <= 2) wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-2";
-      else if (items <= 3) wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-3";
-      else wrapperClass = "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
-    }
-
-    switch (sec.type) {
-      case "card":
-        return (
-          <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        );
-      case "stat-card":
-        return (
-          <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => (
-              <SkeletonStatCard key={i} />
-            ))}
-          </div>
-        );
-      case "chart":
-        return (
-          <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => (
-              <SkeletonChart key={i} />
-            ))}
-          </div>
-        );
-      case "table":
-        return (
-          <SkeletonTable
-            key={idx}
-            rows={sec.rows ?? 5}
-            cols={sec.cols ?? 4}
-            className={sec.className}
-          />
-        );
-      case "text":
-        return (
-          <div key={idx} className={wrapperClass || undefined}>
-            {Array.from({ length: items }, (_, i) => (
-              <SkeletonText key={i} lines={sec.lines ?? 3} />
-            ))}
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className={clsx("space-y-6", className)}>
-      {header && (
-        <div className="space-y-2">
-          <div className="h-5 w-1/3 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />
-          <div className="h-3 w-1/5 rounded-lg bg-slate-200 dark:bg-slate-700 animate-pulse" />
-        </div>
-      )}
-      {resolvedSections.map(renderSection)}
-    </div>
-  );
-}
-
 /** Skeleton that mimics the Admin Dashboard layout — KPI cards + charts + announcements */
 export function SkeletonDashboard() {
   return (
@@ -746,7 +613,9 @@ const DataTableInner = <T,>({
                       key={String(col.key)}
                       className={clsx("px-4 py-3 text-sm text-slate-700", col.className)}
                     >
-                      {col.render ? col.render(row) : String((row as any)[col.key] ?? "—")}
+                      {col.render
+                        ? col.render(row)
+                        : String((row as Record<string, unknown>)[String(col.key)] ?? "—")}
                     </td>
                   ))}
                 </tr>

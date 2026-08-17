@@ -3,10 +3,9 @@ Attendance Service — Daily and period-level attendance tracking
 """
 
 from django.db import models
-from django.utils import timezone
-from services.auth.models import User, School
-from services.students.models import Student, Classroom, AcademicYear
-from services.academics.models import Subject, TeacherAssignment
+from services.academics.models import TeacherAssignment
+from services.auth.models import User
+from services.students.models import AcademicYear, Classroom, Student
 
 
 class AttendanceRecord(models.Model):
@@ -35,6 +34,7 @@ class AttendanceRecord(models.Model):
         indexes = [
             models.Index(fields=["classroom", "date"]),
             models.Index(fields=["student", "academic_year"]),
+            models.Index(fields=["classroom", "academic_year", "date"]),
         ]
 
     def __str__(self):
@@ -60,6 +60,9 @@ class PeriodAttendance(models.Model):
     class Meta:
         db_table = "period_attendance"
         unique_together = [("student", "assignment", "date", "period_number")]
+
+    def __str__(self):
+        return f"{self.student} — {self.assignment} [{self.date} P{self.period_number}]"
 
 
 class AttendanceLeave(models.Model):
@@ -96,3 +99,6 @@ class AttendanceLeave(models.Model):
     @property
     def total_days(self):
         return (self.to_date - self.from_date).days + 1
+
+    def __str__(self):
+        return f"{self.student} — {self.get_leave_type_display()} [{self.status}]"

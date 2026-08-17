@@ -227,13 +227,11 @@ open http://localhost:3000
 
 | System                  | Purpose                              | Status       |
 | ----------------------- | ------------------------------------ | ------------ |
-| Google Workspace        | SSO + Classroom sync                 | Configurable |
-| Microsoft 365           | SSO + Teams integration              | Configurable |
-| Zoom                    | Virtual classroom links in timetable | API ready    |
+| Zoom                    | Virtual classroom links in timetable | Configurable |
 | SendGrid                | Transactional email                  | Active       |
 | Twilio                  | SMS notifications                    | Active       |
 | Firebase FCM            | Mobile push notifications            | Active       |
-| Stripe / Khalti / eSewa | Online fee payment                   | Configurable |
+| Stripe / Khalti / eSewa | Online fee payment                   | Active       |
 | National Exam Boards    | Result import                        | Via CSV/API  |
 
 ---

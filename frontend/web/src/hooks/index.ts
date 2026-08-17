@@ -16,34 +16,6 @@ export function useDebounce<T>(value: T, delay = 400): T {
   return debounced;
 }
 
-// ─── useLocalStorage ─────────────────────────────────────────────────────────
-
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [stored, setStored] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch {
-      return initialValue;
-    }
-  });
-
-  const setValue = useCallback(
-    (value: T | ((prev: T) => T)) => {
-      try {
-        const toStore = value instanceof Function ? value(stored) : value;
-        setStored(toStore);
-        window.localStorage.setItem(key, JSON.stringify(toStore));
-      } catch (e) {
-        console.warn("localStorage write failed:", e);
-      }
-    },
-    [key, stored],
-  );
-
-  return [stored, setValue] as const;
-}
-
 // ─── useWebSocket (real-time messaging) ──────────────────────────────────────
 
 type WSStatus = "connecting" | "connected" | "disconnected" | "error";
@@ -54,6 +26,8 @@ interface UseWebSocketOptions {
   onDisconnect?: () => void;
   reconnectDelay?: number;
   maxRetries?: number;
+  /** When false, the socket stays closed (e.g. no active conversation). */
+  enabled?: boolean;
 }
 
 export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
@@ -125,13 +99,15 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
   }, []);
 
   useEffect(() => {
+    if (options.enabled === false) return;
     mountedRef.current = true;
+    retryRef.current = 0;
     connect();
     return () => {
       mountedRef.current = false;
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [connect, options.enabled]);
 
   return { status, send, disconnect, isConnected: status === "connected" };
 }
@@ -187,11 +163,13 @@ export function useChatSocket(
     status: string;
     sent_at: string;
   }) => void,
+  enabled = true,
 ) {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { status, send } = useWebSocket(`/ws/chat/${recipientId}/`, {
+    enabled: enabled && !!recipientId,
     onMessage: (data) => {
       if (data.type === "chat_message")
         onMessage?.(
@@ -229,16 +207,6 @@ export function useChatSocket(
   );
 
   return { status, sendMessage, sendTyping, isTyping };
-}
-
-// ─── usePagination ───────────────────────────────────────────────────────────
-
-export function usePagination(initialPage = 1, pageSize = 25) {
-  const [page, setPage] = useState(initialPage);
-  const reset = useCallback(() => setPage(1), []);
-  const next = useCallback(() => setPage((p) => p + 1), []);
-  const prev = useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
-  return { page, setPage, reset, next, prev, pageSize };
 }
 
 // ─── useTitle ────────────────────────────────────────────────────────────────

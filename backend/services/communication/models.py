@@ -3,8 +3,9 @@ Communication Service — Messaging, announcements, notifications
 """
 
 import uuid
+
 from django.db import models
-from services.auth.models import User, School
+from services.auth.models import School, User
 from services.students.models import Classroom, Grade
 
 
@@ -60,6 +61,9 @@ class AnnouncementRead(models.Model):
         db_table = "announcement_reads"
         unique_together = [("announcement", "user")]
 
+    def __str__(self):
+        return f"{self.user} read {self.announcement}"
+
 
 class DirectMessage(models.Model):
     """1-to-1 messaging thread."""
@@ -75,9 +79,7 @@ class DirectMessage(models.Model):
     content = models.TextField()
     attachment = models.FileField(upload_to="messages/attachments/", null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.SENT)
-    parent_message = models.ForeignKey(
-        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies"
-    )
+    parent_message = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies")
     is_deleted_sender = models.BooleanField(default=False)
     is_deleted_recipient = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
@@ -90,6 +92,8 @@ class DirectMessage(models.Model):
         indexes = [
             models.Index(fields=["sender", "recipient"]),
             models.Index(fields=["recipient", "status"]),
+            models.Index(fields=["recipient", "sent_at"]),
+            models.Index(fields=["sender", "sent_at"]),
         ]
 
     def __str__(self):
@@ -98,9 +102,10 @@ class DirectMessage(models.Model):
 
 class NotificationTemplate(models.Model):
     """Reusable notification templates with variable substitution."""
+
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="notification_templates")
     name = models.CharField(max_length=100)
-    event_type = models.CharField(max_length=50)    # e.g. "attendance_absent", "fee_due"
+    event_type = models.CharField(max_length=50)  # e.g. "attendance_absent", "fee_due"
     email_subject = models.CharField(max_length=255, blank=True)
     email_body = models.TextField(blank=True)
     sms_body = models.CharField(max_length=160, blank=True)
@@ -111,6 +116,9 @@ class NotificationTemplate(models.Model):
     class Meta:
         db_table = "notification_templates"
         unique_together = [("school", "event_type")]
+
+    def __str__(self):
+        return f"{self.school} — {self.name} ({self.event_type})"
 
 
 class Notification(models.Model):
@@ -149,24 +157,27 @@ class Notification(models.Model):
             models.Index(fields=["user", "channel", "created_at"]),
         ]
 
+    def __str__(self):
+        return f"{self.user} — {self.title} [{self.status}]"
+
 
 class DeviceToken(models.Model):
     """FCM push notification token per device per user."""
 
     class Platform(models.TextChoices):
-        IOS     = "ios",     "iOS"
+        IOS = "ios", "iOS"
         ANDROID = "android", "Android"
-        WEB     = "web",     "Web (PWA)"
+        WEB = "web", "Web (PWA)"
 
-    user     = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_tokens")
-    token    = models.TextField(unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_tokens")
+    token = models.TextField(unique=True)
     platform = models.CharField(max_length=10, choices=Platform.choices)
-    device_id   = models.CharField(max_length=255, blank=True)
+    device_id = models.CharField(max_length=255, blank=True)
     device_name = models.CharField(max_length=255, blank=True)
     app_version = models.CharField(max_length=20, blank=True)
-    is_active   = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
     registered_at = models.DateTimeField(auto_now_add=True)
-    last_used_at  = models.DateTimeField(auto_now=True)
+    last_used_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "device_tokens"

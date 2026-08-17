@@ -75,7 +75,11 @@ class FeeInvoice(models.Model):
 
     class Meta:
         db_table = "fee_invoices"
-        indexes = [models.Index(fields=["student", "status"]), models.Index(fields=["due_date", "status"])]
+        indexes = [
+            models.Index(fields=["student", "status"]),
+            models.Index(fields=["student", "academic_year"]),
+            models.Index(fields=["due_date", "status"]),
+        ]
 
     @property
     def outstanding_amount(self):
@@ -117,6 +121,9 @@ class Payment(models.Model):
 
     class Meta:
         db_table = "payments"
+        indexes = [
+            models.Index(fields=["status", "paid_at"]),
+        ]
 
     def __str__(self):
         return f"PAY-{self.receipt_number} | {self.amount} [{self.status}]"

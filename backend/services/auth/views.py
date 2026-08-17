@@ -8,7 +8,7 @@ import secrets
 from datetime import timedelta
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin
+from core.permissions import IsSchoolAdmin, IsSuperAdmin
 from core.throttles import (
     AuthLoginAnonThrottle,
     AuthPasswordResetConfirmThrottle,
@@ -18,7 +18,7 @@ from core.throttles import (
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, generics, parsers, permissions, status, viewsets
+from rest_framework import filters, generics, parsers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -794,13 +794,6 @@ def me(request):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class IsSuperAdmin(permissions.BasePermission):
-    """Only super_admin can access platform-level endpoints."""
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == "super_admin"
-
-
 class SchoolViewSet(viewsets.ModelViewSet):
     """
     CRUD for schools — super admin only.
@@ -879,8 +872,18 @@ class PlatformDashboardView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
+        from django.core.cache import cache
         from django.db.models import Count, Q, Sum
         from services.fees.models import Payment
+
+        cache_key = "platform_dashboard_stats"
+
+        # Try cache first; returns None on miss or if Redis is unavailable
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        logger.debug("Platform dashboard stats cache miss")
 
         schools = School.objects.all()
         total_schools = schools.count()
@@ -936,4 +939,6 @@ class PlatformDashboardView(APIView):
         }
 
         serializer = PlatformDashboardSerializer(instance=data)
-        return Response(serializer.data)
+        result = serializer.data
+        cache.set(cache_key, result, 300)  # 5 minute TTL
+        return Response(result)

@@ -4,6 +4,7 @@ import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -31,7 +32,10 @@ class VehicleViewSet(viewsets.ModelViewSet):
     ordering = ["plate_number"]
 
     def get_queryset(self):
-        return Vehicle.objects.filter(school=self.request.user.school)
+        return Vehicle.objects.filter(school=self.request.user.school).annotate(
+            route_count=Count("assigned_routes", distinct=True),
+            maintenance_count=Count("maintenance_records", distinct=True),
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -73,6 +77,7 @@ class RouteViewSet(viewsets.ModelViewSet):
             Route.objects.filter(school=self.request.user.school)
             .select_related("vehicle", "driver")
             .prefetch_related("stops")
+            .annotate(student_count=Count("student_assignments", filter=Q(student_assignments__is_active=True)))
         )
 
     def get_permissions(self):

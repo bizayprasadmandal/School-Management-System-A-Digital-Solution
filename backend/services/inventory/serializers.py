@@ -14,7 +14,7 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def get_item_count(self, obj):
-        return obj.items.count()
+        return getattr(obj, "item_count", obj.items.count())
 
 
 class SupplierSerializer(serializers.ModelSerializer):

@@ -1,7 +1,8 @@
 """Alumni serializers."""
 
 from rest_framework import serializers
-from .models import AlumniProfile, AlumniEvent, AlumniDonation, AlumniChapter
+
+from .models import AlumniChapter, AlumniDonation, AlumniEvent, AlumniProfile
 
 
 class AlumniProfileSerializer(serializers.ModelSerializer):
@@ -11,7 +12,30 @@ class AlumniProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AlumniProfile
-        fields = ["id", "user", "user_name", "user_email", "graduation_year", "student_id", "occupation", "employer", "employment_status", "employment_status_display", "phone", "address", "city", "country", "linkedin_url", "facebook_url", "twitter_handle", "bio", "is_newsletter_subscribed", "is_visible_to_public", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "user_email",
+            "graduation_year",
+            "student_id",
+            "occupation",
+            "employer",
+            "employment_status",
+            "employment_status_display",
+            "phone",
+            "address",
+            "city",
+            "country",
+            "linkedin_url",
+            "facebook_url",
+            "twitter_handle",
+            "bio",
+            "is_newsletter_subscribed",
+            "is_visible_to_public",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
@@ -21,7 +45,24 @@ class AlumniEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AlumniEvent
-        fields = ["id", "title", "description", "event_date", "end_date", "location", "venue", "max_attendees", "registration_deadline", "fee_amount", "status", "status_display", "organizer", "organizer_name", "cover_image_url", "created_at"]
+        fields = [
+            "id",
+            "title",
+            "description",
+            "event_date",
+            "end_date",
+            "location",
+            "venue",
+            "max_attendees",
+            "registration_deadline",
+            "fee_amount",
+            "status",
+            "status_display",
+            "organizer",
+            "organizer_name",
+            "cover_image_url",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -31,7 +72,21 @@ class AlumniDonationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AlumniDonation
-        fields = ["id", "alumni", "alumni_name", "amount", "fund_type", "fund_type_display", "payment_method", "transaction_id", "donation_date", "is_anonymous", "is_recurring", "message", "created_at"]
+        fields = [
+            "id",
+            "alumni",
+            "alumni_name",
+            "amount",
+            "fund_type",
+            "fund_type_display",
+            "payment_method",
+            "transaction_id",
+            "donation_date",
+            "is_anonymous",
+            "is_recurring",
+            "message",
+            "created_at",
+        ]
         read_only_fields = ["id", "donation_date", "created_at"]
 
 
@@ -41,7 +96,21 @@ class AlumniChapterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AlumniChapter
-        fields = ["id", "name", "city", "country", "description", "president", "president_name", "is_active", "member_count", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "city",
+            "country",
+            "description",
+            "president",
+            "president_name",
+            "is_active",
+            "member_count",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
+
     def get_member_count(self, obj):
+        if getattr(obj, "member_count", None) is not None:
+            return obj.member_count
         return AlumniProfile.objects.filter(city__iexact=obj.city).count() if obj.city else 0

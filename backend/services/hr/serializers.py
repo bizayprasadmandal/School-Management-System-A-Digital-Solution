@@ -26,7 +26,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
     head_name = serializers.CharField(source="head.full_name", read_only=True, default=None)
 
     def get_employee_count(self, obj):
-        return obj.employees.count()
+        return getattr(obj, "employee_count", obj.employees.count())
 
 
 class EmployeeSerializer(serializers.ModelSerializer):

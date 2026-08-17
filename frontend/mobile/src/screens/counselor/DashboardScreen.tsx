@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } 
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { mobileApi } from "../../api/client";
+import { counselingApi } from "../../services/api";
 import { useAuthStore } from "../../hooks/useAuthStore";
 import { Card, SectionHeader } from "../../components";
 
@@ -19,12 +19,12 @@ export default function CounselorDashboardScreen() {
     refetch,
   } = useQuery({
     queryKey: ["mob-counselor-home"],
-    queryFn: () => mobileApi.get<any>("/counseling/dashboard/stats/"),
+    queryFn: () => counselingApi.dashboardStats(),
   });
 
   const { data: appointmentsData } = useQuery({
     queryKey: ["mob-counselor-appts"],
-    queryFn: () => mobileApi.get<any>("/counseling/appointments/?page_size=5"),
+    queryFn: () => counselingApi.appointments({ page_size: 5 }),
   });
 
   const recentAppts = appointmentsData?.results ?? [];

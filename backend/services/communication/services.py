@@ -367,8 +367,8 @@ def send_expo_push_notification(self, user_id: str, title: str, body: str, data:
 send_push_notification = send_expo_push_notification
 
 
-@shared_task
-def broadcast_announcement(announcement_id: str):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def broadcast_announcement(self, announcement_id: str):
     """
     Send an announcement to all targeted users via their preferred channels.
     Runs as a background task after announcement is published.
@@ -383,47 +383,51 @@ def broadcast_announcement(announcement_id: str):
         logger.error("Announcement %s not found", announcement_id)
         return
 
-    # Resolve target users based on audience
-    school = announcement.school
-    qs = User.objects.filter(school=school, is_active=True)
+    try:
+        # Resolve target users based on audience
+        school = announcement.school
+        qs = User.objects.filter(school=school, is_active=True)
 
-    audience_role_map = {
-        "teachers": ["teacher"],
-        "students": ["student"],
-        "parents": ["parent"],
-        "staff": ["teacher", "accountant", "librarian", "counselor"],
-        "all": None,
-    }
-    roles = audience_role_map.get(announcement.audience)
-    if roles:
-        qs = qs.filter(role__in=roles)
+        audience_role_map = {
+            "teachers": ["teacher"],
+            "students": ["student"],
+            "parents": ["parent"],
+            "staff": ["teacher", "accountant", "librarian", "counselor"],
+            "all": None,
+        }
+        roles = audience_role_map.get(announcement.audience)
+        if roles:
+            qs = qs.filter(role__in=roles)
 
-    channels = []
-    if announcement.send_push:
-        channels.append("push")
-    if announcement.send_email:
-        channels.append("email")
-    if announcement.send_sms:
-        channels.append("sms")
-    channels.append("in_app")
+        channels = []
+        if announcement.send_push:
+            channels.append("push")
+        if announcement.send_email:
+            channels.append("email")
+        if announcement.send_sms:
+            channels.append("sms")
+        channels.append("in_app")
 
-    template = NotificationTemplate.objects.filter(school=school, event_type="announcement", is_active=True).first()
+        template = NotificationTemplate.objects.filter(school=school, event_type="announcement", is_active=True).first()
 
-    context = {
-        "school_name": school.name,
-        "title": announcement.title,
-        "content": announcement.content[:200],
-    }
+        context = {
+            "school_name": school.name,
+            "title": announcement.title,
+            "content": announcement.content[:200],
+        }
 
-    dispatched = 0
-    for user in qs.iterator(chunk_size=100):
-        NotificationService.send(user=user, template=template, context=context, channels=channels)
-        dispatched += 1
+        dispatched = 0
+        for user in qs.iterator(chunk_size=100):
+            NotificationService.send(user=user, template=template, context=context, channels=channels)
+            dispatched += 1
 
-    logger.info(
-        "Announcement %s broadcast to %d users via %s",
-        announcement_id,
-        dispatched,
-        channels,
-    )
+        logger.info(
+            "Announcement %s broadcast to %d users via %s",
+            announcement_id,
+            dispatched,
+            channels,
+        )
+    except Exception as exc:
+        logger.error("Announcement broadcast failed for %s: %s", announcement_id, exc)
+        raise self.retry(exc=exc)
     return {"announcement_id": announcement_id, "dispatched": dispatched}

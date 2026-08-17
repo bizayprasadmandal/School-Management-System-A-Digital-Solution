@@ -54,6 +54,7 @@ import LibrarianBookManagementScreen from "../screens/librarian/BookManagementSc
 // Counselor screens
 import CounselorDashboardScreen from "../screens/counselor/DashboardScreen";
 import CounselorAppointmentsScreen from "../screens/counselor/AppointmentsScreen";
+import CounselorReferralsScreen from "../screens/counselor/ReferralsScreen";
 
 // Shared screens
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
@@ -259,6 +260,7 @@ function CounselorTabs() {
           const icons: Record<string, [string, string]> = {
             Home: ["heart", "heart-outline"],
             Appointments: ["calendar", "calendar-outline"],
+            Referrals: ["clipboard", "clipboard-outline"],
           };
           const [active, inactive] = (icons[route.name] ?? ["help", "help-outline"]) as [
             IoniconName,
@@ -281,6 +283,11 @@ function CounselorTabs() {
         name="Appointments"
         component={CounselorAppointmentsScreen}
         options={{ title: "Appointments" }}
+      />
+      <Tab.Screen
+        name="Referrals"
+        component={CounselorReferralsScreen}
+        options={{ title: "Referrals" }}
       />
     </Tab.Navigator>
   );

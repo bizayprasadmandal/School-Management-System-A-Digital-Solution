@@ -14,7 +14,7 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------- |
 | 1   | **Resolve license** — README says _Proprietary_ on a public repo. Pick MIT/AGPL or go private. **[OWNER]**                                                                                              | 5·5·5/1 = 125    | Product owner |
 | 2   | **Real deployment** — stand up the cluster (or a managed Postgres + container host for pilot scale), add `KUBE_CONFIG_PRODUCTION` + remaining `sms-secrets` values, un-skip the deploy job. **[OWNER]** | 5·5·5/2 = 62     | Dev + owner   |
-| 3   | **Fix stale deploy docs** — `DEPLOYMENT.md` still claims only `auth_service` ships a hand-written migration; all 22 services ship migrations now. ✅ _done 2026-08 (see below)_                         | —                | —             |
+| 3   | **Fix stale deploy docs** — `DEPLOYMENT.md` still claims only `auth_service` ships a hand-written migration; all 23 services ship migrations now. ✅ _done 2026-08 (see below)_                         | —                | —             |
 
 ## Phase 2 — Win one pilot school (days 31–60)
 

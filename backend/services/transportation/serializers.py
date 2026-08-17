@@ -1,7 +1,8 @@
 """Transportation Management serializers."""
 
 from rest_framework import serializers
-from .models import Vehicle, Driver, Route, RouteStop, StudentRoute, VehicleMaintenance
+
+from .models import Driver, Route, RouteStop, StudentRoute, Vehicle, VehicleMaintenance
 
 
 class VehicleSerializer(serializers.ModelSerializer):
@@ -13,20 +14,35 @@ class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
         fields = [
-            "id", "plate_number", "vehicle_type", "vehicle_type_display", "model_name",
-            "year", "capacity", "color", "chassis_number", "engine_number",
-            "insurance_number", "insurance_expiry", "fitness_expiry",
-            "status", "status_display", "notes", "is_active",
-            "route_count", "maintenance_count",
-            "created_at", "updated_at",
+            "id",
+            "plate_number",
+            "vehicle_type",
+            "vehicle_type_display",
+            "model_name",
+            "year",
+            "capacity",
+            "color",
+            "chassis_number",
+            "engine_number",
+            "insurance_number",
+            "insurance_expiry",
+            "fitness_expiry",
+            "status",
+            "status_display",
+            "notes",
+            "is_active",
+            "route_count",
+            "maintenance_count",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_route_count(self, obj):
-        return obj.assigned_routes.count()
+        return getattr(obj, "route_count", obj.assigned_routes.count())
 
     def get_maintenance_count(self, obj):
-        return obj.maintenance_records.count()
+        return getattr(obj, "maintenance_count", obj.maintenance_records.count())
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -36,11 +52,22 @@ class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
         fields = [
-            "id", "employee", "employee_name", "user", "full_name",
-            "phone_number", "email", "license_number", "license_expiry",
-            "status", "status_display",
-            "emergency_contact_name", "emergency_contact_phone",
-            "notes", "created_at", "updated_at",
+            "id",
+            "employee",
+            "employee_name",
+            "user",
+            "full_name",
+            "phone_number",
+            "email",
+            "license_number",
+            "license_expiry",
+            "status",
+            "status_display",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+            "notes",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -51,9 +78,20 @@ class RouteStopSerializer(serializers.ModelSerializer):
     class Meta:
         model = RouteStop
         fields = [
-            "id", "route", "name", "address", "landmark",
-            "latitude", "longitude", "stop_order", "stop_type", "stop_type_display",
-            "pickup_time", "dropoff_time", "is_active", "created_at",
+            "id",
+            "route",
+            "name",
+            "address",
+            "landmark",
+            "latitude",
+            "longitude",
+            "stop_order",
+            "stop_type",
+            "stop_type_display",
+            "pickup_time",
+            "dropoff_time",
+            "is_active",
+            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -67,26 +105,47 @@ class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
         fields = [
-            "id", "name", "description", "vehicle", "vehicle_plate",
-            "driver", "driver_name", "origin", "destination",
-            "estimated_duration_minutes", "operating_days", "is_active",
-            "stops", "student_count",
-            "created_at", "updated_at",
+            "id",
+            "name",
+            "description",
+            "vehicle",
+            "vehicle_plate",
+            "driver",
+            "driver_name",
+            "origin",
+            "destination",
+            "estimated_duration_minutes",
+            "operating_days",
+            "is_active",
+            "stops",
+            "student_count",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_student_count(self, obj):
-        return obj.student_assignments.filter(is_active=True).count()
+        return getattr(obj, "student_count", obj.student_assignments.filter(is_active=True).count())
 
 
 class RouteStopDetailSerializer(serializers.ModelSerializer):
     """Used for nested CRUD within a Route."""
+
     class Meta:
         model = RouteStop
         fields = [
-            "id", "route", "name", "address", "landmark",
-            "latitude", "longitude", "stop_order", "stop_type",
-            "pickup_time", "dropoff_time", "is_active",
+            "id",
+            "route",
+            "name",
+            "address",
+            "landmark",
+            "latitude",
+            "longitude",
+            "stop_order",
+            "stop_type",
+            "pickup_time",
+            "dropoff_time",
+            "is_active",
         ]
         read_only_fields = ["id"]
 
@@ -100,11 +159,23 @@ class StudentRouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentRoute
         fields = [
-            "id", "route", "route_name", "student", "student_name",
-            "pickup_stop", "pickup_stop_name", "dropoff_stop", "dropoff_stop_name",
-            "service_type", "fee_amount",
-            "effective_from", "effective_to", "is_active", "notes",
-            "created_at", "updated_at",
+            "id",
+            "route",
+            "route_name",
+            "student",
+            "student_name",
+            "pickup_stop",
+            "pickup_stop_name",
+            "dropoff_stop",
+            "dropoff_stop_name",
+            "service_type",
+            "fee_amount",
+            "effective_from",
+            "effective_to",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -118,14 +189,26 @@ class VehicleMaintenanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleMaintenance
         fields = [
-            "id", "vehicle", "vehicle_plate",
-            "maintenance_type", "maintenance_type_display",
-            "status", "status_display",
-            "scheduled_date", "completed_date",
-            "odometer_reading", "cost", "vendor_name", "invoice_number",
-            "description", "notes",
-            "performed_by", "performed_by_name",
-            "next_service_date", "next_service_odometer",
-            "created_at", "updated_at",
+            "id",
+            "vehicle",
+            "vehicle_plate",
+            "maintenance_type",
+            "maintenance_type_display",
+            "status",
+            "status_display",
+            "scheduled_date",
+            "completed_date",
+            "odometer_reading",
+            "cost",
+            "vendor_name",
+            "invoice_number",
+            "description",
+            "notes",
+            "performed_by",
+            "performed_by_name",
+            "next_service_date",
+            "next_service_odometer",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]

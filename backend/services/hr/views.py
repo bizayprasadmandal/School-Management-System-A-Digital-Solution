@@ -4,6 +4,7 @@ import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, viewsets
@@ -32,7 +33,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
-        return Department.objects.filter(school=self.request.user.school).prefetch_related("employees")
+        return Department.objects.filter(school=self.request.user.school).annotate(employee_count=Count("employees"))
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
