@@ -146,7 +146,7 @@ jobs:
       - name: Start frontend dev server
         working-directory: frontend/web
         run: |
-          BROWSER=none npm start > /tmp/frontend.log 2>&1 &
+          npm run dev > /tmp/frontend.log 2>&1 &
           echo $! > /tmp/frontend.pid
           for i in $(seq 1 180); do
             if curl -sf http://localhost:3000 > /dev/null 2>&1; then
