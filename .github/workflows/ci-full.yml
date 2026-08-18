@@ -33,7 +33,7 @@ jobs:
       SECRET_KEY: ci-test-secret-key
       DEBUG: "True"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           { python-version: "3.12", cache: pip, cache-dependency-path: backend/requirements.txt }
@@ -77,7 +77,7 @@ jobs:
       SECRET_KEY: ci-test-secret-key
       DEBUG: "True"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           { python-version: "3.12", cache: pip, cache-dependency-path: backend/requirements.txt }
@@ -111,7 +111,7 @@ jobs:
       # login throttle out of the way (production default remains 10/minute).
       AUTH_LOGIN_THROTTLE_RATE: "10000/minute"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           { python-version: "3.12", cache: pip, cache-dependency-path: backend/requirements.txt }
@@ -172,7 +172,7 @@ jobs:
   frontend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           { node-version: "20", cache: npm, cache-dependency-path: frontend/web/package-lock.json }
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           {
@@ -223,7 +223,7 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -273,7 +273,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions: { contents: read, packages: write }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # GHCR requires lowercase image names — slug the repo name via the shell.
       - name: Slug GHCR image base (lowercase)
         run: |
@@ -352,7 +352,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: { name: production, url: "https://app.edusphere.school" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Slug GHCR image base (lowercase)
         run: |
           echo "IMAGE_BASE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
