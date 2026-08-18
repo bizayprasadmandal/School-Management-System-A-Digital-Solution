@@ -31,9 +31,9 @@ class PublicIntakeListView(APIView):
             application_end__gte=today,
         ).select_related("school")
         # Filter by school if provided (subdomain or query param)
-        school_slug = request.query_params.get("school")
-        if school_slug:
-            intakes = intakes.filter(school__slug=school_slug)
+        school_code = request.query_params.get("school")
+        if school_code:
+            intakes = intakes.filter(school__code=school_code)
         return Response(PublicIntakeSerializer(intakes, many=True).data)
 
 

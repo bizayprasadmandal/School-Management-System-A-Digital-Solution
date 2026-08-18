@@ -15,7 +15,9 @@ class PublicAdmissionsTestBase(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.school = School.objects.create(name="Test School", slug="test-school")
+        self.school = School.objects.create(
+            name="Test School", code="TST", subdomain="test", address="Test St", phone="+977-1", email="t@t.com"
+        )
 
         today = timezone.now().date()
         self.open_intake = EnrollmentIntake.objects.create(
@@ -60,7 +62,9 @@ class PublicIntakeListTest(PublicAdmissionsTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_filter_by_school_slug(self):
-        other_school = School.objects.create(name="Other", slug="other")
+        other_school = School.objects.create(
+            name="Other", code="OTH", subdomain="other", address="Other St", phone="+977-2", email="o@o.com"
+        )
         EnrollmentIntake.objects.create(
             school=other_school,
             name="Other Intake",
@@ -68,7 +72,7 @@ class PublicIntakeListTest(PublicAdmissionsTestBase):
             application_end=timezone.now().date() + timedelta(days=10),
             status="open",
         )
-        response = self.client.get("/api/v1/admissions/public/intakes/", {"school": "other"})
+        response = self.client.get("/api/v1/admissions/public/intakes/", {"school": "OTH"})
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "Other Intake")
 
