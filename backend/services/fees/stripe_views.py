@@ -136,7 +136,7 @@ def create_payment_intent(request):
         # Create a new PaymentIntent
         pi = stripe.PaymentIntent.create(
             amount=amount_cents,
-            currency="usd",
+            currency=settings.STRIPE_CURRENCY,
             description=f"Invoice {invoice.invoice_number} — {invoice.student.user.full_name}",
             metadata={
                 "invoice_id": str(invoice.id),

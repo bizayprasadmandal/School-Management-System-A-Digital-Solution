@@ -96,6 +96,7 @@ MIDDLEWARE = [
     "core.middleware.body_size_limit.RequestBodySizeMiddleware",
     "core.middleware.idempotency.IdempotencyMiddleware",
     "core.middleware.session_timeout.SessionTimeoutMiddleware",
+    "core.middleware.admin_ip.AdminIPMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
@@ -333,6 +334,12 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 # inverse of DEBUG (lenient in dev, strict in prod); production.py forces
 # True so production can never silently accept unsigned webhooks.
 STRIPE_WEBHOOK_REQUIRE_SIGNATURE = env.bool("STRIPE_WEBHOOK_REQUIRE_SIGNATURE", default=not DEBUG)
+STRIPE_CURRENCY = env("STRIPE_CURRENCY", default="usd")
+
+# ─── Admin IP Allowlist ────────────────────────────────────────────────────────
+# When non-empty, only these IPs can access /admin/. Empty = no restriction.
+# Use X-Forwarded-For for proxied deployments.
+ADMIN_ALLOWED_IPS = env.list("ADMIN_ALLOWED_IPS", default=[])
 
 # ─── Nepali Payment Gateways ─────────────────────────────────────────────────
 
