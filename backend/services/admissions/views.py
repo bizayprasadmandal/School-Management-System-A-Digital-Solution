@@ -216,6 +216,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
         Creates the User + Student profile + active Enrollment in the current
         academic year, links it back to the application and marks it enrolled.
+        If guardian information is provided on the application, a parent user
+        and guardian profile are also created with portal access.
         """
         import uuid
 
@@ -223,7 +225,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         from services.auth.models import User, UserRole
         from services.auth.utils import generate_secure_password
-        from services.students.models import AcademicYear, Classroom, Enrollment, Student
+        from services.communication.services import send_email_notification, send_in_app_notification
+        from services.students.models import AcademicYear, Classroom, Enrollment, Guardian, Student, StudentGuardian
 
         app = self.get_object()
         if app.status != Application.Status.ACCEPTED or not app.offer_sent_at:
@@ -277,15 +280,80 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 classroom=classroom,
                 academic_year=academic_year,
             )
+
+            # ── Guardian account ────────────────────────────────────────────────
+            guardian_user = None
+            if app.guardian_email and app.guardian_name:
+                g_email = app.guardian_email.strip().lower()
+                if not User.objects.filter(email=g_email).exists():
+                    g_password = generate_secure_password()
+                    g_first, _, g_last = app.guardian_name.partition(" ")
+                    if not g_last:
+                        g_first, g_last = app.guardian_name, ""
+                    guardian_user = User.objects.create_user(
+                        email=g_email,
+                        password=g_password,
+                        first_name=g_first,
+                        last_name=g_last or app.last_name,
+                        role=UserRole.PARENT,
+                        school=school,
+                    )
+                    Guardian.objects.create(
+                        user=guardian_user,
+                        first_name=g_first,
+                        last_name=g_last or app.last_name,
+                        email=g_email,
+                        phone=app.guardian_phone or "",
+                    )
+                    StudentGuardian.objects.create(
+                        student=student,
+                        guardian=guardian_user.guardian_profile,
+                        relationship=app.guardian_relation or "parent",
+                        portal_access=True,
+                    )
+
             app.linked_student = student
             app.status = Application.Status.ENROLLED
             app.save(update_fields=["linked_student", "status"])
             _log_timeline(app, ApplicationTimelineEvent.Stage.ENROLLED, request)
 
+        # ── Enrollment notifications (best-effort, outside transaction) ────────
+        try:
+            send_in_app_notification.delay(
+                user_id=str(user.id),
+                title="Welcome to EduSphere",
+                body=(
+                    f"Welcome to {school.name}! Your admission number is "
+                    f"{student.admission_number}. "
+                    f"You are enrolled in {classroom}."
+                ),
+                reference_type="enrollment",
+                reference_id=str(student.id),
+            )
+            send_email_notification.delay(
+                user_id=str(user.id),
+                subject=f"Welcome to {school.name} — Enrollment Confirmed",
+                body=(
+                    f"Dear {app.first_name},\n\n"
+                    f"Congratulations! You have been enrolled at {school.name}.\n\n"
+                    f"Admission Number: {student.admission_number}\n"
+                    f"Class: {classroom}\n"
+                    f"Academic Year: {academic_year.name}\n\n"
+                    f"Your login credentials:\n"
+                    f"  Email: {email}\n"
+                    f"  Password: {password}\n\n"
+                    f"Please change your password after first login.\n\n"
+                    f" Regards,\n{school.name} Admissions"
+                ),
+            )
+        except Exception:  # pragma: no cover — notification must never block enrollment
+            logger.error("Enrollment notification failed for %s", email, exc_info=True)
+
         return Response(
             {
                 **ApplicationSerializer(app).data,
                 "generated_password": password,
+                **({"guardian_password": g_password} if guardian_user else {}),
             }
         )
 
