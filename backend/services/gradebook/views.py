@@ -8,6 +8,7 @@ from uuid import UUID
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsStudent, IsTeacher
+from django.db.models import Count
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -40,7 +41,7 @@ class ExamViewSet(viewsets.ModelViewSet):
         academic_year = self.request.query_params.get("academic_year")
         if academic_year:
             qs = qs.filter(academic_year_id=academic_year)
-        return qs
+        return qs.annotate(schedule_count=Count("schedules"))
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy", "generate_report_cards", "publish_results"]:

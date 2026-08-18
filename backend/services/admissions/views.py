@@ -4,6 +4,7 @@ import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
@@ -41,7 +42,9 @@ class EnrollmentIntakeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["status"]
 
     def get_queryset(self):
-        return EnrollmentIntake.objects.filter(school=self.request.user.school)
+        return EnrollmentIntake.objects.filter(school=self.request.user.school).annotate(
+            application_count=Count("applications")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

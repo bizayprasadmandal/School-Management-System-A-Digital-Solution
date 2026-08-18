@@ -16,6 +16,8 @@ from core.throttles import (
     AuthVerify2FALoginThrottle,
 )
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Count, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, parsers, status, viewsets
@@ -810,7 +812,23 @@ class SchoolViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return School.objects.all().order_by("-created_at")
+        return (
+            School.objects.all()
+            .annotate(
+                user_count=Count("users", distinct=True),
+                student_count=Count("users", filter=Q(users__role="student"), distinct=True),
+                teacher_count=Count("users", filter=Q(users__role="teacher"), distinct=True),
+                admin_count=Count("users", filter=Q(users__role="school_admin"), distinct=True),
+                total_revenue=Coalesce(
+                    Sum(
+                        "users__student_profile__invoices__payments__amount",
+                        filter=Q(users__student_profile__invoices__payments__status="successful"),
+                    ),
+                    Value(0),
+                ),
+            )
+            .order_by("-created_at")
+        )
 
     @action(detail=True, methods=["post"])
     def toggle_active(self, request, pk=None):

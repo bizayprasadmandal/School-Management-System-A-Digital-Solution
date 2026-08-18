@@ -78,7 +78,7 @@ def notify_absent_guardians(self, record_id: str):
         raise self.retry(exc=exc)
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_approved_leave(self, leave_id: int):
     """
     When a leave is approved, auto-update attendance records
@@ -128,41 +128,48 @@ def process_approved_leave(self, leave_id: int):
 
     except Exception as exc:
         logger.error("Failed to process approved leave %d: %s", leave_id, exc)
-        raise
+        raise self.retry(exc=exc)
 
 
-@shared_task
-def generate_monthly_attendance_report(school_id: str, month: int, year: int):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def generate_monthly_attendance_report(self, school_id: str, month: int, year: int):
     """
     Generate and cache monthly attendance report for a school.
     Scheduled via django-celery-beat on the 1st of each month.
     """
-    from django.core.cache import cache
-    from services.auth.models import School
+    try:
+        from django.core.cache import cache
+        from services.auth.models import School
 
-    from .models import AttendanceRecord
+        from .models import AttendanceRecord
 
-    school = School.objects.get(id=school_id)
-    records = AttendanceRecord.objects.filter(
-        student__school=school,
-        date__year=year,
-        date__month=month,
-    )
+        school = School.objects.get(id=school_id)
+        records = AttendanceRecord.objects.filter(
+            student__school=school,
+            date__year=year,
+            date__month=month,
+        )
 
-    stats = {
-        "school_id": str(school_id),
-        "month": month,
-        "year": year,
-        "total_records": records.count(),
-        "present": records.filter(status="P").count(),
-        "absent": records.filter(status="A").count(),
-        "late": records.filter(status="L").count(),
-        "excused": records.filter(status="E").count(),
-        "generated_at": timezone.now().isoformat(),
-    }
+        stats = {
+            "school_id": str(school_id),
+            "month": month,
+            "year": year,
+            "total_records": records.count(),
+            "present": records.filter(status="P").count(),
+            "absent": records.filter(status="A").count(),
+            "late": records.filter(status="L").count(),
+            "excused": records.filter(status="E").count(),
+            "generated_at": timezone.now().isoformat(),
+        }
 
-    cache_key = f"monthly_attendance_{school_id}_{year}_{month}"
-    cache.set(cache_key, stats, timeout=86400)  # Cache 24 hours
+        cache_key = f"monthly_attendance_{school_id}_{year}_{month}"
+        cache.set(cache_key, stats, timeout=86400)  # Cache 24 hours
 
-    logger.info("Monthly attendance report cached for school %s (%d/%d)", school.code, month, year)
-    return stats
+        logger.info("Monthly attendance report cached for school %s (%d/%d)", school.code, month, year)
+        return stats
+    except School.DoesNotExist:
+        logger.error("Monthly attendance report skipped: school %s not found", school_id)
+        return None
+    except Exception as exc:
+        logger.error("Failed to generate monthly attendance report for school %s: %s", school_id, exc)
+        raise self.retry(exc=exc)

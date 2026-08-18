@@ -133,19 +133,21 @@ class SchoolSerializer(serializers.ModelSerializer):
         ]
 
     def get_user_count(self, obj):
-        return obj.users.count()
+        return getattr(obj, "user_count", obj.users.count())
 
     def get_student_count(self, obj):
-        return obj.users.filter(role="student").count()
+        return getattr(obj, "student_count", obj.users.filter(role="student").count())
 
     def get_teacher_count(self, obj):
-        return obj.users.filter(role="teacher").count()
+        return getattr(obj, "teacher_count", obj.users.filter(role="teacher").count())
 
     def get_admin_count(self, obj):
-        return obj.users.filter(role="school_admin").count()
+        return getattr(obj, "admin_count", obj.users.filter(role="school_admin").count())
 
     def get_total_revenue(self, obj):
         """Sum of all paid payments for this school (quick stat)."""
+        if getattr(obj, "total_revenue", None) is not None:
+            return obj.total_revenue
         from services.fees.models import Payment
 
         result = Payment.objects.filter(invoice__student__user__school=obj, status="successful").aggregate(

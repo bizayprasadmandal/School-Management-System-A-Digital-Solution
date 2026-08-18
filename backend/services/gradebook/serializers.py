@@ -34,7 +34,7 @@ class ExamSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def get_schedule_count(self, obj):
-        return obj.schedules.count()
+        return getattr(obj, "schedule_count", obj.schedules.count())
 
 
 class ExamScheduleSerializer(serializers.ModelSerializer):

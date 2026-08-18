@@ -46,7 +46,7 @@ class EnrollmentIntakeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def get_application_count(self, obj):
-        return obj.applications.count()
+        return getattr(obj, "application_count", obj.applications.count())
 
 
 class ApplicationDocumentSerializer(serializers.ModelSerializer):

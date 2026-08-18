@@ -7,13 +7,12 @@ from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
-
 from services.communication.models import Notification
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(max_retries=3, default_retry_delay=60)
+@shared_task
 def send_appointment_reminders():
     """Send reminders for appointments scheduled for tomorrow.
 
@@ -64,14 +63,15 @@ def send_appointment_reminders():
         except Exception as e:
             logger.error(
                 "Failed to send reminder for appointment %s: %s",
-                appointment.id, e,
+                appointment.id,
+                e,
             )
 
     logger.info("Sent %d appointment reminder notifications", sent_count)
     return {"reminders_sent": sent_count}
 
 
-@shared_task(max_retries=3, default_retry_delay=60)
+@shared_task
 def send_pending_referral_reminders():
     """Remind counselors about referrals that have been pending for 3+ days."""
     from .models import StudentReferral
