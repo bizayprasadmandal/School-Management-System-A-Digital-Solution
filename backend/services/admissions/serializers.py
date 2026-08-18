@@ -130,6 +130,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "tour_date",
             "toured_at",
             "offer_sent_at",
+            "offer_deadline",
             "offer_accepted_at",
             "linked_student",
             "documents",

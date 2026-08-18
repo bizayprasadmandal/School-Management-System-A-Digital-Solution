@@ -100,6 +100,11 @@ class Application(models.Model):
     tour_date = models.DateField(null=True, blank=True, help_text="Scheduled campus tour date")
     toured_at = models.DateTimeField(null=True, blank=True)
     offer_sent_at = models.DateTimeField(null=True, blank=True)
+    offer_deadline = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Deadline for the family to accept the offer; after this date the offer expires.",
+    )
     offer_accepted_at = models.DateTimeField(null=True, blank=True)
     linked_student = models.ForeignKey(
         "students.Student",

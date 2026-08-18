@@ -62,6 +62,11 @@ app.conf.beat_schedule = {
         "task": "services.infrastructure.tasks.create_database_backup",
         "schedule": crontab(hour=3, minute=0),
     },
+    # Expire overdue admission offers daily at 6 AM
+    "expire-overdue-offers": {
+        "task": "services.admissions.tasks.expire_overdue_offers",
+        "schedule": crontab(hour=6, minute=0),
+    },
 }
 
 app.conf.task_routes = {

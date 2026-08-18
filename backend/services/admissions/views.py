@@ -181,15 +181,39 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 {"detail": "Offer can only be sent for shortlisted, accepted or waitlisted applications."},
                 status=400,
             )
+        from datetime import timedelta
+
         app.status = Application.Status.ACCEPTED
         app.offer_sent_at = timezone.now()
-        app.save(update_fields=["status", "offer_sent_at"])
+        app.offer_deadline = (timezone.now() + timedelta(days=14)).date()
+        app.save(update_fields=["status", "offer_sent_at", "offer_deadline"])
         _log_timeline(
             app,
             ApplicationTimelineEvent.Stage.OFFER_SENT,
             request,
             note=request.data.get("note", ""),
         )
+        # Send offer email directly (guardian isn't a User yet, so we can't use
+        # the User-based notification system — use Django's send_mail instead).
+        if app.guardian_email:
+            from django.conf import settings as _settings
+            from django.core.mail import send_mail
+
+            try:
+                send_mail(
+                    subject=f"Admission Offer — {app.first_name} {app.last_name}",
+                    message=(
+                        f"Dear {app.guardian_name or 'Parent'},\n\n"
+                        f"We are pleased to offer {app.first_name} {app.last_name} a place at our school.\n\n"
+                        f"Please accept this offer by {app.offer_deadline}.\n\n"
+                        f"If you have any questions, please contact the admissions office."
+                    ),
+                    from_email=_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[app.guardian_email],
+                    fail_silently=True,
+                )
+            except Exception:  # pragma: no cover
+                logger.error("Offer email failed for %s", app.guardian_email, exc_info=True)
         return Response(ApplicationSerializer(app).data)
 
     @action(detail=True, methods=["post"], url_path="accept-offer")
