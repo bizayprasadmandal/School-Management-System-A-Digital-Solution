@@ -78,6 +78,10 @@ const TeacherSettings = React.lazy(() => import("./pages/teacher/SettingsPage"))
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
 const Setup2FAPage = React.lazy(() => import("./pages/shared/Setup2FAPage"));
 
+// Public pages (no auth required)
+const PublicApplyPage = React.lazy(() => import("./pages/public/PublicApplyPage"));
+const PublicStatusPage = React.lazy(() => import("./pages/public/PublicStatusPage"));
+
 import { ErrorRoutes } from "./config/errorRoutes";
 
 // Student pages
@@ -223,6 +227,10 @@ function App() {
 
               {/* ── Payment callback (public — receives gateway redirect) ── */}
               <Route path="/fees/callback" element={<PaymentCallbackPage />} />
+
+              {/* ── Public admissions portal (no auth required) ── */}
+              <Route path="/apply" element={<PublicApplyPage />} />
+              <Route path="/apply/status" element={<PublicStatusPage />} />
 
               {/* ── 2FA verification (step 2 of login, no auth yet) ── */}
               <Route path="/verify-2fa" element={<Verify2FALoginPage />} />

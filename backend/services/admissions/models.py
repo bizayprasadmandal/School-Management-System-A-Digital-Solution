@@ -204,6 +204,67 @@ class ApplicationDocument(models.Model):
         return f"{self.application.application_number} - {self.get_document_type_display()}"
 
 
+class EntranceAssessment(models.Model):
+    """Entrance assessment linked to an application.
+
+    Schools can define custom assessment criteria (written test, interview,
+    portfolio review, etc.) and score each applicant against them.
+    """
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="assessments",
+    )
+    assessment_type = models.CharField(
+        max_length=50,
+        help_text="e.g. Written Test, Interview, Portfolio Review",
+    )
+    scheduled_date = models.DateTimeField(null=True, blank=True)
+    completed_date = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SCHEDULED,
+    )
+    score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Score out of 100",
+    )
+    max_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=100,
+        help_text="Maximum possible score",
+    )
+    notes = models.TextField(blank=True)
+    assessor_name = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admissions_assessments"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.application.application_number} — {self.assessment_type}"
+
+    @property
+    def percentage(self):
+        if self.score is not None and self.max_score:
+            return round(float(self.score) / float(self.max_score) * 100, 1)
+        return None
+
+
 class ApplicationReview(models.Model):
     """Review/score for an application by an admissions officer."""
 
