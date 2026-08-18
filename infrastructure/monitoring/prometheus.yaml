@@ -1229,24 +1229,35 @@ spec:
 
 ---
 # ─── Alertmanager ──────────────────────────────────────────────────────────────
+# Config template. The ${ALERTMANAGER_SMTP_PASSWORD} placeholder is rendered by
+# the config-render initContainer below using the smtp-password key of the
+# sms-secrets Secret (see infrastructure/k8s/deployments/all-services.yaml).
+# Fill in the SMTP smarthost/from/recipient placeholders here (non-secret).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alertmanager-config
   namespace: sms
 data:
-  alertmanager.yml: |
+  alertmanager.yml.tpl: |
     global:
       resolve_timeout: 5m
+      smtp_smarthost: "REPLACE_SMTP_HOST:587"   # e.g. smtp.gmail.com:587
+      smtp_from: "REPLACE_ALERT_FROM_EMAIL"
+      smtp_auth_username: "REPLACE_SMTP_USERNAME"
+      smtp_auth_password: "${ALERTMANAGER_SMTP_PASSWORD}"
+      smtp_require_tls: true
     route:
       group_by: ["alertname", "severity"]
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 4h
-      receiver: "default"
+      receiver: "email"
     receivers:
-      - name: "default"
-        # No external receiver configured — add webhook/email/slack here.
+      - name: "email"
+        email_configs:
+          - to: "REPLACE_ALERT_RECIPIENT_EMAIL"
+            send_resolved: true
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1263,17 +1274,42 @@ spec:
       labels:
         app: alertmanager
     spec:
+      initContainers:
+        # Render the SMTP password (from sms-secrets) into the config: Alertmanager
+        # does not expand env vars in its config file, so the template is substituted
+        # before the main container starts. Requires outbound registry access to
+        # fetch gettext on the alpine image — failure is loud (pod won't start).
+        - name: config-render
+          image: alpine:3.19
+          env:
+            - name: ALERTMANAGER_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: smtp-password
+          command: ["sh", "-c"]
+          args:
+            - |
+              apk add --no-cache gettext >/dev/null 2>&1
+              envsubst < /etc/alertmanager-tpl/alertmanager.yml.tpl > /etc/alertmanager-cfg/alertmanager.yml
+          volumeMounts:
+            - name: config-tpl
+              mountPath: /etc/alertmanager-tpl
+              readOnly: true
+            - name: config-rendered
+              mountPath: /etc/alertmanager-cfg
       containers:
         - name: alertmanager
           image: prom/alertmanager:v0.27.0
           args:
-            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--config.file=/etc/alertmanager-cfg/alertmanager.yml"
             - "--storage.path=/alertmanager"
           ports:
             - containerPort: 9093
           volumeMounts:
-            - name: config
-              mountPath: /etc/alertmanager
+            - name: config-rendered
+              mountPath: /etc/alertmanager-cfg
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -1287,9 +1323,11 @@ spec:
               cpu: "200m"
               memory: "256Mi"
       volumes:
-        - name: config
+        - name: config-tpl
           configMap:
             name: alertmanager-config
+        - name: config-rendered
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

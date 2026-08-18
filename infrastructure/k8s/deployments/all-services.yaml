@@ -300,6 +300,7 @@ stringData:
   sentry-dsn: "REPLACE_SENTRY_DSN"
   flower-password: "REPLACE_FLOWER_PASSWORD"
   grafana-admin-password: "REPLACE_GRAFANA_ADMIN_PASSWORD"
+  smtp-password: "REPLACE_SMTP_PASSWORD" # used by Alertmanager email receiver
 
 ---
 # ─── Network Policy — isolate SMS namespace ───────────────────────────────────
