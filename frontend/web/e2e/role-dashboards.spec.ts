@@ -12,7 +12,13 @@ import { BASE, API_BASE } from "./helpers";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Login and override the user's role in the API response. */
-async function loginAndOverrideRole(page: typeof test.prototype.page, email: string, password: string, role: string, extra: Record<string, unknown> = {}) {
+async function loginAndOverrideRole(
+  page: typeof test.prototype.page,
+  email: string,
+  password: string,
+  role: string,
+  extra: Record<string, unknown> = {},
+) {
   await page.route(`${API_BASE}/auth/login/`, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
@@ -27,7 +33,9 @@ async function loginAndOverrideRole(page: typeof test.prototype.page, email: str
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', password);
   await page.click('button[type="submit"]');
-  await page.waitForURL(new RegExp(`/${role === "school_admin" ? "admin" : role}`), { timeout: 10_000 });
+  await page.waitForURL(new RegExp(`/${role === "school_admin" ? "admin" : role}`), {
+    timeout: 10_000,
+  });
 }
 
 async function mockDashboardApi(page: typeof test.prototype.page, role: string) {
@@ -46,13 +54,25 @@ async function mockDashboardApi(page: typeof test.prototype.page, role: string) 
     });
   });
   await page.route(`${API_BASE}/students/classrooms/`, async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ count: 0, results: [] }) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0, results: [] }),
+    });
   });
   await page.route(`${API_BASE}/communication/notifications/`, async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ count: 0, results: [] }) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0, results: [] }),
+    });
   });
   await page.route(`${API_BASE}/communication/announcements/`, async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ count: 0, results: [] }) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0, results: [] }),
+    });
   });
   await page.route(`${API_BASE}/attendance/**`, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
@@ -87,7 +107,12 @@ test.describe("Teacher Dashboard", () => {
   test("teacher sidebar has expected nav items", async ({ page }) => {
     await loginAndOverrideRole(page, "teacher@school.edu", "Teacher@1234", "teacher");
     await page.goto(`${BASE}/teacher`);
-    await expect(page.getByText(/Attendance|Gradebook|Timetable/i).first()).toBeVisible({ timeout: 10_000 });
+    // The "Teaching" module is a collapsible sidebar group — expand it to
+    // reveal its module links.
+    await page.getByRole("button", { name: /Teaching/i }).click();
+    await expect(page.getByText(/Attendance|Gradebook|Timetable/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -104,7 +129,9 @@ test.describe("Student Dashboard", () => {
   test("student sidebar shows grade and fee nav items", async ({ page }) => {
     await loginAndOverrideRole(page, "student@school.edu", "Student@1234", "student");
     await page.goto(`${BASE}/student`);
-    await expect(page.getByText(/My Grades|Attendance|Fees/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/My Grades|Attendance|Fees/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("student can navigate to their grades page", async ({ page }) => {
@@ -126,7 +153,9 @@ test.describe("Parent Dashboard", () => {
   test("parent sidebar shows children nav item", async ({ page }) => {
     await loginAndOverrideRole(page, "parent@school.edu", "Parent@1234", "parent");
     await page.goto(`${BASE}/parent`);
-    await expect(page.getByText(/My Children|Attendance|Grades|Fees/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/My Children|Attendance|Grades|Fees/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -143,7 +172,9 @@ test.describe("Accountant Dashboard", () => {
   test("accountant sidebar shows fee management links", async ({ page }) => {
     await loginAndOverrideRole(page, "accountant@school.edu", "TestPass@1234", "accountant");
     await page.goto(`${BASE}/accountant`);
-    await expect(page.getByText(/Fee Management|Payment History|Reports/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Fee Management|Payment History|Reports/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -159,7 +190,9 @@ test.describe("Librarian Dashboard", () => {
   test("librarian sidebar shows library nav items", async ({ page }) => {
     await loginAndOverrideRole(page, "librarian@school.edu", "TestPass@1234", "librarian");
     await page.goto(`${BASE}/librarian`);
-    await expect(page.getByText(/Book Catalog|Checkouts|Fines/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Book Catalog|Checkouts|Fines/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -175,7 +208,9 @@ test.describe("Counselor Dashboard", () => {
   test("counselor sidebar shows appointment nav items", async ({ page }) => {
     await loginAndOverrideRole(page, "counselor@school.edu", "TestPass@1234", "counselor");
     await page.goto(`${BASE}/counselor`);
-    await expect(page.getByText(/Appointments|Referrals/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Appointments|Referrals/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 

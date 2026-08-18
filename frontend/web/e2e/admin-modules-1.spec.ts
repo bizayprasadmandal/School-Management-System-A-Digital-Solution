@@ -235,6 +235,9 @@ test.describe("Admin — HR Page", () => {
 
   test("shows department info", async ({ page }) => {
     await gotoAdminPage(page, "hr");
-    await expect(page.getByText("Administration")).toBeVisible({ timeout: 5_000 });
+    // "Administration" alone is ambiguous: the sidebar group "Insights &
+    // Administration" also matches. Scope to the employee row's department
+    // suffix, rendered as "Accountant · Administration".
+    await expect(page.getByText(/· Administration/)).toBeVisible({ timeout: 10_000 });
   });
 });
