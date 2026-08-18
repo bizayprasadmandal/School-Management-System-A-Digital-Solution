@@ -1379,6 +1379,10 @@ spec:
                 name: prometheus
                 port:
                   number: 9090
+            annotations:
+              nginx.ingress.kubernetes.io/auth-type: basic
+              nginx.ingress.kubernetes.io/auth-secret: sms-monitoring-auth
+              nginx.ingress.kubernetes.io/auth-realm: "Monitoring Access"
           - path: /alertmanager
             pathType: Prefix
             backend:
@@ -1386,6 +1390,23 @@ spec:
                 name: alertmanager
                 port:
                   number: 9093
+            annotations:
+              nginx.ingress.kubernetes.io/auth-type: basic
+              nginx.ingress.kubernetes.io/auth-secret: sms-monitoring-auth
+              nginx.ingress.kubernetes.io/auth-realm: "Monitoring Access"
+
+---
+# ─── Monitoring basic auth secret (protects /prometheus + /alertmanager) ──────
+# Generate the htpasswd value locally, e.g.  htpasswd -nb <user> <password>
+# then paste the full "<user>:<hash>" line into the `auth` key below.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sms-monitoring-auth
+  namespace: sms
+type: Opaque
+stringData:
+  auth: "REPLACE_MONITORING_USER:REPLACE_MONITORING_PASSWORD_HASH"
 
 ---
 # ─── kube-state-metrics ────────────────────────────────────────────────────────
