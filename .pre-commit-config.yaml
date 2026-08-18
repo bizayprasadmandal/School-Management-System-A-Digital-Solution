@@ -86,3 +86,4 @@ repos:
     rev: v1.34.1
     hooks:
       - id: djlint-django
+        exclude: frontend/web/index.html

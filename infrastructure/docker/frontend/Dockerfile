@@ -3,25 +3,24 @@ FROM node:20-alpine AS development
 
 WORKDIR /app
 COPY frontend/web/package*.json ./
-RUN npm install --legacy-peer-deps && npm install ajv@8.12.0 --legacy-peer-deps
+RUN npm install && npm install ajv@8.12.0
 COPY frontend/web/ ./
 
 EXPOSE 3000
-ENV CHOKIDAR_USEPOLLING=true
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev"]
 
 # ─── Build stage ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY frontend/web/package*.json ./
-RUN npm install --legacy-peer-deps && npm install ajv@8.12.0 --legacy-peer-deps
+RUN npm install && npm install ajv@8.12.0
 
 COPY frontend/web/ ./
-ARG REACT_APP_API_URL
-ARG REACT_APP_WS_URL
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
-ENV REACT_APP_WS_URL=$REACT_APP_WS_URL
+ARG VITE_API_URL
+ARG VITE_WS_URL
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_URL=$VITE_WS_URL
 
 RUN npm run build
 

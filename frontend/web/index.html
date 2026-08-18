@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#4F46E5" />
     <meta name="description" content="EduSphere — Comprehensive School Management System for students, teachers, parents and administrators." />
@@ -16,8 +16,8 @@
     <meta property="og:description" content="Manage students, attendance, grades, fees and communication in one place." />
     <meta property="og:type" content="website" />
 
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.svg" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="apple-touch-icon" href="/logo192.svg" />
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Preconnect to Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -83,15 +83,6 @@
 
     <div id="root"></div>
 
-    <script>
-      // Hide loading screen once React app mounts
-      window.__hideLoader = function() {
-        var el = document.getElementById("app-loading");
-        if (el) {
-          el.classList.add("hidden");
-          setTimeout(function() { el.remove(); }, 400);
-        }
-      };
-    </script>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

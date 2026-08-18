@@ -176,9 +176,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           { node-version: "20", cache: npm, cache-dependency-path: frontend/web/package-lock.json }
-      # react-scripts 5 pins TypeScript <5 as a peer dependency while the
-      # project uses TS 5.x — npm ci needs the same flag the Dockerfile uses.
-      - run: npm ci --legacy-peer-deps
+      # Vite has no peer-dep conflicts — plain npm ci works.
+      - run: npm ci
         working-directory: frontend/web
       - run: npm run type-check
         working-directory: frontend/web
@@ -186,10 +185,10 @@ jobs:
         working-directory: frontend/web
       - name: Run frontend tests
         working-directory: frontend/web
-        run: npx react-scripts test --watchAll=false
+        run: npx jest --watchAll=false
       - name: Build
         working-directory: frontend/web
-        env: { REACT_APP_API_URL: https://api.example.com/api/v1, CI: "false" }
+        env: { VITE_API_URL: https://api.example.com/api/v1, CI: "false" }
         run: npm run build
 
   # Typecheck + bundle the React Native (Expo) app so the mobile codebase
@@ -297,7 +296,7 @@ jobs:
           tags: ${{ env.IMAGE_BASE }}/backend:${{ github.sha }},${{ env.IMAGE_BASE }}/backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # The frontend bakes REACT_APP_* into the bundle at build time. An unset
+      # The frontend bakes VITE_* into the bundle at build time. An unset
       # secret bakes an empty string, and the app's code-level fallback is
       # localhost:8000 — so images built without these secrets silently point at
       # the viewer's own localhost in production. Resolve effective values here
@@ -306,25 +305,25 @@ jobs:
       - name: Resolve frontend build args (placeholder when secrets unset)
         id: fe-args
         run: |
-          API="${REACT_APP_API_URL:-https://api.example.com/api/v1}"
-          WS="${REACT_APP_WS_URL:-https://api.example.com}"
-          SENTRY="${REACT_APP_SENTRY_DSN:-}"
+          API="${VITE_API_URL:-https://api.example.com/api/v1}"
+          WS="${VITE_WS_URL:-https://api.example.com}"
+          SENTRY="${VITE_SENTRY_DSN:-}"
           echo "api_url=$API" >> "$GITHUB_OUTPUT"
           echo "ws_url=$WS" >> "$GITHUB_OUTPUT"
           echo "sentry_dsn=$SENTRY" >> "$GITHUB_OUTPUT"
           echo "sentry_release=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           # if-blocks (not `[ -z ] && echo`) — under bash -e a short-circuited &&
           # line would exit 1 the moment the secrets ARE set, failing the build.
-          if [ -z "$REACT_APP_API_URL" ]; then
-            echo "::warning::REACT_APP_API_URL secret is not set — baking placeholder $API. Set it to bake real URLs."
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::warning::VITE_API_URL secret is not set — baking placeholder $API. Set it to bake real URLs."
           fi
-          if [ -z "$REACT_APP_WS_URL" ]; then
-            echo "::warning::REACT_APP_WS_URL secret is not set — baking placeholder $WS. Set it to bake real URLs."
+          if [ -z "$VITE_WS_URL" ]; then
+            echo "::warning::VITE_WS_URL secret is not set — baking placeholder $WS. Set it to bake real URLs."
           fi
         env:
-          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
-          REACT_APP_WS_URL: ${{ secrets.REACT_APP_WS_URL }}
-          REACT_APP_SENTRY_DSN: ${{ secrets.REACT_APP_SENTRY_DSN }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
@@ -338,10 +337,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_API_URL=${{ steps.fe-args.outputs.api_url }}
-            REACT_APP_WS_URL=${{ steps.fe-args.outputs.ws_url }}
-            REACT_APP_SENTRY_DSN=${{ steps.fe-args.outputs.sentry_dsn }}
-            REACT_APP_SENTRY_RELEASE=${{ steps.fe-args.outputs.sentry_release }}
+            VITE_API_URL=${{ steps.fe-args.outputs.api_url }}
+            VITE_WS_URL=${{ steps.fe-args.outputs.ws_url }}
+            VITE_SENTRY_DSN=${{ steps.fe-args.outputs.sentry_dsn }}
+            VITE_SENTRY_RELEASE=${{ steps.fe-args.outputs.sentry_release }}
 
   deploy-production:
     needs: [docker-build]

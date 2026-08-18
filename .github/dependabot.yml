@@ -7,7 +7,6 @@
 
 version: 2
 updates:
-
   # ─── Backend Python (pip) ──────────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/backend"
@@ -83,10 +82,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # react-scripts 5.x is the last CRA version; upgrades need manual migration
-      - dependency-name: "react-scripts"
-        update-types: ["version-update:semver-major"]
 
   # ─── Frontend Mobile (npm) ─────────────────────────────────────────────────
   - package-ecosystem: "npm"

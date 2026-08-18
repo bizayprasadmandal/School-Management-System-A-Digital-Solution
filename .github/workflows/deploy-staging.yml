@@ -43,9 +43,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20", cache: "npm", cache-dependency-path: frontend/web/package.json }
-      # react-scripts 5 pins TypeScript <5 as a peer dependency while the
-      # project uses TS 5.x — npm ci needs the same flag the Dockerfile uses.
-      - run: npm ci --legacy-peer-deps
+      # Vite has no peer-dep conflicts — plain npm ci works.
+      - run: npm ci
         working-directory: frontend/web
       - name: TypeScript check
         working-directory: frontend/web
@@ -55,7 +54,7 @@ jobs:
         run: npx eslint src/ --max-warnings 0
       - name: Frontend tests
         working-directory: frontend/web
-        run: npx react-scripts test --watchAll=false
+        run: npx jest --watchAll=false
 
   build-and-deploy:
     needs: [test, lint]
@@ -111,25 +110,25 @@ jobs:
       - name: Resolve frontend build args (placeholder when secrets unset)
         id: fe-args
         run: |
-          API="${REACT_APP_API_URL_STAGING:-https://api.staging.example.com/api/v1}"
-          WS="${REACT_APP_WS_URL_STAGING:-https://api.staging.example.com}"
-          SENTRY="${REACT_APP_SENTRY_DSN_STAGING:-}"
+          API="${VITE_API_URL_STAGING:-https://api.staging.example.com/api/v1}"
+          WS="${VITE_WS_URL_STAGING:-https://api.staging.example.com}"
+          SENTRY="${VITE_SENTRY_DSN_STAGING:-}"
           echo "api_url=$API" >> "$GITHUB_OUTPUT"
           echo "ws_url=$WS" >> "$GITHUB_OUTPUT"
           echo "sentry_dsn=$SENTRY" >> "$GITHUB_OUTPUT"
           echo "sentry_release=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           # if-blocks (not `[ -z ] && echo`) — under bash -e a short-circuited &&
           # line would exit 1 the moment the secrets ARE set, failing the build.
-          if [ -z "$REACT_APP_API_URL_STAGING" ]; then
-            echo "::warning::REACT_APP_API_URL_STAGING secret is not set — baking placeholder $API. Set it to bake real URLs."
+          if [ -z "$VITE_API_URL_STAGING" ]; then
+            echo "::warning::VITE_API_URL_STAGING secret is not set — baking placeholder $API. Set it to bake real URLs."
           fi
-          if [ -z "$REACT_APP_WS_URL_STAGING" ]; then
-            echo "::warning::REACT_APP_WS_URL_STAGING secret is not set — baking placeholder $WS. Set it to bake real URLs."
+          if [ -z "$VITE_WS_URL_STAGING" ]; then
+            echo "::warning::VITE_WS_URL_STAGING secret is not set — baking placeholder $WS. Set it to bake real URLs."
           fi
         env:
-          REACT_APP_API_URL_STAGING: ${{ secrets.REACT_APP_API_URL_STAGING }}
-          REACT_APP_WS_URL_STAGING: ${{ secrets.REACT_APP_WS_URL_STAGING }}
-          REACT_APP_SENTRY_DSN_STAGING: ${{ secrets.REACT_APP_SENTRY_DSN_STAGING }}
+          VITE_API_URL_STAGING: ${{ secrets.VITE_API_URL_STAGING }}
+          VITE_WS_URL_STAGING: ${{ secrets.VITE_WS_URL_STAGING }}
+          VITE_SENTRY_DSN_STAGING: ${{ secrets.VITE_SENTRY_DSN_STAGING }}
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
@@ -145,10 +144,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            REACT_APP_API_URL=${{ steps.fe-args.outputs.api_url }}
-            REACT_APP_WS_URL=${{ steps.fe-args.outputs.ws_url }}
-            REACT_APP_SENTRY_DSN=${{ steps.fe-args.outputs.sentry_dsn }}
-            REACT_APP_SENTRY_RELEASE=${{ steps.fe-args.outputs.sentry_release }}
+            VITE_API_URL=${{ steps.fe-args.outputs.api_url }}
+            VITE_WS_URL=${{ steps.fe-args.outputs.ws_url }}
+            VITE_SENTRY_DSN=${{ steps.fe-args.outputs.sentry_dsn }}
+            VITE_SENTRY_RELEASE=${{ steps.fe-args.outputs.sentry_release }}
 
       - name: Migrate database
         if: steps.kubecheck.outputs.configured == 'true'
