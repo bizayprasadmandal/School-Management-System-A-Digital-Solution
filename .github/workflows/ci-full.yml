@@ -369,7 +369,7 @@ jobs:
           KUBE_CONFIG_PRODUCTION: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
       - name: Configure kubectl
         if: steps.kubecheck.outputs.configured == 'true'
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@v5
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_PRODUCTION }}" }
       - name: Sync Sentry DSN into sms-secrets
         if: steps.kubecheck.outputs.configured == 'true'
