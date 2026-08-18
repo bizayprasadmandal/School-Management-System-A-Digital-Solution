@@ -115,6 +115,11 @@ class Payment(models.Model):
     gateway_response = models.JSONField(default=dict)
     receipt_number = models.CharField(max_length=30, unique=True)
     paid_at = models.DateTimeField(null=True, blank=True)
+    receipt_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the payment receipt notification was sent (set once per successful payment)",
+    )
     collected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

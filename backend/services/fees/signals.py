@@ -9,6 +9,9 @@ import logging
 from django.core.cache import cache
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
+
+from .models import Payment
 
 logger = logging.getLogger(__name__)
 
@@ -35,31 +38,71 @@ def _invalidate_dashboard_cache(school_id):
 
 @receiver(post_save, sender="fees.Payment")
 def handle_payment_recorded(sender, instance, created, **kwargs):
-    """Send payment receipt notification on successful payment."""
-    if created and instance.status == "successful":
-        from services.communication.services import send_email_notification, send_in_app_notification
+    """Send a payment receipt notification once a payment becomes successful.
 
-        student_user = instance.invoice.student.user
-        amount = f"${instance.amount:,.2f}"
-        msg = (
-            f"Payment of {amount} received for invoice "
-            f"#{instance.invoice.invoice_number}. Receipt: {instance.receipt_number}."
-        )
-        send_in_app_notification.delay(
-            user_id=str(student_user.id),
-            title="Payment Confirmed",
-            body=msg,
-            reference_type="payment",
-            reference_id=str(instance.id),
-        )
-        send_email_notification.delay(
-            user_id=str(student_user.id),
-            subject=f"Payment Receipt — {instance.receipt_number}",
-            body=msg,
-        )
-        logger.info("Payment receipt sent for %s", instance.receipt_number)
+    Fires on the PENDING -> SUCCESSFUL transition — including manual payments
+    created directly as successful — exactly once per payment, deduplicated
+    via ``Payment.receipt_sent_at``. The old gate (``created and
+    status == successful``) silently skipped every online payment, because
+    gateway flows (Stripe/Khalti/eSewa) create the Payment as PENDING and flip
+    it to SUCCESSFUL later in the webhook/verify handler.
 
-    _invalidate_dashboard_cache(instance.invoice.student.school_id)
+    Notifications are best-effort: a failure here must never roll back the
+    payment write, so the whole handler is isolated.
+    """
+    try:
+        invoice = instance.invoice
+        student = invoice.student
+    except Exception:  # pragma: no cover — relations always exist
+        student = None
+
+    if instance.status == Payment.Status.SUCCESSFUL and instance.receipt_sent_at is None:
+        # Mark first so a re-save (or a concurrent transition, serialized by
+        # the caller's row lock) can never double-send. A queryset update is
+        # used so the signal does not re-fire on this write. The instance
+        # attribute is set too, because queryset updates never refresh the
+        # in-memory object and a later save of the same instance would
+        # otherwise pass the ``is None`` guard again.
+        marked = Payment.objects.filter(pk=instance.pk, receipt_sent_at__isnull=True).update(
+            receipt_sent_at=timezone.now()
+        )
+        if marked == 0:
+            # Another save already handled this payment — skip the duplicate.
+            logger.info("Payment receipt already marked for %s — skipping", instance.receipt_number)
+            return
+        instance.receipt_sent_at = timezone.now()
+        try:
+            if student is not None:
+                from services.communication.services import send_email_notification, send_in_app_notification
+
+                student_user = student.user
+                amount = f"${instance.amount:,.2f}"
+                msg = (
+                    f"Payment of {amount} received for invoice "
+                    f"#{invoice.invoice_number}. Receipt: {instance.receipt_number}."
+                )
+                send_in_app_notification.delay(
+                    user_id=str(student_user.id),
+                    title="Payment Confirmed",
+                    body=msg,
+                    reference_type="payment",
+                    reference_id=str(instance.id),
+                )
+                send_email_notification.delay(
+                    user_id=str(student_user.id),
+                    subject=f"Payment Receipt — {instance.receipt_number}",
+                    body=msg,
+                )
+                logger.info("Payment receipt sent for %s", instance.receipt_number)
+        except Exception:  # pragma: no cover — a receipt must never break the payment write
+            logger.error(
+                "Payment receipt notification failed for %s",
+                instance.receipt_number,
+                exc_info=True,
+            )
+
+    if student is not None:
+        _invalidate_dashboard_cache(student.school_id)
 
 
 @receiver(post_save, sender="fees.FeeInvoice")
