@@ -10,6 +10,8 @@ import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReportCardsPage from "./ReportCardsPage";
+import { api } from "../../api/client";
+import { useCurrentAcademicYear } from "../../api/hooks";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -106,10 +108,10 @@ function renderPage() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (require("../../api/hooks").useCurrentAcademicYear as jest.Mock).mockReturnValue({
+  (useCurrentAcademicYear as jest.Mock).mockReturnValue({
     data: { id: 1, name: "2024-25" },
   });
-  (require("../../api/client").api.get as jest.Mock).mockImplementation((url: string) => {
+  (api.get as jest.Mock).mockImplementation((url: string) => {
     if (url.includes("/gradebook/exams/")) return Promise.resolve(mockExams);
     if (url.includes("/gradebook/report-cards/")) return Promise.resolve(mockReportCards);
     return Promise.resolve({ count: 0, results: [] });
@@ -150,7 +152,7 @@ describe("exam selection", () => {
 
 describe("empty state", () => {
   test("shows message when no exams found", async () => {
-    (require("../../api/client").api.get as jest.Mock).mockImplementation((url: string) => {
+    (api.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes("/gradebook/exams/")) return Promise.resolve({ count: 0, results: [] });
       return Promise.resolve({ count: 0, results: [] });
     });

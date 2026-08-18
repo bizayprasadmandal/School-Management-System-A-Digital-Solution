@@ -38,7 +38,6 @@ THIRD_PARTY_APPS = [
     "whitenoise.runserver_nostatic",
     "corsheaders",
     "django_filters",
-    "graphene_django",
     "channels",
     "django_celery_beat",
     "storages",

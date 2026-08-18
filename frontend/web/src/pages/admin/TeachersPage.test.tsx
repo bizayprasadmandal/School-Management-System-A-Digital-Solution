@@ -4,11 +4,11 @@
  * Tests rendering, search, data display, add/delete, and empty state.
  */
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TeachersPage from "./TeachersPage";
+import { api } from "../../api/client";
 
 // ─── QueryClient for tests ────────────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ function renderPage() {
 beforeEach(() => {
   jest.clearAllMocks();
   // Mock api.get to return teacher data by default
-  (require("../../api/client").api.get as jest.Mock).mockResolvedValue(mockTeachers);
+  (api.get as jest.Mock).mockResolvedValue(mockTeachers);
 });
 
 // ─── 1. Rendering ──────────────────────────────────────────────────────────────
@@ -168,7 +168,7 @@ describe("search", () => {
 
 describe("empty state", () => {
   test("shows empty message when no teachers", async () => {
-    (require("../../api/client").api.get as jest.Mock).mockResolvedValue({
+    (api.get as jest.Mock).mockResolvedValue({
       count: 0,
       results: [],
     });
