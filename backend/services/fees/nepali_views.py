@@ -759,12 +759,14 @@ def refund_nepali_payment(request):
             )
 
         payment.status = Payment.Status.REFUNDED
+        payment.refunded_by = request.user
         gw_response = payment.gateway_response or {}
         gw_response["refund_reason"] = reason
         gw_response["refunded_at"] = timezone.now().isoformat()
+        gw_response["refunded_by"] = request.user.full_name
         gw_response["gateway_refund"] = detail
         payment.gateway_response = gw_response
-        payment.save(update_fields=["status", "gateway_response"])
+        payment.save(update_fields=["status", "refunded_by", "gateway_response"])
 
         from .ledger import debit_invoice
 

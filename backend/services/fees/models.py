@@ -120,7 +120,15 @@ class Payment(models.Model):
         blank=True,
         help_text="When the payment receipt notification was sent (set once per successful payment)",
     )
-    collected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    collected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="collected_payments")
+    refunded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="refunded_payments",
+        help_text="Admin who initiated the refund",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

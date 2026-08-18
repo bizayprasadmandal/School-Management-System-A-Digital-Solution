@@ -140,6 +140,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         validated_data["receipt_number"] = f"RCP-{uuid.uuid4().hex[:8].upper()}"
         validated_data["status"] = "successful"
         validated_data["paid_at"] = timezone.now()
+        validated_data["collected_by"] = self.context["request"].user
         return super().create(validated_data)
 
 

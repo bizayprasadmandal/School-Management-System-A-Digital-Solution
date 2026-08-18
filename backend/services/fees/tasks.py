@@ -27,10 +27,25 @@ def mark_overdue_invoices(self):
     today = timezone.now().date()
 
     try:
-        overdue = FeeInvoice.objects.filter(
-            status__in=["unpaid", "partial"],
-            due_date__lt=today,
-        ).select_related("fee_structure", "student__user")
+        from django.db.models import Prefetch
+        from services.students.models import StudentGuardian
+
+        overdue = (
+            FeeInvoice.objects.filter(
+                status__in=["unpaid", "partial"],
+                due_date__lt=today,
+            )
+            .select_related("fee_structure", "student__user")
+            .prefetch_related(
+                Prefetch(
+                    "student__studentguardian_set",
+                    queryset=StudentGuardian.objects.filter(
+                        guardian__user__isnull=False, portal_access=True
+                    ).select_related("guardian__user"),
+                    to_attr="active_guardians",
+                )
+            )
+        )
 
         updated = 0
         for invoice in overdue:
@@ -74,8 +89,8 @@ def mark_overdue_invoices(self):
                 data=push_data,
             )
 
-            # Notify parents
-            for sg in student.studentguardian_set.filter(guardian__user__isnull=False, portal_access=True):
+            # Notify parents (pre-fetched to avoid per-invoice DB query)
+            for sg in student.active_guardians:
                 parent_body = (
                     f"{student.user.full_name}'s fee payment of "
                     f"{invoice.outstanding_amount:,.2f} "
@@ -128,27 +143,54 @@ def send_fee_reminders(self, school_id=None):
     reminder_date = timezone.now().date() + timedelta(days=3)
 
     try:
-        invoices = FeeInvoice.objects.filter(
-            status__in=["unpaid", "partial"],
-            due_date=reminder_date,
-        ).select_related("student__user", "student__school")
+        from django.db.models import Prefetch
+        from services.students.models import Guardian
+
+        invoices_qs = (
+            FeeInvoice.objects.filter(
+                status__in=["unpaid", "partial"],
+                due_date=reminder_date,
+            )
+            .select_related("student__user", "student__school")
+            .prefetch_related(
+                Prefetch(
+                    "student__guardians",
+                    queryset=Guardian.objects.filter(user__isnull=False).select_related("user"),
+                    to_attr="portal_guardians",
+                )
+            )
+        )
         if school_id is not None:
-            invoices = invoices.filter(student__school_id=school_id)
-        count = 0
-        for invoice in invoices:
-            # Never double-remind: skip if an in-app reminder already exists for this invoice.
-            if Notification.objects.filter(
+            invoices_qs = invoices_qs.filter(student__school_id=school_id)
+
+        # Evaluate once; subsequent operations use in-memory lists.
+        invoices_list = list(invoices_qs)
+
+        # Bulk fetch existing reminders (1 query instead of N).
+        reminded_ids = set(
+            Notification.objects.filter(
                 reference_type="fee_invoice",
-                reference_id=str(invoice.id),
                 channel="in_app",
                 title="Fee Reminder",
-            ).exists():
+                reference_id__in=[str(inv.id) for inv in invoices_list],
+            ).values_list("reference_id", flat=True)
+        )
+
+        # Bulk fetch fee_due templates keyed by school (1 query instead of N).
+        school_ids = {inv.student.school_id for inv in invoices_list}
+        templates_by_school = {
+            t.school_id: t
+            for t in NotificationTemplate.objects.filter(school_id__in=school_ids, event_type="fee_due", is_active=True)
+        }
+
+        count = 0
+        for invoice in invoices_list:
+            # Never double-remind: skip if an in-app reminder already exists for this invoice.
+            if str(invoice.id) in reminded_ids:
                 continue
 
             student = invoice.student
-            template = NotificationTemplate.objects.filter(
-                school=student.school, event_type="fee_due", is_active=True
-            ).first()
+            template = templates_by_school.get(student.school_id)
             context = {
                 "student_name": student.user.full_name,
                 "amount": f"{invoice.outstanding_amount:,.2f}",
@@ -156,7 +198,7 @@ def send_fee_reminders(self, school_id=None):
             }
 
             # Notify student + parents using each user's notification preferences.
-            users = [student.user] + [g.user for g in student.guardians.filter(user__isnull=False)]
+            users = [student.user] + [g.user for g in student.portal_guardians]
             for user in users:
                 NotificationService.send(
                     user=user,

@@ -412,6 +412,7 @@ def refund_payment(request):
 
             # Update the payment record
             payment.status = Payment.Status.REFUNDED
+            payment.refunded_by = request.user
             payment.notes = (
                 f"{payment.notes}\nRefunded by {request.user.full_name}: {reason}"
                 if payment.notes
@@ -424,7 +425,7 @@ def refund_payment(request):
                 "refund_status": refund.status,
                 "refund_reason": reason,
             }
-            payment.save(update_fields=["status", "notes", "gateway_response"])
+            payment.save(update_fields=["status", "refunded_by", "notes", "gateway_response"])
 
         logger.info(
             "Payment refunded: %s on invoice %s ($%.2f) — refund_id=%s",
