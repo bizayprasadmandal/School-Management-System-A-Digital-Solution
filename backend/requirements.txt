@@ -59,7 +59,7 @@ faker==24.3.0
 # API docs
 drf-spectacular==0.28.0
 
-stripe==10.0.0
+stripe==15.5.0
 
 # Utilities
 python-dateutil==2.9.0
