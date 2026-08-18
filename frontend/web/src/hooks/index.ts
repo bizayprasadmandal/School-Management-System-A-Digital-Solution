@@ -52,9 +52,11 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
 
   const connect = useCallback(() => {
     if (!tokens?.access || !mountedRef.current) return;
-    const url = `${WS_BASE}${path}?token=${tokens.access}`;
     setStatus("connecting");
-    const ws = new WebSocket(url);
+    // Send the JWT via Sec-WebSocket-Protocol instead of the query string.
+    // The backend middleware reads "Bearer, <token>" from this header; query
+    // string auth is deprecated because tokens in URLs leak into proxy logs.
+    const ws = new WebSocket(`${WS_BASE}${path}`, ["Bearer", tokens.access]);
     wsRef.current = ws;
 
     ws.onopen = () => {

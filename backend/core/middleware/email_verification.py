@@ -36,7 +36,6 @@ BYPASS_PATHS = [
     "/api/docs/",
     "/api/redoc/",
     "/metrics",
-    "/graphql/",
 ]
 
 # Auth endpoints allowed before email is verified.

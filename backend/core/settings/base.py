@@ -290,15 +290,6 @@ CORS_ALLOWED_ORIGINS = env.list(
 )
 CORS_ALLOW_CREDENTIALS = True
 
-# ─── GraphQL ─────────────────────────────────────────────────────────────────
-
-GRAPHENE = {
-    "SCHEMA": "api.graphql.schema.schema",
-    "MIDDLEWARE": [
-        "graphql_jwt.middleware.JSONWebTokenMiddleware",
-    ],
-}
-
 # ─── Email ────────────────────────────────────────────────────────────────────
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

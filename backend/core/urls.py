@@ -2,13 +2,11 @@
 School Management System — Root URL Configuration
 """
 
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from api.graphql.view import JWTAuthenticatedGraphQLView
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib import admin
+from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 API_V1 = "api/v1/"
 API_V2 = "api/v2/"
@@ -16,10 +14,8 @@ API_V2 = "api/v2/"
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
-
     # Health check
     path("health/", include("core.health.urls")),
-
     # ── REST API v1 ──────────────────────────────────────────────────────────
     path(API_V1 + "auth/", include("services.auth.urls", namespace="auth_v1")),
     path(API_V1 + "students/", include("services.students.urls", namespace="students_v1")),
@@ -43,15 +39,10 @@ urlpatterns = [
     path(API_V1 + "cafeteria/", include("services.cafeteria.urls", namespace="cafeteria_v1")),
     path(API_V1 + "admissions/", include("services.admissions.urls", namespace="admissions_v1")),
     path(API_V1 + "counseling/", include("services.counseling.urls", namespace="counseling_v1")),
-
-    # ── GraphQL ──────────────────────────────────────────────────────────────
-    path("graphql/", csrf_exempt(JWTAuthenticatedGraphQLView.as_view(graphiql=settings.DEBUG))),
-
     # ── API Docs ─────────────────────────────────────────────────────────────
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-
     # Metrics
     path("", include("django_prometheus.urls")),
 ]

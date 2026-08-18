@@ -3,13 +3,14 @@ JWT Auth Middleware Stack for Django Channels WebSocket connections.
 Authenticates WebSocket connections using Bearer tokens from query params or headers.
 """
 
-from urllib.parse import parse_qs
-from channels.middleware import BaseMiddleware
-from channels.db import database_sync_to_async
-from django.contrib.auth.models import AnonymousUser
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 import logging
+from urllib.parse import parse_qs
+
+from channels.db import database_sync_to_async
+from channels.middleware import BaseMiddleware
+from django.contrib.auth.models import AnonymousUser
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import AccessToken
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 def get_user_from_token(token_key: str):
     """Validate JWT and return the associated user or AnonymousUser."""
     from services.auth.models import User
+
     try:
         token = AccessToken(token_key)
         user_id = token["user_id"]
@@ -42,6 +44,7 @@ class JWTAuthMiddleware(BaseMiddleware):
 
         if token_list:
             token_key = token_list[0]
+            logger.warning("WS auth via query string is deprecated — use Sec-WebSocket-Protocol header instead.")
         else:
             # Try subprotocol header
             headers = dict(scope.get("headers", []))
