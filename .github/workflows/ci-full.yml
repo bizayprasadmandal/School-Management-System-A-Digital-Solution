@@ -287,7 +287,7 @@ jobs:
             password: "${{ secrets.GITHUB_TOKEN }}",
           }
       - name: Build & push backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: backend
           file: infrastructure/docker/backend/Dockerfile
@@ -325,7 +325,7 @@ jobs:
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       - name: Build & push frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           # Build from the repo root so the Dockerfile can COPY the nginx
           # config and entrypoint that live under infrastructure/.
