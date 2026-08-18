@@ -1,5 +1,5 @@
 # ─── Development stage ────────────────────────────────────────────────────────
-FROM node:20-alpine AS development
+FROM node:26-alpine AS development
 
 WORKDIR /app
 COPY frontend/web/package*.json ./
@@ -10,7 +10,7 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # ─── Build stage ──────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 COPY frontend/web/package*.json ./
