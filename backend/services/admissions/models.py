@@ -38,6 +38,21 @@ class EnrollmentIntake(models.Model):
 class Application(models.Model):
     """Student applications for admission."""
 
+    # Valid status transitions — enforced by update_status to prevent
+    # impossible jumps (e.g. draft → enrolled) and ensure the pipeline
+    # is followed in order.
+    VALID_TRANSITIONS = {
+        "draft": ["submitted", "cancelled"],
+        "submitted": ["under_review", "rejected", "cancelled"],
+        "under_review": ["shortlisted", "rejected", "waitlisted", "cancelled"],
+        "shortlisted": ["accepted", "rejected", "cancelled"],
+        "waitlisted": ["accepted", "rejected", "cancelled"],
+        "accepted": ["enrolled", "cancelled"],
+        "rejected": [],
+        "enrolled": [],
+        "cancelled": [],
+    }
+
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         SUBMITTED = "submitted", "Submitted"

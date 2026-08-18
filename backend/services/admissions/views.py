@@ -114,11 +114,25 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="update-status")
     def update_status(self, request, pk=None):
-        """Admin action to change application status."""
+        """Admin action to change application status with transition validation."""
         app = self.get_object()
         new_status = request.data.get("status")
         if new_status not in [s.value for s in Application.Status]:
             return Response({"detail": "Invalid status."}, status=400)
+
+        # Enforce valid transitions
+        allowed = Application.VALID_TRANSITIONS.get(app.status, [])
+        if new_status not in allowed:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot transition from '{app.status}' to '{new_status}'. "
+                        f"Allowed transitions: {allowed or 'none (terminal state)'}"
+                    )
+                },
+                status=400,
+            )
+
         old_status = app.status
         app.status = new_status
         app.reviewed_by = request.user
@@ -130,7 +144,65 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             request,
             note=f"{old_status} → {new_status}",
         )
+
+        # Send email notification on key transitions (best-effort)
+        self._send_status_notification(app, old_status, new_status)
+
         return Response(ApplicationSerializer(app).data)
+
+    def _send_status_notification(self, app, old_status, new_status):
+        """Send email to the applicant's guardian on key status transitions."""
+        from django.conf import settings as _settings
+        from django.core.mail import send_mail
+
+        MESSAGES = {
+            "submitted": (
+                "Your application has been received",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"Thank you for applying. Application {app.application_number} "
+                f"for {app.first_name} {app.last_name} has been received and is "
+                f"now being processed.\n\nYou will be notified of further updates.",
+            ),
+            "under_review": (
+                "Your application is under review",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"Application {app.application_number} for {app.first_name} "
+                f"{app.last_name} is now being reviewed by our admissions team.",
+            ),
+            "shortlisted": (
+                f"Congratulations! {app.first_name} has been shortlisted",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"We are pleased to inform you that {app.first_name} {app.last_name} "
+                f"has been shortlisted for admission. We will be in touch with next steps.",
+            ),
+            "rejected": (
+                f"Update on {app.first_name}'s application",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"After careful consideration, we regret to inform you that "
+                f"{app.first_name} {app.last_name}'s application ({app.application_number}) "
+                f"has not been successful at this time.\n\n"
+                f"We wish you the best in finding the right school.",
+            ),
+        }
+        if new_status not in MESSAGES or not app.guardian_email:
+            return
+        subject, body = MESSAGES[new_status]
+        try:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[app.guardian_email],
+                fail_silently=True,
+            )
+        except Exception:  # pragma: no cover — notification must never block the status change
+            logger.error(
+                "Status notification failed for %s (%s → %s)",
+                app.application_number,
+                old_status,
+                new_status,
+                exc_info=True,
+            )
 
     @action(detail=True, methods=["post"], url_path="schedule-tour")
     def schedule_tour(self, request, pk=None):

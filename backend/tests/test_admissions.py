@@ -212,15 +212,17 @@ class TestApplications:
             applying_for_grade="6",
             status="submitted",
         )
-        r = admin_client.post(
-            f"{ADMISSIONS_APPLICATIONS}{app.id}/update-status/",
-            {"status": "accepted", "review_notes": "Approved"},
-            format="json",
-        )
-        assert r.status_code == status.HTTP_200_OK
+        # Follow the valid pipeline: submitted → under_review → shortlisted → accepted
+        for target in ["under_review", "shortlisted", "accepted"]:
+            r = admin_client.post(
+                f"{ADMISSIONS_APPLICATIONS}{app.id}/update-status/",
+                {"status": target, "review_notes": f"Moved to {target}"},
+                format="json",
+            )
+            assert r.status_code == status.HTTP_200_OK, f"Failed to transition to {target}: {r.data}"
         app.refresh_from_db()
         assert app.status == "accepted"
-        assert app.review_notes == "Approved"
+        assert app.review_notes == "Moved to accepted"
 
     def test_non_admin_cannot_update_status(self, teacher_client, intake, app_payload):
         from services.admissions.models import Application
