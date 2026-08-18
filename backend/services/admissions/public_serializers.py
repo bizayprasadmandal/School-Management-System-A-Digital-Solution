@@ -78,14 +78,13 @@ class PublicApplicationSubmitSerializer(serializers.ModelSerializer):
 
         from .models import ApplicationTimelineEvent
 
+        # Set school from intake BEFORE first save (school is NOT NULL)
+        intake = validated_data["intake"]
+        validated_data["school"] = intake.school
+        validated_data["application_number"] = f"APP-{dj_timezone.localdate():%Y%m}-{str(uuid.uuid4())[:6].upper()}"
+        validated_data["status"] = Application.Status.SUBMITTED
+        validated_data["submitted_at"] = dj_timezone.now()
         app = super().create(validated_data)
-
-        # Generate application number and set initial school from intake
-        app.application_number = f"APP-{dj_timezone.localdate():%Y%m}-{str(uuid.uuid4())[:6].upper()}"
-        app.school = app.intake.school
-        app.status = Application.Status.SUBMITTED
-        app.submitted_at = dj_timezone.now()
-        app.save(update_fields=["application_number", "school", "status", "submitted_at"])
 
         # Create timeline event
         ApplicationTimelineEvent.objects.create(
