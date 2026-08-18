@@ -44,6 +44,7 @@ import { useDarkMode } from "../../hooks/useDarkMode";
 import { AnimatedOutlet } from "../../components/common/AnimatedOutlet";
 import EmailVerificationBanner from "../../components/common/EmailVerificationBanner";
 import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBanner";
+import LanguageSwitcher from "../../components/common/LanguageSwitcher";
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
 import clsx from "clsx";
 import NotificationPanel from "./NotificationPanel";
@@ -271,6 +272,9 @@ export default function AdminLayout() {
 
             {/* School switcher (super admin only) */}
             {isSuperAdmin && <SchoolSwitcher />}
+
+            {/* Language switcher */}
+            <LanguageSwitcher />
 
             {/* Dark mode toggle */}
             <button
