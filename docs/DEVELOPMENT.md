@@ -27,7 +27,7 @@ docker compose exec backend python manage.py seed_demo_data
 docker compose exec backend python manage.py createsuperuser
 
 # 5. Open browser
-open http://localhost:3000         # React web app
+open http://localhost:5173         # React web app (Vite)
 open http://localhost:8000/api/docs/   # Swagger API docs
 open http://localhost:8000/admin/      # Django admin
 open http://localhost:5555         # Celery Flower task monitor
@@ -67,7 +67,7 @@ cd frontend/web
 npm install
 cp .env.example .env.local
 # Set REACT_APP_API_URL=http://localhost:8000/api/v1
-npm start
+npm run dev    # Vite dev server on http://localhost:5173
 ```
 
 ### Mobile
@@ -161,16 +161,16 @@ across 6 core tables.
 
 ## Environment Variables Reference
 
-| Variable                  | Description                   | Default         |
-| ------------------------- | ----------------------------- | --------------- |
-| `SECRET_KEY`              | Django secret key (50+ chars) | —               |
-| `DEBUG`                   | Enable debug mode             | `False`         |
-| `DATABASE_URL`            | PostgreSQL connection string  | —               |
-| `REDIS_URL`               | Redis connection string       | —               |
-| `AWS_ACCESS_KEY_ID`       | S3/MinIO credentials          | —               |
-| `AWS_SECRET_ACCESS_KEY`   | S3/MinIO credentials          | —               |
-| `AWS_STORAGE_BUCKET_NAME` | S3 bucket for documents       | `sms-documents` |
-| `AWS_S3_ENDPOINT_URL`     | Override for MinIO in dev     | —               |
-| `REACT_APP_API_URL`       | Frontend API base URL         | —               |
-| `REACT_APP_WS_URL`        | Frontend WebSocket base URL   | —               |
-| `EXPO_PUBLIC_API_URL`     | Mobile API base URL           | —               |
+| Variable                  | Description                                                         | Default         |
+| ------------------------- | ------------------------------------------------------------------- | --------------- |
+| `SECRET_KEY`              | Django secret key (50+ chars)                                       | —               |
+| `DEBUG`                   | Enable debug mode                                                   | `False`         |
+| `DATABASE_URL`            | PostgreSQL connection string                                        | —               |
+| `REDIS_URL`               | Redis connection string                                             | —               |
+| `AWS_ACCESS_KEY_ID`       | S3/MinIO credentials                                                | —               |
+| `AWS_SECRET_ACCESS_KEY`   | S3/MinIO credentials                                                | —               |
+| `AWS_STORAGE_BUCKET_NAME` | S3 bucket for documents                                             | `sms-documents` |
+| `AWS_S3_ENDPOINT_URL`     | Override for MinIO in dev                                           | —               |
+| `REACT_APP_API_URL`       | Frontend API base URL (mapped to `VITE_API_URL` at build time)      | —               |
+| `REACT_APP_WS_URL`        | Frontend WebSocket base URL (mapped to `VITE_WS_URL` at build time) | —               |
+| `EXPO_PUBLIC_API_URL`     | Mobile API base URL                                                 | —               |

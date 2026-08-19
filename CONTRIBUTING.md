@@ -18,6 +18,7 @@ Thanks for considering a contribution! This guide covers the basics.
 ## Commit Messages
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
 ```
 feat(attendance): add bulk leave approval endpoint
 fix(gradebook): correct GPA rounding in report cards
@@ -36,16 +37,19 @@ docs(api): document WebSocket notification payload
 ## Code Style
 
 ### Backend (Python)
+
 - Format with `black` (line length 120)
 - Sort imports with `isort`
 - Type hints encouraged but not required everywhere
 - Every service module follows the existing structure: `models.py`, `views.py`, `serializers.py`, `urls.py`, `tasks.py`, `signals.py`, `admin.py`
 
 ### Frontend (TypeScript/React)
+
 - Functional components only, no class components
 - Use hooks from `src/hooks/` and React Query from `src/api/hooks.ts` — never call `fetch` directly in components
 - Tailwind utility classes; avoid inline styles except for dynamic values
 - Run `npm run lint` and `npm run type-check` before committing
+- Dev server: `npm run dev` (Vite on port 5173)
 
 ## Testing Requirements
 
@@ -56,6 +60,7 @@ docs(api): document WebSocket notification payload
 ## Reporting Issues
 
 Please include:
+
 - Steps to reproduce
 - Expected vs actual behavior
 - Environment (browser/OS for frontend, Python/Django version for backend)

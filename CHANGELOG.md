@@ -8,6 +8,12 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Public application portal** (`services/admissions`): unauthenticated `POST /admissions/public/apply/`, `GET /admissions/public/status/{tracking_id}/`, and `GET /admissions/public/intakes/` endpoints; entrance assessment model (`EntranceAssessment`) linked to applications; frontend pages (`/apply`, `/apply/status`) with form validation and status tracking.
+- **Admissions state machine**: enforced valid transitions (applied → screening → interview → offer → enrolled → waitlisted → rejected → withdrawn); status-change emails sent to applicants on each transition.
+- **Offer deadlines**: configurable `offer_deadline` on applications with Celery auto-expiry task; deadline-expired emails sent to applicants.
+- **Guardian account on enrollment**: automatically creates a parent/guardian user account and sends welcome notification with temporary password when application is marked enrolled.
+- **i18n (Nepal market)**: `i18next` + `react-i18next` setup with English and Nepali translation files; `LanguageSwitcher` component in admin header; `useTranslation` hooks wired into login page, sidebar, and common labels.
+- **CRA → Vite migration**: replaced `react-scripts` with Vite 6 for dev server and production build; ~5x faster dev startup, ~20s builds; source code retains `process.env.REACT_APP_*` (mapped via Vite `define` for Jest compatibility); Dockerfile, entrypoint, CI workflows, and nginx config updated for Vite.
 - **Grade-change audit trail** (`gradebook.GradeChangeLog`): immutable log of every
   grade create/update/delete (single, bulk, and CSV-import paths) with before/after
   values, actor, and timestamp. Read-only `GET /api/v1/gradebook/grades/history/`
@@ -28,6 +34,10 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Security
 
+- **Removed GraphQL** (Graphene-Django): eliminated unused `/graphql/` endpoint and dependency; removed `graphene_django` from `INSTALLED_APPS` and `requirements.txt`.
+- **WebSocket authentication hardened**: notifications channel now requires `Sec-WebSocket-Protocol: jwt` header; unauthenticated connections rejected.
+- **Admin IP allowlist**: configurable `ADMIN_IP_ALLOWLIST` env var to restrict Django admin access to trusted IPs.
+- **Monitoring basic auth**: Alertmanager and Prometheus ingress endpoints protected with basic auth.
 - **Password reset tokens are now stored as SHA-256 digests**; the plaintext is only
   sent in the reset email and never persisted. Tokens created before this change are
   unrecoverable by design.
@@ -56,6 +66,8 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Frontend port standardized**: dev server uses Vite default port 5173 (was 3000/CRA); all docker-compose, nginx, CORS, CI, and e2e configs updated.
+- **CI expanded to 8 jobs**: `docker-build` now depends on `frontend-test` + `security-scan`; `deploy-production` gated on `docker-build`.
 - `AcademicYear.save()` demotes the previous current year inside a
   `select_for_update` lock so concurrent saves can't leave multiple current years.
 - Health readiness is Celery-soft: worker downtime no longer pulls the HTTP service

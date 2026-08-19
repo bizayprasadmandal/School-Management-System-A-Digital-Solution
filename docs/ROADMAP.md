@@ -18,11 +18,11 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 
 ## Phase 2 — Win one pilot school (days 31–60)
 
-| #   | Item                                                                                                                                      | RICE         | Notes                               |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------- |
-| 4   | **Data onboarding wizard** — attendance + fee CSV import shipped ✅; extend to classroom/teacher records and build the frontend wizard UI | 4·4·5/3 = 27 | Import endpoints live; UI next      |
-| 5   | **Admissions CRM funnel** — enrollment funnel analytics ✅; add follow-up pipeline (inquiry → tour → offer) and per-application actions   | 4·4·4/4 = 16 | Backend funnel live; CRM depth next |
-| 6   | **Pilot school onboarding** — recruit 1 school, load their real data, run 2 weeks live **[OWNER]**                                        | 5·5·5/2 = 62 | Unblocks every other priority       |
+| #   | Item                                                                                                                                                                | RICE         | Notes                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------ |
+| 4   | **Data onboarding wizard** — attendance + fee CSV import shipped ✅; extend to classroom/teacher records and build the frontend wizard UI                           | 4·4·5/3 = 27 | Import endpoints live; UI next |
+| 5   | **Admissions CRM funnel** — enrollment funnel analytics ✅; follow-up pipeline ✅ (state machine, offer deadlines, guardian accounts); public application portal ✅ | 4·4·4/4 = 16 | ✅ Done 2026-08                |
+| 6   | **Pilot school onboarding** — recruit 1 school, load their real data, run 2 weeks live **[OWNER]**                                                                  | 5·5·5/2 = 62 | Unblocks every other priority  |
 
 ## Phase 3 — Deepen, don't widen (days 61–90)
 
@@ -31,7 +31,7 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 | 7   | **Parent notifications for attendance/fees** — templates already seed in `seed_demo_data`; wire fee-due reminders + absent-day alerts as standard event templates for all schools | 5·4·5/3 = 33 | NotificationService + templates already exist |
 | 8   | **Grade-change approval workflow** — audit trail ✅; add "proposed → approved" state so admin review gates published grades                                                       | 3·4·3/4 = 9  | Builds directly on GradeChangeLog             |
 | 9   | **Analytics dashboards UI** — expose at-risk/funnel/forecast ✅ in the admin UI with charts                                                                                       | 4·4·3/4 = 12 | Backend live; frontend next                   |
-| 10  | **i18n (Nepali)** — string extraction + Nepali locale for the web app                                                                                                             | 4·4·3/5 = 10 | High value for the target market              |
+| 10  | **i18n (Nepali)** — string extraction + Nepali locale for the web app                                                                                                             | 4·4·3/5 = 10 | ✅ Done 2026-08 (EN/NE + language switcher)   |
 | 11  | **Split Sentry projects** — separate backend / web / mobile DSNs with per-app alert rules **[OWNER]**                                                                             | 3·3·3/1 = 27 | Credentials from Sentry                       |
 
 ## Parked / Could-have

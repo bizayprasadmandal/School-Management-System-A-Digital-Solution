@@ -54,9 +54,10 @@ parent's phone, in the local context, with payments that actually work locally.
 payments, communication/notifications, HR/teachers, timetable, dashboard/reporting,
 multi-tenancy, RBAC, 2FA, mobile app (read + basic write).
 
-**Should have (next):** admissions CRM funnel, grade-change approval workflow,
-at-risk analytics (shipped in unreleased), attendance/fee CSV import (shipped in
-unreleased), data migration/import wizards for onboarding, i18n (Nepali).
+**Should have (next):** admissions CRM funnel ✅, grade-change approval workflow,
+at-risk analytics (shipped), attendance/fee CSV import (shipped),
+data migration/import wizards for onboarding, i18n (Nepali) ✅,
+public application portal ✅.
 
 **Could have:** QR/RFID attendance kiosk, transport GPS tracking, cafeteria POS,
 WhatsApp channel, biometric verification.

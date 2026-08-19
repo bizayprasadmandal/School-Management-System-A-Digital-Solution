@@ -362,59 +362,82 @@ Returns a `application/pdf` file download.
 
 ---
 
-## GraphQL
+## Public Application Portal
 
-**Endpoint:** `POST /graphql/`
+No authentication required. Endpoints for prospective students to apply and track status.
 
-### Sample Query
+### Submit Application
 
-```graphql
-query MyDashboard {
-  myProfile {
-    admissionNumber
-    age
-  }
-  myAttendance(month: 11, year: 2024) {
-    date
-    status
-  }
-  myGrades {
-    id
-    marksObtained
-    percentage
-    isPass
-    remarks
-    gradedAt
-  }
-  announcements(limit: 5) {
-    id
-    title
-    priority
-    publishedAt
-  }
-  myNotifications(unreadOnly: true) {
-    id
-    title
-    body
-    createdAt
-  }
+```http
+POST /admissions/public/apply/
+Content-Type: application/json
+
+{
+  "first_name": "Ram",
+  "last_name": "Sharma",
+  "email": "ram.sharma@email.com",
+  "phone": "+977-9841234567",
+  "date_of_birth": "2012-05-15",
+  "gender": "M",
+  "grade_applied_for": "Grade 8",
+  "previous_school": "Buddha Academy",
+  "address": "Kathmandu, Nepal",
+  "guardian_name": "Hari Sharma",
+  "guardian_phone": "+977-9841234568",
+  "guardian_email": "hari.sharma@email.com",
+  "relationship": "father",
+  "notes": ""
 }
 ```
 
-### Mutations
+**Response 201:**
 
-```graphql
-mutation ReadNotification {
-  markNotificationRead(notificationId: "uuid") {
-    success
-  }
+```json
+{
+  "tracking_id": "APP-2026-001234",
+  "status": "applied",
+  "message": "Application submitted successfully. Use your tracking ID to check status."
 }
+```
 
-mutation ClearNotifications {
-  markAllNotificationsRead {
-    count
-  }
+### Check Application Status
+
+```http
+GET /admissions/public/status/APP-2026-001234/
+```
+
+**Response 200:**
+
+```json
+{
+  "tracking_id": "APP-2026-001234",
+  "status": "screening",
+  "status_display": "Screening",
+  "first_name": "Ram",
+  "last_name": "Sharma",
+  "email": "ram.sharma@email.com",
+  "grade_applied_for": "Grade 8",
+  "created_at": "2026-08-19T10:30:00Z"
 }
+```
+
+### List Open Intakes
+
+```http
+GET /admissions/public/intakes/
+```
+
+**Response 200:**
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Fall 2026 Intake",
+    "description": "Admissions open for Grade 1-10",
+    "application_deadline": "2026-10-31"
+  }
+]
 ```
 
 ---

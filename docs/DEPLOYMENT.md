@@ -50,12 +50,12 @@ docker build -f infrastructure/docker/backend/Dockerfile \
   -t <ecr_backend_url>:2.0.0 backend/
 docker push <ecr_backend_url>:2.0.0
 
-# Frontend
+# Frontend (Vite — uses VITE_ build args)
 docker build -f infrastructure/docker/frontend/Dockerfile \
   --target production \
-  --build-arg REACT_APP_API_URL=https://api.edusphere.school/api/v1 \
-  --build-arg REACT_APP_WS_URL=wss://api.edusphere.school \
-  -t <ecr_frontend_url>:2.0.0 frontend/web/
+  --build-arg VITE_API_URL=https://api.edusphere.school/api/v1 \
+  --build-arg VITE_WS_URL=wss://api.edusphere.school \
+  -t <ecr_frontend_url>:2.0.0 .
 docker push <ecr_frontend_url>:2.0.0
 ```
 

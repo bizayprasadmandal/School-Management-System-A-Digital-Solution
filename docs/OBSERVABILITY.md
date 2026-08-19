@@ -47,13 +47,13 @@ label to whatever the worker Deployment actually carries.)
 
 ## Env vars / GitHub secrets
 
-| Env var                        | Where                              | Notes                                                                             |
-| ------------------------------ | ---------------------------------- | --------------------------------------------------------------------------------- |
-| `SENTRY_DSN`                   | backend container (prod + staging) | Unset → backend runs without Sentry                                               |
-| `REACT_APP_SENTRY_DSN`         | web build (GitHub secret)          | Unset → Sentry disabled in the image (empty is a valid state, not a broken image) |
-| `REACT_APP_SENTRY_DSN_STAGING` | staging web build (secret)         | Same, for `deploy-staging.yml`                                                    |
-| `REACT_APP_SENTRY_RELEASE`     | web build                          | Auto-set to `GITHUB_SHA` by the `fe-args` step — no action needed                 |
-| `SENTRY_AUTH_TOKEN`            | your machine only                  | Needed only for the API alert-rule curl below                                     |
+| Env var                        | Where                              | Notes                                                              |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
+| `SENTRY_DSN`                   | backend container (prod + staging) | Unset → backend runs without Sentry                                |
+| `REACT_APP_SENTRY_DSN`         | web build (GitHub secret)          | Mapped to `VITE_SENTRY_DSN` at build time; unset → Sentry disabled |
+| `REACT_APP_SENTRY_DSN_STAGING` | staging web build (secret)         | Same, for `deploy-staging.yml`                                     |
+| `REACT_APP_SENTRY_RELEASE`     | web build                          | Auto-set to `GITHUB_SHA` by the `fe-args` step — no action needed  |
+| `SENTRY_AUTH_TOKEN`            | your machine only                  | Needed only for the API alert-rule curl below                      |
 
 ## Getting a DSN (one-time)
 

@@ -26,10 +26,10 @@ A production-grade, multi-tenant School Management System built with Django, Rea
 └──────┬─────────────────────┬─────────────────────────────┬────────────────┘
        │                     │                             │
        ▼                     ▼                             ▼
- REST API v1/v2          GraphQL                      WebSocket
-  (DRF + JWT)         (Graphene)                  (Django Channels)
-       │                     │                             │
-       └─────────────────────┴─────────────────────────────┘
+ REST API v1/v2          WebSocket
+  (DRF + JWT)          (Django Channels)
+       │                     │
+       └─────────────────────┘
                                      │
 ┌────────────────────────────────────▼───────────────────────────────────────┐
 │                       APPLICATION LAYER (Django)                             │
@@ -75,8 +75,8 @@ school-management-system/
 │   │   ├── timetable/                # Schedule slots, School Events
 │   │   ├── communication/            # Announcements, Messages, Notifications
 │   │   ├── reporting/                # Analytics, PDF/CSV exports
-│   │   └── fees/                     # Invoices, Payments, Scholarships
-│   └── api/graphql/                  # Unified GraphQL schema
+│   │   ├── fees/                     # Invoices, Payments, Scholarships
+│   │   └── admissions/               # Public application portal, intake mgmt
 │
 ├── frontend/
 │   ├── web/                          # React 18 + TypeScript web app
@@ -128,7 +128,7 @@ docker compose exec backend python manage.py createsuperuser
 #    docker compose exec backend python manage.py seed_e2e_data            # exact Playwright e2e accounts (idempotent)
 
 # 5. Open browser
-open http://localhost:3000
+open http://localhost:5173
 ```
 
 ---
@@ -213,7 +213,15 @@ open http://localhost:3000
 - Late fee calculation
 - Receipt generation (PDF)
 
-### 8. Reporting & Analytics
+### 8. Admissions & Enrollment
+
+- **Public application portal** — unauthenticated applicants can submit, track status
+- Intake management with configurable deadlines and auto-expiry
+- Entrance assessment linking and scoring
+- State machine workflow: applied → screening → interview → offer → enrolled
+- Automated guardian account creation on enrollment with welcome notifications
+
+### 9. Reporting & Analytics
 
 - Executive dashboard with KPI cards
 - Attendance trend charts (daily, monthly, yearly)
@@ -238,21 +246,21 @@ open http://localhost:3000
 
 ## 🛠 Technology Stack
 
-| Layer        | Technology                                                      |
-| ------------ | --------------------------------------------------------------- |
-| Backend      | Python 3.12 · Django 5.2 · Django REST Framework                |
-| GraphQL      | Graphene-Django 3.x                                             |
-| Auth         | JWT (SimpleJWT) · django-axes (brute-force)                     |
-| Task Queue   | Celery 5 · django-celery-beat                                   |
-| WebSockets   | Django Channels 4 + channels-redis                              |
-| Web Frontend | React 18 · TypeScript · TanStack Query · Zustand · Tailwind CSS |
-| Mobile       | React Native · Expo · React Navigation                          |
-| Database     | PostgreSQL 16                                                   |
-| Cache        | Redis 7                                                         |
-| Storage      | AWS S3 / MinIO                                                  |
-| Container    | Docker · Kubernetes (EKS / AKS / GKE)                           |
-| Monitoring   | Prometheus · Grafana · Sentry                                   |
-| CI/CD        | GitHub Actions                                                  |
+| Layer        | Technology                                                             |
+| ------------ | ---------------------------------------------------------------------- |
+| Backend      | Python 3.12 · Django 5.2 · Django REST Framework                       |
+| Auth         | JWT (SimpleJWT) · django-axes (brute-force)                            |
+| Task Queue   | Celery 5 · django-celery-beat                                          |
+| WebSockets   | Django Channels 4 + channels-redis                                     |
+| Web Frontend | React 18 · TypeScript · Vite · TanStack Query · Zustand · Tailwind CSS |
+| i18n         | i18next · react-i18next (English / Nepali)                             |
+| Mobile       | React Native · Expo · React Navigation                                 |
+| Database     | PostgreSQL 16                                                          |
+| Cache        | Redis 7                                                                |
+| Storage      | AWS S3 / MinIO                                                         |
+| Container    | Docker · Kubernetes (EKS / AKS / GKE)                                  |
+| Monitoring   | Prometheus · Grafana · Sentry                                          |
+| CI/CD        | GitHub Actions                                                         |
 
 ---
 
