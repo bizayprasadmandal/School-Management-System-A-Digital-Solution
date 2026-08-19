@@ -149,7 +149,7 @@ jobs:
           npm run dev > /tmp/frontend.log 2>&1 &
           echo $! > /tmp/frontend.pid
           for i in $(seq 1 180); do
-            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
               echo "frontend up after ${i}s"; exit 0
             fi
             sleep 1

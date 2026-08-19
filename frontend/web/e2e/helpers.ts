@@ -3,7 +3,7 @@
  */
 import { Page, expect } from "@playwright/test";
 
-export const BASE = "http://localhost:3000";
+export const BASE = "http://localhost:5173";
 export const API_BASE = "http://localhost:8000/api/v1";
 
 export const ADMIN_EMAIL = "admin@school.edu";

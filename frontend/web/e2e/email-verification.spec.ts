@@ -19,7 +19,7 @@
 import { test, expect } from "@playwright/test";
 import { userMenuPanel } from "./helpers";
 
-const BASE = "http://localhost:3000";
+const BASE = "http://localhost:5173";
 const API_BASE = "http://localhost:8000/api/v1";
 const ADMIN_EMAIL = "admin@school.edu";
 const ADMIN_PASS = "Admin@1234";

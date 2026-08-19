@@ -6,7 +6,7 @@ COPY frontend/web/package*.json ./
 RUN npm install && npm install ajv@8.12.0
 COPY frontend/web/ ./
 
-EXPOSE 3000
+EXPOSE 5173
 CMD ["npm", "run", "dev"]
 
 # ─── Build stage ──────────────────────────────────────────────────────────────

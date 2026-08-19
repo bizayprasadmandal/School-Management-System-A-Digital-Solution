@@ -90,8 +90,8 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000
-      - FRONTEND_URL=http://localhost:3000
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173
+      - FRONTEND_URL=http://localhost:5173
       - TWILIO_ACCOUNT_SID=
       - TWILIO_AUTH_TOKEN=
       - TWILIO_PHONE_NUMBER=
@@ -152,7 +152,7 @@ services:
       - EMAIL_HOST_PASSWORD=${GMAIL_APP_PASSWORD}
       - EMAIL_USE_TLS=True
       - DEFAULT_FROM_EMAIL=${GMAIL_USER}
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=http://localhost:5173
     volumes:
       - ./backend:/app
       - sms_backups:/backups
@@ -215,7 +215,6 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api/v1
       - REACT_APP_WS_URL=ws://localhost:8000
-      - WDS_SOCKET_PORT=3000
       # WATCHPACK_POLLING is set in frontend/web/.env to avoid hardcoding
       # in Docker. It's read at build-time by react-scripts.
     volumes:
@@ -228,7 +227,7 @@ services:
       - ./frontend/web/postcss.config.js:/app/postcss.config.js
       - ./frontend/web/.eslintrc.json:/app/.eslintrc.json
     ports:
-      - "3000:3000"
+      - "5173:5173"
     depends_on:
       - backend
 
