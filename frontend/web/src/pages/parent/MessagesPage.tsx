@@ -41,12 +41,18 @@ export default function ParentMessagesPage() {
     queryFn: () => api.get<MessageThread[]>("/communication/messages/inbox/"),
   });
 
-  const { data: thread, isLoading: threadLoading } = useQuery({
+  const { data: threadRaw, isLoading: threadLoading } = useQuery({
     queryKey: ["parent-thread", activeThread],
     queryFn: () =>
-      api.get<ThreadMessage[]>(`/communication/messages/conversation/${activeThread}/`),
+      api.get<ThreadMessage[] | { results: ThreadMessage[] }>(
+        `/communication/messages/conversation/${activeThread}/`,
+      ),
     enabled: !!activeThread,
   });
+
+  // The backend paginates conversations — normalise to a flat array
+  const thread: ThreadMessage[] | undefined =
+    threadRaw && "results" in threadRaw ? threadRaw.results : threadRaw;
 
   // Live updates over WebSocket — replaces polling. Invalidating the thread
   // query on each inbound message avoids duplicating the echoed send.

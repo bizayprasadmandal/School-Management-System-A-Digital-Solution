@@ -55,16 +55,22 @@ export default function TeacherMessagesPage() {
   // ── Active conversation ──────────────────────────────────────────────────
 
   const {
-    data: thread,
+    data: threadRaw,
     isLoading: threadLoading,
     isError: threadError,
     refetch: refetchThread,
   } = useQuery({
     queryKey: ["teacher-thread", activeThread],
     queryFn: () =>
-      api.get<ThreadMessage[]>(`/communication/messages/conversation/${activeThread}/`),
+      api.get<ThreadMessage[] | { results: ThreadMessage[] }>(
+        `/communication/messages/conversation/${activeThread}/`,
+      ),
     enabled: !!activeThread,
   });
+
+  // The backend paginates conversations — normalise to a flat array
+  const thread: ThreadMessage[] | undefined =
+    threadRaw && "results" in threadRaw ? threadRaw.results : threadRaw;
 
   // Live updates over WebSocket — replaces polling. Invalidating the thread
   // query on each inbound message avoids duplicating the echoed send.

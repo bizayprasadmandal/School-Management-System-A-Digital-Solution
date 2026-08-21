@@ -47,6 +47,8 @@ web-build/
 *.pem
 google-services.json
 GoogleService-Info.plist
+*-service-account.json
+*-credentials.json
 
 # ── IDE ──────────────────────────────────────────────────────────────────
 .vscode/
