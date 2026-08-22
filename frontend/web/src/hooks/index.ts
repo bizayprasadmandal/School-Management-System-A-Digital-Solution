@@ -31,7 +31,10 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
-  const { tokens } = useAuthStore();
+  // Subscribe to tokens only — using the full store causes re-renders on
+  // every state change, which recreates `connect` and triggers the useEffect
+  // cleanup/re-run cycle, closing and reopening the WebSocket each time.
+  const tokens = useAuthStore((s) => s.tokens);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const mountedRef = useRef(true);
@@ -46,9 +49,17 @@ export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  // Guard against empty REACT_APP_WS_URL (unset build arg) — fall back to localhost.
-  const WS_BASE =
-    (process.env.REACT_APP_WS_URL || "").replace(/^http/, "ws") || "ws://localhost:8000";
+  // Guard against empty REACT_APP_WS_URL (unset build arg) — fall back to the
+  // page origin so the Vite dev-server proxy (configured in vite.config.ts)
+  // forwards the WebSocket upgrade to the backend. In production the env var
+  // points directly at the backend host.
+  const WS_BASE = (() => {
+    const raw = process.env.REACT_APP_WS_URL || "";
+    if (raw) return raw.replace(/^http/, "ws");
+    // Fallback: derive from the page URL so the Vite proxy handles the upgrade.
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}`;
+  })();
 
   const connect = useCallback(() => {
     if (!tokens?.access || !mountedRef.current) return;
