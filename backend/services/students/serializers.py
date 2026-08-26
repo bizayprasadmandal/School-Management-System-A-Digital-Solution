@@ -134,13 +134,19 @@ class StudentSelfProfileSerializer(serializers.ModelSerializer):
 
 
 class StudentCreateSerializer(serializers.ModelSerializer):
-    """Handles student creation including user account creation."""
+    """Handles student creation including user account creation.
+
+    admission_number is optional — if left blank or omitted the system
+    auto-generates one using the format ADM-YYYY-NNNN (e.g. ADM-2026-0001).
+    Admins can still supply a custom number (e.g. for transfers).
+    """
 
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     classroom_id = serializers.IntegerField(write_only=True)
+    admission_number = serializers.CharField(required=False, allow_blank=True)
     MAX_BULK_SIZE = 200
 
     class Meta:
@@ -166,6 +172,33 @@ class StudentCreateSerializer(serializers.ModelSerializer):
             "emergency_contact_phone",
         ]
 
+    def _generate_admission_number(self, school):
+        """Auto-generate admission number: ADM-YYYY-NNNN.
+
+        Queries the highest existing sequence number for the current year
+        and increments it.  Uses ``select_for_update`` so concurrent
+        creates within the same transaction cannot collide.
+        """
+        from datetime import datetime
+
+        year = datetime.now().year
+        prefix = f"ADM-{year}-"
+
+        last_student = (
+            Student.objects.select_for_update()
+            .filter(school=school, admission_number__startswith=prefix)
+            .order_by("-admission_number")
+            .first()
+        )
+
+        if last_student:
+            last_seq = int(last_student.admission_number.split("-")[-1])
+            new_seq = last_seq + 1
+        else:
+            new_seq = 1
+
+        return f"{prefix}{new_seq:04d}"
+
     def validate_email(self, value):
         from services.auth.models import User
 
@@ -175,6 +208,12 @@ class StudentCreateSerializer(serializers.ModelSerializer):
 
     def validate_admission_number(self, value):
         school = self.context["request"].user.school
+
+        # Auto-generate when blank or omitted
+        if not value:
+            return self._generate_admission_number(school)
+
+        # Manual override — just enforce uniqueness within the school
         if Student.objects.filter(school=school, admission_number=value).exists():
             raise serializers.ValidationError("This admission number is already in use.")
         return value

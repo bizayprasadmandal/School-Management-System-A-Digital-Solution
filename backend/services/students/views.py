@@ -354,10 +354,27 @@ class StudentViewSet(viewsets.ModelViewSet):
                     )
                     if generated:
                         generated_passwords[email] = password
+
+                    # Auto-generate admission number if not provided in CSV
+                    admission_number = row.get("admission_number", "").strip()
+                    if not admission_number:
+                        year = timezone.now().year
+                        prefix = f"ADM-{year}-"
+                        last_student = (
+                            Student.objects.filter(school=school, admission_number__startswith=prefix)
+                            .order_by("-admission_number")
+                            .first()
+                        )
+                        if last_student:
+                            last_seq = int(last_student.admission_number.split("-")[-1])
+                            admission_number = f"{prefix}{last_seq + 1:04d}"
+                        else:
+                            admission_number = f"{prefix}0001"
+
                     student = Student.objects.create(
                         user=user,
                         school=school,
-                        admission_number=row.get("admission_number", "").strip(),
+                        admission_number=admission_number,
                         date_of_birth=row.get("date_of_birth", "").strip(),
                         gender=row.get("gender", "M").strip().upper(),
                         address=row.get("address", "").strip(),

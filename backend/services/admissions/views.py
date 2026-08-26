@@ -315,8 +315,6 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         If guardian information is provided on the application, a parent user
         and guardian profile are also created with portal access.
         """
-        import uuid
-
         from django.db import transaction
         from django.utils import timezone
         from services.auth.models import User, UserRole
@@ -359,10 +357,24 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 role=UserRole.STUDENT,
                 school=school,
             )
+            # Auto-generate admission number using consistent format: ADM-YYYY-NNNN
+            year = timezone.now().year
+            prefix = f"ADM-{year}-"
+            last_student = (
+                Student.objects.filter(school=school, admission_number__startswith=prefix)
+                .order_by("-admission_number")
+                .first()
+            )
+            if last_student:
+                last_seq = int(last_student.admission_number.split("-")[-1])
+                admission_number = f"{prefix}{last_seq + 1:04d}"
+            else:
+                admission_number = f"{prefix}0001"
+
             student = Student.objects.create(
                 user=user,
                 school=school,
-                admission_number=f"STU-{uuid.uuid4().hex[:8].upper()}",
+                admission_number=admission_number,
                 date_of_birth=app.date_of_birth,
                 gender={"male": "M", "female": "F"}.get(app.gender, "O"),
                 address=app.address or "",
