@@ -19,7 +19,7 @@ repos:
       # which isn't supported by all hook versions).
       - id: check-added-large-files
         args: [--maxkb=500]
-        exclude: ^.*package-lock\.json$
+        exclude: (^.*package-lock\.json$|docs/diagrams/.*\.png$)
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2

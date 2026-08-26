@@ -1,0 +1,6 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203,F405,W503,DJ01
+per-file-ignores =
+    docs/combined_hld_lld.py:E501,F541,E402
+    docs/er_diagram.py:E501
