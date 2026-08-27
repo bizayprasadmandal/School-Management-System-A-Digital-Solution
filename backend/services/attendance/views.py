@@ -15,14 +15,32 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.students.models import Student
 
-from .models import AttendanceChangeLog, AttendanceLeave, AttendanceRecord, PeriodAttendance
+from .models import (
+    AttendanceChangeLog,
+    AttendanceDataArchive,
+    AttendanceLeave,
+    AttendancePolicy,
+    AttendanceRecord,
+    Holiday,
+    LeaveBalance,
+    PeriodAttendance,
+    QRCodeCheckin,
+    QRCodeSession,
+    SubstituteTeacher,
+)
 from .serializers import (
     AttendanceChangeLogSerializer,
+    AttendanceDataArchiveSerializer,
     AttendanceLeaveSerializer,
+    AttendancePolicySerializer,
     AttendanceRecordSerializer,
     BulkAttendanceSerializer,
     BulkPeriodAttendanceSerializer,
+    HolidaySerializer,
+    LeaveBalanceSerializer,
     PeriodAttendanceSerializer,
+    QRCodeSessionSerializer,
+    SubstituteTeacherSerializer,
     log_attendance_change,
 )
 from .tasks import notify_absent_guardians
@@ -897,3 +915,159 @@ class AttendanceChangeLogViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(changed_at__date__lte=date_to)
 
         return qs
+
+
+class AttendancePolicyViewSet(viewsets.ModelViewSet):
+    """Attendance policy management — admins only."""
+
+    serializer_class = AttendancePolicySerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return AttendancePolicy.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        # Deactivate other policies for this school
+        AttendancePolicy.objects.filter(school=self.request.user.school, is_active=True).update(is_active=False)
+        serializer.save(school=self.request.user.school)
+
+
+class HolidayViewSet(viewsets.ModelViewSet):
+    """Holiday management — admins can CRUD, teachers can view."""
+
+    serializer_class = HolidaySerializer
+
+    def get_queryset(self):
+        return Holiday.objects.filter(school=self.request.user.school).order_by("date")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class LeaveBalanceViewSet(viewsets.ModelViewSet):
+    """Leave balance management — admins can manage, students can view their own."""
+
+    serializer_class = LeaveBalanceSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return LeaveBalance.objects.filter(student__school=user.school)
+        if user.role == "student":
+            return LeaveBalance.objects.filter(student__user=user)
+        return LeaveBalance.objects.none()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class QRCodeSessionViewSet(viewsets.ModelViewSet):
+    """QR code session management for student check-in."""
+
+    serializer_class = QRCodeSessionSerializer
+    permission_classes = [IsAuthenticated, IsTeacher]
+
+    def get_queryset(self):
+        user = self.request.user
+        return QRCodeSession.objects.filter(teacher=user).order_by("-created_at")
+
+    def perform_create(self, serializer):
+        import secrets
+        from datetime import timedelta
+
+        qr_code = secrets.token_urlsafe(32)
+        secret_key = secrets.token_hex(16)
+        expires_at = timezone.now() + timedelta(minutes=5)
+
+        serializer.save(
+            teacher=self.request.user,
+            qr_code=qr_code,
+            secret_key=secret_key,
+            expires_at=expires_at,
+        )
+
+    @action(detail=True, methods=["post"], url_path="checkin")
+    def checkin(self, request, pk=None):
+        """Student checks in via QR code."""
+        session = self.get_object()
+
+        if not session.is_active or session.expires_at < timezone.now():
+            return Response({"error": "QR code has expired"}, status=400)
+
+        qr_code = request.data.get("qr_code")
+        if qr_code != session.qr_code:
+            return Response({"error": "Invalid QR code"}, status=400)
+
+        student = Student.objects.filter(user=request.user, school=request.user.school).first()
+        if not student:
+            return Response({"error": "Student not found"}, status=404)
+
+        if QRCodeCheckin.objects.filter(session=session, student=student).exists():
+            return Response({"error": "Already checked in"}, status=400)
+
+        checkin = QRCodeCheckin.objects.create(
+            session=session,
+            student=student,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            device_info={"user_agent": request.META.get("HTTP_USER_AGENT", "")},
+        )
+
+        return Response({"status": "checked_in", "time": checkin.checked_in_at}, status=201)
+
+
+class SubstituteTeacherViewSet(viewsets.ModelViewSet):
+    """Substitute teacher management."""
+
+    serializer_class = SubstituteTeacherSerializer
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return SubstituteTeacher.objects.filter(original_teacher__school=user.school).order_by("-date")
+        if user.role == "teacher":
+            return SubstituteTeacher.objects.filter(Q(original_teacher=user) | Q(substitute_teacher=user)).order_by(
+                "-date"
+            )
+        return SubstituteTeacher.objects.none()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["post"], url_path="auto-assign")
+    def auto_assign(self, request):
+        """Auto-assign substitute teachers for absent teachers."""
+        from datetime import date
+
+        teacher_id = request.data.get("teacher_id")
+        target_date = request.data.get("date", date.today().isoformat())
+        period_number = request.data.get("period_number")
+
+        if not teacher_id:
+            return Response({"error": "teacher_id is required"}, status=400)
+
+        from .tasks import auto_assign_substitute
+
+        auto_assign_substitute.delay(int(teacher_id), target_date, period_number)
+
+        return Response({"status": "auto-assignment queued"}, status=202)
+
+
+class AttendanceDataArchiveViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only viewset for viewing archived attendance data."""
+
+    serializer_class = AttendanceDataArchiveSerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return AttendanceDataArchive.objects.filter(school=self.request.user.school).order_by("-archived_at")

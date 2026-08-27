@@ -256,6 +256,133 @@ export function useAtRiskAttendanceStudents(threshold?: number, days?: number) {
   });
 }
 
+// ─── Attendance Policy ─────────────────────────────────────────────────────────
+
+export function useAttendancePolicies() {
+  return useQuery({
+    queryKey: ["attendance", "policies"],
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").AttendancePolicy>>("/attendance/policies/"),
+    staleTime: 10 * 60 * 1000, // 10 min
+  });
+}
+
+export function useCreateAttendancePolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<import("../types").AttendancePolicy>) =>
+      api.post<import("../types").AttendancePolicy>("/attendance/policies/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "policies"] }),
+  });
+}
+
+export function useUpdateAttendancePolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<import("../types").AttendancePolicy> & { id: number }) =>
+      api.patch<import("../types").AttendancePolicy>(`/attendance/policies/${id}/`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "policies"] }),
+  });
+}
+
+// ─── Holidays ─────────────────────────────────────────────────────────────────
+
+export function useHolidays() {
+  return useQuery({
+    queryKey: ["attendance", "holidays"],
+    queryFn: () => api.get<PaginatedResponse<import("../types").Holiday>>("/attendance/holidays/"),
+    staleTime: 30 * 60 * 1000, // 30 min
+  });
+}
+
+export function useCreateHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<import("../types").Holiday>) =>
+      api.post<import("../types").Holiday>("/attendance/holidays/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "holidays"] }),
+  });
+}
+
+export function useDeleteHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/attendance/holidays/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "holidays"] }),
+  });
+}
+
+// ─── Leave Balance ─────────────────────────────────────────────────────────────
+
+export function useLeaveBalances(studentId?: string) {
+  return useQuery({
+    queryKey: ["attendance", "leave-balances", { student: studentId }],
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").LeaveBalance>>("/attendance/leave-balances/", {
+        student: studentId,
+      }),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useCreateLeaveBalance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<import("../types").LeaveBalance>) =>
+      api.post<import("../types").LeaveBalance>("/attendance/leave-balances/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "leave-balances"] }),
+  });
+}
+
+// ─── QR Code Sessions ──────────────────────────────────────────────────────────
+
+export function useQRSessions() {
+  return useQuery({
+    queryKey: ["attendance", "qr-sessions"],
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").QRCodeSession>>("/attendance/qr-sessions/"),
+    staleTime: 30 * 1000, // 30s — QR sessions change quickly
+  });
+}
+
+export function useCreateQRSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { classroom: number; date: string; period_number?: number }) =>
+      api.post<import("../types").QRCodeSession>("/attendance/qr-sessions/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "qr-sessions"] }),
+  });
+}
+
+export function useQRCheckin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, qr_code }: { sessionId: number; qr_code: string }) =>
+      api.post(`/attendance/qr-sessions/${sessionId}/checkin/`, { qr_code }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "qr-sessions"] }),
+  });
+}
+
+// ─── Substitute Teachers ───────────────────────────────────────────────────────
+
+export function useSubstitutes() {
+  return useQuery({
+    queryKey: ["attendance", "substitutes"],
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").SubstituteTeacher>>("/attendance/substitutes/"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAutoAssignSubstitute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { teacher_id: string; date: string; period_number?: number }) =>
+      api.post("/attendance/substitutes/auto-assign/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", "substitutes"] }),
+  });
+}
+
 // ─── Period Attendance ─────────────────────────────────────────────────────────
 
 export function usePeriodAttendanceRecords(date: string) {

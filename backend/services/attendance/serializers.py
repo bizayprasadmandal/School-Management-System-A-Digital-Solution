@@ -3,7 +3,20 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import AttendanceChangeLog, AttendanceLeave, AttendanceRecord, PeriodAttendance
+from .models import (
+    AttendanceChangeLog,
+    AttendanceDataArchive,
+    AttendanceLeave,
+    AttendancePolicy,
+    AttendanceRecord,
+    Holiday,
+    LeaveApprovalLevel,
+    LeaveBalance,
+    PeriodAttendance,
+    QRCodeCheckin,
+    QRCodeSession,
+    SubstituteTeacher,
+)
 
 MAX_BULK_RECORDS = 50
 ATTENDANCE_EDIT_WINDOW_DAYS = getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 7)
@@ -285,3 +298,195 @@ class BulkPeriodAttendanceSerializer(serializers.Serializer):
             )
             records.append(record)
         return records
+
+
+class AttendancePolicySerializer(serializers.ModelSerializer):
+    """Serializer for attendance policy."""
+
+    class Meta:
+        model = AttendancePolicy
+        fields = [
+            "id",
+            "school",
+            "name",
+            "min_attendance_pct",
+            "auto_fail_below",
+            "notify_parent_below_pct",
+            "notify_admin_below_pct",
+            "edit_window_days",
+            "reminder_time",
+            "escalation_enabled",
+            "escalation_after_minutes",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["school", "created_at", "updated_at"]
+
+
+class HolidaySerializer(serializers.ModelSerializer):
+    """Serializer for holidays."""
+
+    class Meta:
+        model = Holiday
+        fields = [
+            "id",
+            "school",
+            "name",
+            "date",
+            "holiday_type",
+            "description",
+            "academic_year",
+            "created_at",
+        ]
+        read_only_fields = ["school", "created_at"]
+
+
+class LeaveBalanceSerializer(serializers.ModelSerializer):
+    """Serializer for leave balance."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    sick_leave_remaining = serializers.IntegerField(read_only=True)
+    casual_leave_remaining = serializers.IntegerField(read_only=True)
+    other_leave_remaining = serializers.IntegerField(read_only=True)
+    total_remaining = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LeaveBalance
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "sick_leave_total",
+            "sick_leave_used",
+            "sick_leave_remaining",
+            "casual_leave_total",
+            "casual_leave_used",
+            "casual_leave_remaining",
+            "other_leave_total",
+            "other_leave_used",
+            "other_leave_remaining",
+            "total_remaining",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class LeaveApprovalLevelSerializer(serializers.ModelSerializer):
+    """Serializer for leave approval levels."""
+
+    approver_name = serializers.CharField(source="approver.full_name", read_only=True)
+
+    class Meta:
+        model = LeaveApprovalLevel
+        fields = [
+            "id",
+            "leave",
+            "level",
+            "approver",
+            "approver_name",
+            "status",
+            "remarks",
+            "decided_at",
+            "created_at",
+        ]
+        read_only_fields = ["created_at", "decided_at"]
+
+
+class QRCodeSessionSerializer(serializers.ModelSerializer):
+    """Serializer for QR code sessions."""
+
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+    checkin_count = serializers.IntegerField(source="checkins.count", read_only=True)
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QRCodeSession
+        fields = [
+            "id",
+            "classroom",
+            "classroom_name",
+            "teacher",
+            "teacher_name",
+            "date",
+            "period_number",
+            "qr_code",
+            "is_active",
+            "expires_at",
+            "checkin_count",
+            "is_expired",
+            "created_at",
+        ]
+        read_only_fields = ["teacher", "qr_code", "secret_key", "created_at"]
+
+    def get_is_expired(self, obj):
+        return obj.expires_at < timezone.now()
+
+
+class QRCodeCheckinSerializer(serializers.ModelSerializer):
+    """Serializer for QR code check-ins."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = QRCodeCheckin
+        fields = [
+            "id",
+            "session",
+            "student",
+            "student_name",
+            "checked_in_at",
+            "ip_address",
+        ]
+        read_only_fields = ["checked_in_at", "ip_address"]
+
+
+class SubstituteTeacherSerializer(serializers.ModelSerializer):
+    """Serializer for substitute teacher assignments."""
+
+    original_teacher_name = serializers.CharField(source="original_teacher.full_name", read_only=True)
+    substitute_teacher_name = serializers.CharField(source="substitute_teacher.full_name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True, default=None)
+
+    class Meta:
+        model = SubstituteTeacher
+        fields = [
+            "id",
+            "original_teacher",
+            "original_teacher_name",
+            "substitute_teacher",
+            "substitute_teacher_name",
+            "date",
+            "period_number",
+            "classroom",
+            "classroom_name",
+            "subject",
+            "subject_name",
+            "reason",
+            "is_auto_assigned",
+            "created_at",
+        ]
+        read_only_fields = ["is_auto_assigned", "created_at"]
+
+
+class AttendanceDataArchiveSerializer(serializers.ModelSerializer):
+    """Serializer for archived attendance data."""
+
+    class Meta:
+        model = AttendanceDataArchive
+        fields = [
+            "id",
+            "school",
+            "academic_year",
+            "archive_type",
+            "record_count",
+            "date_from",
+            "date_to",
+            "archived_at",
+            "is_purged",
+        ]
+        read_only_fields = ["archived_at"]

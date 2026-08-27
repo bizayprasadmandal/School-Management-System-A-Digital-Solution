@@ -369,6 +369,86 @@ export interface AtRiskAttendanceResponse {
   }>;
 }
 
+export interface AttendancePolicy {
+  id: number;
+  school: string;
+  name: string;
+  min_attendance_pct: number;
+  auto_fail_below: boolean;
+  notify_parent_below_pct: number;
+  notify_admin_below_pct: number;
+  edit_window_days: number;
+  reminder_time: string;
+  escalation_enabled: boolean;
+  escalation_after_minutes: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Holiday {
+  id: number;
+  school: string;
+  name: string;
+  date: string;
+  holiday_type: "public" | "school" | "exam" | "vacation";
+  description: string;
+  academic_year?: number;
+  created_at: string;
+}
+
+export interface LeaveBalance {
+  id: number;
+  student: string;
+  student_name: string;
+  academic_year: number;
+  sick_leave_total: number;
+  sick_leave_used: number;
+  sick_leave_remaining: number;
+  casual_leave_total: number;
+  casual_leave_used: number;
+  casual_leave_remaining: number;
+  other_leave_total: number;
+  other_leave_used: number;
+  other_leave_remaining: number;
+  total_remaining: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QRCodeSession {
+  id: number;
+  classroom: number;
+  classroom_name: string;
+  teacher: string;
+  teacher_name: string;
+  date: string;
+  period_number?: number;
+  qr_code: string;
+  is_active: boolean;
+  expires_at: string;
+  checkin_count: number;
+  is_expired: boolean;
+  created_at: string;
+}
+
+export interface SubstituteTeacher {
+  id: number;
+  original_teacher: string;
+  original_teacher_name: string;
+  substitute_teacher: string;
+  substitute_teacher_name: string;
+  date: string;
+  period_number?: number;
+  classroom: number;
+  classroom_name: string;
+  subject?: number;
+  subject_name?: string;
+  reason: string;
+  is_auto_assigned: boolean;
+  created_at: string;
+}
+
 // ─── Gradebook ────────────────────────────────────────────────────────────────
 
 export interface Exam {
