@@ -192,6 +192,20 @@ export function useStudentMonthlyAttendance(studentId: string, month: number, ye
   });
 }
 
+export function useClassroomAttendanceRecords(classroomId: number, date: string) {
+  return useQuery({
+    queryKey: QK.attendance.classroom(classroomId, date),
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").AttendanceRecord>>("/attendance/", {
+        classroom: classroomId,
+        date,
+      }),
+    enabled: !!classroomId && !!date,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
 export function useBulkRecordAttendance() {
   const qc = useQueryClient();
   return useMutation({
@@ -201,6 +215,37 @@ export function useBulkRecordAttendance() {
       records: Array<{ student_id: string; status: string; remarks?: string }>;
     }) => api.post("/attendance/bulk-record/", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+// ─── Period Attendance ─────────────────────────────────────────────────────────
+
+export function usePeriodAttendanceRecords(date: string) {
+  return useQuery({
+    queryKey: ["period-attendance", "list", { date }],
+    queryFn: () =>
+      api.get<PaginatedResponse<import("../types").PeriodAttendanceRecord>>(
+        "/attendance/periods/",
+        {
+          date,
+        },
+      ),
+    enabled: !!date,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
+export function useBulkRecordPeriodAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      assignment_id: number;
+      date: string;
+      period_number: number;
+      records: Array<{ student_id: string; status: string }>;
+    }) => api.post("/attendance/periods/bulk-record/", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["period-attendance"] }),
   });
 }
 

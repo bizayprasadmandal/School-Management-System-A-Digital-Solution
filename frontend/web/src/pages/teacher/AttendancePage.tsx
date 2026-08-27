@@ -1,5 +1,5 @@
 /**
- * Teacher Attendance Page — Daily class attendance recording
+ * Teacher Attendance Page — Daily & Period-wise attendance recording
  */
 
 import React, { useState, useMemo } from "react";
@@ -7,7 +7,12 @@ import { CheckCircleIcon, XCircleIcon, ClockIcon } from "@heroicons/react/24/sol
 import { CheckIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import { useClassrooms, useBulkRecordAttendance } from "../../api/hooks";
+import {
+  useClassrooms,
+  useBulkRecordAttendance,
+  useClassroomAttendanceRecords,
+  usePeriodAttendanceRecords,
+} from "../../api/hooks";
 import { Button, SkeletonTable } from "../../components/common";
 import type { AttendanceStatus, StudentListItem } from "../../types";
 import { api } from "../../api/client";
@@ -54,12 +59,16 @@ interface StudentAttendanceEntry {
   avatar?: string;
   status: AttendanceStatus;
   remarks: string;
+  alreadyMarked: boolean;
 }
+
+type TabType = "daily" | "period";
 
 export default function TeacherAttendancePage() {
   const today = dayjs().format("YYYY-MM-DD");
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("daily");
   const [entries, setEntries] = useState<Record<string, StudentAttendanceEntry>>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -75,40 +84,53 @@ export default function TeacherAttendancePage() {
   });
 
   // Fetch existing attendance for the day
-  // (keeping useClassroomAttendance imported for future drill-down feature)
+  const { data: existingAttendance } = useClassroomAttendanceRecords(
+    selectedClassroom ?? 0,
+    selectedDate,
+  );
 
-  // Initialize entries when students load
+  // Fetch period attendance records
+  const { data: periodAttendanceData } = usePeriodAttendanceRecords(selectedDate);
+
+  // Initialize entries when students load, pre-fill with existing attendance
   React.useEffect(() => {
     if (studentsData) {
       const initial: Record<string, StudentAttendanceEntry> = {};
+      const existingRecords = existingAttendance?.results ?? [];
+
       studentsData.forEach((s) => {
+        // Check if attendance already exists for this student
+        const existingRecord = existingRecords.find(
+          (r) => r.student === s.id && r.date === selectedDate,
+        );
         initial[s.id] = {
           student_id: s.id,
           full_name: s.full_name,
           admission_number: s.admission_number,
           avatar: s.avatar,
-          status: "P",
-          remarks: "",
+          status: existingRecord?.status ?? "P",
+          remarks: existingRecord?.remarks ?? "",
+          alreadyMarked: !!existingRecord,
         };
       });
       setEntries(initial);
       setSubmitted(false);
     }
-  }, [studentsData]);
+  }, [studentsData, existingAttendance, selectedDate]);
 
   const mutate = useBulkRecordAttendance();
 
   const setStatus = (studentId: string, status: AttendanceStatus) => {
     setEntries((prev) => ({
       ...prev,
-      [studentId]: { ...prev[studentId], status },
+      [studentId]: { ...prev[studentId], status, alreadyMarked: false },
     }));
   };
 
   const setRemarks = (studentId: string, remarks: string) => {
     setEntries((prev) => ({
       ...prev,
-      [studentId]: { ...prev[studentId], remarks },
+      [studentId]: { ...prev[studentId], remarks, alreadyMarked: false },
     }));
   };
 
@@ -116,7 +138,7 @@ export default function TeacherAttendancePage() {
     setEntries((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((id) => {
-        updated[id] = { ...updated[id], status };
+        updated[id] = { ...updated[id], status, alreadyMarked: false };
       });
       return updated;
     });
@@ -130,6 +152,7 @@ export default function TeacherAttendancePage() {
       late: list.filter((e) => e.status === "L").length,
       excused: list.filter((e) => e.status === "E").length,
       total: list.length,
+      marked: list.filter((e) => e.alreadyMarked).length,
     };
   }, [entries]);
 
@@ -151,12 +174,39 @@ export default function TeacherAttendancePage() {
 
   const studentList = Object.values(entries);
 
+  // Filter period attendance for current teacher's assignments
+  const myPeriodRecords = periodAttendanceData?.results ?? [];
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Record Attendance</h1>
-        <p className="text-sm text-slate-500 mt-1">Mark student attendance for your class</p>
+        <h1 className="text-2xl font-bold text-slate-900">Attendance</h1>
+        <p className="text-sm text-slate-500 mt-1">Record and view attendance for your classes</p>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+        <button
+          onClick={() => setActiveTab("daily")}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "daily"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          📅 Daily Attendance
+        </button>
+        <button
+          onClick={() => setActiveTab("period")}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "period"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          ⏰ Period-wise Attendance
+        </button>
       </div>
 
       {/* Controls */}
@@ -191,9 +241,10 @@ export default function TeacherAttendancePage() {
         </div>
       </div>
 
-      {selectedClassroom && studentList.length > 0 && (
+      {/* Daily Attendance Tab */}
+      {activeTab === "daily" && selectedClassroom && studentList.length > 0 && (
         <>
-          {/* Summary + bulk actions */}
+          {/* Summary + Status */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white p-4 shadow-sm border border-slate-100">
             <div className="flex gap-6 text-sm">
               <span>
@@ -210,13 +261,20 @@ export default function TeacherAttendancePage() {
               </span>
               <span className="text-slate-400">/ {stats.total} total</span>
             </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => markAll("P")}>
-                Mark All Present
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => markAll("A")}>
-                Mark All Absent
-              </Button>
+            <div className="flex items-center gap-3">
+              {stats.marked > 0 && (
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                  ✓ {stats.marked} already marked
+                </span>
+              )}
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => markAll("P")}>
+                  Mark All Present
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => markAll("A")}>
+                  Mark All Absent
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -284,6 +342,11 @@ export default function TeacherAttendancePage() {
                               {opt.label}
                             </button>
                           ))}
+                          {entry.alreadyMarked && (
+                            <span className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium bg-green-50 text-green-600">
+                              ✓ Saved
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -315,8 +378,76 @@ export default function TeacherAttendancePage() {
         </>
       )}
 
+      {/* Period-wise Attendance Tab */}
+      {activeTab === "period" && (
+        <div className="space-y-4">
+          {myPeriodRecords.length > 0 ? (
+            <div className="rounded-xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Period
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Subject
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        Recorded At
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {myPeriodRecords.map((record) => (
+                      <tr key={record.id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-sm font-medium text-slate-800">
+                          Period {record.period_number}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{record.subject_name}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                              record.status === "P"
+                                ? "bg-green-100 text-green-700"
+                                : record.status === "A"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {record.status === "P"
+                              ? "Present"
+                              : record.status === "A"
+                                ? "Absent"
+                                : "Late"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-500">
+                          {dayjs(record.recorded_at).format("HH:mm")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+              <ClockIcon className="h-12 w-12 mb-3 opacity-30" />
+              <p className="text-base">No period attendance recorded yet for this date</p>
+              <p className="text-sm mt-1">Period attendance will appear here once you record it</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading State */}
       {selectedClassroom && studentsLoading && <SkeletonTable rows={8} cols={4} />}
 
+      {/* Empty State */}
       {!selectedClassroom && (
         <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
           <ClockIcon className="h-12 w-12 mb-3 opacity-30" />

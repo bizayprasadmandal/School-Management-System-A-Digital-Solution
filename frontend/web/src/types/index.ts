@@ -272,6 +272,35 @@ export interface ClassroomAttendanceSummary {
   };
 }
 
+export interface PeriodAttendanceRecord {
+  id: number;
+  student: string;
+  student_name: string;
+  assignment: number;
+  subject_name: string;
+  teacher_name: string;
+  date: string;
+  period_number: number;
+  status: AttendanceStatus;
+  recorded_by?: number;
+  recorded_at: string;
+  updated_by?: number;
+  updated_by_name?: string;
+  updated_at?: string;
+  can_edit: boolean;
+}
+
+export interface PeriodAttendanceSummary {
+  date: string;
+  periods: Array<{
+    period_number: number;
+    total: number;
+    present: number;
+    absent: number;
+    late: number;
+  }>;
+}
+
 // ─── Gradebook ────────────────────────────────────────────────────────────────
 
 export interface Exam {
