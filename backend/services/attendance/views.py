@@ -48,6 +48,26 @@ from .tasks import notify_absent_guardians
 ATTENDANCE_EDIT_WINDOW_DAYS = getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 7)
 
 
+def broadcast_attendance_update(classroom_id, date, record_data):
+    """Broadcast attendance update via WebSocket channel layer."""
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        channel_layer = get_channel_layer()
+        group_name = f"attendance_classroom_{classroom_id}_{date}"
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type": "attendance_update",
+                "record": record_data,
+            },
+        )
+    except Exception:
+        # WebSocket broadcast is best-effort — never block the API
+        pass
+
+
 class AttendanceViewSet(viewsets.ModelViewSet):
     """
     Attendance recording. Teachers record attendance for their classes.
@@ -86,6 +106,18 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         log_attendance_change("daily", record, "create", self.request.user, new_values={"status": record.status})
         if record.status == AttendanceRecord.Status.ABSENT and not record.notified_guardian:
             notify_absent_guardians.delay(str(record.id))
+        # Broadcast real-time update via WebSocket
+        broadcast_attendance_update(
+            record.classroom_id,
+            str(record.date),
+            {
+                "student_id": str(record.student_id),
+                "student_name": record.student.user.full_name,
+                "status": record.status,
+                "recorded_at": record.recorded_at.isoformat(),
+                "action": "create",
+            },
+        )
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -109,6 +141,18 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         # Notify guardian if status changed to absent
         if record.status == AttendanceRecord.Status.ABSENT and not record.notified_guardian:
             notify_absent_guardians.delay(str(record.id))
+        # Broadcast real-time update via WebSocket
+        broadcast_attendance_update(
+            record.classroom_id,
+            str(record.date),
+            {
+                "student_id": str(record.student_id),
+                "student_name": record.student.user.full_name,
+                "status": record.status,
+                "recorded_at": record.recorded_at.isoformat(),
+                "action": "update",
+            },
+        )
 
     @action(detail=False, methods=["post"], url_path="bulk-record")
     def bulk_record(self, request):
@@ -446,6 +490,224 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 "period_days": days,
                 "count": len(at_risk),
                 "students": at_risk,
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="export-pdf")
+    def export_pdf(self, request):
+        """
+        Export attendance report as PDF with charts.
+        Query params: date_from, date_to, classroom_id
+        """
+        import io
+
+        from django.db.models import Count, Q
+        from django.http import HttpResponse
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        from services.students.models import Classroom
+
+        school = request.user.school
+        date_from = request.query_params.get("date_from", (timezone.localdate() - timedelta(days=30)).isoformat())
+        date_to = request.query_params.get("date_to", timezone.localdate().isoformat())
+        classroom_id = request.query_params.get("classroom_id")
+
+        # Build data
+        qs = AttendanceRecord.objects.filter(
+            classroom__school=school,
+            date__gte=date_from,
+            date__lte=date_to,
+        )
+        if classroom_id:
+            try:
+                classroom = Classroom.objects.get(id=classroom_id, school=school)
+                qs = qs.filter(classroom=classroom)
+            except Classroom.DoesNotExist:
+                return Response({"error": "Classroom not found"}, status=404)
+
+        # Aggregate by date
+        daily_stats = (
+            qs.values("date")
+            .annotate(
+                total=Count("id"),
+                present=Count("id", filter=Q(status__in=["P", "L"])),
+                absent=Count("id", filter=Q(status="A")),
+                late=Count("id", filter=Q(status="L")),
+                excused=Count("id", filter=Q(status="E")),
+            )
+            .order_by("date")
+        )
+
+        # Generate chart
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.dates as mdates
+        import matplotlib.pyplot as plt
+
+        dates = [d["date"] for d in daily_stats]
+        present_pcts = [round(d["present"] / d["total"] * 100, 1) if d["total"] > 0 else 0 for d in daily_stats]
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(dates, present_pcts, marker="o", linewidth=2, color="#6366f1")
+        ax.fill_between(dates, present_pcts, alpha=0.1, color="#6366f1")
+        ax.axhline(y=75, color="#ef4444", linestyle="--", alpha=0.5, label="75% threshold")
+        ax.set_ylabel("Attendance %")
+        ax.set_title("Attendance Trend")
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
+        ax.legend()
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        chart_buffer = io.BytesIO()
+        plt.savefig(chart_buffer, format="png", dpi=150)
+        plt.close()
+        chart_buffer.seek(0)
+
+        # Generate PDF
+        pdf_buffer = io.BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Title
+        elements.append(Paragraph(f"Attendance Report — {school.name}", styles["Title"]))
+        elements.append(Paragraph(f"Period: {date_from} to {date_to}", styles["Normal"]))
+        elements.append(Spacer(1, 20))
+
+        # Chart
+        elements.append(Image(chart_buffer, width=8 * inch, height=3.5 * inch))
+        elements.append(Spacer(1, 20))
+
+        # Summary table
+        total_records = sum(d["total"] for d in daily_stats)
+        total_present = sum(d["present"] for d in daily_stats)
+        total_absent = sum(d["absent"] for d in daily_stats)
+        total_late = sum(d["late"] for d in daily_stats)
+        overall_pct = round(total_present / total_records * 100, 1) if total_records > 0 else 0
+
+        summary_data = [
+            ["Metric", "Value"],
+            ["Total Records", str(total_records)],
+            ["Total Present", str(total_present)],
+            ["Total Absent", str(total_absent)],
+            ["Total Late", str(total_late)],
+            ["Overall Attendance", f"{overall_pct}%"],
+            ["Days Covered", str(len(daily_stats))],
+        ]
+
+        summary_table = Table(summary_data, colWidths=[3 * inch, 2 * inch])
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#6366f1")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 12),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                    ("GRID", (0, 0), (-1, -1), 1, colors.lightgrey),
+                ]
+            )
+        )
+        elements.append(summary_table)
+
+        doc.build(elements)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="attendance-report-{date_from}-to-{date_to}.pdf"'
+        return response
+
+    @action(detail=False, methods=["get"], url_path="predictive-analytics")
+    def predictive_analytics(self, request):
+        """
+        Predictive analytics for at-risk students.
+        Uses weighted scoring model: recent 7d (40%) + 30d (35%) + trend (25%)
+        """
+        from django.core.cache import cache
+        from django.db.models import Count, Q
+
+        school = request.user.school
+        today = timezone.localdate()
+        last_7 = today - timedelta(days=7)
+        last_30 = today - timedelta(days=30)
+
+        # Try cache first
+        cache_key = f"at_risk_prediction_{school.id}"
+        cached = cache.get(cache_key)
+        if cached:
+            return Response({"cached": True, "students": cached})
+
+        # Compute fresh
+        student_data = (
+            AttendanceRecord.objects.filter(
+                classroom__school=school,
+                date__gte=last_30,
+            )
+            .values(
+                "student__id",
+                "student__user__first_name",
+                "student__user__last_name",
+                "student__admission_number",
+                "classroom__name",
+            )
+            .annotate(
+                total_30d=Count("id"),
+                present_30d=Count("id", filter=Q(status__in=["P", "L"])),
+            )
+        )
+
+        risk_scores = []
+        for student in student_data:
+            rate_30d = (student["present_30d"] / student["total_30d"] * 100) if student["total_30d"] > 0 else 0
+
+            recent_records = AttendanceRecord.objects.filter(
+                student_id=student["student__id"],
+                date__gte=last_7,
+            )
+            recent_total = recent_records.count()
+            recent_present = recent_records.filter(status__in=["P", "L"]).count()
+            rate_7d = (recent_present / recent_total * 100) if recent_total > 0 else rate_30d
+
+            trend = rate_7d - rate_30d
+            risk_score = (rate_7d * 0.4) + (rate_30d * 0.35) + (max(0, trend + 50) * 0.25)
+
+            if risk_score < 50:
+                risk_level = "critical"
+            elif risk_score < 65:
+                risk_level = "high"
+            elif risk_score < 80:
+                risk_level = "medium"
+            else:
+                risk_level = "low"
+
+            risk_scores.append(
+                {
+                    "student_id": student["student__id"],
+                    "name": f"{student['student__user__first_name']} {student['student__user__last_name']}",
+                    "admission_number": student["student__admission_number"],
+                    "classroom": student["classroom__name"],
+                    "rate_7d": round(rate_7d, 1),
+                    "rate_30d": round(rate_30d, 1),
+                    "trend": round(trend, 1),
+                    "risk_score": round(risk_score, 1),
+                    "risk_level": risk_level,
+                }
+            )
+
+        risk_scores.sort(key=lambda x: x["risk_score"])
+        cache.set(cache_key, risk_scores, timeout=3600)
+
+        return Response(
+            {
+                "cached": False,
+                "total_students": len(risk_scores),
+                "at_risk_count": sum(1 for r in risk_scores if r["risk_level"] in ["critical", "high"]),
+                "students": risk_scores[:20],
             }
         )
 

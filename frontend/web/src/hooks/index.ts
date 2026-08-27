@@ -247,3 +247,57 @@ export function useClickOutside<T extends HTMLElement>(handler: () => void) {
   }, [handler]);
   return ref;
 }
+
+// ─── useAttendanceSocket (real-time attendance updates) ──────────────────────
+
+interface AttendanceUpdate {
+  student_id: string;
+  student_name: string;
+  status: string;
+  recorded_at: string;
+  action: "create" | "update";
+}
+
+interface AttendanceSnapshot {
+  date: string;
+  total_students: number;
+  records: AttendanceUpdate[];
+}
+
+export function useAttendanceSocket(
+  classroomId: number,
+  date: string,
+  onUpdate?: (record: AttendanceUpdate) => void,
+  onSnapshot?: (snapshot: AttendanceSnapshot) => void,
+  enabled = true,
+) {
+  const [records, setRecords] = useState<AttendanceUpdate[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
+
+  const { status } = useWebSocket(`/ws/attendance/${classroomId}/${date}/`, {
+    enabled: enabled && !!classroomId && !!date,
+    onMessage: (data) => {
+      if (data.type === "snapshot") {
+        const snapshot = data.data as AttendanceSnapshot;
+        setRecords(snapshot.records);
+        setTotalStudents(snapshot.total_students);
+        onSnapshot?.(snapshot);
+      }
+      if (data.type === "attendance_update") {
+        const record = data.record as AttendanceUpdate;
+        setRecords((prev) => {
+          const idx = prev.findIndex((r) => r.student_id === record.student_id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = record;
+            return updated;
+          }
+          return [...prev, record];
+        });
+        onUpdate?.(record);
+      }
+    },
+  });
+
+  return { status, records, totalStudents };
+}

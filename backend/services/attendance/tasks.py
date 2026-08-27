@@ -531,3 +531,165 @@ def send_scheduled_email_reports(self, school_id: str, frequency: str = "weekly"
     except Exception as exc:
         logger.error("Failed to send scheduled report: %s", exc)
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_whatsapp_absent_notification(self, record_id: str):
+    """
+    Send WhatsApp notification to guardians when a student is absent.
+    Uses the Twilio WhatsApp API.
+    """
+    try:
+        from .models import AttendanceRecord
+
+        record = (
+            AttendanceRecord.objects.select_related("student__user", "student__school")
+            .prefetch_related("student__guardians__user")
+            .get(id=record_id)
+        )
+
+        student = record.student
+        school = student.school
+
+        message = (
+            f"🏫 *{school.name}*\n\n"
+            f"Dear Parent/Guardian,\n\n"
+            f"Your child *{student.user.full_name}* (Admission: {student.admission_number}) "
+            f"was marked *absent* on *{record.date.strftime('%B %d, %Y')}*.\n\n"
+            f"Please contact the school if this is an error."
+        )
+
+        notified_count = 0
+        for guardian in student.guardians.filter(user__isnull=False):
+            phone = guardian.user.phone
+            if phone:
+                # Format phone for WhatsApp (ensure + prefix)
+                if not phone.startswith("+"):
+                    phone = f"+{phone}"
+                try:
+                    from django.conf import settings
+                    from twilio.rest import Client as TwilioClient
+
+                    client = TwilioClient(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                    client.messages.create(
+                        body=message,
+                        from_="whatsapp:+14155238886",  # Twilio WhatsApp sandbox number
+                        to=f"whatsapp:{phone}",
+                    )
+                    notified_count += 1
+                    logger.info("WhatsApp notification sent to %s for student %s", phone, student.admission_number)
+                except Exception as e:
+                    logger.error("Failed to send WhatsApp to %s: %s", phone, e)
+
+        return {"notified": notified_count}
+
+    except Exception as exc:
+        logger.error("Failed to send WhatsApp notification for record %s: %s", record_id, exc)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def predict_at_risk_students(self, school_id: str):
+    """
+    Predictive analytics: identify students at risk of failing based on attendance patterns.
+    Uses a simple weighted scoring model:
+    - Recent attendance (last 7 days): 40% weight
+    - Medium-term attendance (last 30 days): 35% weight
+    - Attendance trend (improving/declining): 25% weight
+    """
+    try:
+        from datetime import date, timedelta
+
+        from services.auth.models import School
+
+        from .models import AttendanceRecord
+
+        school = School.objects.get(id=school_id)
+        today = date.today()
+        last_7 = today - timedelta(days=7)
+        last_30 = today - timedelta(days=30)
+
+        from django.db.models import Count, Q
+
+        # Get all students with attendance data
+        student_data = (
+            AttendanceRecord.objects.filter(
+                classroom__school=school,
+                date__gte=last_30,
+            )
+            .values(
+                "student__id",
+                "student__user__first_name",
+                "student__user__last_name",
+                "student__admission_number",
+                "classroom__name",
+            )
+            .annotate(
+                total_30d=Count("id"),
+                present_30d=Count("id", filter=Q(status__in=["P", "L"])),
+                absent_30d=Count("id", filter=Q(status="A")),
+            )
+        )
+
+        risk_scores = []
+        for student in student_data:
+            # Calculate 30-day attendance rate
+            rate_30d = (student["present_30d"] / student["total_30d"] * 100) if student["total_30d"] > 0 else 0
+
+            # Calculate 7-day attendance rate
+            recent_records = AttendanceRecord.objects.filter(
+                student_id=student["student__id"],
+                date__gte=last_7,
+            )
+            recent_total = recent_records.count()
+            recent_present = recent_records.filter(status__in=["P", "L"]).count()
+            rate_7d = (recent_present / recent_total * 100) if recent_total > 0 else rate_30d
+
+            # Calculate trend (7d vs 30d)
+            trend = rate_7d - rate_30d  # positive = improving, negative = declining
+
+            # Weighted risk score (lower = higher risk)
+            risk_score = (rate_7d * 0.4) + (rate_30d * 0.35) + (max(0, trend + 50) * 0.25)
+
+            # Risk level
+            if risk_score < 50:
+                risk_level = "critical"
+            elif risk_score < 65:
+                risk_level = "high"
+            elif risk_score < 80:
+                risk_level = "medium"
+            else:
+                risk_level = "low"
+
+            risk_scores.append(
+                {
+                    "student_id": student["student__id"],
+                    "name": f"{student['student__user__first_name']} {student['student__user__last_name']}",
+                    "admission_number": student["student__admission_number"],
+                    "classroom": student["classroom__name"],
+                    "rate_7d": round(rate_7d, 1),
+                    "rate_30d": round(rate_30d, 1),
+                    "trend": round(trend, 1),
+                    "risk_score": round(risk_score, 1),
+                    "risk_level": risk_level,
+                }
+            )
+
+        # Sort by risk score (lowest first = highest risk)
+        risk_scores.sort(key=lambda x: x["risk_score"])
+
+        # Cache results
+        from django.core.cache import cache
+
+        cache_key = f"at_risk_prediction_{school_id}"
+        cache.set(cache_key, risk_scores, timeout=3600)  # Cache 1 hour
+
+        logger.info("Risk prediction completed for school %s: %d students analyzed", school.code, len(risk_scores))
+        return {
+            "analyzed": len(risk_scores),
+            "at_risk": sum(1 for r in risk_scores if r["risk_level"] in ["critical", "high"]),
+        }
+
+    except Exception as exc:
+        logger.error("Failed to predict at-risk students for school %s: %s", school_id, exc)
+        raise self.retry(exc=exc)

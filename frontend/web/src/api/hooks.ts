@@ -383,6 +383,67 @@ export function useAutoAssignSubstitute() {
   });
 }
 
+// ─── Predictive Analytics ─────────────────────────────────────────────────────
+
+export function usePredictiveAnalytics() {
+  return useQuery({
+    queryKey: ["attendance", "predictive-analytics"],
+    queryFn: () =>
+      api.get<{
+        cached: boolean;
+        total_students: number;
+        at_risk_count: number;
+        students: Array<{
+          student_id: string;
+          name: string;
+          admission_number: string;
+          classroom: string;
+          rate_7d: number;
+          rate_30d: number;
+          trend: number;
+          risk_score: number;
+          risk_level: string;
+        }>;
+      }>("/attendance/predictive-analytics/"),
+    staleTime: 10 * 60 * 1000, // 10 min
+  });
+}
+
+// ─── PDF Export ───────────────────────────────────────────────────────────────
+
+export function useExportAttendancePDF() {
+  return useMutation({
+    mutationFn: async (params: { date_from?: string; date_to?: string; classroom_id?: number }) => {
+      const queryParams = new URLSearchParams();
+      if (params.date_from) queryParams.set("date_from", params.date_from);
+      if (params.date_to) queryParams.set("date_to", params.date_to);
+      if (params.classroom_id) queryParams.set("classroom_id", String(params.classroom_id));
+
+      const response = await fetch(`/api/v1/attendance/export-pdf/?${queryParams}`, {
+        headers: {
+          Authorization: `Bearer ${
+            JSON.parse(localStorage.getItem("auth-storage") || "{}")?.state?.tokens?.access || ""
+          }`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `attendance-report-${params.date_from || "start"}-to-${
+        params.date_to || "end"
+      }.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+  });
+}
+
 // ─── Period Attendance ─────────────────────────────────────────────────────────
 
 export function usePeriodAttendanceRecords(date: string) {
