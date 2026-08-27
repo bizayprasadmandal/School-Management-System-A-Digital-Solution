@@ -174,14 +174,55 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="teacher-schedule")
     def teacher_schedule(self, request):
-        """Full weekly schedule for a teacher."""
+        """
+        Full weekly schedule for a teacher with statistics.
+        Query params: teacher_id (optional, defaults to current user), academic_year_id (optional)
+        """
         teacher_id = request.query_params.get("teacher_id", str(request.user.id))
         academic_year_id = request.query_params.get("academic_year_id")
+
         qs = self.get_queryset().filter(assignment__teacher_id=teacher_id)
         if academic_year_id:
             qs = qs.filter(academic_year_id=academic_year_id)
+
         qs = qs.order_by("day_of_week", "period__period_number")
-        return Response(TimetableSlotSerializer(qs, many=True).data)
+        slots = TimetableSlotSerializer(qs, many=True).data
+
+        # Structure by day
+        weekly_schedule = {day: [] for day in range(6)}
+        for slot in slots:
+            weekly_schedule[slot["day_of_week"]].append(slot)
+
+        # Calculate statistics
+        day_names = dict(TimetableSlot.DAYS_OF_WEEK)
+        total_periods = len(slots)
+
+        # Count unique subjects
+        subjects = set(slot["subject_name"] for slot in slots)
+
+        # Count unique classrooms
+        classrooms = set(slot["classroom_name"] for slot in slots)
+
+        # Daily breakdown
+        daily_breakdown = {}
+        for day_num, day_slots in weekly_schedule.items():
+            if day_slots:  # Only include days with slots
+                daily_breakdown[day_names[day_num]] = {
+                    "period_count": len(day_slots),
+                    "periods": [slot["period_number"] for slot in day_slots],
+                    "subjects": list(set(slot["subject_name"] for slot in day_slots)),
+                }
+
+        return Response(
+            {
+                "teacher_id": teacher_id,
+                "total_periods_per_week": total_periods,
+                "unique_subjects": list(subjects),
+                "unique_classrooms": list(classrooms),
+                "daily_breakdown": daily_breakdown,
+                "schedule": {day_names[day]: slots_list for day, slots_list in weekly_schedule.items() if slots_list},
+            }
+        )
 
 
 class SchoolEventViewSet(viewsets.ModelViewSet):
