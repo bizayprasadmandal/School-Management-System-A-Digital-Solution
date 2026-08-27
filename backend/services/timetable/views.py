@@ -38,6 +38,7 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source="assignment.teacher.full_name", read_only=True)
     classroom_name = serializers.SerializerMethodField()
     period_name = serializers.CharField(source="period.name", read_only=True)
+    period_number = serializers.IntegerField(source="period.period_number", read_only=True)
     start_time = serializers.TimeField(source="period.start_time", read_only=True)
     end_time = serializers.TimeField(source="period.end_time", read_only=True)
     day_name = serializers.SerializerMethodField()
@@ -54,6 +55,7 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
             "teacher_name",
             "period",
             "period_name",
+            "period_number",
             "start_time",
             "end_time",
             "day_of_week",
