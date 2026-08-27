@@ -7,8 +7,14 @@ import { useTitle } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
 import dayjs from "dayjs";
 
-const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const COLORS = ["bg-indigo-50 border-l-2 border-indigo-400","bg-emerald-50 border-l-2 border-emerald-400","bg-amber-50 border-l-2 border-amber-400","bg-violet-50 border-l-2 border-violet-400","bg-rose-50 border-l-2 border-rose-400"];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const COLORS = [
+  "bg-indigo-50 border-l-2 border-indigo-400",
+  "bg-emerald-50 border-l-2 border-emerald-400",
+  "bg-amber-50 border-l-2 border-amber-400",
+  "bg-violet-50 border-l-2 border-violet-400",
+  "bg-rose-50 border-l-2 border-rose-400",
+];
 
 export default function TeacherTimetablePage() {
   useTitle("My Timetable");
@@ -16,50 +22,102 @@ export default function TeacherTimetablePage() {
   const { data: academicYear } = useCurrentAcademicYear();
   const todayIdx = (dayjs().day() + 6) % 7;
 
-  const { data: slots, isLoading } = useQuery({
+  const { data: scheduleData, isLoading } = useQuery({
     queryKey: ["teacher-schedule", user?.id, academicYear?.id],
-    queryFn: () => api.get<any[]>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
+    queryFn: () =>
+      api.get<any>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
     enabled: !!academicYear?.id,
   });
 
+  // Handle new API response format: { schedule: { Monday: [...], ... }, total_periods_per_week, ... }
   const byDay: Record<string, any[]> = {};
-  DAYS.forEach(d => { byDay[d] = []; });
-  (slots ?? []).forEach(s => {
-    const dayName = DAYS[s.day_of_week];
-    if (dayName) byDay[dayName].push(s);
+  DAYS.forEach((d) => {
+    byDay[d] = [];
   });
-  Object.values(byDay).forEach(arr => arr.sort((a,b) => a.start_time.localeCompare(b.start_time)));
 
-  const colorMap: Record<string,string> = {};
+  const allSlots: any[] = [];
+  if (scheduleData?.schedule) {
+    // New format: object with day names as keys
+    Object.entries(scheduleData.schedule).forEach(([dayName, daySlots]) => {
+      if (byDay[dayName] !== undefined && Array.isArray(daySlots)) {
+        byDay[dayName] = daySlots;
+        allSlots.push(...daySlots);
+      }
+    });
+  } else if (Array.isArray(scheduleData)) {
+    // Legacy format: flat array
+    scheduleData.forEach((s: any) => {
+      const dayName = DAYS[s.day_of_week];
+      if (dayName) byDay[dayName].push(s);
+      allSlots.push(s);
+    });
+  }
+  Object.values(byDay).forEach((arr) =>
+    arr.sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? "")),
+  );
+
+  const colorMap: Record<string, string> = {};
   let ci = 0;
-  (slots ?? []).forEach(s => { if (!colorMap[s.subject_name]) colorMap[s.subject_name] = COLORS[ci++ % COLORS.length]; });
+  allSlots.forEach((s) => {
+    if (s.subject_name && !colorMap[s.subject_name])
+      colorMap[s.subject_name] = COLORS[ci++ % COLORS.length];
+  });
+
+  const totalPeriods = scheduleData?.total_periods_per_week ?? allSlots.length;
 
   if (isLoading) return <SkeletonCard className="max-w-md mx-auto" />;
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-slate-900">My Timetable</h1><p className="text-sm text-slate-500 mt-1">Weekly teaching schedule · {academicYear?.name}</p></div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">My Timetable</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Weekly teaching schedule · {academicYear?.name}
+        </p>
+        {scheduleData?.total_periods_per_week && (
+          <p className="text-xs text-indigo-600 mt-1">📊 {totalPeriods} periods this week</p>
+        )}
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {DAYS.map((day, idx) => (
-          <div key={day} className={`bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none ${idx === todayIdx ? "ring-2 ring-indigo-500 ring-offset-2" : ""}`}>
+          <div
+            key={day}
+            className={`bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none ${
+              idx === todayIdx ? "ring-2 ring-indigo-500 ring-offset-2" : ""
+            }`}
+          >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
               <h2 className="text-sm font-bold text-slate-800">{day}</h2>
-              {idx === todayIdx && <Badge color="indigo" dot>Today</Badge>}
+              {idx === todayIdx && (
+                <Badge color="indigo" dot>
+                  Today
+                </Badge>
+              )}
               {idx !== todayIdx && <Badge color="slate">{byDay[day].length} periods</Badge>}
             </div>
             <div className="p-5 space-y-2">
-              {byDay[day].length === 0
-                ? <p className="text-xs text-slate-400 text-center py-3">No classes</p>
-                : byDay[day].map((s, i) => (
-                  <div key={i} className={`rounded-lg p-3 ${colorMap[s.subject_name] ?? COLORS[0]}`}>
+              {byDay[day].length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-3">No classes</p>
+              ) : (
+                byDay[day].map((s, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg p-3 ${colorMap[s.subject_name] ?? COLORS[0]}`}
+                  >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{s.subject_name}</p>
-                      <p className="text-xs text-slate-500 flex-shrink-0 ml-2">{s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)}</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {s.subject_name}
+                      </p>
+                      <p className="text-xs text-slate-500 flex-shrink-0 ml-2">
+                        {s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-600 mt-0.5">{s.classroom_name} {s.room && `· ${s.room}`}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {s.classroom_name} {s.room && `· ${s.room}`}
+                    </p>
                   </div>
                 ))
-              }
+              )}
             </div>
           </div>
         ))}
