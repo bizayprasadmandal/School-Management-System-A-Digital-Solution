@@ -301,6 +301,74 @@ export interface PeriodAttendanceSummary {
   }>;
 }
 
+export interface AttendanceDashboard {
+  date: string;
+  total_students: number;
+  today: {
+    recorded: number;
+    not_recorded: number;
+    percentage: number;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+  };
+  weekly_trend: Array<{
+    date: string;
+    day_name: string;
+    total: number;
+    present: number;
+    percentage: number;
+  }>;
+  at_risk_students: Array<{
+    student_id: string;
+    name: string;
+    admission_number: string;
+    attendance_percentage: number;
+    total_days: number;
+    present_days: number;
+  }>;
+  class_comparison: Array<{
+    classroom_id: number;
+    classroom_name: string;
+    total: number;
+    present: number;
+    percentage: number;
+  }>;
+  pending_leaves: number;
+}
+
+export interface AttendanceExportResponse {
+  csv_data?: string;
+  data?: Array<{
+    date: string;
+    student_name: string;
+    admission_number: string;
+    classroom: string;
+    status: string;
+    remarks: string;
+  }>;
+  count: number;
+  date_from: string;
+  date_to: string;
+}
+
+export interface AtRiskAttendanceResponse {
+  threshold: number;
+  period_days: number;
+  count: number;
+  students: Array<{
+    student_id: string;
+    name: string;
+    admission_number: string;
+    classroom: string;
+    attendance_percentage: number;
+    total_days: number;
+    present_days: number;
+    absent_days: number;
+  }>;
+}
+
 // ─── Gradebook ────────────────────────────────────────────────────────────────
 
 export interface Exam {

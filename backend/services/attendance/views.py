@@ -193,6 +193,244 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         return Response({"imported": imported, "errors": errors[:20]})
 
+    @action(detail=False, methods=["get"], url_path="dashboard")
+    def dashboard(self, request):
+        """
+        Attendance dashboard analytics for admins.
+        Returns today's stats, weekly trends, at-risk students, and class comparisons.
+        """
+        from django.db.models import Avg, Count, Q
+        from services.students.models import Classroom
+
+        school = request.user.school
+        today = timezone.localdate()
+        month_ago = today - timedelta(days=30)
+
+        # Today's stats
+        today_records = AttendanceRecord.objects.filter(classroom__school=school, date=today)
+        today_total = today_records.count()
+        today_breakdown = {
+            "present": today_records.filter(status="P").count(),
+            "absent": today_records.filter(status="A").count(),
+            "late": today_records.filter(status="L").count(),
+            "excused": today_records.filter(status="E").count(),
+        }
+        today_percentage = (
+            round((today_breakdown["present"] + today_breakdown["late"]) / today_total * 100, 1)
+            if today_total > 0
+            else 0
+        )
+
+        # Weekly trend (last 7 days)
+        weekly_trend = []
+        for i in range(7):
+            day = today - timedelta(days=6 - i)
+            day_records = AttendanceRecord.objects.filter(classroom__school=school, date=day)
+            day_total = day_records.count()
+            day_present = day_records.filter(status__in=["P", "L"]).count()
+            weekly_trend.append(
+                {
+                    "date": day.isoformat(),
+                    "day_name": day.strftime("%A"),
+                    "total": day_total,
+                    "present": day_present,
+                    "percentage": round(day_present / day_total * 100, 1) if day_total > 0 else 0,
+                }
+            )
+
+        # At-risk students (attendance < 75% in last 30 days)
+        total_students = Student.objects.filter(school=school, enrollments__is_active=True).distinct().count()
+        student_attendance = (
+            AttendanceRecord.objects.filter(
+                classroom__school=school,
+                date__gte=month_ago,
+            )
+            .values("student__id", "student__user__first_name", "student__user__last_name", "student__admission_number")
+            .annotate(
+                total_days=Count("id"),
+                present_days=Count("id", filter=Q(status__in=["P", "L"])),
+            )
+            .annotate(attendance_pct=Avg("present_days") * 100.0 / Avg("total_days"))
+            .filter(attendance_pct__lt=75)
+            .order_by("attendance_pct")
+        )
+        at_risk = [
+            {
+                "student_id": s["student__id"],
+                "name": f"{s['student__user__first_name']} {s['student__user__last_name']}",
+                "admission_number": s["student__admission_number"],
+                "attendance_percentage": round(s["attendance_pct"], 1),
+                "total_days": s["total_days"],
+                "present_days": s["present_days"],
+            }
+            for s in student_attendance[:10]  # Top 10 at-risk
+        ]
+
+        # Class-wise comparison (today)
+        class_comparison = []
+        classrooms = Classroom.objects.filter(school=school, grade__academic_year__is_current=True)
+        for classroom in classrooms[:20]:  # Limit to 20 classes
+            class_records = today_records.filter(classroom=classroom)
+            class_total = class_records.count()
+            if class_total > 0:
+                class_present = class_records.filter(status__in=["P", "L"]).count()
+                class_comparison.append(
+                    {
+                        "classroom_id": classroom.id,
+                        "classroom_name": str(classroom),
+                        "total": class_total,
+                        "present": class_present,
+                        "percentage": round(class_present / class_total * 100, 1),
+                    }
+                )
+
+        # Leave requests pending
+        pending_leaves = AttendanceLeave.objects.filter(student__school=school, status="pending").count()
+
+        return Response(
+            {
+                "date": today.isoformat(),
+                "total_students": total_students,
+                "today": {
+                    "recorded": today_total,
+                    "not_recorded": max(0, total_students - today_total),
+                    "percentage": today_percentage,
+                    **today_breakdown,
+                },
+                "weekly_trend": weekly_trend,
+                "at_risk_students": at_risk,
+                "class_comparison": class_comparison,
+                "pending_leaves": pending_leaves,
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export_attendance(self, request):
+        """
+        Export attendance data as CSV.
+        Query params: date_from, date_to, classroom_id, format (csv/json)
+        """
+        import csv
+        import io
+
+        from services.students.models import Classroom
+
+        school = request.user.school
+        date_from = request.query_params.get("date_from", (timezone.localdate() - timedelta(days=30)).isoformat())
+        date_to = request.query_params.get("date_to", timezone.localdate().isoformat())
+        classroom_id = request.query_params.get("classroom_id")
+        export_format = request.query_params.get("format", "csv")
+
+        qs = (
+            AttendanceRecord.objects.filter(
+                classroom__school=school,
+                date__gte=date_from,
+                date__lte=date_to,
+            )
+            .select_related("student__user", "classroom")
+            .order_by("date", "classroom__name", "student__user__last_name")
+        )
+
+        if classroom_id:
+            try:
+                classroom = Classroom.objects.get(id=classroom_id, school=school)
+                qs = qs.filter(classroom=classroom)
+            except Classroom.DoesNotExist:
+                return Response({"error": "Classroom not found"}, status=404)
+
+        if export_format == "json":
+            data = [
+                {
+                    "date": r.date.isoformat(),
+                    "student_name": r.student.user.full_name,
+                    "admission_number": r.student.admission_number,
+                    "classroom": str(r.classroom),
+                    "status": r.status,
+                    "remarks": r.remarks,
+                }
+                for r in qs
+            ]
+            return Response({"data": data, "count": len(data)})
+
+        # CSV export
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Date", "Student Name", "Admission Number", "Classroom", "Status", "Remarks"])
+        for r in qs:
+            writer.writerow(
+                [
+                    r.date.isoformat(),
+                    r.student.user.full_name,
+                    r.student.admission_number,
+                    str(r.classroom),
+                    r.get_status_display(),
+                    r.remarks,
+                ]
+            )
+
+        response = Response(
+            {"csv_data": output.getvalue(), "count": qs.count(), "date_from": date_from, "date_to": date_to}
+        )
+        return response
+
+    @action(detail=False, methods=["get"], url_path="at-risk")
+    def at_risk_students(self, request):
+        """
+        List students with attendance below threshold.
+        Query params: threshold (default 75), days (default 30)
+        """
+        from django.db.models import Avg, Count, Q
+
+        school = request.user.school
+        threshold = float(request.query_params.get("threshold", 75))
+        days = int(request.query_params.get("days", 30))
+        since = timezone.localdate() - timedelta(days=days)
+
+        student_stats = (
+            AttendanceRecord.objects.filter(
+                classroom__school=school,
+                date__gte=since,
+            )
+            .values(
+                "student__id",
+                "student__user__first_name",
+                "student__user__last_name",
+                "student__admission_number",
+                "classroom__name",
+            )
+            .annotate(
+                total_days=Count("id"),
+                present_days=Count("id", filter=Q(status__in=["P", "L"])),
+                absent_days=Count("id", filter=Q(status="A")),
+            )
+            .annotate(attendance_pct=Avg("present_days") * 100.0 / Avg("total_days"))
+            .filter(attendance_pct__lt=threshold)
+            .order_by("attendance_pct")
+        )
+
+        at_risk = [
+            {
+                "student_id": s["student__id"],
+                "name": f"{s['student__user__first_name']} {s['student__user__last_name']}",
+                "admission_number": s["student__admission_number"],
+                "classroom": s["classroom__name"],
+                "attendance_percentage": round(s["attendance_pct"], 1),
+                "total_days": s["total_days"],
+                "present_days": s["present_days"],
+                "absent_days": s["absent_days"],
+            }
+            for s in student_stats
+        ]
+
+        return Response(
+            {
+                "threshold": threshold,
+                "period_days": days,
+                "count": len(at_risk),
+                "students": at_risk,
+            }
+        )
+
     @action(detail=False, methods=["get"], url_path="classroom-summary")
     def classroom_summary(self, request):
         """Attendance summary for a classroom on a given date."""

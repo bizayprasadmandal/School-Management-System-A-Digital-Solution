@@ -218,6 +218,44 @@ export function useBulkRecordAttendance() {
   });
 }
 
+// ─── Attendance Dashboard & Export ────────────────────────────────────────────
+
+export function useAttendanceDashboard() {
+  return useQuery({
+    queryKey: ["attendance", "dashboard"],
+    queryFn: () => api.get<import("../types").AttendanceDashboard>("/attendance/dashboard/"),
+    staleTime: 2 * 60 * 1000, // 2 min
+    refetchInterval: 5 * 60 * 1000, // auto-refresh every 5 min
+  });
+}
+
+export function useExportAttendance(params: {
+  date_from?: string;
+  date_to?: string;
+  classroom_id?: number;
+  format?: "csv" | "json";
+}) {
+  return useQuery({
+    queryKey: ["attendance", "export", params],
+    queryFn: () =>
+      api.get<import("../types").AttendanceExportResponse>("/attendance/export/", params),
+    enabled: false, // only fetch when explicitly triggered
+    staleTime: 0,
+  });
+}
+
+export function useAtRiskAttendanceStudents(threshold?: number, days?: number) {
+  return useQuery({
+    queryKey: ["attendance", "at-risk", { threshold, days }],
+    queryFn: () =>
+      api.get<import("../types").AtRiskAttendanceResponse>("/attendance/at-risk/", {
+        threshold,
+        days,
+      }),
+    staleTime: 5 * 60 * 1000, // 5 min
+  });
+}
+
 // ─── Period Attendance ─────────────────────────────────────────────────────────
 
 export function usePeriodAttendanceRecords(date: string) {
