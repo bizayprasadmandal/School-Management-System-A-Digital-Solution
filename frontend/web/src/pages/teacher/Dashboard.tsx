@@ -124,16 +124,30 @@ export default function TeacherDashboard() {
   // ── Today's schedule ────────────────────────────────────────────────────
 
   const {
-    data: todaySlots,
+    data: scheduleResponse,
     isLoading: slotsLoading,
     isError: slotsError,
     refetch: refetchSlots,
   } = useQuery({
     queryKey: ["teacher-today-slots", user?.id, academicYear?.id],
     queryFn: () =>
-      api.get<any[]>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
+      api.get<any>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
     enabled: !!user && !!academicYear,
   });
+
+  // Handle both old (array) and new (object with schedule key) formats
+  const todaySlots: any[] = React.useMemo(() => {
+    if (!scheduleResponse) return [];
+    if (Array.isArray(scheduleResponse)) return scheduleResponse;
+    if (scheduleResponse.schedule) {
+      const allSlots: any[] = [];
+      Object.values(scheduleResponse.schedule).forEach((daySlots: any) => {
+        if (Array.isArray(daySlots)) allSlots.push(...daySlots);
+      });
+      return allSlots;
+    }
+    return [];
+  }, [scheduleResponse]);
 
   // ── Attendance summaries ────────────────────────────────────────────────
 
