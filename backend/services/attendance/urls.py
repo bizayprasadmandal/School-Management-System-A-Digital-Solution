@@ -10,6 +10,7 @@ router = DefaultRouter()
 # which would otherwise swallow `/leaves/` or `/periods/` as a pk (GET -> 404).
 router.register("leaves", views.AttendanceLeaveViewSet, basename="leave")
 router.register("periods", views.PeriodAttendanceViewSet, basename="period-attendance")
+router.register("changelogs", views.AttendanceChangeLogViewSet, basename="attendance-changelog")
 router.register("", views.AttendanceViewSet, basename="attendance")
 
 urlpatterns = [path("", include(router.urls))]

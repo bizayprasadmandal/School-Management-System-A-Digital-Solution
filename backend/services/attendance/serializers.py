@@ -1,13 +1,31 @@
+from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
-from .models import AttendanceLeave, AttendanceRecord, PeriodAttendance
+from .models import AttendanceChangeLog, AttendanceLeave, AttendanceRecord, PeriodAttendance
 
 MAX_BULK_RECORDS = 50
+ATTENDANCE_EDIT_WINDOW_DAYS = getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 7)
+
+
+def log_attendance_change(attendance_type, record, change_type, user, old_values=None, new_values=None, reason=""):
+    """Create an audit log entry for attendance changes."""
+    AttendanceChangeLog.objects.create(
+        attendance_type=attendance_type,
+        attendance_id=record.id,
+        change_type=change_type,
+        old_values=old_values,
+        new_values=new_values,
+        changed_by=user,
+        reason=reason,
+    )
 
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    updated_by_name = serializers.CharField(source="updated_by.full_name", read_only=True, default=None)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = AttendanceRecord
@@ -20,10 +38,22 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "status",
             "recorded_by",
             "recorded_at",
+            "updated_by",
+            "updated_by_name",
+            "updated_at",
             "remarks",
             "notified_guardian",
+            "can_edit",
         ]
-        read_only_fields = ["recorded_by", "recorded_at", "notified_guardian"]
+        read_only_fields = ["recorded_by", "recorded_at", "updated_by", "updated_at", "notified_guardian"]
+
+    def get_can_edit(self, obj):
+        """Check if this record can still be edited within the time window."""
+        if not obj.recorded_at:
+            return False
+        now = timezone.now()
+        elapsed = now - obj.recorded_at
+        return elapsed.days <= ATTENDANCE_EDIT_WINDOW_DAYS
 
 
 class BulkAttendanceSerializer(serializers.Serializer):
@@ -116,6 +146,8 @@ class PeriodAttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
     subject_name = serializers.CharField(source="assignment.subject.name", read_only=True)
     teacher_name = serializers.CharField(source="assignment.teacher.full_name", read_only=True)
+    updated_by_name = serializers.CharField(source="updated_by.full_name", read_only=True, default=None)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = PeriodAttendance
@@ -131,8 +163,20 @@ class PeriodAttendanceSerializer(serializers.ModelSerializer):
             "status",
             "recorded_by",
             "recorded_at",
+            "updated_by",
+            "updated_by_name",
+            "updated_at",
+            "can_edit",
         ]
-        read_only_fields = ["recorded_by", "recorded_at"]
+        read_only_fields = ["recorded_by", "recorded_at", "updated_by", "updated_at"]
+
+    def get_can_edit(self, obj):
+        """Check if this record can still be edited within the time window."""
+        if not obj.recorded_at:
+            return False
+        now = timezone.now()
+        elapsed = now - obj.recorded_at
+        return elapsed.days <= ATTENDANCE_EDIT_WINDOW_DAYS
 
     def validate_period_number(self, value):
         if value < 1 or value > 10:
@@ -149,6 +193,28 @@ class PeriodAttendanceSerializer(serializers.ModelSerializer):
                     {"assignment": "You can only record attendance for your own classes."}
                 )
         return data
+
+
+class AttendanceChangeLogSerializer(serializers.ModelSerializer):
+    """Read-only serializer for attendance change logs."""
+
+    changed_by_name = serializers.CharField(source="changed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = AttendanceChangeLog
+        fields = [
+            "id",
+            "attendance_type",
+            "attendance_id",
+            "change_type",
+            "old_values",
+            "new_values",
+            "changed_by",
+            "changed_by_name",
+            "changed_at",
+            "reason",
+        ]
+        read_only_fields = fields
 
 
 class BulkPeriodAttendanceSerializer(serializers.Serializer):

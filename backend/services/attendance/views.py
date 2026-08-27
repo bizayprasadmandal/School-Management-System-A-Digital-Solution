@@ -5,6 +5,7 @@ Attendance Service — Views for recording and querying attendance
 from datetime import timedelta
 
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff, IsTeacher
+from django.conf import settings
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
@@ -14,15 +15,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.students.models import Student
 
-from .models import AttendanceLeave, AttendanceRecord, PeriodAttendance
+from .models import AttendanceChangeLog, AttendanceLeave, AttendanceRecord, PeriodAttendance
 from .serializers import (
+    AttendanceChangeLogSerializer,
     AttendanceLeaveSerializer,
     AttendanceRecordSerializer,
     BulkAttendanceSerializer,
     BulkPeriodAttendanceSerializer,
     PeriodAttendanceSerializer,
+    log_attendance_change,
 )
 from .tasks import notify_absent_guardians
+
+ATTENDANCE_EDIT_WINDOW_DAYS = getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 7)
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
@@ -60,6 +65,30 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         record = serializer.save(recorded_by=self.request.user)
+        log_attendance_change("daily", record, "create", self.request.user, new_values={"status": record.status})
+        if record.status == AttendanceRecord.Status.ABSENT and not record.notified_guardian:
+            notify_absent_guardians.delay(str(record.id))
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        # Time-window check: only allow edits within configured days
+        if instance.recorded_at:
+            elapsed = timezone.now() - instance.recorded_at
+            if elapsed.days > ATTENDANCE_EDIT_WINDOW_DAYS:
+                raise PermissionDenied(f"Cannot edit attendance older than {ATTENDANCE_EDIT_WINDOW_DAYS} days.")
+        old_values = {"status": instance.status, "remarks": instance.remarks}
+        record = serializer.save(updated_by=self.request.user)
+        new_values = {"status": record.status, "remarks": record.remarks}
+        log_attendance_change(
+            "daily",
+            record,
+            "update",
+            self.request.user,
+            old_values=old_values,
+            new_values=new_values,
+            reason=self.request.data.get("reason", ""),
+        )
+        # Notify guardian if status changed to absent
         if record.status == AttendanceRecord.Status.ABSENT and not record.notified_guardian:
             notify_absent_guardians.delay(str(record.id))
 
@@ -369,7 +398,28 @@ class PeriodAttendanceViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user)
+        log_attendance_change("period", record, "create", self.request.user, new_values={"status": record.status})
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        # Time-window check
+        if instance.recorded_at:
+            elapsed = timezone.now() - instance.recorded_at
+            if elapsed.days > ATTENDANCE_EDIT_WINDOW_DAYS:
+                raise PermissionDenied(f"Cannot edit attendance older than {ATTENDANCE_EDIT_WINDOW_DAYS} days.")
+        old_values = {"status": instance.status}
+        record = serializer.save(updated_by=self.request.user)
+        new_values = {"status": record.status}
+        log_attendance_change(
+            "period",
+            record,
+            "update",
+            self.request.user,
+            old_values=old_values,
+            new_values=new_values,
+            reason=self.request.data.get("reason", ""),
+        )
 
     @action(detail=False, methods=["post"], url_path="bulk-record")
     def bulk_record(self, request):
@@ -574,3 +624,38 @@ class AttendanceLeaveViewSet(viewsets.ModelViewSet):
         leave.reviewed_at = timezone.now()
         leave.save()
         return Response({"status": "rejected"})
+
+
+class AttendanceChangeLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only viewset for viewing attendance change logs.
+    Supports filtering by attendance_type, attendance_id, changed_by, date range.
+    """
+
+    serializer_class = AttendanceChangeLogSerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["attendance_type", "change_type", "changed_by"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            AttendanceChangeLog.objects.filter(changed_by__school=user.school)
+            .select_related("changed_by")
+            .order_by("-changed_at")
+        )
+
+        # Filter by attendance_id if provided
+        attendance_id = self.request.query_params.get("attendance_id")
+        if attendance_id:
+            qs = qs.filter(attendance_id=attendance_id)
+
+        # Filter by date range if provided
+        date_from = self.request.query_params.get("date_from")
+        date_to = self.request.query_params.get("date_to")
+        if date_from:
+            qs = qs.filter(changed_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(changed_at__date__lte=date_to)
+
+        return qs

@@ -23,8 +23,12 @@ class AttendanceRecord(models.Model):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
     date = models.DateField(db_index=True)
     status = models.CharField(max_length=1, choices=Status.choices, default=Status.PRESENT)
-    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="recorded_attendance")
     recorded_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="updated_attendance"
+    )
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     remarks = models.CharField(max_length=255, blank=True)
     notified_guardian = models.BooleanField(default=False)
 
@@ -54,8 +58,14 @@ class PeriodAttendance(models.Model):
     date = models.DateField()
     period_number = models.PositiveSmallIntegerField()
     status = models.CharField(max_length=1, choices=Status.choices, default=Status.PRESENT)
-    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="recorded_period_attendance"
+    )
     recorded_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="updated_period_attendance"
+    )
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     class Meta:
         db_table = "period_attendance"
@@ -102,3 +112,38 @@ class AttendanceLeave(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.get_leave_type_display()} [{self.status}]"
+
+
+class AttendanceChangeLog(models.Model):
+    """Immutable audit trail for attendance changes."""
+
+    class ChangeType(models.TextChoices):
+        CREATE = "create", "Created"
+        UPDATE = "update", "Updated"
+        DELETE = "delete", "Deleted"
+        BULK_IMPORT = "bulk_import", "Bulk Import"
+
+    # Generic FK to either AttendanceRecord or PeriodAttendance
+    attendance_type = models.CharField(
+        max_length=20,
+        choices=[("daily", "Daily Attendance"), ("period", "Period Attendance")],
+    )
+    attendance_id = models.PositiveIntegerField(help_text="ID of the attendance record")
+    change_type = models.CharField(max_length=15, choices=ChangeType.choices)
+    old_values = models.JSONField(null=True, blank=True, help_text="Previous field values")
+    new_values = models.JSONField(null=True, blank=True, help_text="New field values")
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    reason = models.CharField(max_length=255, blank=True, help_text="Reason for change")
+
+    class Meta:
+        db_table = "attendance_change_logs"
+        indexes = [
+            models.Index(fields=["attendance_type", "attendance_id"]),
+            models.Index(fields=["changed_by"]),
+            models.Index(fields=["-changed_at"]),
+        ]
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return f"{self.change_type} {self.attendance_type}#{self.attendance_id} by {self.changed_by}"
