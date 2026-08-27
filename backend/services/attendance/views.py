@@ -14,8 +14,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.students.models import Student
 
-from .models import AttendanceLeave, AttendanceRecord
-from .serializers import AttendanceLeaveSerializer, AttendanceRecordSerializer, BulkAttendanceSerializer
+from .models import AttendanceLeave, AttendanceRecord, PeriodAttendance
+from .serializers import (
+    AttendanceLeaveSerializer,
+    AttendanceRecordSerializer,
+    BulkAttendanceSerializer,
+    BulkPeriodAttendanceSerializer,
+    PeriodAttendanceSerializer,
+)
 from .tasks import notify_absent_guardians
 
 
@@ -324,6 +330,183 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             {
                 "current_streak": current_streak,
                 "longest_streak": longest_streak,
+            }
+        )
+
+
+class PeriodAttendanceViewSet(viewsets.ModelViewSet):
+    """
+    Period-level attendance tracking.
+    Teachers record attendance per subject/period.
+    Admins can view/edit all. Students/parents are read-only.
+    """
+
+    serializer_class = PeriodAttendanceSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["date", "status", "assignment", "period_number"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            PeriodAttendance.objects.filter(assignment__subject__school=user.school)
+            .select_related("student__user", "assignment__subject", "assignment__teacher", "recorded_by")
+            .order_by("-date", "-period_number", "-id")
+        )
+
+        if user.role == "student":
+            return qs.filter(student__user=user)
+        if user.role == "parent":
+            return qs.filter(student__guardians__user=user)
+        if user.role == "teacher":
+            return qs.filter(assignment__teacher=user).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "bulk_record"]:
+            return [IsAuthenticated(), IsTeacher()]
+        if self.action == "destroy":
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(recorded_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="bulk-record")
+    def bulk_record(self, request):
+        """Record period attendance for multiple students in one request."""
+        serializer = BulkPeriodAttendanceSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        records = serializer.save()
+
+        return Response(
+            {
+                "recorded": len(records),
+                "assignment": str(records[0].assignment) if records else None,
+                "date": str(records[0].date) if records else None,
+                "period_number": records[0].period_number if records else None,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["get"], url_path="period-summary")
+    def period_summary(self, request):
+        """
+        Period-wise attendance summary for a date.
+        Query params: date (optional), classroom_id (optional)
+        Returns breakdown by period number.
+        """
+        target_date = request.query_params.get("date", timezone.localdate().isoformat())
+        classroom_id = request.query_params.get("classroom_id")
+
+        qs = PeriodAttendance.objects.filter(
+            assignment__subject__school=request.user.school,
+            date=target_date,
+        )
+
+        if classroom_id:
+            from services.students.models import Classroom
+
+            try:
+                classroom = Classroom.objects.get(id=classroom_id, school=request.user.school)
+            except Classroom.DoesNotExist:
+                raise PermissionDenied("Classroom not found in your school.")
+            # Filter by students enrolled in this classroom
+            qs = qs.filter(student__enrollments__classroom=classroom, student__enrollments__is_active=True)
+
+        # Group by period number
+        from django.db.models import Count, Q
+
+        periods = (
+            qs.values("period_number")
+            .annotate(
+                total=Count("id"),
+                present=Count("id", filter=Q(status="P")),
+                absent=Count("id", filter=Q(status="A")),
+                late=Count("id", filter=Q(status="L")),
+            )
+            .order_by("period_number")
+        )
+
+        return Response(
+            {
+                "date": target_date,
+                "periods": list(periods),
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="student-report")
+    def student_report(self, request):
+        """
+        Period-wise attendance report for a student.
+        Query params: student_id, month, year
+        Returns breakdown by subject and period.
+        """
+        student_id = request.query_params.get("student_id")
+        try:
+            month = int(request.query_params.get("month", timezone.localdate().month))
+            year = int(request.query_params.get("year", timezone.localdate().year))
+        except (TypeError, ValueError):
+            return Response({"error": "month and year must be integers"}, status=400)
+        if not (1 <= month <= 12):
+            return Response({"error": "month must be between 1 and 12"}, status=400)
+
+        if not student_id:
+            return Response({"error": "student_id is required"}, status=400)
+
+        from services.students.models import Student
+
+        try:
+            student = Student.objects.get(id=student_id, school=request.user.school)
+        except Student.DoesNotExist:
+            return Response({"error": "Student not found"}, status=404)
+
+        records = (
+            PeriodAttendance.objects.filter(
+                student=student,
+                date__year=year,
+                date__month=month,
+            )
+            .select_related("assignment__subject")
+            .order_by("date", "period_number")
+        )
+
+        # Aggregate by subject
+        from django.db.models import Count, Q
+
+        by_subject = (
+            records.values("assignment__subject__name")
+            .annotate(
+                total=Count("id"),
+                present=Count("id", filter=Q(status__in=["P"])),
+                absent=Count("id", filter=Q(status="A")),
+                late=Count("id", filter=Q(status="L")),
+            )
+            .order_by("assignment__subject__name")
+        )
+
+        # Overall summary
+        overall = records.aggregate(
+            total=Count("id"),
+            present=Count("id", filter=Q(status="P")),
+            absent=Count("id", filter=Q(status="A")),
+            late=Count("id", filter=Q(status="L")),
+        )
+        total = overall["total"]
+        present = overall["present"]
+
+        return Response(
+            {
+                "student_id": student_id,
+                "month": month,
+                "year": year,
+                "overall": {
+                    "total_periods": total,
+                    "present": present,
+                    "absent": overall["absent"],
+                    "late": overall["late"],
+                    "percentage": round((present / total * 100) if total else 0, 2),
+                },
+                "by_subject": list(by_subject),
             }
         )
 
