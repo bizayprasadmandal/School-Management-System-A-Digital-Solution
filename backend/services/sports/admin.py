@@ -1,21 +1,28 @@
 from django.contrib import admin
 
 from .models import (
+    BadgeAward,
     ComplianceTracking,
+    EligibilityRule,
     EquipmentInventory,
     FacilityBooking,
     GameLineup,
     InjuryTracking,
+    InsuranceTracking,
     LeagueStanding,
     LiveGameScore,
     LiveStreaming,
+    MerchandiseOrder,
+    MerchandiseStore,
     MultiSportScheduling,
     PlayerDevelopmentPlan,
     PlayerStatistics,
+    PlayerTransferSystem,
     PracticeSchedule,
     RefereeAssignment,
     RefereeManagement,
     RefundManagement,
+    SeasonArchive,
     SeasonPassMembership,
     Sport,
     SportAchievement,
@@ -23,6 +30,8 @@ from .models import (
     SportsAnalytics,
     SportsAttendance,
     SportsFundraising,
+    SportsGamification,
+    SportsLeaderboard,
     SportsMedicalClearance,
     SportsPhotoGallery,
     SportsRegistration,
@@ -30,10 +39,14 @@ from .models import (
     SportsTravelManagement,
     SportsUniformOrder,
     SportsVolunteerManagement,
+    StudentEligibility,
+    SuspensionManagement,
     Team,
     TeamCommunication,
     TeamMember,
     TeamRoster,
+    TournamentBracket,
+    TournamentMatch,
     TryoutAssessment,
     TryoutScore,
     VideoAnalysis,
@@ -312,3 +325,93 @@ class LiveStreamingAdmin(admin.ModelAdmin):
     list_display = ["title", "team", "status", "scheduled_start", "peak_viewers"]
     list_filter = ["status", "quality"]
     search_fields = ["title"]
+
+
+@admin.register(SuspensionManagement)
+class SuspensionManagementAdmin(admin.ModelAdmin):
+    list_display = ["student", "suspension_type", "status", "incident_date", "start_date"]
+    list_filter = ["suspension_type", "status"]
+    search_fields = ["student__user__full_name", "staff_member__full_name"]
+
+
+@admin.register(TournamentBracket)
+class TournamentBracketAdmin(admin.ModelAdmin):
+    list_display = ["title", "sport", "bracket_type", "status", "start_date"]
+    list_filter = ["bracket_type", "status"]
+    search_fields = ["title"]
+
+
+@admin.register(TournamentMatch)
+class TournamentMatchAdmin(admin.ModelAdmin):
+    list_display = ["bracket", "team_1", "team_2", "round_number", "status"]
+    list_filter = ["status", "round_number"]
+    search_fields = ["bracket__title"]
+
+
+@admin.register(MerchandiseStore)
+class MerchandiseStoreAdmin(admin.ModelAdmin):
+    list_display = ["name", "product_type", "price", "quantity_available", "status"]
+    list_filter = ["product_type", "status"]
+    search_fields = ["name"]
+
+
+@admin.register(MerchandiseOrder)
+class MerchandiseOrderAdmin(admin.ModelAdmin):
+    list_display = ["buyer_name", "product", "quantity", "total_amount", "status"]
+    list_filter = ["status", "payment_status"]
+    search_fields = ["buyer_name", "buyer_email"]
+
+
+@admin.register(InsuranceTracking)
+class InsuranceTrackingAdmin(admin.ModelAdmin):
+    list_display = ["student", "insurance_type", "provider", "status", "coverage_end"]
+    list_filter = ["insurance_type", "status"]
+    search_fields = ["student__user__full_name", "provider"]
+
+
+@admin.register(EligibilityRule)
+class EligibilityRuleAdmin(admin.ModelAdmin):
+    list_display = ["name", "rule_type", "sport", "status"]
+    list_filter = ["rule_type", "status"]
+    search_fields = ["name"]
+
+
+@admin.register(StudentEligibility)
+class StudentEligibilityAdmin(admin.ModelAdmin):
+    list_display = ["student", "sport", "status", "current_gpa", "last_review_date"]
+    list_filter = ["status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(PlayerTransferSystem)
+class PlayerTransferSystemAdmin(admin.ModelAdmin):
+    list_display = ["student", "transfer_type", "from_team", "to_team", "status"]
+    list_filter = ["transfer_type", "status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(SeasonArchive)
+class SeasonArchiveAdmin(admin.ModelAdmin):
+    list_display = ["team", "season", "wins", "losses", "championships"]
+    list_filter = ["season"]
+    search_fields = ["team__name"]
+
+
+@admin.register(SportsGamification)
+class SportsGamificationAdmin(admin.ModelAdmin):
+    list_display = ["name", "badge_type", "points_value", "times_awarded", "is_active"]
+    list_filter = ["badge_type", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(BadgeAward)
+class BadgeAwardAdmin(admin.ModelAdmin):
+    list_display = ["student", "badge", "awarded_date", "awarded_by"]
+    search_fields = ["student__user__full_name", "badge__name"]
+
+
+@admin.register(SportsLeaderboard)
+class SportsLeaderboardAdmin(admin.ModelAdmin):
+    list_display = ["name", "leaderboard_type", "season", "is_active"]
+    list_filter = ["leaderboard_type", "is_active"]
+    search_fields = ["name"]

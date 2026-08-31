@@ -1845,3 +1845,621 @@ class LiveStreaming(models.Model):
             delta = self.actual_end - self.actual_start
             return int(delta.total_seconds() / 60)
         return 0
+
+
+class SuspensionManagement(models.Model):
+    """Track player/coach suspensions."""
+
+    class SuspensionType(models.TextChoices):
+        GAME = "game", "Game Suspension"
+        PRACTICE = "practice", "Practice Suspension"
+        SEASON = "season", "Season Suspension"
+        INDEFINITE = "indefinite", "Indefinite"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        APPEALED = "appealed", "Appealed"
+        LIFTED = "lifted", "Lifted"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sports_suspensions")
+    # Person suspended
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, null=True, blank=True, related_name="sports_suspensions"
+    )
+    staff_member = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True, related_name="sports_suspensions"
+    )
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="suspensions")
+    # Suspension details
+    suspension_type = models.CharField(max_length=15, choices=SuspensionType.choices)
+    reason = models.TextField()
+    incident_date = models.DateField()
+    # Duration
+    games_missed = models.PositiveSmallIntegerField(default=0)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    # Issued by
+    issued_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="issued_sports_suspensions"
+    )
+    # Appeal
+    appeal_submitted = models.BooleanField(default=False)
+    appeal_date = models.DateField(null=True, blank=True)
+    appeal_outcome = models.TextField(blank=True)
+    # Documentation
+    document_url = models.URLField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_suspensions"
+        ordering = ["-incident_date"]
+
+    def __str__(self):
+        person = self.student or self.staff_member
+        return f"{person} - {self.get_suspension_type_display()} ({self.get_status_display()})"
+
+    @property
+    def is_currently_suspended(self):
+        from django.utils import timezone
+
+        if self.status == self.Status.ACTIVE:
+            if self.end_date:
+                return self.end_date >= timezone.now().date()
+            return True
+        return False
+
+
+class TournamentBracket(models.Model):
+    """Auto-generate tournament brackets."""
+
+    class BracketType(models.TextChoices):
+        SINGLE = "single", "Single Elimination"
+        DOUBLE = "double", "Double Elimination"
+        ROUND_ROBIN = "round_robin", "Round Robin"
+        SWISS = "swiss", "Swiss System"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="tournament_brackets")
+    sport = models.ForeignKey(Sport, on_delete=models.CASCADE, related_name="tournament_brackets")
+    # Tournament info
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    bracket_type = models.CharField(max_length=15, choices=BracketType.choices)
+    # Schedule
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Settings
+    max_teams = models.PositiveSmallIntegerField(default=16)
+    current_round = models.PositiveSmallIntegerField(default=0)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    # Bracket data
+    bracket_data = models.JSONField(default=dict, blank=True)
+    # Prize
+    first_prize = models.CharField(max_length=200, blank=True)
+    second_prize = models.CharField(max_length=200, blank=True)
+    third_prize = models.CharField(max_length=200, blank=True)
+    # Created by
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_tournaments"
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_tournament_brackets"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_bracket_type_display()})"
+
+
+class TournamentMatch(models.Model):
+    """Individual matches within a tournament bracket."""
+
+    class MatchStatus(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        BYE = "bye", "Bye"
+        FORFEIT = "forfeit", "Forfeit"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bracket = models.ForeignKey(TournamentBracket, on_delete=models.CASCADE, related_name="matches")
+    # Teams
+    team_1 = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="tournament_matches_as_team1")
+    team_2 = models.ForeignKey(
+        Team, on_delete=models.CASCADE, null=True, blank=True, related_name="tournament_matches_as_team2"
+    )
+    # Round info
+    round_number = models.PositiveSmallIntegerField()
+    match_number = models.PositiveSmallIntegerField()
+    # Scores
+    team_1_score = models.PositiveSmallIntegerField(default=0)
+    team_2_score = models.PositiveSmallIntegerField(default=0)
+    # Winner
+    winner = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="tournament_wins")
+    # Status
+    status = models.CharField(max_length=15, choices=MatchStatus.choices, default=MatchStatus.SCHEDULED)
+    # Schedule
+    match_date = models.DateTimeField(null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_tournament_matches"
+        ordering = ["round_number", "match_number"]
+
+    def __str__(self):
+        return f"Round {self.round_number} Match {self.match_number}: {self.team_1} vs {self.team_2 or 'TBD'}"
+
+
+class MerchandiseStore(models.Model):
+    """Online team gear store."""
+
+    class ProductType(models.TextChoices):
+        JERSEY = "jersey", "Jersey"
+        SHORTS = "shorts", "Shorts"
+        JACKET = "jacket", "Jacket"
+        CAP = "cap", "Cap"
+        BAG = "bag", "Bag"
+        ACCESSORY = "accessory", "Accessory"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        OUT_OF_STOCK = "out_of_stock", "Out of Stock"
+        DISCONTINUED = "discontinued", "Discontinued"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="merchandise")
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="merchandise")
+    # Product info
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    product_type = models.CharField(max_length=15, choices=ProductType.choices)
+    # Pricing
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Inventory
+    quantity_available = models.PositiveIntegerField(default=0)
+    sizes_available = models.JSONField(default=list, blank=True)
+    colors_available = models.JSONField(default=list, blank=True)
+    # Media
+    image_url = models.URLField(blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    # Sales
+    total_sold = models.PositiveIntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Settings
+    is_online = models.BooleanField(default=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_merchandise"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} - ${self.price}"
+
+    @property
+    def is_on_sale(self):
+        return self.sale_price is not None and self.sale_price < self.price
+
+
+class MerchandiseOrder(models.Model):
+    """Track merchandise orders."""
+
+    class OrderStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        CONFIRMED = "confirmed", "Confirmed"
+        SHIPPED = "shipped", "Shipped"
+        DELIVERED = "delivered", "Delivered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="merchandise_orders")
+    product = models.ForeignKey(MerchandiseStore, on_delete=models.CASCADE, related_name="orders")
+    # Buyer
+    buyer_name = models.CharField(max_length=150)
+    buyer_email = models.EmailField()
+    buyer_phone = models.CharField(max_length=20, blank=True)
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="merchandise_orders"
+    )
+    # Order details
+    quantity = models.PositiveSmallIntegerField(default=1)
+    size = models.CharField(max_length=20, blank=True)
+    color = models.CharField(max_length=50, blank=True)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    # Status
+    status = models.CharField(max_length=15, choices=OrderStatus.choices, default=OrderStatus.PENDING)
+    # Payment
+    payment_status = models.CharField(
+        max_length=15,
+        choices=[("unpaid", "Unpaid"), ("paid", "Paid"), ("refunded", "Refunded")],
+        default="unpaid",
+    )
+    transaction_id = models.CharField(max_length=100, blank=True)
+    # Delivery
+    shipping_address = models.TextField(blank=True)
+    tracking_number = models.CharField(max_length=100, blank=True)
+    shipped_date = models.DateField(null=True, blank=True)
+    delivered_date = models.DateField(null=True, blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_merchandise_orders"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.buyer_name} - {self.product.name} (x{self.quantity})"
+
+
+class InsuranceTracking(models.Model):
+    """Player insurance verification."""
+
+    class InsuranceType(models.TextChoices):
+        PERSONAL = "personal", "Personal Insurance"
+        SCHOOL = "school", "School Insurance"
+        ATHLETIC = "athletic", "Athletic Insurance"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        EXPIRED = "expired", "Expired"
+        PENDING = "pending", "Pending"
+        DENIED = "denied", "Denied"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="insurance_records")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="insurance_records")
+    # Insurance info
+    insurance_type = models.CharField(max_length=10, choices=InsuranceType.choices)
+    provider = models.CharField(max_length=200)
+    policy_number = models.CharField(max_length=100)
+    group_number = models.CharField(max_length=100, blank=True)
+    # Coverage
+    coverage_start = models.DateField()
+    coverage_end = models.DateField()
+    # Contact
+    provider_phone = models.CharField(max_length=20, blank=True)
+    provider_email = models.EmailField(blank=True)
+    # Documents
+    insurance_card_url = models.URLField(blank=True)
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    # Verification
+    verified = models.BooleanField(default=False)
+    verified_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_insurance"
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_insurance"
+        ordering = ["-coverage_end"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_insurance_type_display()} ({self.get_status_display()})"
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+
+        return self.status == self.Status.ACTIVE and self.coverage_end >= timezone.now().date()
+
+
+class EligibilityRule(models.Model):
+    """Academic/age eligibility tracking."""
+
+    class RuleType(models.TextChoices):
+        ACADEMIC = "academic", "Academic Eligibility"
+        AGE = "age", "Age Eligibility"
+        GRADE = "grade", "Grade Eligibility"
+        ATTENDANCE = "attendance", "Attendance Eligibility"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="eligibility_rules")
+    sport = models.ForeignKey(Sport, on_delete=models.CASCADE, null=True, blank=True, related_name="eligibility_rules")
+    # Rule info
+    rule_type = models.CharField(max_length=15, choices=RuleType.choices)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    # Criteria
+    min_gpa = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    min_age = models.PositiveSmallIntegerField(null=True, blank=True)
+    max_age = models.PositiveSmallIntegerField(null=True, blank=True)
+    min_grade = models.PositiveSmallIntegerField(null=True, blank=True)
+    max_grade = models.PositiveSmallIntegerField(null=True, blank=True)
+    min_attendance = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Minimum attendance percentage"
+    )
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_eligibility_rules"
+        ordering = ["rule_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_rule_type_display()})"
+
+
+class StudentEligibility(models.Model):
+    """Track individual student eligibility status."""
+
+    class Status(models.TextChoices):
+        ELIGIBLE = "eligible", "Eligible"
+        INELIGIBLE = "ineligible", "Ineligible"
+        PROBATION = "probation", "Probation"
+        PENDING = "pending", "Pending Review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_eligibility")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="eligibility_status")
+    sport = models.ForeignKey(
+        Sport, on_delete=models.SET_NULL, null=True, blank=True, related_name="student_eligibility"
+    )
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    # Current metrics
+    current_gpa = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    current_attendance = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Attendance percentage"
+    )
+    # Dates
+    last_review_date = models.DateField(null=True, blank=True)
+    next_review_date = models.DateField(null=True, blank=True)
+    # Review
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_eligibility"
+    )
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_student_eligibility"
+        unique_together = [("student", "school")]
+        ordering = ["student"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_status_display()}"
+
+
+class PlayerTransferSystem(models.Model):
+    """Transfer between teams/clubs."""
+
+    class TransferType(models.TextChoices):
+        INTERNAL = "internal", "Internal Transfer"
+        EXTERNAL = "external", "External Transfer"
+        LOAN = "loan", "Loan"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="transfers")
+    # Player
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="transfers")
+    # Transfer details
+    transfer_type = models.CharField(max_length=10, choices=TransferType.choices)
+    from_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="transfers_out")
+    to_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="transfers_in")
+    from_school = models.CharField(max_length=200, blank=True, help_text="For external transfers")
+    to_school = models.CharField(max_length=200, blank=True, help_text="For external transfers")
+    # Reason
+    reason = models.TextField(blank=True)
+    # Dates
+    request_date = models.DateField(auto_now_add=True)
+    effective_date = models.DateField(null=True, blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Approval
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_transfers"
+    )
+    approval_date = models.DateField(null=True, blank=True)
+    # Documents
+    transfer_paperwork_url = models.URLField(blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_transfers"
+        ordering = ["-request_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_transfer_type_display()} ({self.get_status_display()})"
+
+
+class SeasonArchive(models.Model):
+    """Historical season data."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="season_archives")
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="season_archives")
+    # Season info
+    season = models.CharField(max_length=50)
+    academic_year = models.CharField(max_length=20)
+    # Stats
+    games_played = models.PositiveSmallIntegerField(default=0)
+    wins = models.PositiveSmallIntegerField(default=0)
+    losses = models.PositiveSmallIntegerField(default=0)
+    ties = models.PositiveSmallIntegerField(default=0)
+    # Performance
+    points_scored = models.PositiveIntegerField(default=0)
+    points_allowed = models.PositiveIntegerField(default=0)
+    # Roster
+    roster_snapshot = models.JSONField(default=list, blank=True)
+    # Achievements
+    championships = models.PositiveSmallIntegerField(default=0)
+    tournament_appearances = models.PositiveSmallIntegerField(default=0)
+    # Archive data
+    archive_data = models.JSONField(default=dict, blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sports_season_archives"
+        unique_together = [("team", "season")]
+        ordering = ["-academic_year", "-season"]
+
+    def __str__(self):
+        return f"{self.team} - {self.season}"
+
+    @property
+    def win_percentage(self):
+        if self.games_played > 0:
+            return round(self.wins / self.games_played * 100, 1)
+        return 0
+
+
+class SportsGamification(models.Model):
+    """Badges, achievements, leaderboards."""
+
+    class BadgeType(models.TextChoices):
+        PARTICIPATION = "participation", "Participation"
+        ACHIEVEMENT = "achievement", "Achievement"
+        MILESTONE = "milestone", "Milestone"
+        SPECIAL = "special", "Special"
+        TEAM = "team", "Team Badge"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sports_badges")
+    # Badge info
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    badge_type = models.CharField(max_length=15, choices=BadgeType.choices)
+    # Icon
+    icon_url = models.URLField(blank=True)
+    icon_color = models.CharField(max_length=20, blank=True)
+    # Criteria
+    criteria = models.JSONField(default=dict, blank=True)
+    points_value = models.PositiveIntegerField(default=0)
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_hidden = models.BooleanField(default=False)
+    # Stats
+    times_awarded = models.PositiveIntegerField(default=0)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sports_gamification_badges"
+        ordering = ["badge_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_badge_type_display()})"
+
+
+class BadgeAward(models.Model):
+    """Records of badges earned."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    badge = models.ForeignKey(SportsGamification, on_delete=models.CASCADE, related_name="awards")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="sports_badge_awards")
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="badge_awards")
+    # Award info
+    awarded_date = models.DateField(auto_now_add=True)
+    awarded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="awarded_sports_badges"
+    )
+    reason = models.TextField(blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sports_badge_awards"
+        unique_together = [("badge", "student")]
+        ordering = ["-awarded_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.badge.name}"
+
+
+class SportsLeaderboard(models.Model):
+    """School-wide/house competitions."""
+
+    class LeaderboardType(models.TextChoices):
+        POINTS = "points", "Points Leaderboard"
+        WINS = "wins", "Wins Leaderboard"
+        GOALS = "goals", "Goals Leaderboard"
+        ATTENDANCE = "attendance", "Attendance Leaderboard"
+        ACADEMIC = "academic", "Academic-Athletic"
+        OVERALL = "overall", "Overall"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sports_leaderboards")
+    sport = models.ForeignKey(Sport, on_delete=models.SET_NULL, null=True, blank=True, related_name="leaderboards")
+    # Leaderboard info
+    name = models.CharField(max_length=200)
+    leaderboard_type = models.CharField(max_length=15, choices=LeaderboardType.choices)
+    season = models.CharField(max_length=50)
+    # Data
+    entries = models.JSONField(default=list, blank=True)
+    # Settings
+    is_public = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sports_leaderboards"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_leaderboard_type_display()})"

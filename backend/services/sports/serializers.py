@@ -3,21 +3,28 @@
 from rest_framework import serializers
 
 from .models import (
+    BadgeAward,
     ComplianceTracking,
+    EligibilityRule,
     EquipmentInventory,
     FacilityBooking,
     GameLineup,
     InjuryTracking,
+    InsuranceTracking,
     LeagueStanding,
     LiveGameScore,
     LiveStreaming,
+    MerchandiseOrder,
+    MerchandiseStore,
     MultiSportScheduling,
     PlayerDevelopmentPlan,
     PlayerStatistics,
+    PlayerTransferSystem,
     PracticeSchedule,
     RefereeAssignment,
     RefereeManagement,
     RefundManagement,
+    SeasonArchive,
     SeasonPassMembership,
     Sport,
     SportAchievement,
@@ -25,6 +32,8 @@ from .models import (
     SportsAnalytics,
     SportsAttendance,
     SportsFundraising,
+    SportsGamification,
+    SportsLeaderboard,
     SportsMedicalClearance,
     SportsPhotoGallery,
     SportsRegistration,
@@ -32,10 +41,14 @@ from .models import (
     SportsTravelManagement,
     SportsUniformOrder,
     SportsVolunteerManagement,
+    StudentEligibility,
+    SuspensionManagement,
     Team,
     TeamCommunication,
     TeamMember,
     TeamRoster,
+    TournamentBracket,
+    TournamentMatch,
     TryoutAssessment,
     TryoutScore,
     VideoAnalysis,
@@ -1313,3 +1326,422 @@ class LiveStreamingSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "actual_start", "actual_end", "created_at", "updated_at"]
+
+
+class SuspensionManagementSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True, default=None)
+    staff_member_name = serializers.CharField(source="staff_member.full_name", read_only=True, default=None)
+    team_name = serializers.CharField(source="team.name", read_only=True, default=None)
+    suspension_type_display = serializers.CharField(source="get_suspension_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    issued_by_name = serializers.CharField(source="issued_by.full_name", read_only=True, default=None)
+    is_currently_suspended = serializers.ReadOnlyField()
+
+    class Meta:
+        model = SuspensionManagement
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "staff_member",
+            "staff_member_name",
+            "team",
+            "team_name",
+            "suspension_type",
+            "suspension_type_display",
+            "reason",
+            "incident_date",
+            "games_missed",
+            "start_date",
+            "end_date",
+            "status",
+            "status_display",
+            "issued_by",
+            "issued_by_name",
+            "appeal_submitted",
+            "appeal_date",
+            "appeal_outcome",
+            "document_url",
+            "is_currently_suspended",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TournamentBracketSerializer(serializers.ModelSerializer):
+    sport_name = serializers.CharField(source="sport.name", read_only=True)
+    bracket_type_display = serializers.CharField(source="get_bracket_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = TournamentBracket
+        fields = [
+            "id",
+            "sport",
+            "sport_name",
+            "title",
+            "description",
+            "bracket_type",
+            "bracket_type_display",
+            "start_date",
+            "end_date",
+            "max_teams",
+            "current_round",
+            "status",
+            "status_display",
+            "bracket_data",
+            "first_prize",
+            "second_prize",
+            "third_prize",
+            "created_by",
+            "created_by_name",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TournamentMatchSerializer(serializers.ModelSerializer):
+    bracket_title = serializers.CharField(source="bracket.title", read_only=True)
+    team_1_name = serializers.CharField(source="team_1.name", read_only=True)
+    team_2_name = serializers.CharField(source="team_2.name", read_only=True, default=None)
+    winner_name = serializers.CharField(source="winner.name", read_only=True, default=None)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TournamentMatch
+        fields = [
+            "id",
+            "bracket",
+            "bracket_title",
+            "team_1",
+            "team_1_name",
+            "team_2",
+            "team_2_name",
+            "round_number",
+            "match_number",
+            "team_1_score",
+            "team_2_score",
+            "winner",
+            "winner_name",
+            "status",
+            "status_display",
+            "match_date",
+            "location",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MerchandiseStoreSerializer(serializers.ModelSerializer):
+    team_name = serializers.CharField(source="team.name", read_only=True, default=None)
+    product_type_display = serializers.CharField(source="get_product_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    is_on_sale = serializers.ReadOnlyField()
+
+    class Meta:
+        model = MerchandiseStore
+        fields = [
+            "id",
+            "team",
+            "team_name",
+            "name",
+            "description",
+            "product_type",
+            "product_type_display",
+            "price",
+            "sale_price",
+            "is_on_sale",
+            "quantity_available",
+            "sizes_available",
+            "colors_available",
+            "image_url",
+            "status",
+            "status_display",
+            "total_sold",
+            "total_revenue",
+            "is_online",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "total_sold", "total_revenue", "created_at", "updated_at"]
+
+
+class MerchandiseOrderSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True, default=None)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = MerchandiseOrder
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "buyer_name",
+            "buyer_email",
+            "buyer_phone",
+            "student",
+            "student_name",
+            "quantity",
+            "size",
+            "color",
+            "unit_price",
+            "total_amount",
+            "status",
+            "status_display",
+            "payment_status",
+            "transaction_id",
+            "shipping_address",
+            "tracking_number",
+            "shipped_date",
+            "delivered_date",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class InsuranceTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    insurance_type_display = serializers.CharField(source="get_insurance_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    verified_by_name = serializers.CharField(source="verified_by.full_name", read_only=True, default=None)
+    is_valid = serializers.ReadOnlyField()
+
+    class Meta:
+        model = InsuranceTracking
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "insurance_type",
+            "insurance_type_display",
+            "provider",
+            "policy_number",
+            "group_number",
+            "coverage_start",
+            "coverage_end",
+            "provider_phone",
+            "provider_email",
+            "insurance_card_url",
+            "status",
+            "status_display",
+            "verified",
+            "verified_by",
+            "verified_by_name",
+            "verified_at",
+            "is_valid",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "verified_at", "created_at", "updated_at"]
+
+
+class EligibilityRuleSerializer(serializers.ModelSerializer):
+    sport_name = serializers.CharField(source="sport.name", read_only=True, default=None)
+    rule_type_display = serializers.CharField(source="get_rule_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = EligibilityRule
+        fields = [
+            "id",
+            "sport",
+            "sport_name",
+            "rule_type",
+            "rule_type_display",
+            "name",
+            "description",
+            "min_gpa",
+            "min_age",
+            "max_age",
+            "min_grade",
+            "max_grade",
+            "min_attendance",
+            "status",
+            "status_display",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentEligibilitySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    sport_name = serializers.CharField(source="sport.name", read_only=True, default=None)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = StudentEligibility
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "sport",
+            "sport_name",
+            "status",
+            "status_display",
+            "current_gpa",
+            "current_attendance",
+            "last_review_date",
+            "next_review_date",
+            "reviewed_by",
+            "reviewed_by_name",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PlayerTransferSystemSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    from_team_name = serializers.CharField(source="from_team.name", read_only=True, default=None)
+    to_team_name = serializers.CharField(source="to_team.name", read_only=True, default=None)
+    transfer_type_display = serializers.CharField(source="get_transfer_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = PlayerTransferSystem
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "transfer_type",
+            "transfer_type_display",
+            "from_team",
+            "from_team_name",
+            "to_team",
+            "to_team_name",
+            "from_school",
+            "to_school",
+            "reason",
+            "request_date",
+            "effective_date",
+            "status",
+            "status_display",
+            "approved_by",
+            "approved_by_name",
+            "approval_date",
+            "transfer_paperwork_url",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "request_date", "approval_date", "created_at", "updated_at"]
+
+
+class SeasonArchiveSerializer(serializers.ModelSerializer):
+    team_name = serializers.CharField(source="team.name", read_only=True)
+    win_percentage = serializers.ReadOnlyField()
+
+    class Meta:
+        model = SeasonArchive
+        fields = [
+            "id",
+            "team",
+            "team_name",
+            "season",
+            "academic_year",
+            "games_played",
+            "wins",
+            "losses",
+            "ties",
+            "points_scored",
+            "points_allowed",
+            "roster_snapshot",
+            "championships",
+            "tournament_appearances",
+            "win_percentage",
+            "archive_data",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class SportsGamificationSerializer(serializers.ModelSerializer):
+    badge_type_display = serializers.CharField(source="get_badge_type_display", read_only=True)
+
+    class Meta:
+        model = SportsGamification
+        fields = [
+            "id",
+            "name",
+            "description",
+            "badge_type",
+            "badge_type_display",
+            "icon_url",
+            "icon_color",
+            "criteria",
+            "points_value",
+            "is_active",
+            "is_hidden",
+            "times_awarded",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "times_awarded", "created_at"]
+
+
+class BadgeAwardSerializer(serializers.ModelSerializer):
+    badge_name = serializers.CharField(source="badge.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    team_name = serializers.CharField(source="team.name", read_only=True, default=None)
+    awarded_by_name = serializers.CharField(source="awarded_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BadgeAward
+        fields = [
+            "id",
+            "badge",
+            "badge_name",
+            "student",
+            "student_name",
+            "team",
+            "team_name",
+            "awarded_date",
+            "awarded_by",
+            "awarded_by_name",
+            "reason",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "awarded_date", "created_at"]
+
+
+class SportsLeaderboardSerializer(serializers.ModelSerializer):
+    sport_name = serializers.CharField(source="sport.name", read_only=True, default=None)
+    leaderboard_type_display = serializers.CharField(source="get_leaderboard_type_display", read_only=True)
+
+    class Meta:
+        model = SportsLeaderboard
+        fields = [
+            "id",
+            "sport",
+            "sport_name",
+            "name",
+            "leaderboard_type",
+            "leaderboard_type_display",
+            "season",
+            "entries",
+            "is_public",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]

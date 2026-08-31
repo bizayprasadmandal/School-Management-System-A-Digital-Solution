@@ -2,27 +2,36 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    BadgeAwardViewSet,
     ComplianceTrackingViewSet,
+    EligibilityRuleViewSet,
     EquipmentInventoryViewSet,
     FacilityBookingViewSet,
     GameLineupViewSet,
     InjuryTrackingViewSet,
+    InsuranceTrackingViewSet,
     LeagueStandingViewSet,
     LiveGameScoreViewSet,
     LiveStreamingViewSet,
+    MerchandiseOrderViewSet,
+    MerchandiseStoreViewSet,
     MultiSportSchedulingViewSet,
     PlayerDevelopmentPlanViewSet,
     PlayerStatisticsViewSet,
+    PlayerTransferSystemViewSet,
     PracticeScheduleViewSet,
     RefereeAssignmentViewSet,
     RefereeManagementViewSet,
     RefundManagementViewSet,
+    SeasonArchiveViewSet,
     SeasonPassMembershipViewSet,
     SportAchievementViewSet,
     SportEventViewSet,
     SportsAnalyticsViewSet,
     SportsAttendanceViewSet,
     SportsFundraisingViewSet,
+    SportsGamificationViewSet,
+    SportsLeaderboardViewSet,
     SportsMedicalClearanceViewSet,
     SportsPhotoGalleryViewSet,
     SportsRegistrationViewSet,
@@ -31,10 +40,14 @@ from .views import (
     SportsUniformOrderViewSet,
     SportsVolunteerManagementViewSet,
     SportViewSet,
+    StudentEligibilityViewSet,
+    SuspensionManagementViewSet,
     TeamCommunicationViewSet,
     TeamMemberViewSet,
     TeamRosterViewSet,
     TeamViewSet,
+    TournamentBracketViewSet,
+    TournamentMatchViewSet,
     TryoutAssessmentViewSet,
     TryoutScoreViewSet,
     VideoAnalysisViewSet,
@@ -105,5 +118,26 @@ router.register(r"compliance", ComplianceTrackingViewSet, basename="compliance-t
 router.register(r"weather-alerts", WeatherIntegrationViewSet, basename="weather-integration")
 # Live Streaming
 router.register(r"live-streams", LiveStreamingViewSet, basename="live-streaming")
+# Suspensions
+router.register(r"suspensions", SuspensionManagementViewSet, basename="suspension-management")
+# Tournaments
+router.register(r"tournament-brackets", TournamentBracketViewSet, basename="tournament-bracket")
+router.register(r"tournament-matches", TournamentMatchViewSet, basename="tournament-match")
+# Merchandise
+router.register(r"merchandise", MerchandiseStoreViewSet, basename="merchandise-store")
+router.register(r"merchandise-orders", MerchandiseOrderViewSet, basename="merchandise-order")
+# Insurance
+router.register(r"insurance", InsuranceTrackingViewSet, basename="insurance-tracking")
+# Eligibility
+router.register(r"eligibility-rules", EligibilityRuleViewSet, basename="eligibility-rule")
+router.register(r"student-eligibility", StudentEligibilityViewSet, basename="student-eligibility")
+# Transfers
+router.register(r"transfers", PlayerTransferSystemViewSet, basename="player-transfer")
+# Archives
+router.register(r"season-archives", SeasonArchiveViewSet, basename="season-archive")
+# Gamification
+router.register(r"badges", SportsGamificationViewSet, basename="sports-gamification")
+router.register(r"badge-awards", BadgeAwardViewSet, basename="badge-award")
+router.register(r"leaderboards", SportsLeaderboardViewSet, basename="sports-leaderboard")
 
 urlpatterns = [path("", include(router.urls))]
