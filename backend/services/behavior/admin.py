@@ -9,17 +9,28 @@ from .models import (
     BehaviorContract,
     BehaviorEvidence,
     BehaviorGoal,
+    BehaviorHouse,
+    BehaviorHouseMember,
+    BehaviorInterventionPlan,
+    BehaviorLeaderboard,
     BehaviorMerit,
+    BehaviorMTSS,
     BehaviorPoint,
     BehaviorPointBalance,
+    BehaviorPointsRedemption,
+    BehaviorReportCard,
+    BehaviorReward,
     BehaviorRubric,
     BehaviorRubricLevel,
+    BehaviorStaffDashboard,
     BehaviorStreak,
     DetentionTracking,
     DigitalHallPass,
     Incident,
     ParentNotification,
     Referral,
+    SELCheckIn,
+    SELCheckInResponse,
     SuspensionTracking,
     TardyTracking,
     WitnessStatement,
@@ -174,3 +185,78 @@ class ParentNotificationAdmin(admin.ModelAdmin):
 class BehaviorAnalyticsAdmin(admin.ModelAdmin):
     list_display = ["report_type", "start_date", "end_date", "total_incidents", "generated_at"]
     list_filter = ["report_type"]
+
+
+@admin.register(BehaviorReward)
+class BehaviorRewardAdmin(admin.ModelAdmin):
+    list_display = ["name", "reward_type", "points_cost", "stock_quantity", "total_redeemed", "is_active"]
+    list_filter = ["reward_type", "availability", "is_active"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(BehaviorPointsRedemption)
+class BehaviorPointsRedemptionAdmin(admin.ModelAdmin):
+    list_display = ["student", "reward", "points_spent", "status", "redeemed_at"]
+    list_filter = ["status"]
+    search_fields = ["student__user__full_name", "reward__name"]
+
+
+@admin.register(BehaviorHouse)
+class BehaviorHouseAdmin(admin.ModelAdmin):
+    list_display = ["name", "total_points", "member_count", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(BehaviorHouseMember)
+class BehaviorHouseMemberAdmin(admin.ModelAdmin):
+    list_display = ["student", "house", "role", "is_active"]
+    list_filter = ["role", "is_active"]
+    search_fields = ["student__user__full_name", "house__name"]
+
+
+@admin.register(BehaviorLeaderboard)
+class BehaviorLeaderboardAdmin(admin.ModelAdmin):
+    list_display = ["name", "leaderboard_type", "time_period", "total_entries", "is_published"]
+    list_filter = ["leaderboard_type", "time_period", "is_published"]
+    search_fields = ["name"]
+
+
+@admin.register(BehaviorReportCard)
+class BehaviorReportCardAdmin(admin.ModelAdmin):
+    list_display = ["student", "report_period", "behavior_score", "status", "sent_to_parent"]
+    list_filter = ["report_period", "status", "sent_to_parent"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(BehaviorInterventionPlan)
+class BehaviorInterventionPlanAdmin(admin.ModelAdmin):
+    list_display = ["student", "plan_type", "title", "status", "start_date"]
+    list_filter = ["plan_type", "status"]
+    search_fields = ["student__user__full_name", "title"]
+
+
+@admin.register(BehaviorMTSS)
+class BehaviorMTSSAdmin(admin.ModelAdmin):
+    list_display = ["student", "tier_level", "status", "referral_date"]
+    list_filter = ["tier_level", "status"]
+    search_fields = ["student__user__full_name", "referral_reason"]
+
+
+@admin.register(SELCheckIn)
+class SELCheckInAdmin(admin.ModelAdmin):
+    list_display = ["student", "mood", "energy_level", "stress_level", "needs_help", "check_in_date"]
+    list_filter = ["mood", "needs_help"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(SELCheckInResponse)
+class SELCheckInResponseAdmin(admin.ModelAdmin):
+    list_display = ["check_in", "staff", "follow_up_required", "created_at"]
+    list_filter = ["follow_up_required"]
+
+
+@admin.register(BehaviorStaffDashboard)
+class BehaviorStaffDashboardAdmin(admin.ModelAdmin):
+    list_display = ["staff", "incidents_today", "points_given_today", "pending_alerts", "last_refreshed"]
+    search_fields = ["staff__full_name"]

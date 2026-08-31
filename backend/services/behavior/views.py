@@ -19,17 +19,28 @@ from .models import (
     BehaviorContract,
     BehaviorEvidence,
     BehaviorGoal,
+    BehaviorHouse,
+    BehaviorHouseMember,
+    BehaviorInterventionPlan,
+    BehaviorLeaderboard,
     BehaviorMerit,
+    BehaviorMTSS,
     BehaviorPoint,
     BehaviorPointBalance,
+    BehaviorPointsRedemption,
+    BehaviorReportCard,
+    BehaviorReward,
     BehaviorRubric,
     BehaviorRubricLevel,
+    BehaviorStaffDashboard,
     BehaviorStreak,
     DetentionTracking,
     DigitalHallPass,
     Incident,
     ParentNotification,
     Referral,
+    SELCheckIn,
+    SELCheckInResponse,
     SuspensionTracking,
     TardyTracking,
     WitnessStatement,
@@ -43,17 +54,28 @@ from .serializers import (
     BehaviorContractSerializer,
     BehaviorEvidenceSerializer,
     BehaviorGoalSerializer,
+    BehaviorHouseMemberSerializer,
+    BehaviorHouseSerializer,
+    BehaviorInterventionPlanSerializer,
+    BehaviorLeaderboardSerializer,
     BehaviorMeritSerializer,
+    BehaviorMTSSSerializer,
     BehaviorPointBalanceSerializer,
     BehaviorPointSerializer,
+    BehaviorPointsRedemptionSerializer,
+    BehaviorReportCardSerializer,
+    BehaviorRewardSerializer,
     BehaviorRubricLevelSerializer,
     BehaviorRubricSerializer,
+    BehaviorStaffDashboardSerializer,
     BehaviorStreakSerializer,
     DetentionTrackingSerializer,
     DigitalHallPassSerializer,
     IncidentSerializer,
     ParentNotificationSerializer,
     ReferralSerializer,
+    SELCheckInResponseSerializer,
+    SELCheckInSerializer,
     SuspensionTrackingSerializer,
     TardyTrackingSerializer,
     WitnessStatementSerializer,
@@ -707,4 +729,278 @@ class BehaviorAnalyticsViewSet(viewsets.ModelViewSet):
         )
 
         serializer = self.get_serializer(analytics)
+        return Response(serializer.data)
+
+
+class BehaviorRewardViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorRewardSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+    filterset_fields = ["reward_type", "availability", "is_active"]
+
+    def get_queryset(self):
+        return BehaviorReward.objects.filter(school=self.request.user.school).select_related("created_by")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+class BehaviorPointsRedemptionViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorPointsRedemptionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "reward", "status"]
+
+    def get_queryset(self):
+        return BehaviorPointsRedemption.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "reward", "approved_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def approve(self, request, pk=None):
+        """Approve a redemption request."""
+        redemption = self.get_object()
+        redemption.status = BehaviorPointsRedemption.Status.APPROVED
+        redemption.approved_by = request.user
+        redemption.approved_at = timezone.now()
+        redemption.save()
+        return Response({"status": "approved"})
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def fulfill(self, request, pk=None):
+        """Mark redemption as fulfilled."""
+        redemption = self.get_object()
+        redemption.status = BehaviorPointsRedemption.Status.FULFILLED
+        redemption.fulfilled_at = timezone.now()
+        redemption.fulfilled_by = request.user
+        redemption.save()
+        return Response({"status": "fulfilled"})
+
+
+class BehaviorHouseViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorHouseSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        return BehaviorHouse.objects.filter(school=self.request.user.school).select_related(
+            "captain__user", "vice_captain__user", "faculty_advisor"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class BehaviorHouseMemberViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorHouseMemberSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["house", "role", "is_active"]
+
+    def get_queryset(self):
+        return BehaviorHouseMember.objects.filter(house__school=self.request.user.school).select_related(
+            "student__user", "house"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+
+class BehaviorLeaderboardViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorLeaderboardSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["leaderboard_type", "time_period", "is_published"]
+
+    def get_queryset(self):
+        return BehaviorLeaderboard.objects.filter(school=self.request.user.school).select_related("created_by")
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def generate(self, request, pk=None):
+        """Generate leaderboard data."""
+        leaderboard = self.get_object()
+        leaderboard.generate_leaderboard()
+        serializer = self.get_serializer(leaderboard)
+        return Response(serializer.data)
+
+
+class BehaviorReportCardViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorReportCardSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "report_period", "status"]
+
+    def get_queryset(self):
+        return BehaviorReportCard.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "generated_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def generate(self, request, pk=None):
+        """Generate report card data."""
+        report = self.get_object()
+        score = report.generate_report()
+        serializer = self.get_serializer(report)
+        return Response({"behavior_score": score, "report": serializer.data})
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def send_to_parent(self, request, pk=None):
+        """Mark report card as sent to parent."""
+        report = self.get_object()
+        report.sent_to_parent = True
+        report.sent_at = timezone.now()
+        report.save()
+        return Response({"status": "sent"})
+
+
+class BehaviorInterventionPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorInterventionPlanSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__full_name", "title"]
+    filterset_fields = ["student", "plan_type", "status"]
+
+    def get_queryset(self):
+        return BehaviorInterventionPlan.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "case_manager", "created_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+class BehaviorMTSSViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorMTSSSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__full_name", "referral_reason"]
+    filterset_fields = ["student", "tier_level", "status"]
+
+    def get_queryset(self):
+        return BehaviorMTSS.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "referred_by", "case_manager"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, referred_by=self.request.user)
+
+
+class SELCheckInViewSet(viewsets.ModelViewSet):
+    serializer_class = SELCheckInSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__full_name"]
+    filterset_fields = ["student", "mood", "needs_help", "follow_up_needed"]
+
+    def get_queryset(self):
+        return SELCheckIn.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "responded_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    def respond(self, request, pk=None):
+        """Staff respond to a check-in."""
+        check_in = self.get_object()
+        response_text = request.data.get("response", "")
+        action_taken = request.data.get("action_taken", "")
+        follow_up = request.data.get("follow_up_needed", False)
+        SELCheckInResponse.objects.create(
+            check_in=check_in,
+            staff=request.user,
+            response=response_text,
+            action_taken=action_taken,
+            follow_up_required=follow_up,
+        )
+        check_in.staff_response = response_text
+        check_in.responded_by = request.user
+        check_in.responded_at = timezone.now()
+        check_in.follow_up_needed = follow_up
+        check_in.save()
+        return Response({"status": "responded"})
+
+
+class SELCheckInResponseViewSet(viewsets.ModelViewSet):
+    serializer_class = SELCheckInResponseSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["check_in", "follow_up_required"]
+
+    def get_queryset(self):
+        return SELCheckInResponse.objects.filter(check_in__school=self.request.user.school).select_related("staff")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+
+class BehaviorStaffDashboardViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorStaffDashboardSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return BehaviorStaffDashboard.objects.filter(school=self.request.user.school).select_related("staff")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsSchoolMember])
+    def my_dashboard(self, request):
+        """Get current user's dashboard."""
+        dashboard, _ = BehaviorStaffDashboard.objects.get_or_create(
+            school=request.user.school,
+            staff=request.user,
+        )
+        dashboard.refresh_data()
+        serializer = self.get_serializer(dashboard)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolMember])
+    def refresh(self, request):
+        """Refresh dashboard data."""
+        dashboard, _ = BehaviorStaffDashboard.objects.get_or_create(
+            school=request.user.school,
+            staff=request.user,
+        )
+        dashboard.refresh_data()
+        serializer = self.get_serializer(dashboard)
         return Response(serializer.data)

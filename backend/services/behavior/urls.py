@@ -38,5 +38,24 @@ router.register("appeals", views.BehaviorAppealViewSet, basename="behavior-appea
 router.register("parent-notifications", views.ParentNotificationViewSet, basename="parent-notification")
 # Analytics
 router.register("analytics", views.BehaviorAnalyticsViewSet, basename="behavior-analytics")
+# Rewards & Redemption
+router.register("rewards", views.BehaviorRewardViewSet, basename="behavior-reward")
+router.register("redemptions", views.BehaviorPointsRedemptionViewSet, basename="behavior-redemption")
+# Houses
+router.register("houses", views.BehaviorHouseViewSet, basename="behavior-house")
+router.register("house-members", views.BehaviorHouseMemberViewSet, basename="behavior-house-member")
+# Leaderboards
+router.register("leaderboards", views.BehaviorLeaderboardViewSet, basename="behavior-leaderboard")
+# Report Cards
+router.register("report-cards", views.BehaviorReportCardViewSet, basename="behavior-report-card")
+# Intervention Plans
+router.register("intervention-plans", views.BehaviorInterventionPlanViewSet, basename="behavior-intervention-plan")
+# MTSS
+router.register("mtss", views.BehaviorMTSSViewSet, basename="behavior-mtss")
+# SEL
+router.register("sel-checkins", views.SELCheckInViewSet, basename="sel-checkin")
+router.register("sel-responses", views.SELCheckInResponseViewSet, basename="sel-response")
+# Staff Dashboard
+router.register("staff-dashboards", views.BehaviorStaffDashboardViewSet, basename="behavior-staff-dashboard")
 
 urlpatterns = [path("", include(router.urls))]

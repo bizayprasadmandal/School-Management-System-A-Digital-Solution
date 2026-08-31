@@ -1002,3 +1002,659 @@ class BehaviorAnalytics(models.Model):
 
     def __str__(self):
         return f"{self.get_report_type_display()} Report: {self.start_date} to {self.end_date}"
+
+
+class BehaviorReward(models.Model):
+    """Catalog of rewards available for point redemption."""
+
+    class RewardType(models.TextChoices):
+        PHYSICAL = "physical", "Physical Item"
+        PRIVILEGE = "privilege", "Privilege"
+        EXPERIENCE = "experience", "Experience"
+        CERTIFICATE = "certificate", "Certificate"
+        DIGITAL = "digital", "Digital"
+        OTHER = "other", "Other"
+
+    class Availability(models.TextChoices):
+        ALWAYS = "always", "Always Available"
+        LIMITED = "limited", "Limited Stock"
+        SEASONAL = "seasonal", "Seasonal"
+        EVENT = "event", "Event Only"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_rewards")
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    reward_type = models.CharField(max_length=15, choices=RewardType.choices, default=RewardType.PRIVILEGE)
+    # Cost
+    points_cost = models.PositiveIntegerField(help_text="Points required to redeem")
+    # Availability
+    availability = models.CharField(max_length=15, choices=Availability.choices, default=Availability.ALWAYS)
+    stock_quantity = models.PositiveIntegerField(default=0, help_text="0 = unlimited")
+    max_per_student = models.PositiveIntegerField(default=0, help_text="0 = unlimited per student")
+    # Redemption stats
+    total_redeemed = models.PositiveIntegerField(default=0)
+    # Media
+    image_url = models.URLField(blank=True)
+    # Schedule
+    available_from = models.DateField(null=True, blank=True)
+    available_until = models.DateField(null=True, blank=True)
+    # Settings
+    requires_approval = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_rewards")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_rewards"
+        ordering = ["points_cost", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.points_cost} points)"
+
+    @property
+    def is_available(self):
+        """Check if reward is currently available."""
+        if not self.is_active:
+            return False
+        if self.stock_quantity > 0 and self.total_redeemed >= self.stock_quantity:
+            return False
+        from django.utils import timezone as tz
+
+        today = tz.now().date()
+        if self.available_from and today < self.available_from:
+            return False
+        if self.available_until and today > self.available_until:
+            return False
+        return True
+
+
+class BehaviorPointsRedemption(models.Model):
+    """Track point redemption history."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        FULFILLED = "fulfilled", "Fulfilled"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="point_redemptions")
+    reward = models.ForeignKey(BehaviorReward, on_delete=models.CASCADE, related_name="redemptions")
+    points_spent = models.PositiveIntegerField(help_text="Points spent on this redemption")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Approval
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_redemptions"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    # Fulfillment
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="fulfilled_redemptions"
+    )
+    # Notes
+    notes = models.TextField(blank=True)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_points_redemptions"
+        ordering = ["-redeemed_at"]
+
+    def __str__(self):
+        return f"{self.student} redeemed {self.reward} for {self.points_spent} points"
+
+
+class BehaviorHouse(models.Model):
+    """House system for school-wide competitions."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_houses")
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    color = models.CharField(max_length=7, default="#007bff", help_text="Hex color code")
+    mascot = models.CharField(max_length=100, blank=True)
+    # Leadership
+    captain = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="house_captain_of"
+    )
+    vice_captain = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="house_vice_captain_of"
+    )
+    faculty_advisor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="house_advised"
+    )
+    # Stats
+    total_points = models.IntegerField(default=0)
+    member_count = models.PositiveIntegerField(default=0)
+    # Settings
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_houses"
+        ordering = ["-total_points", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.total_points} points)"
+
+
+class BehaviorHouseMember(models.Model):
+    """Students assigned to houses."""
+
+    class Role(models.TextChoices):
+        CAPTAIN = "captain", "Captain"
+        VICE_CAPTAIN = "vice_captain", "Vice Captain"
+        MEMBER = "member", "Member"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    house = models.ForeignKey(BehaviorHouse, on_delete=models.CASCADE, related_name="members")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="house_memberships")
+    role = models.CharField(max_length=15, choices=Role.choices, default=Role.MEMBER)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "behavior_house_members"
+        unique_together = [("house", "student")]
+        ordering = ["role", "-joined_at"]
+
+    def __str__(self):
+        return f"{self.student} in {self.house} ({self.get_role_display()})"
+
+
+class BehaviorLeaderboard(models.Model):
+    """School-wide/house leaderboards."""
+
+    class LeaderboardType(models.TextChoices):
+        INDIVIDUAL = "individual", "Individual"
+        CLASS = "class", "Class"
+        HOUSE = "house", "House"
+        GRADE = "grade", "Grade"
+        OVERALL = "overall", "Overall"
+
+    class TimePeriod(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+        SEMESTER = "semester", "Semester"
+        ANNUAL = "annual", "Annual"
+        ALL_TIME = "all_time", "All Time"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_leaderboards")
+    name = models.CharField(max_length=200)
+    leaderboard_type = models.CharField(
+        max_length=15, choices=LeaderboardType.choices, default=LeaderboardType.INDIVIDUAL
+    )
+    time_period = models.CharField(max_length=15, choices=TimePeriod.choices, default=TimePeriod.MONTHLY)
+    # Date range
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Data
+    leaderboard_data = models.JSONField(default=list, blank=True, help_text="List of ranked entries")
+    # Settings
+    is_published = models.BooleanField(default=False)
+    show_on_dashboard = models.BooleanField(default=True)
+    # Stats
+    total_entries = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_leaderboards")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_leaderboards"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_leaderboard_type_display()})"
+
+    def generate_leaderboard(self):
+        """Generate leaderboard data based on type and period."""
+        from django.db.models import Sum
+
+        entries = []
+        if self.leaderboard_type == self.LeaderboardType.INDIVIDUAL:
+            students = (
+                BehaviorPoint.objects.filter(
+                    created_at__date__gte=self.start_date,
+                    created_at__date__lte=self.end_date,
+                    point_type=BehaviorPoint.PointType.EARNED,
+                )
+                .values("student__id", "student__user__first_name", "student__user__last_name")
+                .annotate(total_points=Sum("points"))
+                .order_by("-total_points")[:50]
+            )
+            for i, s in enumerate(students, 1):
+                entries.append(
+                    {
+                        "rank": i,
+                        "student_id": s["student__id"],
+                        "name": f"{s['student__user__first_name']} {s['student__user__last_name']}",
+                        "points": s["total_points"],
+                    }
+                )
+        elif self.leaderboard_type == self.LeaderboardType.HOUSE:
+            houses = BehaviorHouse.objects.filter(is_active=True).order_by("-total_points")
+            for i, h in enumerate(houses, 1):
+                entries.append(
+                    {
+                        "rank": i,
+                        "house_id": str(h.id),
+                        "name": h.name,
+                        "points": h.total_points,
+                        "color": h.color,
+                    }
+                )
+        self.leaderboard_data = entries
+        self.total_entries = len(entries)
+        self.save(update_fields=["leaderboard_data", "total_entries"])
+        return entries
+
+
+class BehaviorReportCard(models.Model):
+    """Periodic behavior summaries for parents."""
+
+    class ReportPeriod(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        BIWEEKLY = "biweekly", "Bi-weekly"
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+        SEMESTER = "semester", "Semester"
+        ANNUAL = "annual", "Annual"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        GENERATING = "generating", "Generating"
+        COMPLETED = "completed", "Completed"
+        SENT = "sent", "Sent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_report_cards")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="behavior_report_cards")
+    report_period = models.CharField(max_length=15, choices=ReportPeriod.choices, default=ReportPeriod.MONTHLY)
+    # Date range
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Stats
+    total_incidents = models.PositiveIntegerField(default=0)
+    total_merits = models.PositiveIntegerField(default=0)
+    total_points_earned = models.IntegerField(default=0)
+    total_points_deducted = models.IntegerField(default=0)
+    net_points = models.IntegerField(default=0)
+    total_detentions = models.PositiveIntegerField(default=0)
+    total_suspensions = models.PositiveIntegerField(default=0)
+    total_tardies = models.PositiveIntegerField(default=0)
+    # Behavior scores
+    behavior_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    behavior_trend = models.CharField(
+        max_length=10,
+        choices=[("improving", "Improving"), ("stable", "Stable"), ("declining", "Declining")],
+        default="stable",
+    )
+    # Highlights
+    strengths = models.JSONField(default=list, blank=True, help_text="List of strengths observed")
+    areas_for_growth = models.JSONField(default=list, blank=True, help_text="Areas needing improvement")
+    teacher_comments = models.TextField(blank=True)
+    admin_comments = models.TextField(blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    generated_at = models.DateTimeField(null=True, blank=True)
+    sent_to_parent = models.BooleanField(default=False)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    # Generated by
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="generated_report_cards")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_report_cards"
+        ordering = ["-start_date"]
+        unique_together = [("student", "report_period", "start_date")]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_report_period_display()} ({self.start_date} to {self.end_date})"
+
+    def generate_report(self):
+        """Generate report card data."""
+        from django.db.models import Sum
+
+        # Incidents
+        incidents = Incident.objects.filter(
+            student=self.student,
+            occurred_at__date__gte=self.start_date,
+            occurred_at__date__lte=self.end_date,
+        )
+        self.total_incidents = incidents.count()
+        # Points
+        points = BehaviorPoint.objects.filter(
+            student=self.student,
+            created_at__date__gte=self.start_date,
+            created_at__date__lte=self.end_date,
+        )
+        self.total_points_earned = (
+            points.filter(point_type=BehaviorPoint.PointType.EARNED).aggregate(total=Sum("points"))["total"] or 0
+        )
+        self.total_points_deducted = (
+            points.filter(point_type=BehaviorPoint.PointType.DEDUCTED).aggregate(total=Sum("points"))["total"] or 0
+        )
+        self.net_points = self.total_points_earned - abs(self.total_points_deducted)
+        # Merits
+        self.total_merits = BehaviorMerit.objects.filter(
+            student=self.student,
+            awarded_date__gte=self.start_date,
+            awarded_date__lte=self.end_date,
+        ).count()
+        # Detentions & Suspensions
+        self.total_detentions = DetentionTracking.objects.filter(
+            student=self.student,
+            scheduled_date__gte=self.start_date,
+            scheduled_date__lte=self.end_date,
+        ).count()
+        self.total_suspensions = SuspensionTracking.objects.filter(
+            student=self.student,
+            start_date__gte=self.start_date,
+            start_date__lte=self.end_date,
+        ).count()
+        # Tardies
+        self.total_tardies = TardyTracking.objects.filter(
+            student=self.student,
+            date__gte=self.start_date,
+            date__lte=self.end_date,
+        ).count()
+        # Calculate behavior score (0-100)
+        score = 100
+        score -= self.total_incidents * 5
+        score += self.total_merits * 2
+        score += min(20, self.total_points_earned // 10)
+        score -= self.total_detentions * 10
+        score -= self.total_suspensions * 25
+        score -= self.total_tardies * 2
+        self.behavior_score = max(0, min(100, score))
+        self.status = BehaviorReportCard.Status.COMPLETED
+        self.generated_at = timezone.now()
+        self.save()
+        return self.behavior_score
+
+
+class BehaviorInterventionPlan(models.Model):
+    """Document behavior intervention plans (BIP) and functional behavior assessments (FBA)."""
+
+    class PlanType(models.TextChoices):
+        BIP = "bip", "Behavior Intervention Plan"
+        FBA = "fba", "Functional Behavior Assessment"
+        SAFETY_PLAN = "safety_plan", "Safety Plan"
+        BEHAVIOR_SUPPORT = "behavior_support", "Behavior Support Plan"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        UNDER_REVIEW = "under_review", "Under Review"
+        COMPLETED = "completed", "Completed"
+        ARCHIVED = "archived", "Archived"
+
+    class ReviewFrequency(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        BIWEEKLY = "biweekly", "Bi-weekly"
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_intervention_plans")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="intervention_plans")
+    plan_type = models.CharField(max_length=20, choices=PlanType.choices, default=PlanType.BIP)
+    # Plan details
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    # FBA specific
+    target_behavior = models.TextField(blank=True, help_text="Observable behavior to be changed")
+    antecedents = models.TextField(blank=True, help_text="What happens before the behavior")
+    behaviors = models.TextField(blank=True, help_text="The behavior itself")
+    consequences = models.TextField(blank=True, help_text="What happens after the behavior")
+    function_of_behavior = models.TextField(blank=True, help_text="Why the behavior occurs")
+    # BIP specific
+    prevention_strategies = models.TextField(blank=True)
+    teaching_strategies = models.TextField(blank=True)
+    reinforcement_strategies = models.TextField(blank=True)
+    crisis_plan = models.TextField(blank=True)
+    # Team
+    team_members = models.JSONField(default=list, blank=True, help_text="List of team member names/roles")
+    case_manager = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="managed_intervention_plans"
+    )
+    # Dates
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    review_frequency = models.CharField(max_length=15, choices=ReviewFrequency.choices, default=ReviewFrequency.MONTHLY)
+    next_review_date = models.DateField(null=True, blank=True)
+    # Progress
+    goals_met = models.JSONField(default=list, blank=True, help_text="List of achieved goals")
+    goals_remaining = models.JSONField(default=list, blank=True, help_text="List of remaining goals")
+    progress_notes = models.TextField(blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    # Signatures
+    parent_signature_required = models.BooleanField(default=True)
+    parent_signed = models.BooleanField(default=False)
+    parent_signed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_intervention_plans"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_intervention_plans"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_plan_type_display()}: {self.title}"
+
+
+class BehaviorMTSS(models.Model):
+    """Multi-tiered support system (MTSS) tracking."""
+
+    class TierLevel(models.TextChoices):
+        TIER_1 = "tier_1", "Tier 1 - Universal"
+        TIER_2 = "tier_2", "Tier 2 - Targeted"
+        TIER_3 = "tier_3", "Tier 3 - Intensive"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        MONITORING = "monitoring", "Monitoring"
+        PROGRESSING = "progressing", "Progressing"
+        REFERRAL = "referral", "Referral"
+        EXITED = "exited", "Exited"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_mtss")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="mtss_records")
+    tier_level = models.CharField(max_length=10, choices=TierLevel.choices, default=TierLevel.TIER_1)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    # Reason
+    referral_reason = models.TextField()
+    referral_date = models.DateField(default=timezone.now)
+    referred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="mtss_referrals")
+    # Interventions
+    interventions = models.JSONField(default=list, blank=True, help_text="List of interventions applied")
+    supports = models.JSONField(default=list, blank=True, help_text="List of supports provided")
+    # Progress
+    goals = models.JSONField(default=list, blank=True)
+    progress_data = models.JSONField(default=list, blank=True, help_text="Data points tracking progress")
+    baseline_date = models.DateField(null=True, blank=True)
+    baseline_notes = models.TextField(blank=True)
+    # Dates
+    start_date = models.DateField(default=timezone.now)
+    review_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    # Team
+    case_manager = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="mtss_case_managed"
+    )
+    team_members = models.JSONField(default=list, blank=True)
+    # Outcome
+    outcome_notes = models.TextField(blank=True)
+    outcome_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_mtss"
+        ordering = ["-referral_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_tier_level_display()} ({self.get_status_display()})"
+
+
+class SELCheckIn(models.Model):
+    """Social-emotional learning check-ins for students."""
+
+    class Mood(models.TextChoices):
+        GREAT = "great", "Great"
+        GOOD = "good", "Good"
+        OKAY = "okay", "Okay"
+        SAD = "sad", "Sad"
+        ANGRY = "angry", "Angry"
+        ANXIOUS = "anxious", "Anxious"
+        SICK = "sick", "Sick"
+
+    class CheckInFrequency(models.TextChoices):
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        AS_NEEDED = "as_needed", "As Needed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sel_checkins")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="sel_checkins")
+    # Check-in data
+    mood = models.CharField(max_length=10, choices=Mood.choices)
+    energy_level = models.PositiveSmallIntegerField(default=5, help_text="1-10 scale")
+    stress_level = models.PositiveSmallIntegerField(default=5, help_text="1-10 scale")
+    # Optional details
+    how_are_you_feeling = models.TextField(blank=True, help_text="Why do you feel this way?")
+    anything_else = models.TextField(blank=True)
+    needs_help = models.BooleanField(default=False)
+    help_type = models.CharField(max_length=100, blank=True, help_text="What kind of help?")
+    # Wellness indicators
+    sleep_quality = models.PositiveSmallIntegerField(null=True, blank=True, help_text="1-10 scale")
+    ate_breakfast = models.BooleanField(null=True, blank=True)
+    # Response
+    staff_response = models.TextField(blank=True)
+    responded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="sel_responses"
+    )
+    responded_at = models.DateTimeField(null=True, blank=True)
+    follow_up_needed = models.BooleanField(default=False)
+    follow_up_completed = models.BooleanField(default=False)
+    # Metadata
+    check_in_date = models.DateField(default=timezone.now)
+    check_in_time = models.TimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sel_checkins"
+        ordering = ["-check_in_date", "-check_in_time"]
+        indexes = [
+            models.Index(fields=["student", "check_in_date"]),
+            models.Index(fields=["mood"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_mood_display()} on {self.check_in_date}"
+
+
+class SELCheckInResponse(models.Model):
+    """Staff responses to SEL check-ins."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    check_in = models.ForeignKey(SELCheckIn, on_delete=models.CASCADE, related_name="staff_responses")
+    staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sel_checkin_responses")
+    response = models.TextField()
+    action_taken = models.TextField(blank=True)
+    follow_up_required = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    follow_up_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sel_checkin_responses"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.staff} responded to {self.check_in}"
+
+
+class BehaviorStaffDashboard(models.Model):
+    """Teacher-specific behavior dashboard data."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_staff_dashboards")
+    staff = models.OneToOneField(User, on_delete=models.CASCADE, related_name="behavior_dashboard")
+    # Today's stats
+    incidents_today = models.PositiveIntegerField(default=0)
+    points_given_today = models.IntegerField(default=0)
+    referrals_received_today = models.PositiveIntegerField(default=0)
+    hall_passes_active = models.PositiveIntegerField(default=0)
+    # This week
+    incidents_this_week = models.PositiveIntegerField(default=0)
+    points_given_this_week = models.IntegerField(default=0)
+    # Class stats
+    class_points_data = models.JSONField(default=list, blank=True, help_text="Points by class period")
+    top_students = models.JSONField(default=list, blank=True)
+    students_needing_attention = models.JSONField(default=list, blank=True)
+    # Alerts
+    pending_alerts = models.PositiveIntegerField(default=0)
+    pending_referrals = models.PositiveIntegerField(default=0)
+    # Quick actions
+    recent_actions = models.JSONField(default=list, blank=True, help_text="Recent behavior actions taken")
+    # Settings
+    favorite_quick_actions = models.JSONField(default=list, blank=True)
+    # Timestamps
+    last_refreshed = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_staff_dashboards"
+
+    def __str__(self):
+        return f"Dashboard for {self.staff.full_name}"
+
+    def refresh_data(self):
+        """Refresh dashboard data."""
+        from datetime import date, timedelta
+
+        from django.db.models import Sum
+
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+        # Today's stats
+        self.incidents_today = Incident.objects.filter(reported_by=self.staff, occurred_at__date=today).count()
+        self.points_given_today = (
+            BehaviorPoint.objects.filter(awarded_by=self.staff, created_at__date=today).aggregate(total=Sum("points"))[
+                "total"
+            ]
+            or 0
+        )
+        self.referrals_received_today = Referral.objects.filter(referred_to=self.staff, created_at__date=today).count()
+        self.hall_passes_active = DigitalHallPass.objects.filter(
+            approved_by=self.staff, status=DigitalHallPass.Status.ACTIVE
+        ).count()
+        # This week
+        self.incidents_this_week = Incident.objects.filter(
+            reported_by=self.staff, occurred_at__date__gte=week_start
+        ).count()
+        self.points_given_this_week = (
+            BehaviorPoint.objects.filter(awarded_by=self.staff, created_at__date__gte=week_start).aggregate(
+                total=Sum("points")
+            )["total"]
+            or 0
+        )
+        # Pending items
+        self.pending_alerts = BehaviorAlert.objects.filter(status=BehaviorAlert.Status.ACTIVE).count()
+        self.pending_referrals = Referral.objects.filter(referred_to=self.staff, status="pending").count()
+        self.save()
+        return self
