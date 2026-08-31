@@ -3,19 +3,26 @@ Counseling Service — Django Admin registrations.
 """
 
 from django.contrib import admin
-from .models import CounselingAppointment, StudentReferral
+
+from .models import CounselingAppointment, CounselorProfile, StudentReferral
 
 
 @admin.register(CounselingAppointment)
 class CounselingAppointmentAdmin(admin.ModelAdmin):
     list_display = [
-        "student_name", "counselor_name", "appointment_type",
-        "scheduled_date", "scheduled_time", "status",
+        "student_name",
+        "counselor_name",
+        "appointment_type",
+        "scheduled_date",
+        "scheduled_time",
+        "status",
     ]
     list_filter = ["status", "appointment_type", "scheduled_date"]
     search_fields = [
-        "student__user__first_name", "student__user__last_name",
-        "counselor__first_name", "counselor__last_name",
+        "student__user__first_name",
+        "student__user__last_name",
+        "counselor__first_name",
+        "counselor__last_name",
         "reason",
     ]
     date_hierarchy = "scheduled_date"
@@ -34,13 +41,19 @@ class CounselingAppointmentAdmin(admin.ModelAdmin):
 @admin.register(StudentReferral)
 class StudentReferralAdmin(admin.ModelAdmin):
     list_display = [
-        "student_name", "category", "priority", "status",
-        "assigned_to", "created_at",
+        "student_name",
+        "category",
+        "priority",
+        "status",
+        "assigned_to",
+        "created_at",
     ]
     list_filter = ["status", "priority", "category"]
     search_fields = [
-        "student__user__first_name", "student__user__last_name",
-        "reason", "notes",
+        "student__user__first_name",
+        "student__user__last_name",
+        "reason",
+        "notes",
     ]
     readonly_fields = ["id", "created_at", "updated_at", "action_taken_at"]
     ordering = ["-created_at"]
@@ -53,5 +66,23 @@ class StudentReferralAdmin(admin.ModelAdmin):
     @admin.display(description="Mark selected referrals as closed")
     def mark_as_closed(self, request, queryset):
         from django.utils import timezone
+
         updated = queryset.update(status="closed", action_taken_at=timezone.now())
         self.message_user(request, f"{updated} referral(s) closed.")
+
+
+@admin.register(CounselorProfile)
+class CounselorProfileAdmin(admin.ModelAdmin):
+    list_display = [
+        "user",
+        "employee_id",
+        "specialization",
+        "experience_years",
+        "is_active",
+    ]
+    list_filter = ["is_active", "specialization"]
+    search_fields = [
+        "user__first_name",
+        "user__last_name",
+        "employee_id",
+    ]
