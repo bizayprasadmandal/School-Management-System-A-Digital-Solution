@@ -6,27 +6,38 @@ from .models import (
     Applicant,
     BenefitPlan,
     Certification,
+    DataRetentionPolicy,
     Department,
     Employee,
     EmployeeBenefit,
+    EmployeeDocument,
+    EmployeeProfileUpdate,
     EmployeeSalary,
+    HRAuditLog,
+    HRDashboardMetrics,
     InterviewSchedule,
     JobPosting,
+    LeaveBalanceHR,
     LeaveRequest,
     OnboardingChecklist,
     OnboardingProgress,
     OnboardingTask,
     OvertimeRequest,
     Payslip,
+    PayslipViewLog,
     PeerFeedback,
     PerformanceGoal,
     PerformanceReview,
     PerformanceReviewCycle,
+    PolicyAcknowledgment,
+    PolicyDocument,
+    SalaryReport,
     SalaryStructure,
     TimeEntry,
     Timesheet,
     TrainingEnrollment,
     TrainingProgram,
+    TurnoverReport,
 )
 
 
@@ -218,3 +229,120 @@ class CertificationAdmin(admin.ModelAdmin):
     list_display = ["employee", "name", "issuing_organization", "expiry_date", "status"]
     list_filter = ["status"]
     search_fields = ["name", "issuing_organization"]
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service
+# ---------------------------------------------------------------------------
+
+
+@admin.register(EmployeeProfileUpdate)
+class EmployeeProfileUpdateAdmin(admin.ModelAdmin):
+    list_display = ["employee", "field_name", "old_value", "new_value", "status"]
+    list_filter = ["status"]
+    search_fields = ["employee__user__full_name"]
+
+
+@admin.register(PayslipViewLog)
+class PayslipViewLogAdmin(admin.ModelAdmin):
+    list_display = ["employee", "payslip", "viewed_at"]
+    date_hierarchy = "viewed_at"
+
+
+@admin.register(LeaveBalanceHR)
+class LeaveBalanceHRAdmin(admin.ModelAdmin):
+    list_display = ["employee", "leave_type", "year", "total_days", "used_days", "carried_over"]
+    list_filter = ["leave_type", "year"]
+    search_fields = ["employee__user__full_name"]
+
+
+# ---------------------------------------------------------------------------
+# P7: HR Analytics
+# ---------------------------------------------------------------------------
+
+
+@admin.register(HRDashboardMetrics)
+class HRDashboardMetricsAdmin(admin.ModelAdmin):
+    list_display = ["school", "total_employees", "active_employees", "calculated_at"]
+    date_hierarchy = "calculated_at"
+
+
+@admin.register(TurnoverReport)
+class TurnoverReportAdmin(admin.ModelAdmin):
+    list_display = ["school", "month", "total_employees_start", "new_hires", "separations", "turnover_rate"]
+    date_hierarchy = "month"
+
+
+@admin.register(SalaryReport)
+class SalaryReportAdmin(admin.ModelAdmin):
+    list_display = ["school", "month", "total_gross", "total_net", "headcount"]
+    date_hierarchy = "month"
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management
+# ---------------------------------------------------------------------------
+
+
+@admin.register(EmployeeDocument)
+class EmployeeDocumentAdmin(admin.ModelAdmin):
+    list_display = ["employee", "document_type", "title", "expiry_date", "is_verified"]
+    list_filter = ["document_type", "is_verified"]
+    search_fields = ["employee__user__full_name", "title"]
+
+
+@admin.register(PolicyDocument)
+class PolicyDocumentAdmin(admin.ModelAdmin):
+    list_display = ["title", "document_type", "version", "status", "effective_date"]
+    list_filter = ["status", "document_type"]
+    search_fields = ["title", "description"]
+
+
+@admin.register(PolicyAcknowledgment)
+class PolicyAcknowledgmentAdmin(admin.ModelAdmin):
+    list_display = ["employee", "policy", "acknowledged_at"]
+    list_filter = ["policy"]
+    date_hierarchy = "acknowledged_at"
+
+
+# ---------------------------------------------------------------------------
+# P9: Compliance & Audit
+# ---------------------------------------------------------------------------
+
+
+@admin.register(HRAuditLog)
+class HRAuditLogAdmin(admin.ModelAdmin):
+    list_display = ["action_type", "model_name", "object_id", "performed_by", "created_at"]
+    list_filter = ["action_type", "model_name"]
+    search_fields = ["object_repr", "notes"]
+    date_hierarchy = "created_at"
+    readonly_fields = [
+        "id",
+        "school",
+        "action_type",
+        "model_name",
+        "object_id",
+        "object_repr",
+        "old_values",
+        "new_values",
+        "performed_by",
+        "ip_address",
+        "notes",
+        "created_at",
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DataRetentionPolicy)
+class DataRetentionPolicyAdmin(admin.ModelAdmin):
+    list_display = ["model_name", "retention_days", "auto_delete", "last_purge_date", "is_active"]
+    list_filter = ["is_active", "auto_delete"]
+    search_fields = ["model_name"]

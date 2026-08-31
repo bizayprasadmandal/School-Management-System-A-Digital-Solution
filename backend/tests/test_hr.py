@@ -636,3 +636,267 @@ class TestTraining:
     def test_list_certifications(self):
         r = self.client.get("/api/v1/hr/certifications/")
         assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service Tests
+# ---------------------------------------------------------------------------
+
+
+class TestEmployeeSelfService:
+    """Tests for employee self-service features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from services.hr.models import Employee
+        from tests.factories import AdminUserFactory, SchoolFactory, TeacherUserFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.teacher = TeacherUserFactory(school=self.school)
+        self.employee = Employee.objects.create(
+            user=self.teacher,
+            school=self.school,
+            employee_id="EMP100",
+            designation="Teacher",
+            joining_date="2024-01-01",
+            address="Test Address",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_profile_update(self):
+        self.client.force_authenticate(self.teacher)
+        r = self.client.post(
+            "/api/v1/hr/profile-updates/",
+            {
+                "field_name": "phone",
+                "old_value": "+1-555-0000",
+                "new_value": "+1-555-1234",
+                "status": "pending",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+
+    def test_approve_profile_update(self):
+        from services.hr.models import EmployeeProfileUpdate
+
+        update = EmployeeProfileUpdate.objects.create(
+            employee=self.employee,
+            field_name="phone",
+            old_value="+1-555-0000",
+            new_value="+1-555-1234",
+        )
+        r = self.client.post(f"/api/v1/hr/profile-updates/{update.id}/approve/")
+        assert r.status_code == status.HTTP_200_OK
+        update.refresh_from_db()
+        assert update.status == "approved"
+
+    def test_list_profile_updates(self):
+        r = self.client.get("/api/v1/hr/profile-updates/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_create_leave_balance(self):
+        r = self.client.post(
+            "/api/v1/hr/hr-leave-balances/",
+            {
+                "employee": str(self.employee.id),
+                "leave_type": "annual",
+                "year": 2026,
+                "total_days": 20,
+                "used_days": 5,
+                "carried_over": 3,
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["remaining_days"] == 18
+
+    def test_my_leave_balance(self):
+        from services.hr.models import LeaveBalanceHR
+
+        LeaveBalanceHR.objects.create(
+            employee=self.employee,
+            leave_type="annual",
+            year=2026,
+            total_days=20,
+            used_days=5,
+        )
+        self.client.force_authenticate(self.teacher)
+        r = self.client.get("/api/v1/hr/hr-leave-balances/my-balance/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P7: HR Analytics Tests
+# ---------------------------------------------------------------------------
+
+
+class TestHRAnalytics:
+    """Tests for HR analytics features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_get_dashboard_metrics(self):
+        r = self.client.get("/api/v1/hr/hr-dashboard/metrics/")
+        assert r.status_code == status.HTTP_200_OK
+        assert "active_employees" in r.data
+
+    def test_create_turnover_report(self):
+        r = self.client.post(
+            "/api/v1/hr/turnover-reports/",
+            {
+                "month": "2026-08-01",
+                "total_employees_start": 50,
+                "new_hires": 5,
+                "separations": 2,
+                "turnover_rate": "4.00",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+
+    def test_create_salary_report(self):
+        r = self.client.post(
+            "/api/v1/hr/salary-reports/",
+            {
+                "month": "2026-08-01",
+                "total_gross": "500000.00",
+                "total_deductions": "100000.00",
+                "total_net": "400000.00",
+                "headcount": 50,
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+
+    def test_list_turnover_reports(self):
+        r = self.client.get("/api/v1/hr/turnover-reports/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_list_salary_reports(self):
+        r = self.client.get("/api/v1/hr/salary-reports/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentManagement:
+    """Tests for document management features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_employee_document(self):
+        from services.hr.models import Employee
+        from tests.factories import TeacherUserFactory
+
+        teacher = TeacherUserFactory(school=self.school)
+        employee = Employee.objects.create(
+            user=teacher,
+            school=self.school,
+            employee_id="EMP200",
+            designation="Teacher",
+            joining_date="2024-01-01",
+            address="Test Address",
+        )
+        r = self.client.post(
+            "/api/v1/hr/employee-documents/",
+            {
+                "employee": str(employee.id),
+                "document_type": "contract",
+                "title": "Employment Contract 2026",
+                "file_url": "https://example.com/contract.pdf",
+                "expiry_date": "2027-12-31",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["title"] == "Employment Contract 2026"
+
+    def test_create_policy(self):
+        r = self.client.post(
+            "/api/v1/hr/policies/",
+            {
+                "title": "Leave Policy 2026",
+                "description": "Annual leave policy",
+                "content": "Full policy content here",
+                "document_type": "leave_policy",
+                "version": "1.0",
+                "status": "active",
+                "effective_date": "2026-01-01",
+                "requires_acknowledgment": True,
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["requires_acknowledgment"] is True
+
+    def test_acknowledge_policy(self):
+        from services.hr.models import PolicyDocument
+
+        policy = PolicyDocument.objects.create(
+            school=self.school,
+            title="Test Policy",
+            content="Test content",
+            status="active",
+            requires_acknowledgment=True,
+            uploaded_by=self.admin,
+        )
+        r = self.client.post(f"/api/v1/hr/policies/{policy.id}/acknowledge/")
+        assert r.status_code == status.HTTP_201_CREATED
+
+    def test_list_documents(self):
+        r = self.client.get("/api/v1/hr/employee-documents/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_list_policies(self):
+        r = self.client.get("/api/v1/hr/policies/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P9: Compliance Tests
+# ---------------------------------------------------------------------------
+
+
+class TestCompliance:
+    """Tests for compliance and audit features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_list_audit_logs(self):
+        r = self.client.get("/api/v1/hr/audit-logs/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_audit_logs_read_only(self):
+        r = self.client.post(
+            "/api/v1/hr/audit-logs/",
+            {"model_name": "Employee", "action_type": "create"},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_405_METHOD_NOT_ALLOWED

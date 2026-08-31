@@ -115,3 +115,82 @@ def handle_applicant_status_change(sender, instance, **kwargs):
                 reference_type="applicant",
                 reference_id=str(instance.id),
             )
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service Signals
+# ---------------------------------------------------------------------------
+
+
+@receiver(post_save, sender="hr.EmployeeProfileUpdate")
+def handle_profile_update_status_change(sender, instance, **kwargs):
+    """Notify employee when profile update is approved or rejected."""
+    from services.communication.services import send_in_app_notification
+
+    if instance.status == "approved":
+        send_in_app_notification.delay(
+            user_id=str(instance.employee.user.id),
+            title="Profile Update Approved",
+            body=f"Your {instance.field_name} update has been approved.",
+            reference_type="profile_update",
+            reference_id=str(instance.id),
+        )
+    elif instance.status == "rejected":
+        send_in_app_notification.delay(
+            user_id=str(instance.employee.user.id),
+            title="Profile Update Rejected",
+            body=f"Your {instance.field_name} update was rejected. {instance.review_notes[:80]}",
+            reference_type="profile_update",
+            reference_id=str(instance.id),
+        )
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management Signals
+# ---------------------------------------------------------------------------
+
+
+@receiver(post_save, sender="hr.EmployeeDocument")
+def handle_document_upload(sender, instance, **kwargs):
+    """Notify employee when document is uploaded or verified."""
+    from services.communication.services import send_in_app_notification
+
+    if kwargs.get("created"):
+        send_in_app_notification.delay(
+            user_id=str(instance.employee.user.id),
+            title="New Document Uploaded",
+            body=f"'{instance.title}' has been uploaded to your documents.",
+            reference_type="employee_document",
+            reference_id=str(instance.id),
+        )
+    elif instance.is_verified and instance.verified_by:
+        send_in_app_notification.delay(
+            user_id=str(instance.employee.user.id),
+            title="Document Verified",
+            body=f"Your '{instance.title}' document has been verified.",
+            reference_type="employee_document",
+            reference_id=str(instance.id),
+        )
+
+
+@receiver(post_save, sender="hr.PolicyDocument")
+def handle_policy_published(sender, instance, **kwargs):
+    """Notify all employees when a new policy is published."""
+    from services.auth.models import User
+    from services.communication.services import send_in_app_notification
+
+    if instance.status == "active" and instance.requires_acknowledgment:
+        employees = User.objects.filter(
+            school=instance.school,
+            role__in=["teacher", "employee", "staff"],
+            is_active=True,
+        )
+        for emp in employees[:50]:  # Limit to avoid spam
+            send_in_app_notification.delay(
+                user_id=str(emp.id),
+                title="New Policy Requires Acknowledgment",
+                body=f"'{instance.title}' requires your acknowledgment.",
+                priority="high",
+                reference_type="policy_document",
+                reference_id=str(instance.id),
+            )
