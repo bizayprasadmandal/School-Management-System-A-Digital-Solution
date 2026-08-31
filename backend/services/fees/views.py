@@ -21,14 +21,49 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import FeeCategory, FeeInvoice, FeeStructure, Payment, PaymentGatewayConfig, Scholarship
+from .models import (
+    AdvancePayment,
+    BulkInvoiceGeneration,
+    FeeAdjustment,
+    FeeCategory,
+    FeeCollectionDashboard,
+    FeeConcession,
+    FeeInvoice,
+    FeeStructure,
+    FeeTemplate,
+    FeeWaiver,
+    InstallmentPayment,
+    InstallmentPlan,
+    Payment,
+    PaymentGatewayConfig,
+    PaymentReconciliation,
+    PaymentReminder,
+    RevenueReport,
+    Scholarship,
+    SiblingDiscount,
+    StudentLedger,
+)
 from .serializers import (
+    AdvancePaymentSerializer,
+    BulkInvoiceGenerationSerializer,
+    FeeAdjustmentSerializer,
     FeeCategorySerializer,
+    FeeCollectionDashboardSerializer,
+    FeeConcessionSerializer,
     FeeInvoiceSerializer,
     FeeStructureSerializer,
+    FeeTemplateSerializer,
+    FeeWaiverSerializer,
+    InstallmentPaymentSerializer,
+    InstallmentPlanSerializer,
     PaymentGatewayConfigSerializer,
+    PaymentReconciliationSerializer,
+    PaymentReminderSerializer,
     PaymentSerializer,
+    RevenueReportSerializer,
     ScholarshipSerializer,
+    SiblingDiscountSerializer,
+    StudentLedgerSerializer,
 )
 
 BRAND_COLOR = colors.HexColor("#4F46E5")
@@ -403,9 +438,8 @@ class GatewayConfigView(viewsets.ViewSet):
         serializer = PaymentGatewayConfigSerializer(config, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return Response(serializer.data) @ action(detail=False, methods=["get"])
 
-    @action(detail=False, methods=["get"])
     def enabled(self, request):
         """
         GET /fees/gateway-config/enabled/
@@ -437,3 +471,326 @@ class GatewayConfigView(viewsets.ViewSet):
                 {"id": "esewa", "name": "eSewa", "description": "eSewa wallet or connected bank accounts", "icon": "🏦"}
             )
         return Response(gateways)
+
+
+# =============================================================================
+# Installment Plans ViewSets
+# =============================================================================
+
+
+class InstallmentPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = InstallmentPlanSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "status", "invoice"]
+
+    def get_queryset(self):
+        return InstallmentPlan.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, approved_by=self.request.user)
+
+
+class InstallmentPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = InstallmentPaymentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["installment_plan", "status"]
+
+    def get_queryset(self):
+        return InstallmentPayment.objects.filter(installment_plan__school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Sibling Discounts ViewSets
+# =============================================================================
+
+
+class SiblingDiscountViewSet(viewsets.ModelViewSet):
+    serializer_class = SiblingDiscountSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
+    filterset_fields = ["is_active", "discount_type"]
+
+    def get_queryset(self):
+        return SiblingDiscount.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Payment Reminders ViewSets
+# =============================================================================
+
+
+class PaymentReminderViewSet(viewsets.ModelViewSet):
+    serializer_class = PaymentReminderSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "reminder_type", "status", "invoice"]
+
+    def get_queryset(self):
+        return PaymentReminder.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Fee Concessions ViewSets
+# =============================================================================
+
+
+class FeeConcessionViewSet(viewsets.ModelViewSet):
+    serializer_class = FeeConcessionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name", "name"]
+    filterset_fields = ["student", "concession_type", "status", "academic_year"]
+
+    def get_queryset(self):
+        return FeeConcession.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Revenue Reports ViewSets
+# =============================================================================
+
+
+class RevenueReportViewSet(viewsets.ModelViewSet):
+    serializer_class = RevenueReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "summary"]
+    filterset_fields = ["report_type", "status"]
+
+    def get_queryset(self):
+        return RevenueReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, generated_by=self.request.user)
+
+
+# =============================================================================
+# Fee Collection Dashboard ViewSets
+# =============================================================================
+
+
+class FeeCollectionDashboardViewSet(viewsets.ModelViewSet):
+    serializer_class = FeeCollectionDashboardSerializer
+    http_method_names = ["get", "post", "patch"]
+
+    def get_queryset(self):
+        return FeeCollectionDashboard.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Fee Adjustments ViewSets
+# =============================================================================
+
+
+class FeeAdjustmentViewSet(viewsets.ModelViewSet):
+    serializer_class = FeeAdjustmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name", "description"]
+    filterset_fields = ["student", "adjustment_type", "invoice"]
+
+    def get_queryset(self):
+        return FeeAdjustment.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+# =============================================================================
+# Advance Payments ViewSets
+# =============================================================================
+
+
+class AdvancePaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = AdvancePaymentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "status"]
+
+    def get_queryset(self):
+        return AdvancePayment.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Fee Waivers ViewSets
+# =============================================================================
+
+
+class FeeWaiverViewSet(viewsets.ModelViewSet):
+    serializer_class = FeeWaiverSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name", "reason"]
+    filterset_fields = ["student", "waiver_type", "status", "academic_year"]
+
+    def get_queryset(self):
+        return FeeWaiver.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Student Ledger ViewSets
+# =============================================================================
+
+
+class StudentLedgerViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentLedgerSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name", "reference_number"]
+    filterset_fields = ["student", "transaction_type", "academic_year"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentLedger.objects.filter(school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "parent":
+            qs = qs.filter(student__guardians__user=user)
+        return qs
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Fee Templates ViewSets
+# =============================================================================
+
+
+class FeeTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = FeeTemplateSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+    filterset_fields = ["template_type", "recurrence", "is_active"]
+
+    def get_queryset(self):
+        return FeeTemplate.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+# =============================================================================
+# Bulk Invoice Generation ViewSets
+# =============================================================================
+
+
+class BulkInvoiceGenerationViewSet(viewsets.ModelViewSet):
+    serializer_class = BulkInvoiceGenerationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["batch_name", "description"]
+    filterset_fields = ["status", "academic_year"]
+
+    def get_queryset(self):
+        return BulkInvoiceGeneration.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, initiated_by=self.request.user)
+
+
+# =============================================================================
+# Payment Reconciliation ViewSets
+# =============================================================================
+
+
+class PaymentReconciliationViewSet(viewsets.ModelViewSet):
+    serializer_class = PaymentReconciliationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["notes"]
+    filterset_fields = ["reconciliation_type", "status"]
+
+    def get_queryset(self):
+        return PaymentReconciliation.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, initiated_by=self.request.user)
