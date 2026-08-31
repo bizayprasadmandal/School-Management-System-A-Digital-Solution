@@ -24,19 +24,24 @@ from .models import (
     AcademicTranscript,
     Assignment,
     AssignmentSubmission,
+    AssignmentVersion,
+    CourseCatalogEntry,
     CurriculumStandard,
+    EnrollmentIntent,
     EvaluationCriteria,
     EvaluationScore,
     EvaluationTemplate,
     ExamPaper,
     HomeworkTracker,
     LessonPlan,
+    LessonPlanVersion,
     QuestionBank,
     StudentProgressReport,
     StudentSubjectEnrollment,
     Subject,
     SubjectPerformance,
     SubjectStandardMapping,
+    SubjectVersion,
     Syllabus,
     SyllabusTopic,
     TeacherAssignment,
@@ -54,19 +59,24 @@ from .serializers import (
     AcademicTranscriptSerializer,
     AssignmentSerializer,
     AssignmentSubmissionSerializer,
+    AssignmentVersionSerializer,
+    CourseCatalogEntrySerializer,
     CurriculumStandardSerializer,
+    EnrollmentIntentSerializer,
     EvaluationCommentSerializer,
     EvaluationCriteriaSerializer,
     EvaluationTemplateSerializer,
     ExamPaperSerializer,
     HomeworkTrackerSerializer,
     LessonPlanSerializer,
+    LessonPlanVersionSerializer,
     QuestionBankSerializer,
     StudentProgressReportSerializer,
     StudentSubjectEnrollmentSerializer,
     SubjectPerformanceSerializer,
     SubjectSerializer,
     SubjectStandardMappingSerializer,
+    SubjectVersionSerializer,
     SyllabusSerializer,
     SyllabusTopicSerializer,
     TeacherAssignmentSerializer,
@@ -2616,3 +2626,322 @@ class TeacherEffectivenessViewSet(viewsets.ModelViewSet):
             )
         qs = self.get_queryset().filter(teacher=request.user)
         return Response(TeacherEffectivenessSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# P6: Versioning ViewSets
+# ---------------------------------------------------------------------------
+
+
+class SubjectVersionViewSet(viewsets.ModelViewSet):
+    """CRUD for subject version history."""
+
+    serializer_class = SubjectVersionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "academic_year"]
+    search_fields = ["name", "code", "change_summary"]
+    ordering_fields = ["version_number", "created_at"]
+    ordering = ["-version_number"]
+
+    def get_queryset(self):
+        return SubjectVersion.objects.filter(subject__school=self.request.user.school).select_related(
+            "subject", "academic_year", "changed_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(changed_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="snapshot")
+    def snapshot(self, request):
+        """Create a version snapshot of a subject's current state."""
+        subject_id = request.data.get("subject")
+        change_summary = request.data.get("change_summary", "")
+        if not subject_id:
+            return Response(
+                {"error": "subject is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        subject = Subject.objects.filter(id=subject_id, school=request.user.school).first()
+        if not subject:
+            return Response({"error": "Subject not found."}, status=status.HTTP_404_NOT_FOUND)
+        last_version = SubjectVersion.objects.filter(subject=subject).order_by("-version_number").first()
+        next_version = (last_version.version_number + 1) if last_version else 1
+        from services.students.models import AcademicYear
+
+        current_year = AcademicYear.objects.filter(school=request.user.school, is_current=True).first()
+        version = SubjectVersion.objects.create(
+            subject=subject,
+            academic_year=current_year,
+            version_number=next_version,
+            name=subject.name,
+            code=subject.code,
+            description=subject.description,
+            max_marks=subject.max_marks,
+            pass_marks=subject.pass_marks,
+            credit_hours=subject.credit_hours,
+            is_core=subject.is_core,
+            is_elective=subject.is_elective,
+            change_summary=change_summary,
+            changed_by=request.user,
+        )
+        return Response(
+            SubjectVersionSerializer(version).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class LessonPlanVersionViewSet(viewsets.ModelViewSet):
+    """CRUD for lesson plan version history."""
+
+    serializer_class = LessonPlanVersionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["lesson_plan"]
+    search_fields = ["title", "topic", "change_summary"]
+    ordering_fields = ["version_number", "created_at"]
+    ordering = ["-version_number"]
+
+    def get_queryset(self):
+        return LessonPlanVersion.objects.filter(
+            lesson_plan__assignment__teacher__school=self.request.user.school
+        ).select_related("lesson_plan", "changed_by")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(changed_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="snapshot")
+    def snapshot(self, request):
+        """Create a version snapshot of a lesson plan."""
+        lesson_plan_id = request.data.get("lesson_plan")
+        change_summary = request.data.get("change_summary", "")
+        if not lesson_plan_id:
+            return Response(
+                {"error": "lesson_plan is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        lp = LessonPlan.objects.filter(id=lesson_plan_id).first()
+        if not lp:
+            return Response(
+                {"error": "Lesson plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        last_version = LessonPlanVersion.objects.filter(lesson_plan=lp).order_by("-version_number").first()
+        next_version = (last_version.version_number + 1) if last_version else 1
+        version = LessonPlanVersion.objects.create(
+            lesson_plan=lp,
+            version_number=next_version,
+            title=lp.title,
+            topic=lp.topic,
+            objectives=lp.objectives,
+            content=lp.content,
+            resources=lp.resources,
+            duration_minutes=lp.duration_minutes,
+            change_summary=change_summary,
+            changed_by=request.user,
+        )
+        return Response(
+            LessonPlanVersionSerializer(version).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AssignmentVersionViewSet(viewsets.ModelViewSet):
+    """CRUD for assignment version history."""
+
+    serializer_class = AssignmentVersionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["assignment"]
+    search_fields = ["title", "description", "change_summary"]
+    ordering_fields = ["version_number", "created_at"]
+    ordering = ["-version_number"]
+
+    def get_queryset(self):
+        return AssignmentVersion.objects.filter(
+            assignment__assignment__teacher__school=self.request.user.school
+        ).select_related("assignment", "changed_by")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(changed_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="snapshot")
+    def snapshot(self, request):
+        """Create a version snapshot of an assignment."""
+        assignment_id = request.data.get("assignment")
+        change_summary = request.data.get("change_summary", "")
+        if not assignment_id:
+            return Response(
+                {"error": "assignment is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        a = Assignment.objects.filter(id=assignment_id).first()
+        if not a:
+            return Response(
+                {"error": "Assignment not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        last_version = AssignmentVersion.objects.filter(assignment=a).order_by("-version_number").first()
+        next_version = (last_version.version_number + 1) if last_version else 1
+        version = AssignmentVersion.objects.create(
+            assignment=a,
+            version_number=next_version,
+            title=a.title,
+            description=a.description,
+            assignment_type=a.assignment_type,
+            due_date=a.due_date,
+            due_time=a.due_time,
+            max_score=a.max_score,
+            change_summary=change_summary,
+            changed_by=request.user,
+        )
+        return Response(
+            AssignmentVersionSerializer(version).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ---------------------------------------------------------------------------
+# P7: Course Catalog ViewSets
+# ---------------------------------------------------------------------------
+
+
+class CourseCatalogViewSet(viewsets.ModelViewSet):
+    """Public-facing course catalog for browsing subjects."""
+
+    serializer_class = CourseCatalogEntrySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject__grade", "difficulty_level", "is_published"]
+    search_fields = [
+        "subject__name",
+        "subject__code",
+        "catalog_description",
+        "tags",
+    ]
+    ordering_fields = ["subject__name", "view_count", "created_at"]
+    ordering = ["subject__grade__level", "subject__name"]
+
+    def get_queryset(self):
+        qs = (
+            CourseCatalogEntry.objects.filter(
+                subject__school=self.request.user.school,
+                is_published=True,
+            )
+            .select_related("subject", "subject__grade")
+            .prefetch_related("prerequisites", "co_requisites")
+        )
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def retrieve(self, request, *args, **kwargs):
+        """Increment view count on retrieve."""
+        instance = self.get_object()
+        CourseCatalogEntry.objects.filter(id=instance.id).update(view_count=models.F("view_count") + 1)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="by-grade")
+    def by_grade(self, request):
+        """Get catalog entries grouped by grade."""
+        grade_id = request.query_params.get("grade")
+        qs = self.get_queryset()
+        if grade_id:
+            qs = qs.filter(subject__grade_id=grade_id)
+        else:
+            qs = qs.filter(subject__grade__school=request.user.school)
+        grouped = {}
+        for entry in qs:
+            grade_name = entry.subject.grade.name
+            if grade_name not in grouped:
+                grouped[grade_name] = []
+            grouped[grade_name].append(CourseCatalogEntrySerializer(entry).data)
+        return Response(grouped)
+
+    @action(detail=False, methods=["get"], url_path="popular")
+    def popular(self, request):
+        """Get most viewed catalog entries."""
+        qs = self.get_queryset().order_by("-view_count")[:20]
+        return Response(CourseCatalogEntrySerializer(qs, many=True).data)
+
+
+class EnrollmentIntentViewSet(viewsets.ModelViewSet):
+    """CRUD for enrollment intents (interest/waitlist)."""
+
+    serializer_class = EnrollmentIntentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["catalog_entry", "student", "academic_year", "status"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "catalog_entry__subject__name",
+    ]
+    ordering_fields = ["created_at", "status"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = EnrollmentIntent.objects.filter(catalog_entry__subject__school=user.school).select_related(
+            "catalog_entry__subject",
+            "student__user",
+            "academic_year",
+        )
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["get"], url_path="my-intents")
+    def my_intents(self, request):
+        """Get enrollment intents for the current student."""
+        if request.user.role != "student":
+            return Response(
+                {"detail": "This endpoint is for students only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(student__user=request.user)
+        return Response(EnrollmentIntentSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="enroll")
+    def enroll(self, request, pk=None):
+        """Convert an intent to enrolled status."""
+        if request.user.role not in ["school_admin", "teacher"]:
+            return Response(
+                {"detail": "Only admins/teachers can enroll."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        intent = self.get_object()
+        if intent.status not in ["interested", "waitlisted"]:
+            return Response(
+                {"detail": f"Cannot enroll from status: {intent.status}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        intent.status = EnrollmentIntent.Status.ENROLLED
+        intent.save(update_fields=["status", "updated_at"])
+        return Response(EnrollmentIntentSerializer(intent).data)

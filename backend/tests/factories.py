@@ -630,6 +630,40 @@ class AcademicNotificationFactory(factory.django.DjangoModelFactory):
     is_read = False
 
 
+class SubjectVersionFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.SubjectVersion"
+
+    subject = SubFactory(SubjectFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    version_number = 1
+    name = factory.Sequence(lambda n: f"Subject v{n}")
+    code = factory.Sequence(lambda n: f"SUB{n:03d}")
+    change_summary = "Initial version"
+    changed_by = SubFactory(AdminUserFactory)
+
+
+class CourseCatalogEntryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.CourseCatalogEntry"
+
+    subject = SubFactory(SubjectFactory)
+    catalog_description = factory.Faker("paragraph")
+    difficulty_level = "all"
+    estimated_hours_per_week = Decimal("2.0")
+    is_published = True
+
+
+class EnrollmentIntentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.EnrollmentIntent"
+
+    catalog_entry = SubFactory(CourseCatalogEntryFactory)
+    student = SubFactory(StudentFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    status = "interested"
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"

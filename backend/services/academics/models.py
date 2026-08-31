@@ -1338,3 +1338,190 @@ class TeacherEffectiveness(models.Model):
             weighted_sum = sum(s * w for s, w in scores)
             self.effectiveness_score = round(weighted_sum / total_weight, 2) if total_weight > 0 else 0
         return self.effectiveness_score
+
+
+# ---------------------------------------------------------------------------
+# P6: Versioning & History
+# ---------------------------------------------------------------------------
+
+
+class SubjectVersion(models.Model):
+    """Tracks changes to subject details over academic years.
+
+    Every time a subject is updated, a snapshot is stored for audit
+    and historical comparison.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="versions")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    version_number = models.PositiveSmallIntegerField(default=1)
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20)
+    description = models.TextField(blank=True)
+    max_marks = models.PositiveSmallIntegerField(default=100)
+    pass_marks = models.PositiveSmallIntegerField(default=35)
+    credit_hours = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
+    is_core = models.BooleanField(default=True)
+    is_elective = models.BooleanField(default=False)
+    change_summary = models.TextField(blank=True, help_text="Description of what changed")
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="subject_changes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "subject_versions"
+        unique_together = [("subject", "version_number")]
+        ordering = ["-version_number"]
+        indexes = [
+            models.Index(fields=["subject", "academic_year"]),
+        ]
+
+    def __str__(self):
+        return f"{self.subject.name} v{self.version_number}"
+
+
+class LessonPlanVersion(models.Model):
+    """Tracks changes to lesson plans over time."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.CASCADE, related_name="versions")
+    version_number = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=255)
+    topic = models.CharField(max_length=255)
+    objectives = models.TextField()
+    content = models.TextField()
+    resources = models.TextField(blank=True)
+    duration_minutes = models.PositiveSmallIntegerField(default=45)
+    change_summary = models.TextField(blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="lesson_plan_changes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "lesson_plan_versions"
+        unique_together = [("lesson_plan", "version_number")]
+        ordering = ["-version_number"]
+
+    def __str__(self):
+        return f"{self.lesson_plan.title} v{self.version_number}"
+
+
+class AssignmentVersion(models.Model):
+    """Tracks changes to assignments over time."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="versions")
+    version_number = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    assignment_type = models.CharField(max_length=15)
+    due_date = models.DateField()
+    due_time = models.TimeField(null=True, blank=True)
+    max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
+    change_summary = models.TextField(blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="assignment_changes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "assignment_versions"
+        unique_together = [("assignment", "version_number")]
+        ordering = ["-version_number"]
+
+    def __str__(self):
+        return f"{self.assignment.title} v{self.version_number}"
+
+
+# ---------------------------------------------------------------------------
+# P7: Course Catalog
+# ---------------------------------------------------------------------------
+
+
+class CourseCatalogEntry(models.Model):
+    """Public-facing subject catalog for parents/students to browse.
+
+    Contains enriched metadata beyond the Subject model, including
+    prerequisites, co-requisites, and descriptions for enrollment.
+    """
+
+    class DifficultyLevel(models.TextChoices):
+        BEGINNER = "beginner", "Beginner"
+        INTERMEDIATE = "intermediate", "Intermediate"
+        ADVANCED = "advanced", "Advanced"
+        ALL_LEVELS = "all", "All Levels"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.OneToOneField(Subject, on_delete=models.CASCADE, related_name="catalog_entry")
+    catalog_description = models.TextField(help_text="Detailed description for parents/students")
+    learning_outcomes = models.TextField(blank=True, help_text="What students will learn")
+    prerequisites = models.ManyToManyField(Subject, blank=True, related_name="prerequisite_for")
+    co_requisites = models.ManyToManyField(Subject, blank=True, related_name="co_requisite_for")
+    difficulty_level = models.CharField(
+        max_length=15, choices=DifficultyLevel.choices, default=DifficultyLevel.ALL_LEVELS
+    )
+    estimated_hours_per_week = models.DecimalField(
+        max_digits=4, decimal_places=1, default=1.0, help_text="Expected study hours per week"
+    )
+    enrollment_cap = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Maximum students per section")
+    available_terms = models.JSONField(
+        default=list, blank=True, help_text='Terms when this subject is available, e.g. ["t1", "t2"]'
+    )
+    tags = models.JSONField(default=list, blank=True, help_text='Searchable tags, e.g. ["stem", "humanities"]')
+    syllabus_summary = models.TextField(blank=True, help_text="Brief syllabus overview")
+    assessment_method = models.TextField(blank=True, help_text="How students are assessed")
+    recommended_resources = models.TextField(blank=True, help_text="Recommended textbooks and resources")
+    image_url = models.URLField(max_length=500, blank=True, help_text="Course thumbnail image")
+    is_published = models.BooleanField(default=True)
+    view_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "course_catalog_entries"
+        ordering = ["subject__grade__level", "subject__name"]
+        indexes = [
+            models.Index(fields=["is_published"]),
+            models.Index(fields=["difficulty_level"]),
+        ]
+
+    def __str__(self):
+        return f"Catalog: {self.subject.name}"
+
+    @property
+    def prerequisite_names(self):
+        return list(self.prerequisites.values_list("name", flat=True))
+
+    @property
+    def co_requisite_names(self):
+        return list(self.co_requisites.values_list("name", flat=True))
+
+
+class EnrollmentIntent(models.Model):
+    """Tracks student/parent interest in enrolling in a subject.
+
+    Useful for demand forecasting and waitlist management.
+    """
+
+    class Status(models.TextChoices):
+        INTERESTED = "interested", "Interested"
+        WAITLISTED = "waitlisted", "Waitlisted"
+        ENROLLED = "enrolled", "Enrolled"
+        DECLINED = "declined", "Declined"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    catalog_entry = models.ForeignKey(CourseCatalogEntry, on_delete=models.CASCADE, related_name="intents")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="enrollment_intents")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.INTERESTED)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "enrollment_intents"
+        unique_together = [("catalog_entry", "student", "academic_year")]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["catalog_entry", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} → {self.catalog_entry.subject.name} ({self.status})"

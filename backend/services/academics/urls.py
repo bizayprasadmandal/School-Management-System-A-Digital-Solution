@@ -124,6 +124,33 @@ router.register(
     views.TeacherEffectivenessViewSet,
     basename="teacher-effectiveness",
 )
+# P6: Versioning
+router.register(
+    "subject-versions",
+    views.SubjectVersionViewSet,
+    basename="subject-version",
+)
+router.register(
+    "lesson-plan-versions",
+    views.LessonPlanVersionViewSet,
+    basename="lesson-plan-version",
+)
+router.register(
+    "assignment-versions",
+    views.AssignmentVersionViewSet,
+    basename="assignment-version",
+)
+# P7: Course Catalog
+router.register(
+    "catalog",
+    views.CourseCatalogViewSet,
+    basename="catalog",
+)
+router.register(
+    "enrollment-intents",
+    views.EnrollmentIntentViewSet,
+    basename="enrollment-intent",
+)
 
 # Nested router for syllabus topics
 syllabus_router = DefaultRouter()

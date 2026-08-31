@@ -12,7 +12,10 @@ from .models import (
     AcademicTranscript,
     Assignment,
     AssignmentSubmission,
+    AssignmentVersion,
+    CourseCatalogEntry,
     CurriculumStandard,
+    EnrollmentIntent,
     EvaluationComment,
     EvaluationCriteria,
     EvaluationScore,
@@ -20,12 +23,14 @@ from .models import (
     ExamPaper,
     HomeworkTracker,
     LessonPlan,
+    LessonPlanVersion,
     QuestionBank,
     StudentProgressReport,
     StudentSubjectEnrollment,
     Subject,
     SubjectPerformance,
     SubjectStandardMapping,
+    SubjectVersion,
     Syllabus,
     SyllabusTopic,
     TeacherAssignment,
@@ -1135,3 +1140,163 @@ class TeacherEffectivenessSerializer(serializers.ModelSerializer):
             "calculated_at",
         ]
         read_only_fields = ["id", "calculated_at"]
+
+
+# ---------------------------------------------------------------------------
+# P6: Versioning Serializers
+# ---------------------------------------------------------------------------
+
+
+class SubjectVersionSerializer(serializers.ModelSerializer):
+    """Serializer for subject version history."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    changed_by_name = serializers.CharField(source="changed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = SubjectVersion
+        fields = [
+            "id",
+            "subject",
+            "subject_name",
+            "academic_year",
+            "version_number",
+            "name",
+            "code",
+            "description",
+            "max_marks",
+            "pass_marks",
+            "credit_hours",
+            "is_core",
+            "is_elective",
+            "change_summary",
+            "changed_by",
+            "changed_by_name",
+            "created_at",
+        ]
+        read_only_fields = ["id", "version_number", "created_at"]
+
+
+class LessonPlanVersionSerializer(serializers.ModelSerializer):
+    """Serializer for lesson plan version history."""
+
+    changed_by_name = serializers.CharField(source="changed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = LessonPlanVersion
+        fields = [
+            "id",
+            "lesson_plan",
+            "version_number",
+            "title",
+            "topic",
+            "objectives",
+            "content",
+            "resources",
+            "duration_minutes",
+            "change_summary",
+            "changed_by",
+            "changed_by_name",
+            "created_at",
+        ]
+        read_only_fields = ["id", "version_number", "created_at"]
+
+
+class AssignmentVersionSerializer(serializers.ModelSerializer):
+    """Serializer for assignment version history."""
+
+    changed_by_name = serializers.CharField(source="changed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = AssignmentVersion
+        fields = [
+            "id",
+            "assignment",
+            "version_number",
+            "title",
+            "description",
+            "assignment_type",
+            "due_date",
+            "due_time",
+            "max_score",
+            "change_summary",
+            "changed_by",
+            "changed_by_name",
+            "created_at",
+        ]
+        read_only_fields = ["id", "version_number", "created_at"]
+
+
+# ---------------------------------------------------------------------------
+# P7: Course Catalog Serializers
+# ---------------------------------------------------------------------------
+
+
+class CourseCatalogEntrySerializer(serializers.ModelSerializer):
+    """Serializer for course catalog entries."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    subject_code = serializers.CharField(source="subject.code", read_only=True)
+    grade_name = serializers.CharField(source="subject.grade.name", read_only=True)
+    prerequisite_names = serializers.ListField(read_only=True)
+    co_requisite_names = serializers.ListField(read_only=True)
+    interested_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CourseCatalogEntry
+        fields = [
+            "id",
+            "subject",
+            "subject_name",
+            "subject_code",
+            "grade_name",
+            "catalog_description",
+            "learning_outcomes",
+            "prerequisites",
+            "prerequisite_names",
+            "co_requisites",
+            "co_requisite_names",
+            "difficulty_level",
+            "estimated_hours_per_week",
+            "enrollment_cap",
+            "available_terms",
+            "tags",
+            "syllabus_summary",
+            "assessment_method",
+            "recommended_resources",
+            "image_url",
+            "is_published",
+            "view_count",
+            "interested_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "view_count", "created_at", "updated_at"]
+
+    def get_interested_count(self, obj):
+        return obj.intents.filter(status__in=["interested", "waitlisted"]).count()
+
+
+class EnrollmentIntentSerializer(serializers.ModelSerializer):
+    """Serializer for enrollment intents."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    subject_name = serializers.CharField(source="catalog_entry.subject.name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
+    class Meta:
+        model = EnrollmentIntent
+        fields = [
+            "id",
+            "catalog_entry",
+            "subject_name",
+            "student",
+            "student_name",
+            "academic_year",
+            "academic_year_name",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
