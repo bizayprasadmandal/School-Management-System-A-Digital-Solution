@@ -5,16 +5,47 @@ with Zoom meeting integration via Server-to-Server OAuth.
 
 import logging
 
+from core.permissions import IsSchoolMember
 from django.conf import settings
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import zoom_service
-from .models import ConferenceSlot
-from .serializers import ConferenceSlotCreateUpdateSerializer, ConferenceSlotSerializer, ZoomSettingsSerializer
+from .models import (
+    ConferenceAvailability,
+    ConferenceBooking,
+    ConferenceFeedback,
+    ConferenceHistory,
+    ConferenceNotes,
+    ConferenceReminder,
+    ConferenceReport,
+    ConferenceSlot,
+    ConferenceTemplate,
+    ConferenceType,
+    FollowUpTracking,
+    VirtualConference,
+    WaitlistManagement,
+)
+from .serializers import (
+    ConferenceAvailabilitySerializer,
+    ConferenceBookingSerializer,
+    ConferenceFeedbackSerializer,
+    ConferenceHistorySerializer,
+    ConferenceNotesSerializer,
+    ConferenceReminderSerializer,
+    ConferenceReportSerializer,
+    ConferenceSlotCreateUpdateSerializer,
+    ConferenceSlotSerializer,
+    ConferenceTemplateSerializer,
+    ConferenceTypeSerializer,
+    FollowUpTrackingSerializer,
+    VirtualConferenceSerializer,
+    WaitlistManagementSerializer,
+    ZoomSettingsSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -433,3 +464,272 @@ class ZoomMeetingsListView(APIView):
         """Fetch upcoming Zoom meetings from Zoom API."""
         meetings = zoom_service.list_meetings()
         return Response({"meetings": meetings})
+
+
+# =============================================================================
+# Conference Types ViewSets
+# =============================================================================
+
+
+class ConferenceTypeViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceTypeSerializer
+    permission_classes = [IsAdminOrTeacher]
+    filterset_fields = ["category", "is_active"]
+    search_fields = ["name", "description"]
+
+    def get_queryset(self):
+        return ConferenceType.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Conference Bookings ViewSets
+# =============================================================================
+
+
+class ConferenceBookingViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceBookingSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["status", "is_virtual", "teacher", "student", "parent"]
+    search_fields = ["parent__first_name", "parent__last_name", "student__user__first_name"]
+    ordering_fields = ["booked_at", "status"]
+    ordering = ["-booked_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = ConferenceBooking.objects.select_related("parent", "student__user", "teacher", "slot", "booking_type")
+        if user.role in ADMIN_ROLES:
+            return qs.filter(teacher__school=user.school)
+        elif user.role == "teacher":
+            return qs.filter(teacher=user)
+        elif user.role == "parent":
+            return qs.filter(parent=user)
+        elif user.role == "student":
+            return qs.filter(student__user=user)
+        return qs.none()
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Conference Reminders ViewSets
+# =============================================================================
+
+
+class ConferenceReminderViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceReminderSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["booking", "reminder_type", "status"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ConferenceReminder.objects.filter(booking__teacher__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Conference Notes ViewSets
+# =============================================================================
+
+
+class ConferenceNotesViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceNotesSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["booking", "note_type", "has_action_items", "follow_up_needed"]
+    search_fields = ["title", "content"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ConferenceNotes.objects.filter(booking__teacher__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+# =============================================================================
+# Follow-up Tracking ViewSets
+# =============================================================================
+
+
+class FollowUpTrackingViewSet(viewsets.ModelViewSet):
+    serializer_class = FollowUpTrackingSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["booking", "priority", "status", "assigned_to"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["due_date", "priority"]
+    ordering = ["due_date", "-priority"]
+
+    def get_queryset(self):
+        return FollowUpTracking.objects.filter(booking__teacher__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Conference Availability ViewSets
+# =============================================================================
+
+
+class ConferenceAvailabilityViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceAvailabilitySerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["teacher", "day_of_week", "availability_type", "is_active"]
+    ordering_fields = ["day_of_week", "start_time"]
+    ordering = ["day_of_week", "start_time"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ADMIN_ROLES:
+            return ConferenceAvailability.objects.filter(school=user.school)
+        elif user.role == "teacher":
+            return ConferenceAvailability.objects.filter(teacher=user)
+        return ConferenceAvailability.objects.filter(school=user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Conference Reports ViewSets
+# =============================================================================
+
+
+class ConferenceReportViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["report_type", "status"]
+    search_fields = ["title", "summary"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ConferenceReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminOrTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, generated_by=self.request.user)
+
+
+# =============================================================================
+# Conference Feedback ViewSets
+# =============================================================================
+
+
+class ConferenceFeedbackViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceFeedbackSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["booking", "feedback_for", "overall_rating"]
+    search_fields = ["positive_feedback", "suggestions"]
+    ordering_fields = ["submitted_at"]
+    ordering = ["-submitted_at"]
+
+    def get_queryset(self):
+        return ConferenceFeedback.objects.filter(booking__teacher__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(submitted_by=self.request.user)
+
+
+# =============================================================================
+# Conference History ViewSets
+# =============================================================================
+
+
+class ConferenceHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceHistorySerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["teacher", "parent", "student", "was_virtual", "was_attended"]
+    search_fields = ["teacher__first_name", "parent__first_name", "student__user__first_name"]
+    ordering_fields = ["conference_date"]
+    ordering = ["-conference_date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = ConferenceHistory.objects.select_related("teacher", "parent", "student__user", "conference_type")
+        if user.role in ADMIN_ROLES:
+            return qs.filter(school=user.school)
+        elif user.role == "teacher":
+            return qs.filter(teacher=user)
+        elif user.role == "parent":
+            return qs.filter(parent=user)
+        elif user.role == "student":
+            return qs.filter(student__user=user)
+        return qs.none()
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Virtual Conference ViewSets
+# =============================================================================
+
+
+class VirtualConferenceViewSet(viewsets.ModelViewSet):
+    serializer_class = VirtualConferenceSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["booking", "platform", "status"]
+    search_fields = ["meeting_id", "meeting_url"]
+
+    def get_queryset(self):
+        return VirtualConference.objects.filter(booking__teacher__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Conference Templates ViewSets
+# =============================================================================
+
+
+class ConferenceTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceTemplateSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["conference_type", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["name"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        return ConferenceTemplate.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+# =============================================================================
+# Waitlist Management ViewSets
+# =============================================================================
+
+
+class WaitlistManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = WaitlistManagementSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filterset_fields = ["slot", "parent", "student", "status"]
+    search_fields = ["parent__first_name", "student__user__first_name"]
+    ordering_fields = ["position", "joined_at"]
+    ordering = ["position"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ADMIN_ROLES:
+            return WaitlistManagement.objects.filter(slot__school=user.school)
+        elif user.role == "parent":
+            return WaitlistManagement.objects.filter(parent=user)
+        return WaitlistManagement.objects.filter(slot__school=user.school)
+
+    def perform_create(self, serializer):
+        serializer.save()
