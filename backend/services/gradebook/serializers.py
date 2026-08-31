@@ -7,7 +7,56 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, GradeChangeProposal, ReportCard
+from .models import (
+    Assessment,
+    AssessmentSubmission,
+    CategoryAssignment,
+    CourseGradeCalculation,
+    Exam,
+    ExamSchedule,
+    ExtraCredit,
+    ExtraCreditSubmission,
+    GPACalculation,
+    Grade,
+    GradeChangeProposal,
+    GradeComment,
+    GradeHistory,
+    GradeNotification,
+    GradingCategory,
+    GradingScale,
+    GradingScaleEntry,
+    LatePenaltyRule,
+    ReportCard,
+    ReportCardComment,
+    RubricAssessment,
+    RubricCriterion,
+    RubricLevel,
+    RubricScore,
+    RubricTemplate,
+    Standard,
+    StandardMasteryScale,
+    StudentStandardGrade,
+    Transcript,
+    TranscriptEntry,
+)
+
+
+class GradingScaleSerializer(serializers.ModelSerializer):
+    entries = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GradingScale
+        fields = ["id", "name", "school", "is_default", "entries"]
+        read_only_fields = ["id"]
+
+    def get_entries(self, obj):
+        return GradingScaleEntrySerializer(obj.entries.all(), many=True).data
+
+
+class GradingScaleEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradingScaleEntry
+        fields = ["id", "scale", "grade_letter", "min_percentage", "max_percentage", "grade_point", "description"]
 
 
 class ExamSerializer(serializers.ModelSerializer):
@@ -332,3 +381,402 @@ class ReportCardSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.pdf_file.url)
             return obj.pdf_file.url
         return None
+
+
+# =============================================================================
+# Rubric-Based Grading Serializers
+# =============================================================================
+
+
+class RubricTemplateSerializer(serializers.ModelSerializer):
+    criteria_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RubricTemplate
+        fields = [
+            "id",
+            "name",
+            "description",
+            "subject",
+            "is_active",
+            "created_at",
+            "criteria_count",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_criteria_count(self, obj):
+        return obj.criteria.count()
+
+
+class RubricLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RubricLevel
+        fields = ["id", "criterion", "name", "description", "score", "order"]
+
+
+class RubricCriterionSerializer(serializers.ModelSerializer):
+    levels = RubricLevelSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = RubricCriterion
+        fields = ["id", "template", "name", "description", "max_score", "order", "levels"]
+        read_only_fields = ["id"]
+
+
+class RubricScoreSerializer(serializers.ModelSerializer):
+    criterion_name = serializers.CharField(source="criterion.name", read_only=True)
+
+    class Meta:
+        model = RubricScore
+        fields = ["id", "rubric_assessment", "criterion", "criterion_name", "selected_level", "score", "feedback"]
+
+
+class RubricAssessmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    scores = RubricScoreSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = RubricAssessment
+        fields = [
+            "id",
+            "assessment",
+            "student",
+            "student_name",
+            "rubric_template",
+            "total_score",
+            "graded_at",
+            "notes",
+            "scores",
+        ]
+        read_only_fields = ["id", "total_score", "graded_at"]
+
+
+# =============================================================================
+# Standards-Based Grading Serializers
+# =============================================================================
+
+
+class StandardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Standard
+        fields = ["id", "code", "name", "description", "standard_type", "subject", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class StandardMasteryScaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StandardMasteryScale
+        fields = ["id", "name", "levels", "is_default"]
+
+
+class StudentStandardGradeSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    standard_code = serializers.CharField(source="standard.code", read_only=True)
+    standard_name = serializers.CharField(source="standard.name", read_only=True)
+
+    class Meta:
+        model = StudentStandardGrade
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "standard",
+            "standard_code",
+            "standard_name",
+            "mastery_level",
+            "score",
+            "evidence",
+            "graded_at",
+        ]
+        read_only_fields = ["id", "graded_at"]
+
+
+# =============================================================================
+# Grading Categories Serializers
+# =============================================================================
+
+
+class GradingCategorySerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    assignments_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GradingCategory
+        fields = [
+            "id",
+            "name",
+            "weight",
+            "subject",
+            "subject_name",
+            "academic_year",
+            "drop_lowest",
+            "is_active",
+            "assignments_count",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_assignments_count(self, obj):
+        return obj.assignments.count()
+
+
+class CategoryAssignmentSerializer(serializers.ModelSerializer):
+    assessment_title = serializers.CharField(source="assessment.title", read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = CategoryAssignment
+        fields = ["id", "assessment", "assessment_title", "category", "category_name"]
+
+
+# =============================================================================
+# GPA Calculation Serializers
+# =============================================================================
+
+
+class CourseGradeCalculationSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
+    class Meta:
+        model = CourseGradeCalculation
+        fields = [
+            "id",
+            "gpa_calculation",
+            "subject",
+            "subject_name",
+            "marks_obtained",
+            "max_marks",
+            "percentage",
+            "grade_letter",
+            "grade_points",
+            "credits",
+            "is_honors",
+            "is_pass_fail",
+        ]
+
+
+class GPACalculationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    course_grades = CourseGradeCalculationSerializer(many=True, read_only=True)
+    percentile_rank = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GPACalculation
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "semester",
+            "gpa_type",
+            "gpa_value",
+            "total_grade_points",
+            "total_credits",
+            "class_rank",
+            "class_size",
+            "percentile_rank",
+            "calculated_at",
+            "course_grades",
+        ]
+        read_only_fields = ["id", "calculated_at"]
+
+    def get_percentile_rank(self, obj):
+        return obj.percentile_rank
+
+
+# =============================================================================
+# Transcript Serializers
+# =============================================================================
+
+
+class TranscriptEntrySerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
+    class Meta:
+        model = TranscriptEntry
+        fields = [
+            "id",
+            "transcript",
+            "subject",
+            "subject_name",
+            "academic_year",
+            "semester",
+            "marks_obtained",
+            "max_marks",
+            "percentage",
+            "grade_letter",
+            "grade_points",
+            "credits",
+            "is_honors",
+            "is_repeated",
+        ]
+
+
+class TranscriptSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    entries = TranscriptEntrySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Transcript
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "transcript_number",
+            "status",
+            "cumulative_gpa",
+            "class_rank",
+            "class_size",
+            "total_credits_earned",
+            "graduation_date",
+            "notes",
+            "issued_at",
+            "entries",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+# =============================================================================
+# Grade Notification Serializers
+# =============================================================================
+
+
+class GradeNotificationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True, default=None)
+
+    class Meta:
+        model = GradeNotification
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "notification_type",
+            "channel",
+            "title",
+            "message",
+            "subject",
+            "subject_name",
+            "grade_value",
+            "previous_grade",
+            "status",
+            "sent_at",
+            "read_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Grade History Serializers
+# =============================================================================
+
+
+class GradeHistorySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
+    class Meta:
+        model = GradeHistory
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "subject",
+            "subject_name",
+            "academic_year",
+            "semester",
+            "final_marks",
+            "max_marks",
+            "percentage",
+            "grade_letter",
+            "grade_points",
+            "is_pass",
+            "teacher_name",
+            "notes",
+            "recorded_at",
+        ]
+
+
+# =============================================================================
+# Late Penalty Rule Serializers
+# =============================================================================
+
+
+class LatePenaltyRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LatePenaltyRule
+        fields = [
+            "id",
+            "name",
+            "penalty_type",
+            "penalty_value",
+            "max_penalty",
+            "grace_period_hours",
+            "subject",
+            "academic_year",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Extra Credit Serializers
+# =============================================================================
+
+
+class ExtraCreditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtraCredit
+        fields = [
+            "id",
+            "assessment",
+            "credit_type",
+            "title",
+            "description",
+            "max_bonus_marks",
+            "due_date",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ExtraCreditSubmissionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = ExtraCreditSubmission
+        fields = [
+            "id",
+            "extra_credit",
+            "student",
+            "student_name",
+            "bonus_marks_obtained",
+            "submitted_at",
+            "remarks",
+            "graded_at",
+        ]
+        read_only_fields = ["id", "submitted_at", "graded_at"]
+
+
+# =============================================================================
+# Grade Comment Serializers
+# =============================================================================
+
+
+class GradeCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeComment
+        fields = ["id", "category", "comment_text", "grade_range_min", "grade_range_max", "is_active", "usage_count"]
+        read_only_fields = ["id", "usage_count"]
+
+
+class ReportCardCommentSerializer(serializers.ModelSerializer):
+    comment_text = serializers.CharField(source="comment.comment_text", read_only=True)
+
+    class Meta:
+        model = ReportCardComment
+        fields = ["id", "report_card", "comment", "comment_text", "custom_text", "added_at"]
+        read_only_fields = ["id", "added_at"]

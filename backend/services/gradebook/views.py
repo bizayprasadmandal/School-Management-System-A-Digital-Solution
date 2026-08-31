@@ -17,16 +17,64 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Assessment, AssessmentSubmission, Exam, ExamSchedule, Grade, GradeChangeProposal, ReportCard
+from .models import (
+    Assessment,
+    AssessmentSubmission,
+    CategoryAssignment,
+    CourseGradeCalculation,
+    Exam,
+    ExamSchedule,
+    ExtraCredit,
+    ExtraCreditSubmission,
+    GPACalculation,
+    Grade,
+    GradeChangeProposal,
+    GradeComment,
+    GradeHistory,
+    GradeNotification,
+    GradingCategory,
+    LatePenaltyRule,
+    ReportCard,
+    ReportCardComment,
+    RubricAssessment,
+    RubricCriterion,
+    RubricLevel,
+    RubricTemplate,
+    Standard,
+    StandardMasteryScale,
+    StudentStandardGrade,
+    Transcript,
+    TranscriptEntry,
+)
 from .serializers import (
     AssessmentSerializer,
     AssessmentSubmissionSerializer,
     BulkGradeSerializer,
+    CategoryAssignmentSerializer,
+    CourseGradeCalculationSerializer,
     ExamScheduleSerializer,
     ExamSerializer,
+    ExtraCreditSerializer,
+    ExtraCreditSubmissionSerializer,
+    GPACalculationSerializer,
     GradeChangeProposalSerializer,
+    GradeCommentSerializer,
+    GradeHistorySerializer,
+    GradeNotificationSerializer,
     GradeSerializer,
+    GradingCategorySerializer,
+    LatePenaltyRuleSerializer,
+    ReportCardCommentSerializer,
     ReportCardSerializer,
+    RubricAssessmentSerializer,
+    RubricCriterionSerializer,
+    RubricLevelSerializer,
+    RubricTemplateSerializer,
+    StandardMasteryScaleSerializer,
+    StandardSerializer,
+    StudentStandardGradeSerializer,
+    TranscriptEntrySerializer,
+    TranscriptSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -712,3 +760,344 @@ class ReportCardViewSet(viewsets.ReadOnlyModelViewSet):
         if report_card.pdf_file:
             return FileResponse(report_card.pdf_file.open(), content_type="application/pdf")
         return Response({"detail": "PDF not yet generated."}, status=404)
+
+
+# =============================================================================
+# Rubric-Based Grading Views
+# =============================================================================
+
+
+class RubricTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = RubricTemplateSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return RubricTemplate.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+class RubricCriterionViewSet(viewsets.ModelViewSet):
+    serializer_class = RubricCriterionSerializer
+
+    def get_queryset(self):
+        return RubricCriterion.objects.filter(template__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class RubricLevelViewSet(viewsets.ModelViewSet):
+    serializer_class = RubricLevelSerializer
+
+    def get_queryset(self):
+        return RubricLevel.objects.filter(criterion__template__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class RubricAssessmentViewSet(viewsets.ModelViewSet):
+    serializer_class = RubricAssessmentSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = RubricAssessment.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "teacher":
+            qs = qs.filter(assessment__assignment__teacher=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Standards-Based Grading Views
+# =============================================================================
+
+
+class StandardViewSet(viewsets.ModelViewSet):
+    serializer_class = StandardSerializer
+
+    def get_queryset(self):
+        return Standard.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class StandardMasteryScaleViewSet(viewsets.ModelViewSet):
+    serializer_class = StandardMasteryScaleSerializer
+
+    def get_queryset(self):
+        return StandardMasteryScale.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class StudentStandardGradeViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentStandardGradeSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentStandardGrade.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "teacher":
+            qs = qs.filter(standard__subject__assignments__teacher=user)
+        return qs.distinct()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(graded_by=self.request.user)
+
+
+# =============================================================================
+# Grading Categories Views
+# =============================================================================
+
+
+class GradingCategoryViewSet(viewsets.ModelViewSet):
+    serializer_class = GradingCategorySerializer
+
+    def get_queryset(self):
+        return GradingCategory.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class CategoryAssignmentViewSet(viewsets.ModelViewSet):
+    serializer_class = CategoryAssignmentSerializer
+
+    def get_queryset(self):
+        return CategoryAssignment.objects.filter(category__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# GPA Calculation Views
+# =============================================================================
+
+
+class GPACalculationViewSet(viewsets.ModelViewSet):
+    serializer_class = GPACalculationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = GPACalculation.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "parent":
+            qs = qs.filter(student__guardians__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class CourseGradeCalculationViewSet(viewsets.ModelViewSet):
+    serializer_class = CourseGradeCalculationSerializer
+
+    def get_queryset(self):
+        return CourseGradeCalculation.objects.filter(gpa_calculation__student__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Transcript Views
+# =============================================================================
+
+
+class TranscriptViewSet(viewsets.ModelViewSet):
+    serializer_class = TranscriptSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Transcript.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "parent":
+            qs = qs.filter(student__guardians__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class TranscriptEntryViewSet(viewsets.ModelViewSet):
+    serializer_class = TranscriptEntrySerializer
+
+    def get_queryset(self):
+        return TranscriptEntry.objects.filter(transcript__student__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Grade Notification Views
+# =============================================================================
+
+
+class GradeNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = GradeNotificationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return GradeNotification.objects.filter(school=user.school)
+        return GradeNotification.objects.filter(student__user=user)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Grade History Views
+# =============================================================================
+
+
+class GradeHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = GradeHistorySerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = GradeHistory.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "parent":
+            qs = qs.filter(student__guardians__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Late Penalty Rule Views
+# =============================================================================
+
+
+class LatePenaltyRuleViewSet(viewsets.ModelViewSet):
+    serializer_class = LatePenaltyRuleSerializer
+
+    def get_queryset(self):
+        return LatePenaltyRule.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Extra Credit Views
+# =============================================================================
+
+
+class ExtraCreditViewSet(viewsets.ModelViewSet):
+    serializer_class = ExtraCreditSerializer
+
+    def get_queryset(self):
+        return ExtraCredit.objects.filter(assessment__assignment__teacher__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class ExtraCreditSubmissionViewSet(viewsets.ModelViewSet):
+    serializer_class = ExtraCreditSubmissionSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = ExtraCreditSubmission.objects.filter(student__school=user.school)
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "teacher":
+            qs = qs.filter(extra_credit__assessment__assignment__teacher=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [IsAuthenticated(), IsStudent()]
+        if self.action in ["update", "partial_update"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# =============================================================================
+# Grade Comment Views
+# =============================================================================
+
+
+class GradeCommentViewSet(viewsets.ModelViewSet):
+    serializer_class = GradeCommentSerializer
+
+    def get_queryset(self):
+        return GradeComment.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class ReportCardCommentViewSet(viewsets.ModelViewSet):
+    serializer_class = ReportCardCommentSerializer
+
+    def get_queryset(self):
+        return ReportCardComment.objects.filter(report_card__student__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(added_by=self.request.user)
