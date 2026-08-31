@@ -658,3 +658,92 @@ class TestSyllabusTopic:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "completed"
         assert response.data["completed_at"] is not None
+
+
+# ─── Teacher Workload Tests ─────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestTeacherWorkloadConfig:
+
+    def test_list_workload_config(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/workload-config/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_workload_config(self, admin_auth):
+        response = admin_auth.post(
+            "/api/v1/academics/workload-config/",
+            {
+                "max_periods_per_week": 25,
+                "max_periods_per_day": 6,
+                "max_subjects": 3,
+                "max_classes": 4,
+                "min_periods_per_week": 15,
+                "warning_threshold_pct": 85,
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+
+    def test_update_workload_config(self, admin_auth, school):
+        from tests.factories import TeacherWorkloadConfigFactory
+
+        config = TeacherWorkloadConfigFactory(school=school)
+        response = admin_auth.patch(
+            f"/api/v1/academics/workload-config/{config.id}/",
+            {"max_periods_per_week": 35},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["max_periods_per_week"] == 35
+
+    def test_student_cannot_manage_config(self, api_client, student_user):
+        api_client.force_authenticate(user=student_user)
+        response = api_client.get("/api/v1/academics/workload-config/")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestTeacherWorkload:
+
+    def test_workload_summary_requires_academic_year(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/workload/summary/")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_workload_summary_empty(self, admin_auth, academic_year):
+        response = admin_auth.get(f"/api/v1/academics/workload/summary/?academic_year={academic_year.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 0
+
+    def test_workload_summary_with_teacher(self, admin_auth, teacher_user, academic_year):
+        response = admin_auth.get(
+            f"/api/v1/academics/workload/summary/?academic_year={academic_year.id}&teacher_id={teacher_user.id}"
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_my_workload_endpoint(self, teacher_auth, academic_year, teacher_user):
+        response = teacher_auth.get(f"/api/v1/academics/workload/my-workload/?academic_year={academic_year.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["teacher_id"] == str(teacher_user.id)
+
+    def test_student_cannot_access_my_workload(self, api_client, student_user, academic_year):
+        api_client.force_authenticate(user=student_user)
+        response = api_client.get(f"/api/v1/academics/workload/my-workload/?academic_year={academic_year.id}")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_overloaded_endpoint(self, admin_auth, academic_year):
+        response = admin_auth.get(f"/api/v1/academics/workload/overloaded/?academic_year={academic_year.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 0
+
+    def test_create_snapshot(self, admin_auth, academic_year):
+        response = admin_auth.post(
+            "/api/v1/academics/workload/snapshot/",
+            {
+                "academic_year": academic_year.id,
+                "week_start_date": "2026-09-01",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["snapshots_created"] == 0

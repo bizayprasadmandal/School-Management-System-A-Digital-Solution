@@ -417,6 +417,36 @@ class SyllabusTopicFactory(factory.django.DjangoModelFactory):
     status = "not_started"
 
 
+class TeacherWorkloadConfigFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.TeacherWorkloadConfig"
+
+    school = SubFactory(SchoolFactory)
+    max_periods_per_week = 30
+    max_periods_per_day = 7
+    max_subjects = 3
+    max_classes = 5
+    min_periods_per_week = 15
+    warning_threshold_pct = 90
+    is_active = True
+
+
+class TeacherWorkloadSnapshotFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.TeacherWorkloadSnapshot"
+
+    teacher = SubFactory(TeacherUserFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    week_start_date = factory.LazyFunction(date.today)
+    total_periods = 25
+    periods_per_day = {"Monday": 5, "Tuesday": 5, "Wednesday": 5, "Thursday": 5, "Friday": 5}
+    subjects_taught = 2
+    classes_taught = 3
+    utilization_pct = Decimal("83.33")
+    is_overloaded = False
+    is_underloaded = False
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"

@@ -12,6 +12,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.auth.models import User
 
 from .models import (
     CurriculumStandard,
@@ -23,6 +24,8 @@ from .models import (
     SyllabusTopic,
     TeacherAssignment,
     TeacherProfile,
+    TeacherWorkloadConfig,
+    TeacherWorkloadSnapshot,
 )
 from .serializers import (
     CurriculumStandardSerializer,
@@ -34,6 +37,9 @@ from .serializers import (
     SyllabusTopicSerializer,
     TeacherAssignmentSerializer,
     TeacherProfileSerializer,
+    TeacherWorkloadConfigSerializer,
+    TeacherWorkloadSnapshotSerializer,
+    TeacherWorkloadSummarySerializer,
 )
 
 
@@ -764,3 +770,278 @@ class SyllabusTopicViewSet(viewsets.ModelViewSet):
         topic.completed_at = timezone.now()
         topic.save(update_fields=["status", "completed_at", "updated_at"])
         return Response(SyllabusTopicSerializer(topic).data)
+
+
+class TeacherWorkloadConfigViewSet(viewsets.ModelViewSet):
+    """CRUD for teacher workload configuration (admin only)."""
+
+    serializer_class = TeacherWorkloadConfigSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        return TeacherWorkloadConfig.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class TeacherWorkloadViewSet(viewsets.GenericViewSet):
+    """Teacher workload calculation and reporting.
+
+    Provides live workload summaries and historical snapshots.
+    All endpoints are read-only — snapshots are generated on demand.
+    """
+
+    serializer_class = TeacherWorkloadSummarySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def _get_config(self, school):
+        """Get or create workload config for the school."""
+        config, _ = TeacherWorkloadConfig.objects.get_or_create(
+            school=school,
+            defaults={
+                "max_periods_per_week": 30,
+                "max_periods_per_day": 7,
+                "max_subjects": 3,
+                "max_classes": 5,
+            },
+        )
+        return config
+
+    def _calculate_teacher_workload(self, teacher, academic_year, config):
+        """Calculate workload for a single teacher from timetable slots."""
+        from services.students.models import Enrollment
+        from services.timetable.models import TimetableSlot
+
+        slots = TimetableSlot.objects.filter(
+            assignment__teacher=teacher,
+            academic_year=academic_year,
+        ).select_related("period", "assignment__subject", "classroom")
+
+        # Count periods per day
+        day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday"}
+        periods_per_day = {}
+        for slot in slots:
+            day = day_names.get(slot.day_of_week, f"Day {slot.day_of_week}")
+            periods_per_day[day] = periods_per_day.get(day, 0) + 1
+
+        # Count unique subjects, classes, and students
+        subjects = set()
+        classes = set()
+        for slot in slots:
+            subjects.add(slot.assignment.subject_id)
+            classes.add(slot.classroom_id)
+
+        # Count unique students across all classes
+        students = set()
+        for class_id in classes:
+            student_ids = Enrollment.objects.filter(
+                classroom_id=class_id,
+                academic_year=academic_year,
+                is_active=True,
+            ).values_list("student_id", flat=True)
+            students.update(student_ids)
+
+        total_periods = len(slots)
+        max_periods = config.max_periods_per_week
+        utilization = round((total_periods / max_periods) * 100, 2) if max_periods > 0 else 0
+
+        # Determine status
+        if utilization >= config.warning_threshold_pct:
+            workload_status = "overloaded"
+        elif utilization < (config.min_periods_per_week / max_periods * 100) if max_periods > 0 else False:
+            workload_status = "underloaded"
+        else:
+            workload_status = "normal"
+
+        return {
+            "teacher_id": teacher.id,
+            "teacher_name": teacher.full_name,
+            "employee_id": getattr(teacher, "teacher_profile", None) and teacher.teacher_profile.employee_id or "",
+            "department": getattr(teacher, "teacher_profile", None) and teacher.teacher_profile.department or "",
+            "total_periods_per_week": total_periods,
+            "periods_per_day": periods_per_day,
+            "subjects_taught": len(subjects),
+            "classes_taught": len(classes),
+            "students_taught": len(students),
+            "utilization_pct": utilization,
+            "max_periods": max_periods,
+            "status": workload_status,
+        }
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """Get live workload summary for all teachers (or a specific teacher).
+
+        Query params:
+        - academic_year: required
+        - teacher_id: optional (filter to one teacher)
+        """
+        academic_year_id = request.query_params.get("academic_year")
+        if not academic_year_id:
+            return Response(
+                {"error": "academic_year query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        school = request.user.school
+        config = self._get_config(school)
+
+        from services.students.models import AcademicYear
+
+        academic_year = AcademicYear.objects.filter(id=academic_year_id, school=school).first()
+        if not academic_year:
+            return Response(
+                {"error": "Academic year not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        teacher_id = request.query_params.get("teacher_id")
+        teachers = User.objects.filter(school=school, role="teacher", is_active=True)
+        if teacher_id:
+            teachers = teachers.filter(id=teacher_id)
+
+        summaries = []
+        for teacher in teachers:
+            summary = self._calculate_teacher_workload(teacher, academic_year, config)
+            summaries.append(summary)
+
+        # Sort by utilization (highest first)
+        summaries.sort(key=lambda x: x["utilization_pct"], reverse=True)
+
+        serializer = TeacherWorkloadSummarySerializer(summaries, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="overloaded")
+    def overloaded(self, request):
+        """Get teachers exceeding the workload threshold."""
+        academic_year_id = request.query_params.get("academic_year")
+        if not academic_year_id:
+            return Response(
+                {"error": "academic_year query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        school = request.user.school
+        config = self._get_config(school)
+
+        from services.students.models import AcademicYear
+
+        academic_year = AcademicYear.objects.filter(id=academic_year_id, school=school).first()
+        if not academic_year:
+            return Response(
+                {"error": "Academic year not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        teachers = User.objects.filter(school=school, role="teacher", is_active=True)
+        overloaded = []
+        for teacher in teachers:
+            wl = self._calculate_teacher_workload(teacher, academic_year, config)
+            if wl["status"] == "overloaded":
+                overloaded.append(wl)
+
+        serializer = TeacherWorkloadSummarySerializer(overloaded, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="my-workload")
+    def my_workload(self, request):
+        """Get the current teacher's own workload."""
+        user = request.user
+        if user.role != "teacher":
+            return Response(
+                {"detail": "This endpoint is for teachers only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        academic_year_id = request.query_params.get("academic_year")
+        if not academic_year_id:
+            return Response(
+                {"error": "academic_year query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        school = user.school
+        config = self._get_config(school)
+
+        from services.students.models import AcademicYear
+
+        academic_year = AcademicYear.objects.filter(id=academic_year_id, school=school).first()
+        if not academic_year:
+            return Response(
+                {"error": "Academic year not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        wl = self._calculate_teacher_workload(user, academic_year, config)
+        serializer = TeacherWorkloadSummarySerializer(wl)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="snapshot")
+    def create_snapshot(self, request):
+        """Create a workload snapshot for a specific week."""
+        academic_year_id = request.data.get("academic_year")
+        week_start = request.data.get("week_start_date")
+        teacher_ids = request.data.get("teacher_ids", [])
+
+        if not academic_year_id or not week_start:
+            return Response(
+                {"error": "academic_year and week_start_date are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        school = request.user.school
+        config = self._get_config(school)
+
+        from services.students.models import AcademicYear
+
+        academic_year = AcademicYear.objects.filter(id=academic_year_id, school=school).first()
+        if not academic_year:
+            return Response(
+                {"error": "Academic year not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        teachers = User.objects.filter(school=school, role="teacher", is_active=True)
+        if teacher_ids:
+            teachers = teachers.filter(id__in=teacher_ids)
+
+        created = 0
+        for teacher in teachers:
+            wl = self._calculate_teacher_workload(teacher, academic_year, config)
+            TeacherWorkloadSnapshot.objects.update_or_create(
+                teacher=teacher,
+                academic_year=academic_year,
+                week_start_date=week_start,
+                defaults={
+                    "total_periods": wl["total_periods_per_week"],
+                    "periods_per_day": wl["periods_per_day"],
+                    "subjects_taught": wl["subjects_taught"],
+                    "classes_taught": wl["classes_taught"],
+                    "utilization_pct": wl["utilization_pct"],
+                    "is_overloaded": wl["status"] == "overloaded",
+                    "is_underloaded": wl["status"] == "underloaded",
+                },
+            )
+            created += 1
+
+        return Response({"snapshots_created": created}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="history/(?P<teacher_id>[^/.]+)")
+    def history(self, request, teacher_id=None):
+        """Get workload snapshot history for a teacher."""
+        academic_year_id = request.query_params.get("academic_year")
+        qs = TeacherWorkloadSnapshot.objects.filter(
+            teacher_id=teacher_id,
+            teacher__school=request.user.school,
+        ).select_related("teacher", "academic_year")
+        if academic_year_id:
+            qs = qs.filter(academic_year_id=academic_year_id)
+        serializer = TeacherWorkloadSnapshotSerializer(qs[:20], many=True)
+        return Response(serializer.data)

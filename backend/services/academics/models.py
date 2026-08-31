@@ -1,6 +1,6 @@
 """
 Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
-curriculum standards mapping, syllabus management.
+curriculum standards mapping, syllabus management, teacher workload.
 """
 
 import uuid
@@ -349,3 +349,69 @@ class SyllabusTopic(models.Model):
 
     def __str__(self):
         return f"{self.order}. {self.title} ({self.syllabus.subject.name})"
+
+
+class TeacherWorkloadConfig(models.Model):
+    """School-level configuration for teacher workload limits.
+
+    Defines maximum periods per week, maximum subjects, and other
+    workload constraints that apply to all teachers in the school.
+    """
+
+    school = models.OneToOneField(School, on_delete=models.CASCADE, related_name="teacher_workload_config")
+    max_periods_per_week = models.PositiveSmallIntegerField(default=30, help_text="Maximum teaching periods per week")
+    max_periods_per_day = models.PositiveSmallIntegerField(default=7, help_text="Maximum teaching periods per day")
+    max_subjects = models.PositiveSmallIntegerField(default=3, help_text="Maximum different subjects per teacher")
+    max_classes = models.PositiveSmallIntegerField(default=5, help_text="Maximum different classes per teacher")
+    min_periods_per_week = models.PositiveSmallIntegerField(
+        default=15, help_text="Minimum teaching periods (for full-time)"
+    )
+    warning_threshold_pct = models.PositiveSmallIntegerField(
+        default=90, help_text="Workload % at which to trigger warnings"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teacher_workload_configs"
+
+    def __str__(self):
+        return f"Workload Config — {self.school.name}"
+
+
+class TeacherWorkloadSnapshot(models.Model):
+    """Point-in-time snapshot of a teacher's workload for a given week.
+
+    Calculated from timetable slots and assignments. Used for historical
+    tracking and reporting.
+    """
+
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="workload_snapshots")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="workload_snapshots")
+    week_start_date = models.DateField(help_text="Monday of the week")
+    total_periods = models.PositiveSmallIntegerField(default=0)
+    periods_per_day = models.JSONField(
+        default=dict, blank=True, help_text='JSON map of day name to period count, e.g. {"Monday": 6}'
+    )
+    subjects_taught = models.PositiveSmallIntegerField(default=0)
+    classes_taught = models.PositiveSmallIntegerField(default=0)
+    utilization_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Percentage of max periods used"
+    )
+    is_overloaded = models.BooleanField(default=False)
+    is_underloaded = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "teacher_workload_snapshots"
+        unique_together = [("teacher", "academic_year", "week_start_date")]
+        ordering = ["-week_start_date"]
+        indexes = [
+            models.Index(fields=["teacher", "academic_year"]),
+            models.Index(fields=["is_overloaded"]),
+        ]
+
+    def __str__(self):
+        return f"{self.teacher.full_name} — Week of {self.week_start_date} ({self.total_periods} periods)"

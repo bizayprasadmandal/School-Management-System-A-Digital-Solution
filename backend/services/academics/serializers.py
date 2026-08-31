@@ -14,6 +14,8 @@ from .models import (
     SyllabusTopic,
     TeacherAssignment,
     TeacherProfile,
+    TeacherWorkloadConfig,
+    TeacherWorkloadSnapshot,
 )
 
 
@@ -337,3 +339,71 @@ class SyllabusSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class TeacherWorkloadConfigSerializer(serializers.ModelSerializer):
+    """Serializer for teacher workload configuration."""
+
+    class Meta:
+        model = TeacherWorkloadConfig
+        fields = [
+            "id",
+            "school",
+            "max_periods_per_week",
+            "max_periods_per_day",
+            "max_subjects",
+            "max_classes",
+            "min_periods_per_week",
+            "warning_threshold_pct",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
+
+
+class TeacherWorkloadSnapshotSerializer(serializers.ModelSerializer):
+    """Serializer for teacher workload snapshots."""
+
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+    teacher_email = serializers.CharField(source="teacher.email", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
+    class Meta:
+        model = TeacherWorkloadSnapshot
+        fields = [
+            "id",
+            "teacher",
+            "teacher_name",
+            "teacher_email",
+            "academic_year",
+            "academic_year_name",
+            "week_start_date",
+            "total_periods",
+            "periods_per_day",
+            "subjects_taught",
+            "classes_taught",
+            "utilization_pct",
+            "is_overloaded",
+            "is_underloaded",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class TeacherWorkloadSummarySerializer(serializers.Serializer):
+    """Read-only serializer for live workload summary (not a model)."""
+
+    teacher_id = serializers.UUIDField()
+    teacher_name = serializers.CharField()
+    employee_id = serializers.CharField()
+    department = serializers.CharField()
+    total_periods_per_week = serializers.IntegerField()
+    periods_per_day = serializers.DictField()
+    subjects_taught = serializers.IntegerField()
+    classes_taught = serializers.IntegerField()
+    students_taught = serializers.IntegerField()
+    utilization_pct = serializers.DecimalField(max_digits=5, decimal_places=2)
+    max_periods = serializers.IntegerField()
+    status = serializers.CharField()

@@ -29,6 +29,16 @@ router.register(
     views.SyllabusViewSet,
     basename="syllabus",
 )
+router.register(
+    "workload-config",
+    views.TeacherWorkloadConfigViewSet,
+    basename="workload-config",
+)
+router.register(
+    "workload",
+    views.TeacherWorkloadViewSet,
+    basename="workload",
+)
 
 # Nested router for syllabus topics
 syllabus_router = DefaultRouter()
