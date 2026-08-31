@@ -442,3 +442,219 @@ class TestSubjectStandardMapping:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]["full_count"] == 1
+
+
+# ─── Syllabus Management Tests ──────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestSyllabus:
+
+    def test_list_syllabi(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/syllabi/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_syllabus(self, teacher_auth, subject, academic_year, teacher_user):
+        # Link teacher to subject
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        response = teacher_auth.post(
+            "/api/v1/academics/syllabi/",
+            {
+                "subject": subject.id,
+                "academic_year": academic_year.id,
+                "term": "1st",
+                "title": "First Term Mathematics",
+                "learning_objectives": "Master algebra basics",
+                "total_hours": 60,
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+        assert response.data["status"] == "draft"
+
+    def test_submit_for_review(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            created_by=teacher_user,
+        )
+        response = teacher_auth.post(f"/api/v1/academics/syllabi/{syllabus.id}/submit-for-review/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "under_review"
+
+    def test_approve_syllabus(self, admin_auth, subject, academic_year):
+        from services.academics.models import Syllabus
+
+        admin = admin_auth.handler._view.request.user
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            status="under_review",
+            created_by=admin,
+        )
+        response = admin_auth.post(f"/api/v1/academics/syllabi/{syllabus.id}/approve/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "approved"
+
+    def test_reject_syllabus(self, admin_auth, subject, academic_year):
+        from services.academics.models import Syllabus
+
+        admin = admin_auth.handler._view.request.user
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            status="under_review",
+            created_by=admin,
+        )
+        response = admin_auth.post(
+            f"/api/v1/academics/syllabi/{syllabus.id}/reject/",
+            {"reason": "Insufficient detail"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "rejected"
+
+    def test_reject_syllabus_requires_reason(self, admin_auth, subject, academic_year):
+        from services.academics.models import Syllabus
+
+        admin = admin_auth.handler._view.request.user
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            status="under_review",
+            created_by=admin,
+        )
+        response = admin_auth.post(f"/api/v1/academics/syllabi/{syllabus.id}/reject/")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_progress_endpoint(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus, SyllabusTopic
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            total_hours=20,
+            created_by=teacher_user,
+        )
+        SyllabusTopic.objects.create(
+            syllabus=syllabus, order=1, title="Topic 1", estimated_hours=10, status="completed"
+        )
+        SyllabusTopic.objects.create(
+            syllabus=syllabus, order=2, title="Topic 2", estimated_hours=10, status="in_progress"
+        )
+        response = teacher_auth.get(f"/api/v1/academics/syllabi/{syllabus.id}/progress/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["total_topics"] == 2
+        assert response.data["completed_topics"] == 1
+        assert response.data["progress_percentage"] == 50.0
+
+
+# ─── Syllabus Topic Tests ──────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestSyllabusTopic:
+
+    def test_list_topics(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus, SyllabusTopic
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            created_by=teacher_user,
+        )
+        SyllabusTopic.objects.create(syllabus=syllabus, order=1, title="Topic 1")
+        response = teacher_auth.get(f"/api/v1/academics/syllabi/{syllabus.id}/topics/")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+    def test_create_topic(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            created_by=teacher_user,
+        )
+        response = teacher_auth.post(
+            f"/api/v1/academics/syllabi/{syllabus.id}/topics/",
+            {
+                "order": 1,
+                "title": "Algebra Basics",
+                "estimated_hours": "4.0",
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+        assert response.data["status"] == "not_started"
+
+    def test_start_topic(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus, SyllabusTopic
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            created_by=teacher_user,
+        )
+        topic = SyllabusTopic.objects.create(syllabus=syllabus, order=1, title="Topic 1")
+        response = teacher_auth.post(f"/api/v1/academics/syllabi/{syllabus.id}/topics/{topic.id}/start/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "in_progress"
+        assert response.data["started_at"] is not None
+
+    def test_complete_topic(self, teacher_auth, subject, academic_year, teacher_user):
+        from services.academics.models import Syllabus, SyllabusTopic
+        from tests.factories import TeacherAssignmentFactory
+
+        TeacherAssignmentFactory(teacher=teacher_user, subject=subject, academic_year=academic_year)
+        syllabus = Syllabus.objects.create(
+            subject=subject,
+            academic_year=academic_year,
+            term="1st",
+            title="Test Syllabus",
+            learning_objectives="Learn things",
+            created_by=teacher_user,
+        )
+        topic = SyllabusTopic.objects.create(syllabus=syllabus, order=1, title="Topic 1", status="in_progress")
+        response = teacher_auth.post(f"/api/v1/academics/syllabi/{syllabus.id}/topics/{topic.id}/complete/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "completed"
+        assert response.data["completed_at"] is not None

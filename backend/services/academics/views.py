@@ -19,6 +19,8 @@ from .models import (
     StudentSubjectEnrollment,
     Subject,
     SubjectStandardMapping,
+    Syllabus,
+    SyllabusTopic,
     TeacherAssignment,
     TeacherProfile,
 )
@@ -28,6 +30,8 @@ from .serializers import (
     StudentSubjectEnrollmentSerializer,
     SubjectSerializer,
     SubjectStandardMappingSerializer,
+    SyllabusSerializer,
+    SyllabusTopicSerializer,
     TeacherAssignmentSerializer,
     TeacherProfileSerializer,
 )
@@ -595,3 +599,168 @@ class SubjectStandardMappingViewSet(viewsets.ModelViewSet):
         )
 
         return Response(list(report))
+
+
+class SyllabusViewSet(viewsets.ModelViewSet):
+    """CRUD for syllabus management.
+
+    Teachers create syllabi for their assigned subjects. Admins approve/reject.
+    Includes nested topic management via SyllabusTopicViewSet.
+    """
+
+    serializer_class = SyllabusSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "academic_year", "term", "status"]
+    search_fields = ["title", "description", "subject__name", "subject__code"]
+    ordering_fields = ["created_at", "updated_at", "title"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            Syllabus.objects.filter(subject__school=user.school)
+            .select_related("subject__grade", "academic_year", "created_by", "approved_by")
+            .prefetch_related("topics")
+        )
+        if user.role == "teacher":
+            qs = qs.filter(subject__assignments__teacher=user).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        if self.action in ["approve", "reject"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Admin approves a syllabus."""
+        from django.utils import timezone
+
+        syllabus = self.get_object()
+        if syllabus.status != Syllabus.Status.UNDER_REVIEW:
+            return Response(
+                {"detail": "Syllabus must be under review to approve."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        syllabus.status = Syllabus.Status.APPROVED
+        syllabus.approved_by = request.user
+        syllabus.approved_at = timezone.now()
+        syllabus.save(update_fields=["status", "approved_by", "approved_at", "updated_at"])
+        return Response(SyllabusSerializer(syllabus).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Admin rejects a syllabus with reason."""
+        syllabus = self.get_object()
+        if syllabus.status != Syllabus.Status.UNDER_REVIEW:
+            return Response(
+                {"detail": "Syllabus must be under review to reject."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reason = request.data.get("reason", "")
+        if not reason:
+            return Response(
+                {"detail": "Rejection reason is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        syllabus.status = Syllabus.Status.REJECTED
+        syllabus.rejection_reason = reason
+        syllabus.save(update_fields=["status", "rejection_reason", "updated_at"])
+        return Response(SyllabusSerializer(syllabus).data)
+
+    @action(detail=True, methods=["post"], url_path="submit-for-review")
+    def submit_for_review(self, request, pk=None):
+        """Teacher submits a draft syllabus for admin review."""
+        syllabus = self.get_object()
+        if syllabus.status != Syllabus.Status.DRAFT:
+            return Response(
+                {"detail": "Only draft syllabi can be submitted for review."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        syllabus.status = Syllabus.Status.UNDER_REVIEW
+        syllabus.save(update_fields=["status", "updated_at"])
+        return Response(SyllabusSerializer(syllabus).data)
+
+    @action(detail=True, methods=["get"], url_path="progress")
+    def progress(self, request, pk=None):
+        """Get detailed progress of a syllabus."""
+        syllabus = self.get_object()
+        topics = syllabus.topics.all().order_by("order")
+        topic_data = SyllabusTopicSerializer(topics, many=True).data
+        return Response(
+            {
+                "syllabus_id": str(syllabus.id),
+                "title": syllabus.title,
+                "total_topics": syllabus.topic_count,
+                "completed_topics": syllabus.completed_topic_count,
+                "progress_percentage": syllabus.progress_percentage,
+                "total_hours": float(syllabus.total_hours),
+                "topics": topic_data,
+            }
+        )
+
+
+class SyllabusTopicViewSet(viewsets.ModelViewSet):
+    """CRUD for syllabus topics.
+
+    Topics are nested under a syllabus. The syllabus_id is passed via URL.
+    """
+
+    serializer_class = SyllabusTopicSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status"]
+
+    def get_queryset(self):
+        user = self.request.user
+        syllabus_id = self.kwargs.get("syllabus_pk")
+        return SyllabusTopic.objects.filter(
+            syllabus__id=syllabus_id,
+            syllabus__subject__school=user.school,
+        ).select_related("syllabus__subject")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=["post"])
+    def start(self, request, pk=None, syllabus_pk=None):
+        """Mark a topic as in progress."""
+        from django.utils import timezone
+
+        topic = self.get_object()
+        if topic.status != SyllabusTopic.Status.NOT_STARTED:
+            return Response(
+                {"detail": "Topic must be not started to begin."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        topic.status = SyllabusTopic.Status.IN_PROGRESS
+        topic.started_at = timezone.now()
+        topic.save(update_fields=["status", "started_at", "updated_at"])
+        return Response(SyllabusTopicSerializer(topic).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None, syllabus_pk=None):
+        """Mark a topic as completed."""
+        from django.utils import timezone
+
+        topic = self.get_object()
+        if topic.status != SyllabusTopic.Status.IN_PROGRESS:
+            return Response(
+                {"detail": "Topic must be in progress to complete."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        topic.status = SyllabusTopic.Status.COMPLETED
+        topic.completed_at = timezone.now()
+        topic.save(update_fields=["status", "completed_at", "updated_at"])
+        return Response(SyllabusTopicSerializer(topic).data)

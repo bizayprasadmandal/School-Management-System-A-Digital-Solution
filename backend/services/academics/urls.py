@@ -24,5 +24,20 @@ router.register(
     views.SubjectStandardMappingViewSet,
     basename="subject-standard-mapping",
 )
+router.register(
+    "syllabi",
+    views.SyllabusViewSet,
+    basename="syllabus",
+)
 
-urlpatterns = [path("", include(router.urls))]
+# Nested router for syllabus topics
+syllabus_router = DefaultRouter()
+syllabus_router.register("topics", views.SyllabusTopicViewSet, basename="syllabus-topic")
+
+urlpatterns = [
+    path("", include(router.urls)),
+    path(
+        "syllabi/<uuid:syllabus_pk>/",
+        include(syllabus_router.urls),
+    ),
+]

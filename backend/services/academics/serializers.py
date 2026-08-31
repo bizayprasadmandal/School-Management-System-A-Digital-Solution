@@ -10,6 +10,8 @@ from .models import (
     StudentSubjectEnrollment,
     Subject,
     SubjectStandardMapping,
+    Syllabus,
+    SyllabusTopic,
     TeacherAssignment,
     TeacherProfile,
 )
@@ -258,3 +260,80 @@ class SubjectStandardMappingSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SyllabusTopicSerializer(serializers.ModelSerializer):
+    """Serializer for syllabus topics."""
+
+    class Meta:
+        model = SyllabusTopic
+        fields = [
+            "id",
+            "syllabus",
+            "order",
+            "title",
+            "description",
+            "learning_outcomes",
+            "estimated_hours",
+            "status",
+            "started_at",
+            "completed_at",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SyllabusSerializer(serializers.ModelSerializer):
+    """Serializer for syllabus with nested topics."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    subject_code = serializers.CharField(source="subject.code", read_only=True)
+    grade_name = serializers.CharField(source="subject.grade.name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
+    topics = SyllabusTopicSerializer(many=True, read_only=True)
+    topic_count = serializers.IntegerField(read_only=True)
+    completed_topic_count = serializers.IntegerField(read_only=True)
+    progress_percentage = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = Syllabus
+        fields = [
+            "id",
+            "subject",
+            "subject_name",
+            "subject_code",
+            "grade_name",
+            "academic_year",
+            "academic_year_name",
+            "term",
+            "title",
+            "description",
+            "learning_objectives",
+            "resources",
+            "assessment_criteria",
+            "total_hours",
+            "status",
+            "created_by",
+            "created_by_name",
+            "approved_by",
+            "approved_by_name",
+            "approved_at",
+            "rejection_reason",
+            "topics",
+            "topic_count",
+            "completed_topic_count",
+            "progress_percentage",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "approved_by",
+            "approved_at",
+            "created_at",
+            "updated_at",
+        ]

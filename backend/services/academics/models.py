@@ -1,6 +1,6 @@
 """
 Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
-curriculum standards mapping.
+curriculum standards mapping, syllabus management.
 """
 
 import uuid
@@ -236,3 +236,116 @@ class SubjectStandardMapping(models.Model):
 
     def __str__(self):
         return f"{self.subject} ↔ {self.standard.code} ({self.get_coverage_level_display()})"
+
+
+class Syllabus(models.Model):
+    """Term-level syllabus for a subject.
+
+    Defines the overall outline for a term/semester, including learning
+    objectives, resources, and assessment criteria. Contains multiple
+    SyllabusTopic records for granular topic-level tracking.
+    """
+
+    class Term(models.TextChoices):
+        FIRST = "1st", "First Term"
+        SECOND = "2nd", "Second Term"
+        THIRD = "3rd", "Third Term"
+        SEMESTER_1 = "sem1", "Semester 1"
+        SEMESTER_2 = "sem2", "Semester 2"
+        ANNUAL = "annual", "Annual"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        UNDER_REVIEW = "under_review", "Under Review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="syllabi")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="syllabi")
+    term = models.CharField(max_length=10, choices=Term.choices)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    learning_objectives = models.TextField(help_text="High-level learning objectives for this term")
+    resources = models.TextField(blank=True, help_text="Textbooks, online resources, lab materials")
+    assessment_criteria = models.TextField(blank=True, help_text="How students will be assessed")
+    total_hours = models.PositiveSmallIntegerField(default=0, help_text="Planned total teaching hours for the term")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_syllabi")
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_syllabi"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "syllabi"
+        unique_together = [("subject", "academic_year", "term")]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["subject", "academic_year"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.subject.name} — {self.title} ({self.get_term_display()})"
+
+    @property
+    def topic_count(self):
+        return self.topics.count()
+
+    @property
+    def completed_topic_count(self):
+        return self.topics.filter(status="completed").count()
+
+    @property
+    def progress_percentage(self):
+        total = self.topic_count
+        if total == 0:
+            return 0
+        return round((self.completed_topic_count / total) * 100, 1)
+
+
+class SyllabusTopic(models.Model):
+    """Individual topic within a syllabus.
+
+    Represents a single unit/topic that needs to be covered, with estimated
+    hours and tracking of completion status.
+    """
+
+    class Status(models.TextChoices):
+        NOT_STARTED = "not_started", "Not Started"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        SKIPPED = "skipped", "Skipped"
+
+    syllabus = models.ForeignKey(Syllabus, on_delete=models.CASCADE, related_name="topics")
+    order = models.PositiveSmallIntegerField(help_text="Sequence order within the syllabus")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    learning_outcomes = models.TextField(
+        blank=True, help_text="What students should know/be able to do after this topic"
+    )
+    estimated_hours = models.DecimalField(
+        max_digits=4, decimal_places=1, default=1.0, help_text="Estimated teaching hours"
+    )
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.NOT_STARTED)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "syllabus_topics"
+        unique_together = [("syllabus", "order")]
+        ordering = ["order"]
+        indexes = [
+            models.Index(fields=["syllabus", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.order}. {self.title} ({self.syllabus.subject.name})"

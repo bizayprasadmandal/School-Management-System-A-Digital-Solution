@@ -388,6 +388,35 @@ class SubjectStandardMappingFactory(factory.django.DjangoModelFactory):
     notes = ""
 
 
+class SyllabusFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.Syllabus"
+
+    subject = SubFactory(SubjectFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    term = "1st"
+    title = factory.Sequence(lambda n: f"Syllabus {n}")
+    description = factory.Faker("paragraph")
+    learning_objectives = factory.Faker("paragraph", nb_sentences=3)
+    resources = factory.Faker("sentence")
+    total_hours = 60
+    status = "draft"
+    created_by = SubFactory(TeacherUserFactory)
+
+
+class SyllabusTopicFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.SyllabusTopic"
+
+    syllabus = SubFactory(SyllabusFactory)
+    order = factory.Sequence(lambda n: n + 1)
+    title = factory.Sequence(lambda n: f"Topic {n}")
+    description = factory.Faker("paragraph")
+    learning_outcomes = factory.Faker("sentence")
+    estimated_hours = Decimal("4.0")
+    status = "not_started"
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"
