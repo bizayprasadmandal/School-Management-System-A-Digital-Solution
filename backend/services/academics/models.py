@@ -703,3 +703,638 @@ class AcademicTranscript(models.Model):
         if self.grade_letter:
             return f"{self.grade_letter} ({self.percentage}%)"
         return f"{self.percentage}%"
+
+
+# ---------------------------------------------------------------------------
+# P1: Academic Calendar Integration
+# ---------------------------------------------------------------------------
+
+
+class AcademicTerm(models.Model):
+    """Term/semester definition within an academic year.
+
+    Defines the start/end dates for each term, along with key dates
+    like report card distribution and parent-teacher conferences.
+    """
+
+    class TermType(models.TextChoices):
+        TRIMESTER_1 = "t1", "Trimester 1"
+        TRIMESTER_2 = "t2", "Trimester 2"
+        TRIMESTER_3 = "t3", "Trimester 3"
+        SEMESTER_1 = "s1", "Semester 1"
+        SEMESTER_2 = "s2", "Semester 2"
+        QUARTER_1 = "q1", "Quarter 1"
+        QUARTER_2 = "q2", "Quarter 2"
+        QUARTER_3 = "q3", "Quarter 3"
+        QUARTER_4 = "q4", "Quarter 4"
+        ANNUAL = "annual", "Annual"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_terms")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="terms")
+    name = models.CharField(max_length=100, help_text="e.g. 'Term 1', 'Semester 2', 'Q1 2026-27'")
+    term_type = models.CharField(max_length=10, choices=TermType.choices)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    report_card_date = models.DateField(null=True, blank=True, help_text="Date report cards are distributed")
+    parent_teacher_date = models.DateField(null=True, blank=True, help_text="Parent-teacher conference date")
+    enrollment_deadline = models.DateField(null=True, blank=True, help_text="Deadline for subject enrollment changes")
+    is_current = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_terms"
+        unique_together = [("school", "academic_year", "name")]
+        ordering = ["start_date"]
+        indexes = [
+            models.Index(fields=["school", "academic_year"]),
+            models.Index(fields=["is_current"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.academic_year})"
+
+    @property
+    def duration_days(self):
+        return (self.end_date - self.start_date).days + 1
+
+
+class AcademicEvent(models.Model):
+    """Calendar events: exams, conferences, holidays, milestones.
+
+    Ties into the academic calendar for scheduling and reporting.
+    """
+
+    class EventType(models.TextChoices):
+        EXAM = "exam", "Examination"
+        PARENT_TEACHER = "ptm", "Parent-Teacher Meeting"
+        HOLIDAY = "holiday", "Holiday"
+        MILESTONE = "milestone", "Academic Milestone"
+        ENROLLMENT = "enrollment", "Enrollment Period"
+        REPORT_CARD = "report_card", "Report Card Distribution"
+        ORIENTATION = "orientation", "Orientation"
+        FIELD_TRIP = "field_trip", "Field Trip"
+        CULTURAL = "cultural", "Cultural Event"
+        SPORTS = "sports", "Sports Event"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_events")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="academic_events")
+    term = models.ForeignKey(AcademicTerm, on_delete=models.SET_NULL, null=True, blank=True, related_name="events")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    event_type = models.CharField(max_length=15, choices=EventType.choices)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    is_all_day = models.BooleanField(default=True)
+    affected_grades = models.ManyToManyField(Grade, blank=True, related_name="academic_events")
+    affected_subjects = models.ManyToManyField(Subject, blank=True, related_name="academic_events")
+    is_recurring = models.BooleanField(default=False)
+    recurrence_rule = models.CharField(max_length=255, blank=True, help_text="iCal RRULE format for recurring events")
+    location = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_academic_events")
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_events"
+        ordering = ["start_date", "start_time"]
+        indexes = [
+            models.Index(fields=["school", "academic_year"]),
+            models.Index(fields=["event_type"]),
+            models.Index(fields=["start_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_event_type_display()}) — {self.start_date}"
+
+    @property
+    def duration_days(self):
+        end = self.end_date or self.start_date
+        return (end - self.start_date).days + 1
+
+
+class AcademicHoliday(models.Model):
+    """Holiday calendar — links to attendance module for auto-absence marking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_holidays")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="academic_holidays")
+    name = models.CharField(max_length=200)
+    date = models.DateField()
+    end_date = models.DateField(null=True, blank=True, help_text="For multi-day holidays")
+    holiday_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("public", "Public Holiday"),
+            ("school", "School Holiday"),
+            ("break", "Term Break"),
+            ("other", "Other"),
+        ],
+        default="school",
+    )
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "academic_holidays"
+        unique_together = [("school", "academic_year", "date")]
+        ordering = ["date"]
+        indexes = [
+            models.Index(fields=["school", "academic_year"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} — {self.date}"
+
+    @property
+    def duration_days(self):
+        end = self.end_date or self.date
+        return (end - self.date).days + 1
+
+
+# ---------------------------------------------------------------------------
+# P2: Assignment & Homework Tracking
+# ---------------------------------------------------------------------------
+
+
+class Assignment(models.Model):
+    """Assignment posted by a teacher for a subject-classroom combination."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        CLOSED = "closed", "Closed"
+        ARCHIVED = "archived", "Archived"
+
+    class AssignmentType(models.TextChoices):
+        HOMEWORK = "homework", "Homework"
+        CLASSWORK = "classwork", "Classwork"
+        PROJECT = "project", "Project"
+        QUIZ = "quiz", "Quiz"
+        LAB = "lab", "Lab Work"
+        READING = "reading", "Reading"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assignment = models.ForeignKey(TeacherAssignment, on_delete=models.CASCADE, related_name="assignments_list")
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    assignment_type = models.CharField(max_length=15, choices=AssignmentType.choices, default=AssignmentType.HOMEWORK)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    due_date = models.DateField()
+    due_time = models.TimeField(null=True, blank=True)
+    max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
+    weight_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Weight in final grade calculation"
+    )
+    allow_late_submissions = models.BooleanField(default=True)
+    late_penalty_per_day = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Percentage deduction per day late"
+    )
+    attachments = models.JSONField(default=list, blank=True, help_text="List of file URLs attached to the assignment")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_assignments")
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "assignments"
+        ordering = ["-due_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["assignment", "status"]),
+            models.Index(fields=["due_date"]),
+            models.Index(fields=["assignment_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.assignment.subject.name} (Due: {self.due_date})"
+
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+
+        return self.due_date < timezone.now().date() and self.status == self.Status.PUBLISHED
+
+    @property
+    def submission_count(self):
+        return self.submissions.count()
+
+    @property
+    def average_score(self):
+        from django.db.models import Avg
+
+        result = self.submissions.aggregate(avg=Avg("score"))
+        return result["avg"] or 0
+
+
+class AssignmentSubmission(models.Model):
+    """Student submission for an assignment."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        LATE = "late", "Late Submission"
+        GRADED = "graded", "Graded"
+        RETURNED = "returned", "Returned for Revision"
+        RESUBMITTED = "resubmitted", "Resubmitted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="submissions")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="assignment_submissions")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SUBMITTED)
+    content = models.TextField(blank=True, help_text="Text-based submission content")
+    attachments = models.JSONField(default=list, blank=True, help_text="List of file URLs submitted by student")
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    is_late = models.BooleanField(default=False)
+    score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    grade_letter = models.CharField(max_length=5, blank=True)
+    feedback = models.TextField(blank=True, help_text="Teacher feedback")
+    graded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="graded_submissions"
+    )
+    graded_at = models.DateTimeField(null=True, blank=True)
+    submission_number = models.PositiveSmallIntegerField(
+        default=1, help_text="Incremental submission number for resubmissions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "assignment_submissions"
+        unique_together = [("assignment", "student", "submission_number")]
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["assignment", "student"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} → {self.assignment.title} (#{self.submission_number})"
+
+    @property
+    def score_percentage(self):
+        if self.score is not None and self.assignment.max_score:
+            return round((float(self.score) / float(self.assignment.max_score)) * 100, 1)
+        return None
+
+
+class HomeworkTracker(models.Model):
+    """Daily homework tracking per classroom — records what homework was assigned."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name="homework_entries")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    date = models.DateField(help_text="Date the homework is assigned for")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE)
+    description = models.TextField()
+    due_date = models.DateField()
+    is_completed = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "homework_tracker"
+        unique_together = [("classroom", "date", "subject")]
+        ordering = ["-date"]
+        indexes = [
+            models.Index(fields=["classroom", "date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.classroom} — {self.subject.name} — {self.date}"
+
+
+# ---------------------------------------------------------------------------
+# P3: Exam Management Enhancements
+# ---------------------------------------------------------------------------
+
+
+class QuestionBank(models.Model):
+    """Reusable question bank for exam paper generation."""
+
+    class QuestionType(models.TextChoices):
+        MCQ = "mcq", "Multiple Choice"
+        TRUE_FALSE = "tf", "True/False"
+        SHORT_ANSWER = "short", "Short Answer"
+        LONG_ANSWER = "long", "Long Answer"
+        FILL_BLANK = "fill", "Fill in the Blanks"
+        MATCHING = "match", "Matching"
+        ESSAY = "essay", "Essay"
+        NUMERICAL = "numerical", "Numerical"
+
+    class Difficulty(models.TextChoices):
+        EASY = "easy", "Easy"
+        MEDIUM = "medium", "Medium"
+        HARD = "hard", "Hard"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="question_bank")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="questions")
+    question_type = models.CharField(max_length=10, choices=QuestionType.choices)
+    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, default=Difficulty.MEDIUM)
+    question_text = models.TextField()
+    options = models.JSONField(default=list, blank=True, help_text='MCQ options: [{"key": "A", "text": "..."}]')
+    correct_answer = models.TextField(help_text="Correct answer or option key")
+    explanation = models.TextField(blank=True, help_text="Answer explanation")
+    marks = models.PositiveSmallIntegerField(default=1)
+    tags = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_questions")
+    is_active = models.BooleanField(default=True)
+    usage_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "question_bank"
+        ordering = ["subject", "difficulty", "question_type"]
+        indexes = [
+            models.Index(fields=["school", "subject"]),
+            models.Index(fields=["question_type", "difficulty"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.get_question_type_display()}] {self.question_text[:60]}..."
+
+
+class ExamPaper(models.Model):
+    """Generated exam paper from question bank with random selection."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        FINALIZED = "finalized", "Finalized"
+        USED = "used", "Used"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="exam_papers")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    total_marks = models.PositiveSmallIntegerField(default=100)
+    duration_minutes = models.PositiveSmallIntegerField(default=120)
+    questions = models.ManyToManyField(QuestionBank, related_name="papers", blank=True)
+    question_distribution = models.JSONField(default=dict, blank=True, help_text='{"mcq": 10, "short": 5, "long": 3}')
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "exam_papers"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["school", "subject"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.subject.name} ({self.total_marks} marks)"
+
+    @property
+    def question_count(self):
+        return self.questions.count()
+
+    def generate_random(self, distribution=None):
+        """Auto-select questions from the bank based on distribution."""
+        if distribution is None:
+            distribution = self.question_distribution or {}
+        questions = []
+        for q_type, count in distribution.items():
+            pool = list(
+                QuestionBank.objects.filter(
+                    subject=self.subject,
+                    question_type=q_type,
+                    is_active=True,
+                ).order_by(
+                    "?"
+                )[:count]
+            )
+            questions.extend(pool)
+        self.questions.set(questions)
+        self.save(update_fields=["updated_at"])
+        return len(questions)
+
+
+# ---------------------------------------------------------------------------
+# P4: Notification Hooks
+# ---------------------------------------------------------------------------
+
+
+class AcademicNotification(models.Model):
+    """In-app notifications for academic events and updates."""
+
+    class NotificationType(models.TextChoices):
+        LESSON_PLAN_APPROVED = "lesson_plan_approved", "Lesson Plan Approved"
+        LESSON_PLAN_REJECTED = "lesson_plan_rejected", "Lesson Plan Rejected"
+        ASSIGNMENT_POSTED = "assignment_posted", "Assignment Posted"
+        ASSIGNMENT_GRADED = "assignment_graded", "Assignment Graded"
+        ASSIGNMENT_DUE_SOON = "assignment_due_soon", "Assignment Due Soon"
+        GRADE_PUBLISHED = "grade_published", "Grade Published"
+        TRANSCRIPT_READY = "transcript_ready", "Transcript Ready"
+        EVALUATION_STATUS = "evaluation_status", "Evaluation Status Update"
+        EXAM_SCHEDULED = "exam_scheduled", "Exam Scheduled"
+        TERM_START = "term_start", "Term Starting Soon"
+        ENROLLMENT_DEADLINE = "enrollment_deadline", "Enrollment Deadline Approaching"
+        ATTENDANCE_ALERT = "attendance_alert", "Attendance Alert"
+        GENERAL = "general", "General Announcement"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "High"
+        URGENT = "urgent", "Urgent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_notifications")
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="academic_notifications")
+    notification_type = models.CharField(max_length=25, choices=NotificationType.choices)
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    action_url = models.CharField(max_length=500, blank=True, help_text="Deep link to the relevant page")
+    metadata = models.JSONField(
+        default=dict, blank=True, help_text='Extra context: {"assignment_id": "...", "subject": "..."}'
+    )
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    is_emailed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "academic_notifications"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read"]),
+            models.Index(fields=["notification_type"]),
+            models.Index(fields=["school", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_notification_type_display()} → {self.recipient}"
+
+    @classmethod
+    def create_notification(cls, recipient, notification_type, title, message, **kwargs):
+        """Helper to create and return a notification."""
+        return cls.objects.create(
+            school=recipient.school,
+            recipient=recipient,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            **kwargs,
+        )
+
+
+# ---------------------------------------------------------------------------
+# P5: Analytics & Reporting
+# ---------------------------------------------------------------------------
+
+
+class SubjectPerformance(models.Model):
+    """Aggregated subject performance analytics per academic year."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="performance_stats")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    term = models.ForeignKey(AcademicTerm, on_delete=models.SET_NULL, null=True, blank=True)
+    total_students = models.PositiveIntegerField(default=0)
+    average_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    median_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    highest_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    lowest_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    pass_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    grade_distribution = models.JSONField(
+        default=dict, blank=True, help_text='{"A": 10, "B": 20, "C": 15, "D": 5, "F": 2}'
+    )
+    calculated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "subject_performance"
+        unique_together = [("subject", "academic_year", "term")]
+        indexes = [
+            models.Index(fields=["subject", "academic_year"]),
+        ]
+
+    def __str__(self):
+        return f"{self.subject.name} — Avg: {self.average_score}% ({self.academic_year})"
+
+
+class StudentProgressReport(models.Model):
+    """Individual student progress tracking across terms."""
+
+    class Trend(models.TextChoices):
+        IMPROVING = "improving", "Improving"
+        STABLE = "stable", "Stable"
+        DECLINING = "declining", "Declining"
+        INSUFFICIENT = "insufficient", "Insufficient Data"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="progress_reports")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    term = models.ForeignKey(AcademicTerm, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    current_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    previous_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    score_change = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0, help_text="Positive = improvement, Negative = decline"
+    )
+    trend = models.CharField(max_length=15, choices=Trend.choices, default=Trend.INSUFFICIENT)
+    attendance_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    assignment_completion_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    teacher_remarks = models.TextField(blank=True)
+    strengths = models.TextField(blank=True)
+    areas_for_improvement = models.TextField(blank=True)
+    calculated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_progress_reports"
+        unique_together = [("student", "academic_year", "term", "subject")]
+        ordering = ["subject__name"]
+        indexes = [
+            models.Index(fields=["student", "academic_year"]),
+            models.Index(fields=["trend"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} — {self.subject.name} ({self.trend})"
+
+    def calculate_trend(self):
+        """Determine trend from score change."""
+        if self.previous_score is None:
+            self.trend = self.Trend.INSUFFICIENT
+        elif self.score_change > 5:
+            self.trend = self.Trend.IMPROVING
+        elif self.score_change < -5:
+            self.trend = self.Trend.DECLINING
+        else:
+            self.trend = self.Trend.STABLE
+        return self.trend
+
+
+class TeacherEffectiveness(models.Model):
+    """Teacher effectiveness metrics correlated with student outcomes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="effectiveness_stats")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
+    term = models.ForeignKey(AcademicTerm, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    total_students = models.PositiveIntegerField(default=0)
+    average_student_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    pass_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    evaluation_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Latest evaluation score (0-100)"
+    )
+    lesson_completion_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Percentage of syllabus completed"
+    )
+    assignment_count = models.PositiveIntegerField(default=0)
+    average_assignment_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    attendance_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Student attendance in this teacher's classes"
+    )
+    effectiveness_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Composite score (0-100)"
+    )
+    calculated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teacher_effectiveness"
+        unique_together = [("teacher", "academic_year", "term", "subject")]
+        ordering = ["-effectiveness_score"]
+        indexes = [
+            models.Index(fields=["teacher", "academic_year"]),
+            models.Index(fields=["-effectiveness_score"]),
+        ]
+
+    def __str__(self):
+        return f"{self.teacher.full_name} — {self.subject.name} (Score: {self.effectiveness_score})"
+
+    def calculate_effectiveness(self):
+        """Calculate composite effectiveness score from multiple factors."""
+        scores = []
+        # Student performance (40% weight)
+        if self.average_student_score:
+            scores.append((float(self.average_student_score), 0.4))
+        # Pass rate (20% weight)
+        if self.pass_rate:
+            scores.append((float(self.pass_rate), 0.2))
+        # Evaluation score (20% weight)
+        if self.evaluation_score:
+            scores.append((float(self.evaluation_score), 0.2))
+        # Lesson completion (10% weight)
+        if self.lesson_completion_rate:
+            scores.append((float(self.lesson_completion_rate), 0.1))
+        # Attendance rate (10% weight)
+        if self.attendance_rate:
+            scores.append((float(self.attendance_rate), 0.1))
+
+        if scores:
+            total_weight = sum(w for _, w in scores)
+            weighted_sum = sum(s * w for s, w in scores)
+            self.effectiveness_score = round(weighted_sum / total_weight, 2) if total_weight > 0 else 0
+        return self.effectiveness_score

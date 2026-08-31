@@ -59,6 +59,71 @@ router.register(
     views.AcademicTranscriptViewSet,
     basename="transcript",
 )
+# P1: Academic Calendar
+router.register(
+    "terms",
+    views.AcademicTermViewSet,
+    basename="term",
+)
+router.register(
+    "events",
+    views.AcademicEventViewSet,
+    basename="event",
+)
+router.register(
+    "holidays",
+    views.AcademicHolidayViewSet,
+    basename="holiday",
+)
+# P2: Assignment & Homework
+router.register(
+    "homework-assignments",
+    views.AssignmentViewSet,
+    basename="homework-assignment",
+)
+router.register(
+    "submissions",
+    views.AssignmentSubmissionViewSet,
+    basename="submission",
+)
+router.register(
+    "homework-tracker",
+    views.HomeworkTrackerViewSet,
+    basename="homework-tracker",
+)
+# P3: Exam Management
+router.register(
+    "question-bank",
+    views.QuestionBankViewSet,
+    basename="question-bank",
+)
+router.register(
+    "exam-papers",
+    views.ExamPaperViewSet,
+    basename="exam-paper",
+)
+# P4: Notifications
+router.register(
+    "notifications",
+    views.AcademicNotificationViewSet,
+    basename="notification",
+)
+# P5: Analytics
+router.register(
+    "subject-performance",
+    views.SubjectPerformanceViewSet,
+    basename="subject-performance",
+)
+router.register(
+    "student-progress",
+    views.StudentProgressViewSet,
+    basename="student-progress",
+)
+router.register(
+    "teacher-effectiveness",
+    views.TeacherEffectivenessViewSet,
+    basename="teacher-effectiveness",
+)
 
 # Nested router for syllabus topics
 syllabus_router = DefaultRouter()

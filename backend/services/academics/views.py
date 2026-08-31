@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsTeacher
-from django.db import transaction
+from django.db import models, transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -17,36 +17,60 @@ from services.auth.models import User
 from services.students.models import Student
 
 from .models import (
+    AcademicEvent,
+    AcademicHoliday,
+    AcademicNotification,
+    AcademicTerm,
     AcademicTranscript,
+    Assignment,
+    AssignmentSubmission,
     CurriculumStandard,
     EvaluationCriteria,
     EvaluationScore,
     EvaluationTemplate,
+    ExamPaper,
+    HomeworkTracker,
     LessonPlan,
+    QuestionBank,
+    StudentProgressReport,
     StudentSubjectEnrollment,
     Subject,
+    SubjectPerformance,
     SubjectStandardMapping,
     Syllabus,
     SyllabusTopic,
     TeacherAssignment,
+    TeacherEffectiveness,
     TeacherEvaluation,
     TeacherProfile,
     TeacherWorkloadConfig,
     TeacherWorkloadSnapshot,
 )
 from .serializers import (
+    AcademicEventSerializer,
+    AcademicHolidaySerializer,
+    AcademicNotificationSerializer,
+    AcademicTermSerializer,
     AcademicTranscriptSerializer,
+    AssignmentSerializer,
+    AssignmentSubmissionSerializer,
     CurriculumStandardSerializer,
     EvaluationCommentSerializer,
     EvaluationCriteriaSerializer,
     EvaluationTemplateSerializer,
+    ExamPaperSerializer,
+    HomeworkTrackerSerializer,
     LessonPlanSerializer,
+    QuestionBankSerializer,
+    StudentProgressReportSerializer,
     StudentSubjectEnrollmentSerializer,
+    SubjectPerformanceSerializer,
     SubjectSerializer,
     SubjectStandardMappingSerializer,
     SyllabusSerializer,
     SyllabusTopicSerializer,
     TeacherAssignmentSerializer,
+    TeacherEffectivenessSerializer,
     TeacherEvaluationSerializer,
     TeacherProfileSerializer,
     TeacherWorkloadConfigSerializer,
@@ -1876,3 +1900,719 @@ def _calculate_grade_letter(percentage):
         return "D"
     else:
         return "F"
+
+
+# ---------------------------------------------------------------------------
+# P1: Academic Calendar ViewSets
+# ---------------------------------------------------------------------------
+
+
+class AcademicTermViewSet(viewsets.ModelViewSet):
+    """CRUD for academic terms."""
+
+    serializer_class = AcademicTermSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["academic_year", "term_type", "is_current"]
+    search_fields = ["name"]
+    ordering_fields = ["start_date", "end_date"]
+    ordering = ["start_date"]
+
+    def get_queryset(self):
+        return AcademicTerm.objects.filter(school=self.request.user.school).select_related("academic_year")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=False, methods=["get"], url_path="current")
+    def current(self, request):
+        """Get the current active term."""
+        term = AcademicTerm.objects.filter(school=request.user.school, is_current=True).first()
+        if not term:
+            return Response(
+                {"detail": "No current term found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(AcademicTermSerializer(term).data)
+
+    @action(detail=True, methods=["post"], url_path="set-current")
+    def set_current(self, request, pk=None):
+        """Set a term as current (deactivates others)."""
+        if request.user.role not in ["school_admin", "super_admin"]:
+            return Response(
+                {"detail": "Only admins can set current term."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        term = self.get_object()
+        AcademicTerm.objects.filter(school=request.user.school, is_current=True).update(is_current=False)
+        term.is_current = True
+        term.save(update_fields=["is_current", "updated_at"])
+        return Response(AcademicTermSerializer(term).data)
+
+
+class AcademicEventViewSet(viewsets.ModelViewSet):
+    """CRUD for academic calendar events."""
+
+    serializer_class = AcademicEventSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["academic_year", "term", "event_type", "is_published"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["start_date", "end_date", "created_at"]
+    ordering = ["start_date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            AcademicEvent.objects.filter(school=user.school)
+            .select_related("academic_year", "term", "created_by")
+            .prefetch_related("affected_grades", "affected_subjects")
+        )
+        if user.role == "teacher":
+            qs = qs.filter(
+                models.Q(affected_subjects__assignments__teacher=user) | models.Q(affected_grades__isnull=True)
+            ).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+    @action(detail=False, methods=["get"], url_path="upcoming")
+    def upcoming(self, request):
+        """Get upcoming events for the next 30 days."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        future = today + timedelta(days=30)
+        qs = self.get_queryset().filter(
+            start_date__gte=today,
+            start_date__lte=future,
+            is_published=True,
+        )
+        return Response(AcademicEventSerializer(qs, many=True).data)
+
+
+class AcademicHolidayViewSet(viewsets.ModelViewSet):
+    """CRUD for academic holidays."""
+
+    serializer_class = AcademicHolidaySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["academic_year", "holiday_type"]
+    search_fields = ["name"]
+    ordering_fields = ["date"]
+    ordering = ["date"]
+
+    def get_queryset(self):
+        return AcademicHoliday.objects.filter(school=self.request.user.school).select_related("academic_year")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# ---------------------------------------------------------------------------
+# P2: Assignment & Homework ViewSets
+# ---------------------------------------------------------------------------
+
+
+class AssignmentViewSet(viewsets.ModelViewSet):
+    """CRUD for assignments with submission tracking."""
+
+    serializer_class = AssignmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["assignment", "assignment_type", "status", "due_date"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["due_date", "created_at"]
+    ordering = ["-due_date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Assignment.objects.filter(assignment__teacher__school=user.school).select_related(
+            "assignment__teacher",
+            "assignment__subject",
+            "assignment__classroom",
+            "created_by",
+        )
+        if user.role == "teacher":
+            qs = qs.filter(assignment__teacher=user)
+        elif user.role == "student":
+            qs = qs.filter(
+                assignment__classroom__enrollments__student__user=user,
+                status="published",
+            ).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="publish")
+    def publish(self, request, pk=None):
+        """Publish a draft assignment."""
+        from django.utils import timezone
+
+        assignment = self.get_object()
+        if assignment.status != Assignment.Status.DRAFT:
+            return Response(
+                {"detail": "Only draft assignments can be published."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        assignment.status = Assignment.Status.PUBLISHED
+        assignment.published_at = timezone.now()
+        assignment.save(update_fields=["status", "published_at", "updated_at"])
+
+        # Send notifications to students
+        students = User.objects.filter(
+            role="student",
+            enrollments__classroom=assignment.assignment.classroom,
+            enrollments__academic_year=assignment.assignment.academic_year,
+            enrollments__is_active=True,
+        ).distinct()
+        for student in students:
+            AcademicNotification.objects.create(
+                school=request.user.school,
+                recipient=student,
+                notification_type=AcademicNotification.NotificationType.ASSIGNMENT_POSTED,
+                title=f"New Assignment: {assignment.title}",
+                message=f"{assignment.assignment.subject.name} — Due: {assignment.due_date}",
+                metadata={"assignment_id": str(assignment.id)},
+            )
+        return Response(AssignmentSerializer(assignment).data)
+
+    @action(detail=True, methods=["post"], url_path="close")
+    def close(self, request, pk=None):
+        """Close assignment submissions."""
+        assignment = self.get_object()
+        if assignment.status != Assignment.Status.PUBLISHED:
+            return Response(
+                {"detail": "Only published assignments can be closed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        assignment.status = Assignment.Status.CLOSED
+        assignment.save(update_fields=["status", "updated_at"])
+        return Response(AssignmentSerializer(assignment).data)
+
+    @action(detail=False, methods=["get"], url_path="my-assignments")
+    def my_assignments(self, request):
+        """Get assignments for the current student."""
+        if request.user.role != "student":
+            return Response(
+                {"detail": "This endpoint is for students only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = (
+            self.get_queryset()
+            .filter(
+                assignment__classroom__enrollments__student__user=request.user,
+                status="published",
+            )
+            .distinct()
+        )
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(AssignmentSerializer(page, many=True).data)
+        return Response(AssignmentSerializer(qs, many=True).data)
+
+
+class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
+    """CRUD for assignment submissions."""
+
+    serializer_class = AssignmentSubmissionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["assignment", "student", "status"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "assignment__title",
+    ]
+    ordering_fields = ["submitted_at", "score"]
+    ordering = ["-submitted_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = AssignmentSubmission.objects.filter(assignment__assignment__teacher__school=user.school).select_related(
+            "assignment", "student__user", "graded_by"
+        )
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        elif user.role == "teacher":
+            qs = qs.filter(assignment__assignment__teacher=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["grade"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=True, methods=["post"])
+    def grade(self, request, pk=None):
+        """Grade a submission."""
+        from django.utils import timezone
+
+        submission = self.get_object()
+        if request.user.role not in ["teacher", "school_admin"]:
+            return Response(
+                {"detail": "Only teachers can grade submissions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        score = request.data.get("score")
+        feedback = request.data.get("feedback", "")
+        if score is None:
+            return Response(
+                {"error": "score is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        submission.score = score
+        submission.feedback = feedback
+        submission.graded_by = request.user
+        submission.graded_at = timezone.now()
+        submission.status = AssignmentSubmission.Status.GRADED
+        submission.save(
+            update_fields=[
+                "score",
+                "feedback",
+                "graded_by",
+                "graded_at",
+                "status",
+                "updated_at",
+            ]
+        )
+        # Notify student
+        AcademicNotification.objects.create(
+            school=request.user.school,
+            recipient=submission.student.user,
+            notification_type=AcademicNotification.NotificationType.ASSIGNMENT_GRADED,
+            title=f"Assignment Graded: {submission.assignment.title}",
+            message=f"Score: {score}/{submission.assignment.max_score}",
+            metadata={"submission_id": str(submission.id)},
+        )
+        return Response(AssignmentSubmissionSerializer(submission).data)
+
+    @action(detail=True, methods=["post"], url_path="return-for-revision")
+    def return_for_revision(self, request, pk=None):
+        """Return submission to student for revision."""
+        submission = self.get_object()
+        feedback = request.data.get("feedback", "")
+        submission.status = AssignmentSubmission.Status.RETURNED
+        submission.feedback = feedback
+        submission.save(update_fields=["status", "feedback", "updated_at"])
+        AcademicNotification.objects.create(
+            school=request.user.school,
+            recipient=submission.student.user,
+            notification_type=AcademicNotification.NotificationType.GENERAL,
+            title="Assignment Returned for Revision",
+            message=f"{submission.assignment.title}: {feedback[:100]}",
+            priority="high",
+            metadata={"submission_id": str(submission.id)},
+        )
+        return Response(AssignmentSubmissionSerializer(submission).data)
+
+
+class HomeworkTrackerViewSet(viewsets.ModelViewSet):
+    """CRUD for daily homework tracking."""
+
+    serializer_class = HomeworkTrackerSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["classroom", "subject", "date", "is_completed"]
+    search_fields = ["description"]
+    ordering_fields = ["date", "due_date"]
+    ordering = ["-date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = HomeworkTracker.objects.filter(classroom__school=user.school).select_related(
+            "subject", "teacher", "classroom"
+        )
+        if user.role == "teacher":
+            qs = qs.filter(teacher=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsTeacher()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+
+
+# ---------------------------------------------------------------------------
+# P3: Exam Management ViewSets
+# ---------------------------------------------------------------------------
+
+
+class QuestionBankViewSet(viewsets.ModelViewSet):
+    """CRUD for question bank entries."""
+
+    serializer_class = QuestionBankSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "question_type", "difficulty", "is_active"]
+    search_fields = ["question_text", "tags"]
+    ordering_fields = ["created_at", "usage_count", "difficulty"]
+    ordering = ["subject", "difficulty"]
+
+    def get_queryset(self):
+        return QuestionBank.objects.filter(school=self.request.user.school).select_related("subject", "created_by")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk-import")
+    def bulk_import(self, request):
+        """Bulk-import questions from a list."""
+        questions_data = request.data.get("questions", [])
+        if not questions_data:
+            return Response(
+                {"error": "questions list is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        created = 0
+        errors = []
+        school = request.user.school
+        with transaction.atomic():
+            for idx, item in enumerate(questions_data):
+                subject_id = item.get("subject_id")
+                if not subject_id:
+                    errors.append({"index": idx, "error": "subject_id required"})
+                    continue
+                try:
+                    QuestionBank.objects.create(
+                        school=school,
+                        subject_id=subject_id,
+                        question_type=item.get("question_type", "mcq"),
+                        difficulty=item.get("difficulty", "medium"),
+                        question_text=item.get("question_text", ""),
+                        options=item.get("options", []),
+                        correct_answer=item.get("correct_answer", ""),
+                        explanation=item.get("explanation", ""),
+                        marks=item.get("marks", 1),
+                        tags=item.get("tags", []),
+                        created_by=request.user,
+                    )
+                    created += 1
+                except Exception as e:
+                    errors.append({"index": idx, "error": str(e)[:100]})
+        return Response(
+            {"created": created, "errors": errors},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ExamPaperViewSet(viewsets.ModelViewSet):
+    """CRUD for exam papers with random generation."""
+
+    serializer_class = ExamPaperSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "academic_year", "status"]
+    search_fields = ["title"]
+    ordering_fields = ["created_at", "total_marks"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ExamPaper.objects.filter(school=self.request.user.school).select_related(
+            "subject", "academic_year", "created_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+    @action(detail=True, methods=["post"], url_path="generate-random")
+    def generate_random(self, request, pk=None):
+        """Randomly select questions from the bank."""
+        paper = self.get_object()
+        distribution = request.data.get("distribution")
+        count = paper.generate_random(distribution)
+        return Response(
+            {"questions_added": count, "total": paper.question_count},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="finalize")
+    def finalize(self, request, pk=None):
+        """Finalize a paper so it can be used."""
+        paper = self.get_object()
+        if paper.status != ExamPaper.Status.DRAFT:
+            return Response(
+                {"detail": "Only draft papers can be finalized."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if paper.questions.count() == 0:
+            return Response(
+                {"detail": "Cannot finalize an empty paper."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        paper.status = ExamPaper.Status.FINALIZED
+        paper.save(update_fields=["status", "updated_at"])
+        return Response(ExamPaperSerializer(paper).data)
+
+
+# ---------------------------------------------------------------------------
+# P4: Notification ViewSet
+# ---------------------------------------------------------------------------
+
+
+class AcademicNotificationViewSet(viewsets.ModelViewSet):
+    """CRUD for academic notifications."""
+
+    serializer_class = AcademicNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["notification_type", "priority", "is_read"]
+    search_fields = ["title", "message"]
+    ordering_fields = ["created_at", "priority"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AcademicNotification.objects.filter(
+            school=self.request.user.school,
+            recipient=self.request.user,
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=True, methods=["post"], url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        """Mark a notification as read."""
+        from django.utils import timezone
+
+        notification = self.get_object()
+        if not notification.is_read:
+            notification.is_read = True
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["is_read", "read_at"])
+        return Response(AcademicNotificationSerializer(notification).data)
+
+    @action(detail=False, methods=["post"], url_path="mark-all-read")
+    def mark_all_read(self, request):
+        """Mark all notifications as read."""
+        from django.utils import timezone
+
+        updated = AcademicNotification.objects.filter(recipient=request.user, is_read=False).update(
+            is_read=True, read_at=timezone.now()
+        )
+        return Response({"marked_read": updated})
+
+    @action(detail=False, methods=["get"], url_path="unread-count")
+    def unread_count(self, request):
+        """Get count of unread notifications."""
+        count = AcademicNotification.objects.filter(recipient=request.user, is_read=False).count()
+        return Response({"unread_count": count})
+
+
+# ---------------------------------------------------------------------------
+# P5: Analytics ViewSets
+# ---------------------------------------------------------------------------
+
+
+class SubjectPerformanceViewSet(viewsets.ModelViewSet):
+    """CRUD for subject performance analytics."""
+
+    serializer_class = SubjectPerformanceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "academic_year", "term"]
+    search_fields = ["subject__name", "subject__code"]
+    ordering_fields = ["average_score", "pass_rate", "calculated_at"]
+    ordering = ["-average_score"]
+
+    def get_queryset(self):
+        return SubjectPerformance.objects.filter(subject__school=self.request.user.school).select_related(
+            "subject", "academic_year", "term"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["post"], url_path="calculate")
+    def calculate(self, request):
+        """Calculate performance stats for all subjects."""
+        from django.db.models import Avg, F, Max, Min
+        from services.gradebook.models import Grade as GradeRecord
+
+        academic_year_id = request.data.get("academic_year")
+        if not academic_year_id:
+            return Response(
+                {"error": "academic_year is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        school = request.user.school
+        subjects = Subject.objects.filter(school=school, is_active=True)
+        created = 0
+        for subject in subjects:
+            grades = GradeRecord.objects.filter(
+                exam_schedule__subject=subject,
+                exam_schedule__exam__academic_year_id=academic_year_id,
+                is_absent=False,
+            )
+            if not grades.exists():
+                continue
+            stats = grades.aggregate(
+                avg=Avg("marks_obtained"),
+                max=Max("marks_obtained"),
+                min=Min("marks_obtained"),
+            )
+            total = grades.count()
+            passed = grades.filter(marks_obtained__gte=F("exam_schedule__pass_marks")).count()
+            # Grade distribution
+            grade_dist = {}
+            for grade_letter, lower, upper in [
+                ("A", 90, 101),
+                ("B", 80, 90),
+                ("C", 70, 80),
+                ("D", 60, 70),
+                ("E", 50, 60),
+                ("F", 0, 50),
+            ]:
+                count = grades.filter(marks_obtained__gte=lower, marks_obtained__lt=upper).count()
+                if count > 0:
+                    grade_dist[grade_letter] = count
+            perf, _ = SubjectPerformance.objects.update_or_create(
+                subject=subject,
+                academic_year_id=academic_year_id,
+                defaults={
+                    "total_students": total,
+                    "average_score": round(stats["avg"] or 0, 2),
+                    "highest_score": stats["max"] or 0,
+                    "lowest_score": stats["min"] or 0,
+                    "pass_rate": round((passed / total * 100), 2) if total > 0 else 0,
+                    "grade_distribution": grade_dist,
+                },
+            )
+            created += 1
+        return Response({"subjects_calculated": created})
+
+
+class StudentProgressViewSet(viewsets.ModelViewSet):
+    """CRUD for student progress reports."""
+
+    serializer_class = StudentProgressReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["student", "academic_year", "term", "subject", "trend"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "subject__name",
+    ]
+    ordering_fields = ["current_score", "score_change", "calculated_at"]
+    ordering = ["-calculated_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentProgressReport.objects.filter(student__school=user.school).select_related(
+            "student__user", "academic_year", "term", "subject"
+        )
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "calculate"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["get"], url_path="my-progress")
+    def my_progress(self, request):
+        """Get progress reports for the current student."""
+        if request.user.role != "student":
+            return Response(
+                {"detail": "This endpoint is for students only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(student__user=request.user)
+        return Response(StudentProgressReportSerializer(qs, many=True).data)
+
+
+class TeacherEffectivenessViewSet(viewsets.ModelViewSet):
+    """CRUD for teacher effectiveness metrics."""
+
+    serializer_class = TeacherEffectivenessSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["teacher", "academic_year", "term", "subject"]
+    search_fields = [
+        "teacher__first_name",
+        "teacher__last_name",
+        "subject__name",
+    ]
+    ordering_fields = ["effectiveness_score", "average_student_score"]
+    ordering = ["-effectiveness_score"]
+
+    def get_queryset(self):
+        return TeacherEffectiveness.objects.filter(teacher__school=self.request.user.school).select_related(
+            "teacher", "academic_year", "term", "subject"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=False, methods=["get"], url_path="leaderboard")
+    def leaderboard(self, request):
+        """Get top teachers ranked by effectiveness."""
+        academic_year_id = request.query_params.get("academic_year")
+        qs = self.get_queryset()
+        if academic_year_id:
+            qs = qs.filter(academic_year_id=academic_year_id)
+        qs = qs.order_by("-effectiveness_score")[:20]
+        return Response(TeacherEffectivenessSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="my-stats")
+    def my_stats(self, request):
+        """Get effectiveness stats for the current teacher."""
+        if request.user.role != "teacher":
+            return Response(
+                {"detail": "This endpoint is for teachers only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(teacher=request.user)
+        return Response(TeacherEffectivenessSerializer(qs, many=True).data)

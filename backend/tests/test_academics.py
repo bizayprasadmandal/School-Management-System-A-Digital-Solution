@@ -1161,3 +1161,439 @@ class TestAcademicTranscript:
         )
         assert transcript.transcript_number.startswith("TR-")
         assert len(transcript.transcript_number) > 10
+
+
+# ---------------------------------------------------------------------------
+# P1: Academic Calendar Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAcademicCalendar:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.client = APIClient()
+
+    def test_create_term(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/terms/",
+            {
+                "academic_year": str(self.academic_year.id),
+                "name": "Term 1",
+                "term_type": "t1",
+                "start_date": "2026-09-01",
+                "end_date": "2026-12-15",
+                "is_current": True,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_event(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/events/",
+            {
+                "academic_year": str(self.academic_year.id),
+                "title": "Mid-term Exam",
+                "event_type": "exam",
+                "start_date": "2026-10-15",
+                "is_all_day": True,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_holiday(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/holidays/",
+            {
+                "academic_year": str(self.academic_year.id),
+                "name": "Diwali",
+                "date": "2026-10-20",
+                "holiday_type": "public",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_set_current_term(self):
+        from tests.factories import AcademicTermFactory
+
+        term = AcademicTermFactory(school=self.school, academic_year=self.academic_year, is_current=False)
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/v1/academics/terms/{term.id}/set-current/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_current"] is True
+
+    def test_get_current_term(self):
+        from tests.factories import AcademicTermFactory
+
+        AcademicTermFactory(school=self.school, academic_year=self.academic_year, is_current=True)
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/v1/academics/terms/current/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_upcoming_events(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/v1/academics/events/upcoming/")
+        assert response.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P2: Assignment & Homework Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAssignments:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.teacher = TeacherUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.classroom = ClassroomFactory(school=self.school, grade=self.grade)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.subject = SubjectFactory(school=self.school, grade=self.grade)
+        self.student_user = StudentUserFactory(school=self.school)
+        self.student = StudentFactory(user=self.student_user, school=self.school)
+        self.client = APIClient()
+
+    def test_create_assignment(self):
+        from tests.factories import TeacherAssignmentFactory
+
+        assignment = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            "/api/v1/academics/homework-assignments/",
+            {
+                "assignment": str(assignment.id),
+                "title": "Chapter 1 Homework",
+                "description": "Complete exercises 1-10",
+                "assignment_type": "homework",
+                "due_date": "2026-09-15",
+                "max_score": "100.00",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_publish_assignment(self):
+        from tests.factories import AssignmentFactory, TeacherAssignmentFactory
+
+        ta = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        assignment = AssignmentFactory(
+            assignment=ta,
+            status="draft",
+        )
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            f"/api/v1/academics/homework-assignments/{assignment.id}/publish/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "published"
+
+    def test_create_submission(self):
+        from tests.factories import AssignmentFactory, TeacherAssignmentFactory
+
+        ta = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        assignment = AssignmentFactory(assignment=ta)
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            "/api/v1/academics/submissions/",
+            {
+                "assignment": str(assignment.id),
+                "student": str(self.student.id),
+                "content": "My submission",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_grade_submission(self):
+        from tests.factories import AssignmentFactory, AssignmentSubmissionFactory, TeacherAssignmentFactory
+
+        ta = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        assignment = AssignmentFactory(assignment=ta)
+        submission = AssignmentSubmissionFactory(
+            assignment=assignment,
+            student=self.student,
+        )
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            f"/api/v1/academics/submissions/{submission.id}/grade/",
+            {"score": "85.00", "feedback": "Good work!"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "graded"
+
+    def test_student_my_assignments(self):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get("/api/v1/academics/homework-assignments/my-assignments/")
+        assert response.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P3: Exam Management Tests
+# ---------------------------------------------------------------------------
+
+
+class TestExamManagement:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.subject = SubjectFactory(school=self.school, grade=self.grade)
+        self.client = APIClient()
+
+    def test_create_question(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/question-bank/",
+            {
+                "subject": str(self.subject.id),
+                "question_type": "mcq",
+                "difficulty": "medium",
+                "question_text": "What is 2 + 2?",
+                "options": [{"key": "A", "text": "3"}, {"key": "B", "text": "4"}],
+                "correct_answer": "B",
+                "marks": 1,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_exam_paper(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/exam-papers/",
+            {
+                "subject": str(self.subject.id),
+                "academic_year": str(self.academic_year.id),
+                "title": "Math Final Exam",
+                "total_marks": 100,
+                "duration_minutes": 120,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_bulk_import_questions(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/question-bank/bulk-import/",
+            {
+                "questions": [
+                    {
+                        "subject_id": str(self.subject.id),
+                        "question_type": "mcq",
+                        "difficulty": "easy",
+                        "question_text": "What is 1 + 1?",
+                        "correct_answer": "2",
+                        "marks": 1,
+                    },
+                ],
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["created"] == 1
+
+    def test_generate_random_paper(self):
+        from tests.factories import ExamPaperFactory, QuestionBankFactory
+
+        paper = ExamPaperFactory(
+            school=self.school,
+            subject=self.subject,
+            academic_year=self.academic_year,
+        )
+        QuestionBankFactory(
+            school=self.school,
+            subject=self.subject,
+            question_type="mcq",
+            difficulty="easy",
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/v1/academics/exam-papers/{paper.id}/generate-random/",
+            {"distribution": {"mcq": 1}},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P4: Notification Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAcademicNotifications:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.student_user = StudentUserFactory(school=self.school)
+        self.client = APIClient()
+
+    def test_list_notifications(self):
+        from tests.factories import AcademicNotificationFactory
+
+        AcademicNotificationFactory(
+            school=self.school,
+            recipient=self.student_user,
+        )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get("/api/v1/academics/notifications/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    def test_mark_read(self):
+        from tests.factories import AcademicNotificationFactory
+
+        notif = AcademicNotificationFactory(
+            school=self.school,
+            recipient=self.student_user,
+            is_read=False,
+        )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            f"/api/v1/academics/notifications/{notif.id}/mark-read/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_read"] is True
+
+    def test_mark_all_read(self):
+        from tests.factories import AcademicNotificationFactory
+
+        for _ in range(3):
+            AcademicNotificationFactory(
+                school=self.school,
+                recipient=self.student_user,
+                is_read=False,
+            )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            "/api/v1/academics/notifications/mark-all-read/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["marked_read"] == 3
+
+    def test_unread_count(self):
+        from tests.factories import AcademicNotificationFactory
+
+        AcademicNotificationFactory(
+            school=self.school,
+            recipient=self.student_user,
+            is_read=False,
+        )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get("/api/v1/academics/notifications/unread-count/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["unread_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# P5: Analytics Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAcademicAnalytics:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.subject = SubjectFactory(school=self.school, grade=self.grade)
+        self.client = APIClient()
+
+    def test_create_subject_performance(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/subject-performance/",
+            {
+                "subject": str(self.subject.id),
+                "academic_year": str(self.academic_year.id),
+                "total_students": 30,
+                "average_score": "75.50",
+                "pass_rate": "85.00",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_student_progress(self):
+        student_user = StudentUserFactory(school=self.school)
+        student = StudentFactory(user=student_user, school=self.school)
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/student-progress/",
+            {
+                "student": str(student.id),
+                "academic_year": str(self.academic_year.id),
+                "subject": str(self.subject.id),
+                "current_score": "78.00",
+                "trend": "improving",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_teacher_effectiveness(self):
+        teacher = TeacherUserFactory(school=self.school)
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/teacher-effectiveness/",
+            {
+                "teacher": str(teacher.id),
+                "academic_year": str(self.academic_year.id),
+                "subject": str(self.subject.id),
+                "total_students": 30,
+                "average_student_score": "72.00",
+                "pass_rate": "80.00",
+                "effectiveness_score": "75.00",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_teacher_leaderboard(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            "/api/v1/academics/teacher-effectiveness/leaderboard/",
+        )
+        assert response.status_code == status.HTTP_200_OK

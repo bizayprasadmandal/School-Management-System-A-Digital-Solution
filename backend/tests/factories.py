@@ -528,6 +528,108 @@ class AcademicTranscriptFactory(factory.django.DjangoModelFactory):
     generated_by = SubFactory(AdminUserFactory)
 
 
+class AcademicTermFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AcademicTerm"
+
+    school = SubFactory(SchoolFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    name = factory.Sequence(lambda n: f"Term {n + 1}")
+    term_type = "t1"
+    start_date = factory.LazyFunction(date.today)
+    end_date = factory.LazyFunction(lambda: date.today() + timedelta(days=90))
+    is_current = True
+
+
+class AcademicEventFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AcademicEvent"
+
+    school = SubFactory(SchoolFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    title = factory.Faker("sentence", nb_words=4)
+    event_type = "exam"
+    start_date = factory.LazyFunction(date.today)
+    is_all_day = True
+    is_published = True
+
+
+class AcademicHolidayFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AcademicHoliday"
+
+    school = SubFactory(SchoolFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    name = factory.Faker("word")
+    date = factory.LazyFunction(date.today)
+    holiday_type = "school"
+
+
+class AssignmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.Assignment"
+
+    assignment = SubFactory(TeacherAssignmentFactory)
+    title = factory.Faker("sentence", nb_words=5)
+    description = factory.Faker("paragraph")
+    assignment_type = "homework"
+    status = "published"
+    due_date = factory.LazyFunction(lambda: date.today() + timedelta(days=7))
+    max_score = Decimal("100.00")
+    allow_late_submissions = True
+
+
+class AssignmentSubmissionFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AssignmentSubmission"
+
+    assignment = SubFactory(AssignmentFactory)
+    student = SubFactory(StudentFactory)
+    status = "submitted"
+    content = factory.Faker("paragraph")
+
+
+class QuestionBankFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.QuestionBank"
+
+    school = SubFactory(SchoolFactory)
+    subject = SubFactory(SubjectFactory)
+    question_type = "mcq"
+    difficulty = "medium"
+    question_text = factory.Faker("sentence")
+    options = factory.LazyFunction(lambda: [{"key": "A", "text": "Option 1"}, {"key": "B", "text": "Option 2"}])
+    correct_answer = "A"
+    marks = 1
+    is_active = True
+
+
+class ExamPaperFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.ExamPaper"
+
+    school = SubFactory(SchoolFactory)
+    subject = SubFactory(SubjectFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    title = factory.Faker("sentence", nb_words=4)
+    total_marks = 100
+    duration_minutes = 120
+    status = "draft"
+
+
+class AcademicNotificationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AcademicNotification"
+
+    school = SubFactory(SchoolFactory)
+    recipient = SubFactory(UserFactory)
+    notification_type = "assignment_posted"
+    priority = "normal"
+    title = factory.Faker("sentence", nb_words=4)
+    message = factory.Faker("paragraph")
+    is_read = False
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"
