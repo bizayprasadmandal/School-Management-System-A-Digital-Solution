@@ -16,6 +16,9 @@ from services.auth.models import User
 
 from .models import (
     CurriculumStandard,
+    EvaluationCriteria,
+    EvaluationScore,
+    EvaluationTemplate,
     LessonPlan,
     StudentSubjectEnrollment,
     Subject,
@@ -23,12 +26,16 @@ from .models import (
     Syllabus,
     SyllabusTopic,
     TeacherAssignment,
+    TeacherEvaluation,
     TeacherProfile,
     TeacherWorkloadConfig,
     TeacherWorkloadSnapshot,
 )
 from .serializers import (
     CurriculumStandardSerializer,
+    EvaluationCommentSerializer,
+    EvaluationCriteriaSerializer,
+    EvaluationTemplateSerializer,
     LessonPlanSerializer,
     StudentSubjectEnrollmentSerializer,
     SubjectSerializer,
@@ -36,6 +43,7 @@ from .serializers import (
     SyllabusSerializer,
     SyllabusTopicSerializer,
     TeacherAssignmentSerializer,
+    TeacherEvaluationSerializer,
     TeacherProfileSerializer,
     TeacherWorkloadConfigSerializer,
     TeacherWorkloadSnapshotSerializer,
@@ -1045,3 +1053,252 @@ class TeacherWorkloadViewSet(viewsets.GenericViewSet):
             qs = qs.filter(academic_year_id=academic_year_id)
         serializer = TeacherWorkloadSnapshotSerializer(qs[:20], many=True)
         return Response(serializer.data)
+
+
+class EvaluationCriteriaViewSet(viewsets.ModelViewSet):
+    """CRUD for evaluation criteria (admin only)."""
+
+    serializer_class = EvaluationCriteriaSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["category", "is_active"]
+    search_fields = ["name", "description"]
+    ordering_fields = ["order", "category", "name"]
+    ordering = ["order"]
+
+    def get_queryset(self):
+        return EvaluationCriteria.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class EvaluationTemplateViewSet(viewsets.ModelViewSet):
+    """CRUD for evaluation templates (admin only)."""
+
+    serializer_class = EvaluationTemplateSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["eval_type", "is_active"]
+    search_fields = ["name", "description"]
+
+    def get_queryset(self):
+        return EvaluationTemplate.objects.filter(school=self.request.user.school).prefetch_related("criteria")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class TeacherEvaluationViewSet(viewsets.ModelViewSet):
+    """CRUD for teacher evaluations with workflow management.
+
+    Supports: draft → self_review → peer_review → admin_review → completed
+    Teachers see their own evaluations; admins see all.
+    """
+
+    serializer_class = TeacherEvaluationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["teacher", "academic_year", "status", "template"]
+    search_fields = ["title", "description", "teacher__first_name", "teacher__last_name"]
+    ordering_fields = ["created_at", "overall_score", "review_date"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            TeacherEvaluation.objects.filter(teacher__school=user.school)
+            .select_related("teacher", "template", "academic_year", "created_by", "reviewed_by")
+            .prefetch_related("scores__criterion", "comments_list__author")
+        )
+        if user.role == "teacher":
+            qs = qs.filter(teacher=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["submit_scores", "complete", "comment"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="submit-scores")
+    def submit_scores(self, request, pk=None):
+        """Submit criterion scores for an evaluation.
+
+        Request body:
+        {
+            "scores": [
+                {"criterion_id": "...", "score": 4.5, "evidence": "...", "comments": "..."},
+            ]
+        }
+        """
+        evaluation = self.get_object()
+        scores_data = request.data.get("scores", [])
+
+        if not scores_data:
+            return Response(
+                {"error": "scores list is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if evaluation.status not in [
+            TeacherEvaluation.Status.DRAFT,
+            TeacherEvaluation.Status.SELF_REVIEW,
+            TeacherEvaluation.Status.PEER_REVIEW,
+            TeacherEvaluation.Status.ADMIN_REVIEW,
+        ]:
+            return Response(
+                {"detail": "Cannot submit scores for a completed/archived evaluation."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            for item in scores_data:
+                criterion_id = item.get("criterion_id")
+                score_val = item.get("score")
+                if not criterion_id or score_val is None:
+                    continue
+                EvaluationScore.objects.update_or_create(
+                    evaluation=evaluation,
+                    criterion_id=criterion_id,
+                    defaults={
+                        "score": score_val,
+                        "evidence": item.get("evidence", ""),
+                        "comments": item.get("comments", ""),
+                        "scored_by": request.user,
+                    },
+                )
+
+        # Recalculate overall score
+        self._recalculate_scores(evaluation)
+        return Response(TeacherEvaluationSerializer(evaluation).data)
+
+    def _recalculate_scores(self, evaluation):
+        """Recalculate weighted overall score from individual scores."""
+        scores = evaluation.scores.select_related("criterion").all()
+        if not scores:
+            return
+
+        total_weighted = sum(float(s.weighted_score or 0) for s in scores)
+        max_weighted = sum(float(s.criterion.max_score) * float(s.criterion.weight) for s in scores)
+
+        evaluation.overall_score = round(total_weighted, 2)
+        evaluation.max_possible_score = round(max_weighted, 2)
+        evaluation.save(update_fields=["overall_score", "max_possible_score", "updated_at"])
+
+    @action(detail=True, methods=["post"], url_path="submit-self-review")
+    def submit_self_review(self, request, pk=None):
+        """Teacher submits their self-review comments."""
+        evaluation = self.get_object()
+        if evaluation.teacher != request.user:
+            return Response(
+                {"detail": "Only the teacher being evaluated can submit self-review."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if evaluation.status != TeacherEvaluation.Status.SELF_REVIEW:
+            return Response(
+                {"detail": "Evaluation is not in self_review status."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        evaluation.teacher_comments = request.data.get("teacher_comments", "")
+        evaluation.status = TeacherEvaluation.Status.PEER_REVIEW
+        evaluation.save(update_fields=["teacher_comments", "status", "updated_at"])
+        return Response(TeacherEvaluationSerializer(evaluation).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        """Admin marks evaluation as completed."""
+        if request.user.role not in ["school_admin", "super_admin"]:
+            return Response(
+                {"detail": "Only admins can complete evaluations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        evaluation = self.get_object()
+        if evaluation.status != TeacherEvaluation.Status.ADMIN_REVIEW:
+            return Response(
+                {"detail": "Evaluation must be in admin_review status."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        evaluation.status = TeacherEvaluation.Status.COMPLETED
+        evaluation.reviewed_by = request.user
+        from django.utils import timezone
+
+        evaluation.review_date = timezone.now().date()
+        evaluation.strength = request.data.get("strength", evaluation.strength)
+        evaluation.areas_for_growth = request.data.get("areas_for_growth", evaluation.areas_for_growth)
+        evaluation.action_plan = request.data.get("action_plan", evaluation.action_plan)
+        evaluation.evaluator_notes = request.data.get("evaluator_notes", evaluation.evaluator_notes)
+        evaluation.save(
+            update_fields=[
+                "status",
+                "reviewed_by",
+                "review_date",
+                "strength",
+                "areas_for_growth",
+                "action_plan",
+                "evaluator_notes",
+                "updated_at",
+            ]
+        )
+        return Response(TeacherEvaluationSerializer(evaluation).data)
+
+    @action(detail=True, methods=["post"], url_path="advance-status")
+    def advance_status(self, request, pk=None):
+        """Advance evaluation to the next status in the workflow."""
+        evaluation = self.get_object()
+        transitions = {
+            TeacherEvaluation.Status.DRAFT: TeacherEvaluation.Status.SELF_REVIEW,
+            TeacherEvaluation.Status.SELF_REVIEW: TeacherEvaluation.Status.PEER_REVIEW,
+            TeacherEvaluation.Status.PEER_REVIEW: TeacherEvaluation.Status.ADMIN_REVIEW,
+        }
+        next_status = transitions.get(evaluation.status)
+        if not next_status:
+            return Response(
+                {"detail": f"Cannot advance from {evaluation.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        evaluation.status = next_status
+        evaluation.save(update_fields=["status", "updated_at"])
+        return Response(TeacherEvaluationSerializer(evaluation).data)
+
+    @action(detail=True, methods=["get", "post"], url_path="comments")
+    def comments(self, request, pk=None):
+        """GET: List comments. POST: Add a comment."""
+        evaluation = self.get_object()
+        if request.method == "GET":
+            qs = evaluation.comments_list.select_related("author").all()
+            return Response(EvaluationCommentSerializer(qs, many=True).data)
+
+        # POST — add comment
+        serializer = EvaluationCommentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(evaluation=evaluation, author=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"], url_path="my-evaluations")
+    def my_evaluations(self, request):
+        """Return evaluations for the current teacher."""
+        if request.user.role != "teacher":
+            return Response(
+                {"detail": "This endpoint is for teachers only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(teacher=request.user)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(TeacherEvaluationSerializer(page, many=True).data)
+        return Response(TeacherEvaluationSerializer(qs, many=True).data)

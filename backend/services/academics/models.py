@@ -1,6 +1,6 @@
 """
 Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
-curriculum standards mapping, syllabus management, teacher workload.
+curriculum standards mapping, syllabus management, teacher workload, teacher evaluation.
 """
 
 import uuid
@@ -415,3 +415,216 @@ class TeacherWorkloadSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.teacher.full_name} — Week of {self.week_start_date} ({self.total_periods} periods)"
+
+
+class EvaluationCriteria(models.Model):
+    """Defines evaluation criteria for teacher assessments.
+
+    Schools create criteria like "Lesson Planning", "Classroom Management",
+    "Student Engagement", etc. Each criterion has a weight and scale.
+    """
+
+    class Category(models.TextChoices):
+        PLANNING = "planning", "Lesson Planning & Preparation"
+        INSTRUCTION = "instruction", "Instructional Delivery"
+        CLASSROOM = "classroom", "Classroom Management"
+        ASSESSMENT = "assessment", "Assessment & Feedback"
+        PROFESSIONAL = "professional", "Professional Development"
+        COMMUNICATION = "communication", "Communication & Collaboration"
+        STUDENT = "student", "Student Support & Engagement"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="evaluation_criteria")
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    max_score = models.PositiveSmallIntegerField(default=5, help_text="Maximum score (e.g., 5 for a 1-5 scale)")
+    weight = models.DecimalField(
+        max_digits=5, decimal_places=2, default=1.0, help_text="Weight in final score calculation"
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0, help_text="Display order")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "evaluation_criteria"
+        unique_together = [("school", "name")]
+        ordering = ["order", "category", "name"]
+        indexes = [
+            models.Index(fields=["school", "category"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+
+class EvaluationTemplate(models.Model):
+    """Reusable evaluation template that groups criteria.
+
+    Defines a standard evaluation form with criteria and scoring guidance.
+    """
+
+    class EvalType(models.TextChoices):
+        OBSERVATION = "observation", "Classroom Observation"
+        SELF = "self", "Self-Evaluation"
+        PEER = "peer", "Peer Evaluation"
+        STUDENT_FEEDBACK = "student_feedback", "Student Feedback"
+        PERFORMANCE = "performance", "Performance Review"
+        PROBATIONARY = "probationary", "Probationary Review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="evaluation_templates")
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    eval_type = models.CharField(max_length=20, choices=EvalType.choices)
+    criteria = models.ManyToManyField(EvaluationCriteria, related_name="templates", blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "evaluation_templates"
+        unique_together = [("school", "name")]
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_eval_type_display()})"
+
+
+class TeacherEvaluation(models.Model):
+    """An evaluation instance for a teacher.
+
+    Links to a template, tracks scores per criterion, and calculates
+    an overall weighted score. Supports multi-phase workflow:
+    draft → self_review → peer_review → admin_review → completed.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SELF_REVIEW = "self_review", "Awaiting Self-Review"
+        PEER_REVIEW = "peer_review", "Awaiting Peer Review"
+        ADMIN_REVIEW = "admin_review", "Awaiting Admin Review"
+        COMPLETED = "completed", "Completed"
+        ARCHIVED = "archived", "Archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="evaluations")
+    template = models.ForeignKey(EvaluationTemplate, on_delete=models.SET_NULL, null=True, related_name="evaluations")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="evaluations")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    evaluation_period = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text='e.g. "Fall 2026", "Q1 2026-27"',
+    )
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    overall_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Calculated weighted overall score"
+    )
+    max_possible_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Maximum possible weighted score"
+    )
+    strength = models.TextField(blank=True, help_text="Identified strengths")
+    areas_for_growth = models.TextField(blank=True, help_text="Areas for improvement")
+    action_plan = models.TextField(blank=True, help_text="Development action plan")
+    evaluator_notes = models.TextField(blank=True)
+    teacher_comments = models.TextField(blank=True, help_text="Teacher's self-reflection")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_evaluations")
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_evaluations"
+    )
+    review_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teacher_evaluations"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["teacher", "academic_year"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["teacher", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.teacher.full_name} ({self.get_status_display()})"
+
+    @property
+    def score_percentage(self):
+        if not self.overall_score or not self.max_possible_score or self.max_possible_score == 0:
+            return None
+        return round((float(self.overall_score) / float(self.max_possible_score)) * 100, 1)
+
+    @property
+    def score_display(self):
+        """Human-readable score like "4.2 / 5.0" or "85%"."""
+        pct = self.score_percentage
+        if pct is not None:
+            return f"{pct}%"
+        if self.overall_score is not None:
+            return f"{self.overall_score} / {self.max_possible_score or '?'}"
+        return "Not scored"
+
+
+class EvaluationScore(models.Model):
+    """Individual criterion score within an evaluation."""
+
+    evaluation = models.ForeignKey(TeacherEvaluation, on_delete=models.CASCADE, related_name="scores")
+    criterion = models.ForeignKey(EvaluationCriteria, on_delete=models.CASCADE, related_name="scores")
+    score = models.DecimalField(max_digits=4, decimal_places=2, help_text="Score for this criterion")
+    weighted_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, help_text="Score multiplied by criterion weight"
+    )
+    evidence = models.TextField(blank=True, help_text="Supporting evidence or examples")
+    comments = models.TextField(blank=True)
+    scored_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="evaluation_scores")
+    scored_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "evaluation_scores"
+        unique_together = [("evaluation", "criterion")]
+        ordering = ["criterion__order", "criterion__name"]
+        indexes = [
+            models.Index(fields=["evaluation", "criterion"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate weighted score
+        self.weighted_score = float(self.score) * float(self.criterion.weight)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.criterion.name}: {self.score} / {self.criterion.max_score}"
+
+
+class EvaluationComment(models.Model):
+    """Comment thread on an evaluation."""
+
+    class CommentType(models.TextChoices):
+        GENERAL = "general", "General Comment"
+        STRENGTH = "strength", "Strength"
+        GROWTH = "growth", "Area for Growth"
+        ACTION = "action", "Action Item"
+        TEACHER_RESPONSE = "teacher_response", "Teacher Response"
+
+    evaluation = models.ForeignKey(TeacherEvaluation, on_delete=models.CASCADE, related_name="comments_list")
+    comment_type = models.CharField(max_length=20, choices=CommentType.choices, default=CommentType.GENERAL)
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="evaluation_comments")
+    content = models.TextField()
+    is_private = models.BooleanField(default=False, help_text="Private comments are only visible to admins")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "evaluation_comments"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["evaluation", "comment_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_comment_type_display()} by {self.author} on {self.evaluation.title}"

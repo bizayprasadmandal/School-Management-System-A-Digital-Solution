@@ -6,6 +6,10 @@ from rest_framework import serializers
 
 from .models import (
     CurriculumStandard,
+    EvaluationComment,
+    EvaluationCriteria,
+    EvaluationScore,
+    EvaluationTemplate,
     LessonPlan,
     StudentSubjectEnrollment,
     Subject,
@@ -13,6 +17,7 @@ from .models import (
     Syllabus,
     SyllabusTopic,
     TeacherAssignment,
+    TeacherEvaluation,
     TeacherProfile,
     TeacherWorkloadConfig,
     TeacherWorkloadSnapshot,
@@ -407,3 +412,165 @@ class TeacherWorkloadSummarySerializer(serializers.Serializer):
     utilization_pct = serializers.DecimalField(max_digits=5, decimal_places=2)
     max_periods = serializers.IntegerField()
     status = serializers.CharField()
+
+
+class EvaluationCriteriaSerializer(serializers.ModelSerializer):
+    """Serializer for evaluation criteria."""
+
+    class Meta:
+        model = EvaluationCriteria
+        fields = [
+            "id",
+            "school",
+            "name",
+            "description",
+            "category",
+            "max_score",
+            "weight",
+            "is_active",
+            "order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
+
+
+class EvaluationTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for evaluation templates."""
+
+    criteria = EvaluationCriteriaSerializer(many=True, read_only=True)
+    criteria_ids = serializers.PrimaryKeyRelatedField(
+        queryset=EvaluationCriteria.objects.all(),
+        many=True,
+        write_only=True,
+        source="criteria",
+        required=False,
+    )
+
+    class Meta:
+        model = EvaluationTemplate
+        fields = [
+            "id",
+            "school",
+            "name",
+            "description",
+            "eval_type",
+            "criteria",
+            "criteria_ids",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
+
+
+class EvaluationScoreSerializer(serializers.ModelSerializer):
+    """Serializer for individual criterion scores."""
+
+    criterion_name = serializers.CharField(source="criterion.name", read_only=True)
+    criterion_max_score = serializers.IntegerField(source="criterion.max_score", read_only=True)
+    criterion_weight = serializers.DecimalField(
+        source="criterion.weight", max_digits=5, decimal_places=2, read_only=True
+    )
+    scored_by_name = serializers.CharField(source="scored_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = EvaluationScore
+        fields = [
+            "id",
+            "evaluation",
+            "criterion",
+            "criterion_name",
+            "criterion_max_score",
+            "criterion_weight",
+            "score",
+            "weighted_score",
+            "evidence",
+            "comments",
+            "scored_by",
+            "scored_by_name",
+            "scored_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "weighted_score", "scored_at", "updated_at"]
+
+
+class EvaluationCommentSerializer(serializers.ModelSerializer):
+    """Serializer for evaluation comments."""
+
+    author_name = serializers.CharField(source="author.full_name", read_only=True)
+
+    class Meta:
+        model = EvaluationComment
+        fields = [
+            "id",
+            "evaluation",
+            "comment_type",
+            "author",
+            "author_name",
+            "content",
+            "is_private",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "author", "created_at", "updated_at"]
+
+
+class TeacherEvaluationSerializer(serializers.ModelSerializer):
+    """Serializer for teacher evaluations with nested scores and comments."""
+
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+    teacher_email = serializers.CharField(source="teacher.email", read_only=True)
+    template_name = serializers.CharField(source="template.name", read_only=True, default=None)
+    template_eval_type = serializers.CharField(source="template.eval_type", read_only=True, default=None)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+    scores = EvaluationScoreSerializer(many=True, read_only=True)
+    comments_list = EvaluationCommentSerializer(many=True, read_only=True)
+    score_percentage = serializers.FloatField(read_only=True)
+    score_display = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = TeacherEvaluation
+        fields = [
+            "id",
+            "teacher",
+            "teacher_name",
+            "teacher_email",
+            "template",
+            "template_name",
+            "template_eval_type",
+            "academic_year",
+            "academic_year_name",
+            "title",
+            "description",
+            "evaluation_period",
+            "status",
+            "overall_score",
+            "max_possible_score",
+            "score_percentage",
+            "score_display",
+            "strength",
+            "areas_for_growth",
+            "action_plan",
+            "evaluator_notes",
+            "teacher_comments",
+            "created_by",
+            "created_by_name",
+            "reviewed_by",
+            "reviewed_by_name",
+            "review_date",
+            "scores",
+            "comments_list",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "overall_score",
+            "max_possible_score",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]

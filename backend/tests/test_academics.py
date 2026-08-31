@@ -747,3 +747,199 @@ class TestTeacherWorkload:
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.data["snapshots_created"] == 0
+
+
+# ─── Evaluation Criteria Tests ──────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestEvaluationCriteria:
+
+    def test_list_criteria(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/evaluation-criteria/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_criteria(self, admin_auth):
+        response = admin_auth.post(
+            "/api/v1/academics/evaluation-criteria/",
+            {
+                "name": "Lesson Planning",
+                "description": "Ability to plan effective lessons",
+                "category": "planning",
+                "max_score": 5,
+                "weight": "1.5",
+                "order": 1,
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+
+
+# ─── Evaluation Template Tests ─────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestEvaluationTemplate:
+
+    def test_list_templates(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/evaluation-templates/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_template(self, admin_auth, school):
+        from tests.factories import EvaluationCriteriaFactory
+
+        criteria = EvaluationCriteriaFactory(school=school)
+        response = admin_auth.post(
+            "/api/v1/academics/evaluation-templates/",
+            {
+                "name": "Classroom Observation",
+                "description": "Standard classroom observation form",
+                "eval_type": "observation",
+                "criteria_ids": [criteria.id],
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+
+
+# ─── Teacher Evaluation Tests ──────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestTeacherEvaluation:
+
+    def test_list_evaluations(self, admin_auth):
+        response = admin_auth.get("/api/v1/academics/evaluations/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_create_evaluation(self, admin_auth, teacher_user, academic_year, school):
+        from tests.factories import EvaluationTemplateFactory
+
+        template = EvaluationTemplateFactory(school=school)
+        response = admin_auth.post(
+            "/api/v1/academics/evaluations/",
+            {
+                "teacher": str(teacher_user.id),
+                "template": template.id,
+                "academic_year": academic_year.id,
+                "title": "Fall 2026 Evaluation",
+                "evaluation_period": "Fall 2026",
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+        assert response.data["status"] == "draft"
+
+    def test_advance_status(self, admin_auth, teacher_user, academic_year, school):
+        from services.academics.models import TeacherEvaluation
+        from tests.factories import EvaluationTemplateFactory
+
+        template = EvaluationTemplateFactory(school=school)
+        evaluation = TeacherEvaluation.objects.create(
+            teacher=teacher_user,
+            template=template,
+            academic_year=academic_year,
+            title="Test Evaluation",
+            status="draft",
+            created_by=admin_auth.handler._view.request.user,
+        )
+        response = admin_auth.post(f"/api/v1/academics/evaluations/{evaluation.id}/advance-status/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "self_review"
+
+    def test_submit_scores(self, admin_auth, teacher_user, academic_year, school):
+        from services.academics.models import TeacherEvaluation
+        from tests.factories import EvaluationCriteriaFactory, EvaluationTemplateFactory
+
+        criteria = EvaluationCriteriaFactory(school=school)
+        template = EvaluationTemplateFactory(school=school)
+        evaluation = TeacherEvaluation.objects.create(
+            teacher=teacher_user,
+            template=template,
+            academic_year=academic_year,
+            title="Test Evaluation",
+            status="draft",
+            created_by=admin_auth.handler._view.request.user,
+        )
+        response = admin_auth.post(
+            f"/api/v1/academics/evaluations/{evaluation.id}/submit-scores/",
+            {
+                "scores": [
+                    {
+                        "criterion_id": str(criteria.id),
+                        "score": 4.5,
+                        "evidence": "Great teaching",
+                        "comments": "Excellent",
+                    }
+                ]
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["overall_score"] is not None
+
+    def test_add_comment(self, admin_auth, teacher_user, academic_year, school):
+        from services.academics.models import TeacherEvaluation
+        from tests.factories import EvaluationTemplateFactory
+
+        template = EvaluationTemplateFactory(school=school)
+        evaluation = TeacherEvaluation.objects.create(
+            teacher=teacher_user,
+            template=template,
+            academic_year=academic_year,
+            title="Test Evaluation",
+            status="draft",
+            created_by=admin_auth.handler._view.request.user,
+        )
+        response = admin_auth.post(
+            f"/api/v1/academics/evaluations/{evaluation.id}/comments/",
+            {
+                "comment_type": "general",
+                "content": "Keep up the good work!",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["content"] == "Keep up the good work!"
+
+    def test_my_evaluations_endpoint(self, teacher_auth, teacher_user, academic_year, school):
+        from services.academics.models import TeacherEvaluation
+        from tests.factories import EvaluationTemplateFactory
+
+        template = EvaluationTemplateFactory(school=school)
+        TeacherEvaluation.objects.create(
+            teacher=teacher_user,
+            template=template,
+            academic_year=academic_year,
+            title="My Evaluation",
+            status="draft",
+            created_by=teacher_user,
+        )
+        response = teacher_auth.get("/api/v1/academics/evaluations/my-evaluations/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_complete_evaluation(self, admin_auth, teacher_user, academic_year, school):
+        from services.academics.models import TeacherEvaluation
+        from tests.factories import EvaluationTemplateFactory
+
+        template = EvaluationTemplateFactory(school=school)
+        evaluation = TeacherEvaluation.objects.create(
+            teacher=teacher_user,
+            template=template,
+            academic_year=academic_year,
+            title="Test Evaluation",
+            status="admin_review",
+            created_by=admin_auth.handler._view.request.user,
+        )
+        response = admin_auth.post(
+            f"/api/v1/academics/evaluations/{evaluation.id}/complete/",
+            {
+                "strength": "Excellent classroom management",
+                "areas_for_growth": "Technology integration",
+                "action_plan": "Attend PD workshop",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "completed"
+        assert response.data["review_date"] is not None

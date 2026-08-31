@@ -447,6 +447,68 @@ class TeacherWorkloadSnapshotFactory(factory.django.DjangoModelFactory):
     is_underloaded = False
 
 
+class EvaluationCriteriaFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.EvaluationCriteria"
+
+    school = SubFactory(SchoolFactory)
+    name = factory.Sequence(lambda n: f"Criterion {n}")
+    description = factory.Faker("sentence")
+    category = "instruction"
+    max_score = 5
+    weight = Decimal("1.0")
+    is_active = True
+    order = factory.Sequence(lambda n: n + 1)
+
+
+class EvaluationTemplateFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.EvaluationTemplate"
+
+    school = SubFactory(SchoolFactory)
+    name = factory.Sequence(lambda n: f"Template {n}")
+    description = factory.Faker("paragraph")
+    eval_type = "observation"
+    is_active = True
+
+
+class TeacherEvaluationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.TeacherEvaluation"
+
+    teacher = SubFactory(TeacherUserFactory)
+    template = SubFactory(EvaluationTemplateFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    title = factory.Sequence(lambda n: f"Evaluation {n}")
+    description = factory.Faker("paragraph")
+    evaluation_period = "Fall 2026"
+    status = "draft"
+    created_by = SubFactory(AdminUserFactory)
+
+
+class EvaluationScoreFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.EvaluationScore"
+
+    evaluation = SubFactory(TeacherEvaluationFactory)
+    criterion = SubFactory(EvaluationCriteriaFactory)
+    score = Decimal("4.0")
+    evidence = factory.Faker("sentence")
+    comments = factory.Faker("sentence")
+    scored_by = SubFactory(AdminUserFactory)
+
+
+class EvaluationCommentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.EvaluationComment"
+
+    evaluation = SubFactory(TeacherEvaluationFactory)
+    comment_type = "general"
+    author = SubFactory(AdminUserFactory)
+    content = factory.Faker("paragraph")
+    is_private = False
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"

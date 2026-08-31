@@ -39,6 +39,21 @@ router.register(
     views.TeacherWorkloadViewSet,
     basename="workload",
 )
+router.register(
+    "evaluation-criteria",
+    views.EvaluationCriteriaViewSet,
+    basename="evaluation-criteria",
+)
+router.register(
+    "evaluation-templates",
+    views.EvaluationTemplateViewSet,
+    basename="evaluation-template",
+)
+router.register(
+    "evaluations",
+    views.TeacherEvaluationViewSet,
+    basename="evaluation",
+)
 
 # Nested router for syllabus topics
 syllabus_router = DefaultRouter()
