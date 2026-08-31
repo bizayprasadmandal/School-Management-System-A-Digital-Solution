@@ -57,5 +57,38 @@ router.register("sel-checkins", views.SELCheckInViewSet, basename="sel-checkin")
 router.register("sel-responses", views.SELCheckInResponseViewSet, basename="sel-response")
 # Staff Dashboard
 router.register("staff-dashboards", views.BehaviorStaffDashboardViewSet, basename="behavior-staff-dashboard")
+# Gamification
+router.register("badges", views.BehaviorBadgeViewSet, basename="behavior-badge")
+router.register("badge-awards", views.BehaviorBadgeAwardViewSet, basename="behavior-badge-award")
+# SMS Alerts
+router.register("sms-alerts", views.BehaviorSMSAlertViewSet, basename="behavior-sms-alert")
+# Auto-Escalation
+router.register("auto-escalations", views.BehaviorAutoEscalationViewSet, basename="behavior-auto-escalation")
+router.register("escalation-logs", views.BehaviorEscalationLogViewSet, basename="behavior-escalation-log")
+# Attendance & Academic
+router.register("attendance-links", views.BehaviorAttendanceLinkViewSet, basename="behavior-attendance-link")
+router.register(
+    "academic-correlations", views.BehaviorAcademicCorrelationViewSet, basename="behavior-academic-correlation"
+)
+# Data Visualization
+router.register("data-visualizations", views.BehaviorDataVisualizationViewSet, basename="behavior-data-visualization")
+# Predictive Analytics
+router.register(
+    "predictive-analytics", views.BehaviorPredictiveAnalyticsViewSet, basename="behavior-predictive-analytics"
+)
+# SEL Surveys
+router.register("sel-surveys", views.SELSurveyViewSet, basename="sel-survey")
+router.register("sel-survey-responses", views.SELSurveyResponseViewSet, basename="sel-survey-response")
+# Training
+router.register("training-materials", views.BehaviorTrainingMaterialViewSet, basename="behavior-training-material")
+router.register(
+    "training-completions", views.BehaviorTrainingCompletionViewSet, basename="behavior-training-completion"
+)
+# Policies
+router.register("policy-templates", views.BehaviorPolicyTemplateViewSet, basename="behavior-policy-template")
+# Streak Challenges
+router.register("streak-challenges", views.BehaviorStreakChallengeViewSet, basename="behavior-streak-challenge")
+# Parent Portal
+router.register("parent-portals", views.BehaviorParentPortalViewSet, basename="behavior-parent-portal")
 
 urlpatterns = [path("", include(router.urls))]

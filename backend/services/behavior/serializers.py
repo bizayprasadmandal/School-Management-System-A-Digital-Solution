@@ -3,12 +3,19 @@
 from rest_framework import serializers
 
 from .models import (
+    BehaviorAcademicCorrelation,
     BehaviorAlert,
     BehaviorAnalytics,
     BehaviorAppeal,
+    BehaviorAttendanceLink,
+    BehaviorAutoEscalation,
+    BehaviorBadge,
+    BehaviorBadgeAward,
     BehaviorCategory,
     BehaviorConsequence,
     BehaviorContract,
+    BehaviorDataVisualization,
+    BehaviorEscalationLog,
     BehaviorEvidence,
     BehaviorGoal,
     BehaviorHouse,
@@ -17,15 +24,22 @@ from .models import (
     BehaviorLeaderboard,
     BehaviorMerit,
     BehaviorMTSS,
+    BehaviorParentPortal,
     BehaviorPoint,
     BehaviorPointBalance,
     BehaviorPointsRedemption,
+    BehaviorPolicyTemplate,
+    BehaviorPredictiveAnalytics,
     BehaviorReportCard,
     BehaviorReward,
     BehaviorRubric,
     BehaviorRubricLevel,
+    BehaviorSMSAlert,
     BehaviorStaffDashboard,
     BehaviorStreak,
+    BehaviorStreakChallenge,
+    BehaviorTrainingCompletion,
+    BehaviorTrainingMaterial,
     DetentionTracking,
     DigitalHallPass,
     Incident,
@@ -33,6 +47,8 @@ from .models import (
     Referral,
     SELCheckIn,
     SELCheckInResponse,
+    SELSurvey,
+    SELSurveyResponse,
     SuspensionTracking,
     TardyTracking,
     WitnessStatement,
@@ -1061,3 +1077,461 @@ class BehaviorStaffDashboardSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "last_refreshed", "created_at"]
+
+
+class BehaviorBadgeSerializer(serializers.ModelSerializer):
+    badge_type_display = serializers.CharField(source="get_badge_type_display", read_only=True)
+
+    class Meta:
+        model = BehaviorBadge
+        fields = [
+            "id",
+            "name",
+            "description",
+            "badge_type",
+            "badge_type_display",
+            "criteria_description",
+            "points_required",
+            "streak_required",
+            "incidents_allowed",
+            "icon_url",
+            "color",
+            "total_earned",
+            "is_active",
+            "is_hidden",
+            "points_value",
+            "created_at",
+        ]
+        read_only_fields = ["id", "total_earned", "created_at"]
+
+
+class BehaviorBadgeAwardSerializer(serializers.ModelSerializer):
+    badge_name = serializers.CharField(source="badge.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    awarded_by_name = serializers.CharField(source="awarded_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorBadgeAward
+        fields = [
+            "id",
+            "badge",
+            "badge_name",
+            "student",
+            "student_name",
+            "awarded_at",
+            "awarded_by",
+            "awarded_by_name",
+            "reason",
+            "notified",
+            "notified_at",
+            "is_public",
+            "shared_to_feed",
+        ]
+        read_only_fields = ["id", "awarded_at"]
+
+
+class BehaviorSMSAlertSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    alert_type_display = serializers.CharField(source="get_alert_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = BehaviorSMSAlert
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "incident",
+            "alert_type",
+            "alert_type_display",
+            "parent_phone",
+            "parent_name",
+            "message",
+            "status",
+            "status_display",
+            "sent_at",
+            "delivered_at",
+            "error_message",
+            "sent_by",
+            "created_at",
+        ]
+        read_only_fields = ["id", "sent_at", "delivered_at", "created_at"]
+
+
+class BehaviorAutoEscalationSerializer(serializers.ModelSerializer):
+    trigger_type_display = serializers.CharField(source="get_trigger_type_display", read_only=True)
+    escalation_action_display = serializers.CharField(source="get_escalation_action_display", read_only=True)
+
+    class Meta:
+        model = BehaviorAutoEscalation
+        fields = [
+            "id",
+            "name",
+            "description",
+            "trigger_type",
+            "trigger_type_display",
+            "trigger_value",
+            "trigger_window_days",
+            "incident_type_filter",
+            "severity_filter",
+            "escalation_action",
+            "escalation_action_display",
+            "action_description",
+            "is_active",
+            "priority",
+            "times_triggered",
+            "last_triggered_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "times_triggered", "last_triggered_at", "created_at"]
+
+
+class BehaviorEscalationLogSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    escalation_rule_name = serializers.CharField(source="escalation_rule.name", read_only=True)
+    action_taken_by_name = serializers.CharField(source="action_taken_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorEscalationLog
+        fields = [
+            "id",
+            "escalation_rule",
+            "escalation_rule_name",
+            "student",
+            "student_name",
+            "triggered_at",
+            "trigger_data",
+            "action_taken",
+            "action_taken_by",
+            "action_taken_by_name",
+            "resolved",
+            "resolved_at",
+            "notes",
+        ]
+        read_only_fields = ["id", "triggered_at"]
+
+
+class BehaviorAttendanceLinkSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    link_type_display = serializers.CharField(source="get_link_type_display", read_only=True)
+
+    class Meta:
+        model = BehaviorAttendanceLink
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "link_type",
+            "link_type_display",
+            "attendance_record_id",
+            "incident",
+            "behavior_point",
+            "attendance_date",
+            "points_adjusted",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class BehaviorAcademicCorrelationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    correlation_type_display = serializers.CharField(source="get_correlation_type_display", read_only=True)
+
+    class Meta:
+        model = BehaviorAcademicCorrelation
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "correlation_type",
+            "correlation_type_display",
+            "start_date",
+            "end_date",
+            "behavior_score",
+            "total_incidents",
+            "total_merits",
+            "total_points",
+            "gpa",
+            "gpa_change",
+            "grade_average",
+            "assignment_completion_rate",
+            "correlation_strength",
+            "notes",
+            "generated_at",
+        ]
+        read_only_fields = ["id", "generated_at"]
+
+
+class BehaviorDataVisualizationSerializer(serializers.ModelSerializer):
+    chart_type_display = serializers.CharField(source="get_chart_type_display", read_only=True)
+
+    class Meta:
+        model = BehaviorDataVisualization
+        fields = [
+            "id",
+            "chart_type",
+            "chart_type_display",
+            "title",
+            "chart_data",
+            "labels",
+            "datasets",
+            "date_range_start",
+            "date_range_end",
+            "grade_filter",
+            "teacher_filter",
+            "is_public",
+            "refresh_interval_hours",
+            "last_refreshed",
+            "created_at",
+        ]
+        read_only_fields = ["id", "last_refreshed", "created_at"]
+
+
+class BehaviorPredictiveAnalyticsSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    prediction_type_display = serializers.CharField(source="get_prediction_type_display", read_only=True)
+    risk_level_display = serializers.CharField(source="get_risk_level_display", read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorPredictiveAnalytics
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "prediction_type",
+            "prediction_type_display",
+            "risk_level",
+            "risk_level_display",
+            "risk_score",
+            "risk_factors",
+            "protective_factors",
+            "predicted_outcome",
+            "confidence_level",
+            "recommended_interventions",
+            "recommended_actions",
+            "prediction_date",
+            "valid_until",
+            "reviewed",
+            "reviewed_by",
+            "reviewed_by_name",
+            "reviewed_at",
+            "action_taken",
+            "created_at",
+        ]
+        read_only_fields = ["id", "prediction_date", "created_at"]
+
+
+class SELSurveySerializer(serializers.ModelSerializer):
+    survey_type_display = serializers.CharField(source="get_survey_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = SELSurvey
+        fields = [
+            "id",
+            "title",
+            "description",
+            "survey_type",
+            "survey_type_display",
+            "status",
+            "status_display",
+            "questions",
+            "target_grades",
+            "start_date",
+            "end_date",
+            "total_responses",
+            "average_scores",
+            "is_anonymous",
+            "allow_multiple_submissions",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "total_responses", "created_at", "updated_at"]
+
+
+class SELSurveyResponseSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    survey_title = serializers.CharField(source="survey.title", read_only=True)
+
+    class Meta:
+        model = SELSurveyResponse
+        fields = [
+            "id",
+            "survey",
+            "survey_title",
+            "student",
+            "student_name",
+            "responses",
+            "overall_score",
+            "needs_follow_up",
+            "follow_up_notes",
+            "follow_up_completed",
+            "submitted_at",
+        ]
+        read_only_fields = ["id", "submitted_at"]
+
+
+class BehaviorTrainingMaterialSerializer(serializers.ModelSerializer):
+    material_type_display = serializers.CharField(source="get_material_type_display", read_only=True)
+    audience_display = serializers.CharField(source="get_audience_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorTrainingMaterial
+        fields = [
+            "id",
+            "title",
+            "description",
+            "material_type",
+            "material_type_display",
+            "audience",
+            "audience_display",
+            "file_url",
+            "external_url",
+            "content_text",
+            "duration_minutes",
+            "tags",
+            "views_count",
+            "completions_count",
+            "is_required",
+            "is_active",
+            "due_date",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "views_count", "completions_count", "created_at", "updated_at"]
+
+
+class BehaviorTrainingCompletionSerializer(serializers.ModelSerializer):
+    staff_name = serializers.CharField(source="staff.full_name", read_only=True)
+    material_title = serializers.CharField(source="material.title", read_only=True)
+
+    class Meta:
+        model = BehaviorTrainingCompletion
+        fields = [
+            "id",
+            "material",
+            "material_title",
+            "staff",
+            "staff_name",
+            "status",
+            "started_at",
+            "completed_at",
+            "score",
+            "notes",
+        ]
+        read_only_fields = ["id"]
+
+
+class BehaviorPolicyTemplateSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source="get_category_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorPolicyTemplate
+        fields = [
+            "id",
+            "title",
+            "description",
+            "category",
+            "category_display",
+            "content",
+            "version",
+            "effective_date",
+            "review_date",
+            "downloads_count",
+            "is_template",
+            "is_active",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "downloads_count", "created_at", "updated_at"]
+
+
+class BehaviorStreakChallengeSerializer(serializers.ModelSerializer):
+    challenge_type_display = serializers.CharField(source="get_challenge_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = BehaviorStreakChallenge
+        fields = [
+            "id",
+            "title",
+            "description",
+            "challenge_type",
+            "challenge_type_display",
+            "status",
+            "status_display",
+            "target_streak",
+            "streak_unit",
+            "start_date",
+            "end_date",
+            "completion_reward_points",
+            "completion_reward_badge",
+            "top_reward_points",
+            "total_participants",
+            "total_completions",
+            "leaderboard",
+            "is_class_competition",
+            "is_house_competition",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "total_participants",
+            "total_completions",
+            "leaderboard",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class BehaviorParentPortalSerializer(serializers.ModelSerializer):
+    parent_name = serializers.CharField(source="parent_user.full_name", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    access_level_display = serializers.CharField(source="get_access_level_display", read_only=True)
+
+    class Meta:
+        model = BehaviorParentPortal
+        fields = [
+            "id",
+            "school",
+            "parent_user",
+            "parent_name",
+            "student",
+            "student_name",
+            "access_level",
+            "access_level_display",
+            "show_incidents",
+            "show_points",
+            "show_consequences",
+            "show_report_cards",
+            "show_merits",
+            "show_streaks",
+            "show_goals",
+            "email_notifications",
+            "sms_notifications",
+            "push_notifications",
+            "notify_on_incident",
+            "notify_on_consequence",
+            "notify_on_positive",
+            "is_active",
+            "last_login_at",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "last_login_at", "created_at", "updated_at"]

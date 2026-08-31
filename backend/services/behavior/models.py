@@ -1658,3 +1658,654 @@ class BehaviorStaffDashboard(models.Model):
         self.pending_referrals = Referral.objects.filter(referred_to=self.staff, status="pending").count()
         self.save()
         return self
+
+
+class BehaviorBadge(models.Model):
+    """Gamification badges for student achievements."""
+
+    class BadgeType(models.TextChoices):
+        INCIDENT_FREE = "incident_free", "Incident-Free Streak"
+        POINTS_MILESTONE = "points_milestone", "Points Milestone"
+        ATTENDANCE = "attendance", "Perfect Attendance"
+        IMPROVEMENT = "improvement", "Behavior Improvement"
+        LEADERSHIP = "leadership", "Leadership"
+        SERVICE = "service", "Community Service"
+        ACADEMIC = "academic", "Academic Excellence"
+        CUSTOM = "custom", "Custom"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_badges")
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    badge_type = models.CharField(max_length=20, choices=BadgeType.choices, default=BadgeType.CUSTOM)
+    # Criteria
+    criteria_description = models.TextField(blank=True)
+    points_required = models.PositiveIntegerField(default=0)
+    streak_required = models.PositiveIntegerField(default=0)
+    incidents_allowed = models.PositiveIntegerField(default=0, help_text="Max incidents allowed to earn")
+    # Visual
+    icon_url = models.URLField(blank=True)
+    color = models.CharField(max_length=7, default="#FFD700")
+    # Stats
+    total_earned = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    is_hidden = models.BooleanField(default=False, help_text="Hidden until earned")
+    # Points value
+    points_value = models.PositiveIntegerField(default=0, help_text="Points awarded when earned")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_badges"
+        ordering = ["badge_type", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class BehaviorBadgeAward(models.Model):
+    """Records of badges awarded to students."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    badge = models.ForeignKey(BehaviorBadge, on_delete=models.CASCADE, related_name="awards")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="badge_awards")
+    awarded_at = models.DateTimeField(auto_now_add=True)
+    awarded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="awarded_behavior_badges"
+    )
+    reason = models.TextField(blank=True)
+    # Notification
+    notified = models.BooleanField(default=False)
+    notified_at = models.DateTimeField(null=True, blank=True)
+    # Sharing
+    is_public = models.BooleanField(default=True)
+    shared_to_feed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "behavior_badge_awards"
+        unique_together = [("badge", "student")]
+        ordering = ["-awarded_at"]
+
+    def __str__(self):
+        return f"{self.student} earned {self.badge}"
+
+
+class BehaviorSMSAlert(models.Model):
+    """SMS alerts for critical incidents."""
+
+    class AlertType(models.TextChoices):
+        CRITICAL_INCIDENT = "critical_incident", "Critical Incident"
+        SUSPENSION = "suspension", "Suspension"
+        VIOLENT_INCIDENT = "violent_incident", "Violent Incident"
+        SUBSTANCE = "substance", "Substance Violation"
+        BULLYING = "bullying", "Bullying"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        DELIVERED = "delivered", "Delivered"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_sms_alerts")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="sms_alerts")
+    incident = models.ForeignKey(Incident, on_delete=models.SET_NULL, null=True, blank=True, related_name="sms_alerts")
+    alert_type = models.CharField(max_length=20, choices=AlertType.choices, default=AlertType.OTHER)
+    # Recipient
+    parent_phone = models.CharField(max_length=20)
+    parent_name = models.CharField(max_length=100)
+    # Message
+    message = models.TextField()
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    # Sent by
+    sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="sent_sms_alerts")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_sms_alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"SMS to {self.parent_phone} about {self.student} ({self.get_alert_type_display()})"
+
+
+class BehaviorAutoEscalation(models.Model):
+    """Automatic escalation rules for repeat offenders."""
+
+    class EscalationTrigger(models.TextChoices):
+        INCIDENT_COUNT = "incident_count", "Incident Count"
+        POINT_THRESHOLD = "point_threshold", "Point Threshold"
+        CONSECUTIVE_DAYS = "consecutive_days", "Consecutive Days"
+        SAME_TYPE = "same_type", "Same Incident Type"
+        SEVERITY = "severity", "Severity Level"
+
+    class EscalationAction(models.TextChoices):
+        WARNING = "warning", "Warning"
+        PARENT_CONTACT = "parent_contact", "Parent Contact"
+        DETENTION = "detention", "Detention"
+        SUSPENSION = "suspension", "Suspension"
+        MEETING = "meeting", "Meeting Required"
+        INTERVENTION = "intervention", "Intervention Plan"
+        COUNSELING = "counseling", "Counseling"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_auto_escalations")
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    # Trigger conditions
+    trigger_type = models.CharField(max_length=20, choices=EscalationTrigger.choices)
+    trigger_value = models.PositiveIntegerField(help_text="Threshold value")
+    trigger_window_days = models.PositiveIntegerField(default=30, help_text="Look back period in days")
+    incident_type_filter = models.CharField(max_length=50, blank=True, help_text="Specific incident type")
+    severity_filter = models.CharField(max_length=10, blank=True, help_text="Minimum severity level")
+    # Action
+    escalation_action = models.CharField(max_length=20, choices=EscalationAction.choices)
+    action_description = models.TextField(blank=True)
+    # Settings
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveIntegerField(default=0, help_text="Higher priority checked first")
+    # Stats
+    times_triggered = models.PositiveIntegerField(default=0)
+    last_triggered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_auto_escalations"
+        ordering = ["-priority", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_trigger_type_display()} -> {self.get_escalation_action_display()})"
+
+
+class BehaviorEscalationLog(models.Model):
+    """Log of auto-escalation triggers."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    escalation_rule = models.ForeignKey(BehaviorAutoEscalation, on_delete=models.CASCADE, related_name="logs")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="escalation_logs")
+    triggered_at = models.DateTimeField(auto_now_add=True)
+    trigger_data = models.JSONField(default=dict, blank=True, help_text="Data that triggered the escalation")
+    action_taken = models.TextField(blank=True)
+    action_taken_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="escalation_actions"
+    )
+    resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "behavior_escalation_logs"
+        ordering = ["-triggered_at"]
+
+    def __str__(self):
+        return f"Escalation: {self.student} - {self.escalation_rule.name} on {self.triggered_at}"
+
+
+class BehaviorAttendanceLink(models.Model):
+    """Link behavior to attendance records."""
+
+    class LinkType(models.TextChoices):
+        TARDY_BEHAVIOR = "tardy_behavior", "Tardy as Behavior"
+        ABSENCE_BEHAVIOR = "absence_behavior", "Absence as Behavior"
+        ATTENDANCE_REWARD = "attendance_reward", "Attendance Reward"
+        ATTENDANCE_CONSEQUENCE = "attendance_consequence", "Attendance Consequence"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_attendance_links")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="behavior_attendance_links")
+    link_type = models.CharField(max_length=25, choices=LinkType.choices, default=LinkType.TARDY_BEHAVIOR)
+    # References
+    attendance_record_id = models.UUIDField(help_text="Reference to attendance record")
+    incident = models.ForeignKey(
+        Incident, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_links"
+    )
+    behavior_point = models.ForeignKey(
+        BehaviorPoint, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_links"
+    )
+    # Data
+    attendance_date = models.DateField()
+    points_adjusted = models.IntegerField(default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_attendance_links"
+        ordering = ["-attendance_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_link_type_display()} on {self.attendance_date}"
+
+
+class BehaviorAcademicCorrelation(models.Model):
+    """Correlate behavior with academic performance."""
+
+    class CorrelationType(models.TextChoices):
+        GPA_IMPACT = "gpa_impact", "GPA Impact"
+        GRADE_TREND = "grade_trend", "Grade Trend"
+        CLASS_PERFORMANCE = "class_performance", "Class Performance"
+        ASSIGNMENT_COMPLETION = "assignment_completion", "Assignment Completion"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_academic_correlations")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="academic_correlations")
+    correlation_type = models.CharField(
+        max_length=25, choices=CorrelationType.choices, default=CorrelationType.GPA_IMPACT
+    )
+    # Time period
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Behavior data
+    behavior_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total_incidents = models.PositiveIntegerField(default=0)
+    total_merits = models.PositiveIntegerField(default=0)
+    total_points = models.IntegerField(default=0)
+    # Academic data
+    gpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    gpa_change = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    grade_average = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    assignment_completion_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # Analysis
+    correlation_strength = models.CharField(
+        max_length=10,
+        choices=[("strong", "Strong"), ("moderate", "Moderate"), ("weak", "Weak"), ("none", "None")],
+        default="none",
+    )
+    notes = models.TextField(blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_academic_correlations"
+        ordering = ["-end_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_correlation_type_display()} ({self.start_date} to {self.end_date})"
+
+
+class BehaviorDataVisualization(models.Model):
+    """Pre-computed data for charts and graphs."""
+
+    class ChartType(models.TextChoices):
+        INCIDENTS_BY_TYPE = "incidents_by_type", "Incidents by Type"
+        INCIDENTS_BY_SEVERITY = "incidents_by_severity", "Incidents by Severity"
+        INCIDENTS_BY_GRADE = "incidents_by_grade", "Incidents by Grade"
+        INCIDENTS_BY_MONTH = "incidents_by_month", "Incidents by Month"
+        POINTS_DISTRIBUTION = "points_distribution", "Points Distribution"
+        TOP_EARNERS = "top_earners", "Top Point Earners"
+        BEHAVIOR_TRENDS = "behavior_trends", "Behavior Trends"
+        HOUSE_RANKINGS = "house_rankings", "House Rankings"
+        TEACHER_COMPARISON = "teacher_comparison", "Teacher Comparison"
+        STUDENT_TIMELINE = "student_timeline", "Student Timeline"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_data_visualizations")
+    chart_type = models.CharField(max_length=25, choices=ChartType.choices)
+    title = models.CharField(max_length=200)
+    # Data
+    chart_data = models.JSONField(default=dict, blank=True)
+    labels = models.JSONField(default=list, blank=True)
+    datasets = models.JSONField(default=list, blank=True)
+    # Filters
+    date_range_start = models.DateField(null=True, blank=True)
+    date_range_end = models.DateField(null=True, blank=True)
+    grade_filter = models.CharField(max_length=20, blank=True)
+    teacher_filter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    # Settings
+    is_public = models.BooleanField(default=True)
+    refresh_interval_hours = models.PositiveIntegerField(default=24)
+    last_refreshed = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_data_visualizations"
+        ordering = ["chart_type"]
+
+    def __str__(self):
+        return self.title
+
+
+class BehaviorPredictiveAnalytics(models.Model):
+    """AI-powered early warnings for at-risk students."""
+
+    class RiskLevel(models.TextChoices):
+        LOW = "low", "Low Risk"
+        MODERATE = "moderate", "Moderate Risk"
+        HIGH = "high", "High Risk"
+        CRITICAL = "critical", "Critical Risk"
+
+    class PredictionType(models.TextChoices):
+        BEHAVIOR_RISK = "behavior_risk", "Behavior Risk"
+        DROPOUT_RISK = "dropout_risk", "Dropout Risk"
+        ACADEMIC_RISK = "academic_risk", "Academic Risk"
+        ATTENDANCE_RISK = "attendance_risk", "Attendance Risk"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_predictive_analytics")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="predictive_analytics")
+    prediction_type = models.CharField(
+        max_length=20, choices=PredictionType.choices, default=PredictionType.BEHAVIOR_RISK
+    )
+    risk_level = models.CharField(max_length=10, choices=RiskLevel.choices, default=RiskLevel.LOW)
+    risk_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="0-100 risk score")
+    # Factors
+    risk_factors = models.JSONField(default=list, blank=True, help_text="List of contributing factors")
+    protective_factors = models.JSONField(default=list, blank=True, help_text="List of protective factors")
+    # Predictions
+    predicted_outcome = models.TextField(blank=True)
+    confidence_level = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Recommendations
+    recommended_interventions = models.JSONField(default=list, blank=True)
+    recommended_actions = models.TextField(blank=True)
+    # Tracking
+    prediction_date = models.DateField(auto_now_add=True)
+    valid_until = models.DateField(null=True, blank=True)
+    # Response
+    reviewed = models.BooleanField(default=False)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_predictions"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    action_taken = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "behavior_predictive_analytics"
+        ordering = ["-risk_score"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_prediction_type_display()} ({self.get_risk_level_display()})"
+
+
+class SELSurvey(models.Model):
+    """Social-emotional learning surveys for students."""
+
+    class SurveyType(models.TextChoices):
+        WELLNESS = "wellness", "Wellness Check"
+        MOOD = "mood", "Mood Assessment"
+        STRESS = "stress", "Stress Assessment"
+        BELONGING = "belonging", "School Belonging"
+        SAFETY = "safety", "Safety Perception"
+        SUPPORT = "support", "Support Systems"
+        CUSTOM = "custom", "Custom Survey"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sel_surveys")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    survey_type = models.CharField(max_length=15, choices=SurveyType.choices, default=SurveyType.WELLNESS)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    # Questions
+    questions = models.JSONField(default=list, blank=True, help_text="List of survey questions")
+    # Targeting
+    target_grades = models.JSONField(default=list, blank=True)
+    target_students = models.ManyToManyField(Student, blank=True, related_name="sel_surveys")
+    # Dates
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    # Stats
+    total_responses = models.PositiveIntegerField(default=0)
+    average_scores = models.JSONField(default=dict, blank=True)
+    # Settings
+    is_anonymous = models.BooleanField(default=True)
+    allow_multiple_submissions = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_sel_surveys")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sel_surveys"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class SELSurveyResponse(models.Model):
+    """Responses to SEL surveys."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    survey = models.ForeignKey(SELSurvey, on_delete=models.CASCADE, related_name="responses")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="sel_survey_responses")
+    # Responses
+    responses = models.JSONField(default=dict, help_text="Question-ID to answer mapping")
+    overall_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Flags
+    needs_follow_up = models.BooleanField(default=False)
+    follow_up_notes = models.TextField(blank=True)
+    follow_up_completed = models.BooleanField(default=False)
+    # Metadata
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "sel_survey_responses"
+        unique_together = [("survey", "student")]
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"{self.student} - {self.survey.title}"
+
+
+class BehaviorTrainingMaterial(models.Model):
+    """Staff training resources for behavior management."""
+
+    class MaterialType(models.TextChoices):
+        DOCUMENT = "document", "Document"
+        VIDEO = "video", "Video"
+        PRESENTATION = "presentation", "Presentation"
+        COURSE = "course", "Online Course"
+        WORKSHOP = "workshop", "Workshop"
+        OTHER = "other", "Other"
+
+    class AudienceType(models.TextChoices):
+        ALL_STAFF = "all_staff", "All Staff"
+        TEACHERS = "teachers", "Teachers"
+        ADMINISTRATORS = "administrators", "Administrators"
+        COUNSELORS = "counselors", "Counselors"
+        SUPPORT_STAFF = "support_staff", "Support Staff"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_training_materials")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    material_type = models.CharField(max_length=15, choices=MaterialType.choices, default=MaterialType.DOCUMENT)
+    audience = models.CharField(max_length=15, choices=AudienceType.choices, default=AudienceType.ALL_STAFF)
+    # Content
+    file_url = models.URLField(blank=True)
+    external_url = models.URLField(blank=True)
+    content_text = models.TextField(blank=True)
+    # Metadata
+    duration_minutes = models.PositiveIntegerField(default=0)
+    tags = models.JSONField(default=list, blank=True)
+    # Tracking
+    views_count = models.PositiveIntegerField(default=0)
+    completions_count = models.PositiveIntegerField(default=0)
+    # Settings
+    is_required = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    due_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_training_materials"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_training_materials"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class BehaviorTrainingCompletion(models.Model):
+    """Track staff completion of training materials."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    material = models.ForeignKey(BehaviorTrainingMaterial, on_delete=models.CASCADE, related_name="completions")
+    staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name="training_completions")
+    status = models.CharField(
+        max_length=15,
+        choices=[("not_started", "Not Started"), ("in_progress", "In Progress"), ("completed", "Completed")],
+        default="not_started",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "behavior_training_completions"
+        unique_together = [("material", "staff")]
+        ordering = ["-completed_at"]
+
+    def __str__(self):
+        return f"{self.staff} - {self.material} ({self.status})"
+
+
+class BehaviorPolicyTemplate(models.Model):
+    """Pre-built policy documents for behavior management."""
+
+    class PolicyCategory(models.TextChoices):
+        CODE_OF_CONDUCT = "code_of_conduct", "Code of Conduct"
+        DISCIPLINE = "discipline", "Discipline Policy"
+        BULLYING = "bullying", "Anti-Bullying"
+        TECHNOLOGY = "technology", "Technology Use"
+        ATTENDANCE = "attendance", "Attendance Policy"
+        DRESS_CODE = "dress_code", "Dress Code"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_policy_templates")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=20, choices=PolicyCategory.choices, default=PolicyCategory.OTHER)
+    # Content
+    content = models.TextField(help_text="Policy document content")
+    # Metadata
+    version = models.CharField(max_length=20, default="1.0")
+    effective_date = models.DateField(null=True, blank=True)
+    review_date = models.DateField(null=True, blank=True)
+    # Stats
+    downloads_count = models.PositiveIntegerField(default=0)
+    # Settings
+    is_template = models.BooleanField(default=True, help_text="Can be customized by schools")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_policy_templates")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_policy_templates"
+        ordering = ["category", "title"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_category_display()})"
+
+
+class BehaviorStreakChallenge(models.Model):
+    """School-wide streak competitions."""
+
+    class ChallengeType(models.TextChoices):
+        INCIDENT_FREE = "incident_free", "Incident-Free Streak"
+        PERFECT_ATTENDANCE = "perfect_attendance", "Perfect Attendance"
+        ON_TIME = "on_time", "On Time Streak"
+        POINTS_EARNED = "points_earned", "Points Earned"
+        CUSTOM = "custom", "Custom Challenge"
+
+    class Status(models.TextChoices):
+        UPCOMING = "upcoming", "Upcoming"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_streak_challenges")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    challenge_type = models.CharField(max_length=20, choices=ChallengeType.choices, default=ChallengeType.INCIDENT_FREE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.UPCOMING)
+    # Goals
+    target_streak = models.PositiveIntegerField(help_text="Target streak length")
+    streak_unit = models.CharField(max_length=20, default="days")
+    # Dates
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Rewards
+    completion_reward_points = models.PositiveIntegerField(default=0)
+    completion_reward_badge = models.ForeignKey(
+        BehaviorBadge, on_delete=models.SET_NULL, null=True, blank=True, related_name="streak_challenges"
+    )
+    top_reward_points = models.PositiveIntegerField(default=0, help_text="Extra points for top performers")
+    # Stats
+    total_participants = models.PositiveIntegerField(default=0)
+    total_completions = models.PositiveIntegerField(default=0)
+    leaderboard = models.JSONField(default=list, blank=True)
+    # Settings
+    is_class_competition = models.BooleanField(default=False)
+    is_house_competition = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_streak_challenges")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_streak_challenges"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
+
+
+class BehaviorParentPortal(models.Model):
+    """Parent-facing behavior view configuration."""
+
+    class AccessLevel(models.TextChoices):
+        VIEW_ONLY = "view_only", "View Only"
+        VIEW_AND_COMMUNICATE = "view_communicate", "View and Communicate"
+        FULL_ACCESS = "full_access", "Full Access"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="behavior_parent_portals")
+    # Parent info
+    parent_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="behavior_parent_portals")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="parent_behavior_portals")
+    # Access
+    access_level = models.CharField(max_length=20, choices=AccessLevel.choices, default=AccessLevel.VIEW_ONLY)
+    # Settings
+    show_incidents = models.BooleanField(default=True)
+    show_points = models.BooleanField(default=True)
+    show_consequences = models.BooleanField(default=True)
+    show_report_cards = models.BooleanField(default=True)
+    show_merits = models.BooleanField(default=True)
+    show_streaks = models.BooleanField(default=True)
+    show_goals = models.BooleanField(default=True)
+    # Notifications
+    email_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=False)
+    push_notifications = models.BooleanField(default=False)
+    notify_on_incident = models.BooleanField(default=True)
+    notify_on_consequence = models.BooleanField(default=True)
+    notify_on_positive = models.BooleanField(default=True)
+    # Portal access
+    is_active = models.BooleanField(default=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+    # Notes
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "behavior_parent_portals"
+        unique_together = [("parent_user", "student")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.parent_user} - {self.student} ({self.get_access_level_display()})"
