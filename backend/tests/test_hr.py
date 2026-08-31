@@ -303,3 +303,336 @@ class TestLeaveRequests:
         assert r.status_code == status.HTTP_200_OK
         leave.refresh_from_db()
         assert leave.status == "rejected"
+
+
+# ---------------------------------------------------------------------------
+# P1: Performance Management Tests
+# ---------------------------------------------------------------------------
+
+
+class TestPerformanceManagement:
+    """Tests for performance management features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_review_cycle(self):
+        r = self.client.post(
+            "/api/v1/hr/review-cycles/",
+            {
+                "name": "Annual Review 2026",
+                "start_date": "2026-01-01",
+                "end_date": "2026-12-31",
+                "status": "planning",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["name"] == "Annual Review 2026"
+
+    def test_create_performance_goal(self):
+        from services.hr.models import Employee
+        from tests.factories import TeacherUserFactory
+
+        teacher = TeacherUserFactory(school=self.school)
+        employee = Employee.objects.create(
+            user=teacher,
+            school=self.school,
+            employee_id="EMP001",
+            designation="Teacher",
+            joining_date="2024-01-01",
+            address="Test Address",
+        )
+        cycle = self.client.post(
+            "/api/v1/hr/review-cycles/",
+            {
+                "name": "Q1 2026",
+                "start_date": "2026-01-01",
+                "end_date": "2026-03-31",
+                "status": "active",
+            },
+            format="json",
+        ).data
+        r = self.client.post(
+            "/api/v1/hr/performance-goals/",
+            {
+                "employee": str(employee.id),
+                "cycle": cycle["id"],
+                "title": "Improve teaching scores",
+                "priority": "high",
+                "status": "in_progress",
+                "progress_pct": 50,
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["title"] == "Improve teaching scores"
+
+    def test_list_review_cycles(self):
+        r = self.client.get("/api/v1/hr/review-cycles/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_list_performance_goals(self):
+        r = self.client.get("/api/v1/hr/performance-goals/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P2: Recruitment Tests
+# ---------------------------------------------------------------------------
+
+
+class TestRecruitment:
+    """Tests for recruitment features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_job_posting(self):
+        r = self.client.post(
+            "/api/v1/hr/job-postings/",
+            {
+                "title": "Math Teacher",
+                "description": "Teach mathematics to grades 9-12",
+                "designation": "Teacher",
+                "employment_type": "full_time",
+                "status": "open",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["title"] == "Math Teacher"
+
+    def test_create_applicant(self):
+        job = self.client.post(
+            "/api/v1/hr/job-postings/",
+            {
+                "title": "Science Teacher",
+                "description": "Teach science",
+                "designation": "Teacher",
+                "status": "open",
+            },
+            format="json",
+        ).data
+        r = self.client.post(
+            "/api/v1/hr/applicants/",
+            {
+                "job_posting": job["id"],
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john@example.com",
+                "status": "new",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["full_name"] == "John Doe"
+
+    def test_advance_applicant_status(self):
+        job = self.client.post(
+            "/api/v1/hr/job-postings/",
+            {
+                "title": "Math Teacher",
+                "description": "Teach math",
+                "designation": "Teacher",
+                "status": "open",
+            },
+            format="json",
+        ).data
+        applicant = self.client.post(
+            "/api/v1/hr/applicants/",
+            {
+                "job_posting": job["id"],
+                "first_name": "Jane",
+                "last_name": "Smith",
+                "email": "jane@example.com",
+                "status": "new",
+            },
+            format="json",
+        ).data
+        r = self.client.post(f"/api/v1/hr/applicants/{applicant['id']}/advance-status/")
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["status"] == "screening"
+
+    def test_list_job_postings(self):
+        r = self.client.get("/api/v1/hr/job-postings/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_list_applicants(self):
+        r = self.client.get("/api/v1/hr/applicants/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P3: Time Tracking Tests
+# ---------------------------------------------------------------------------
+
+
+class TestTimeTracking:
+    """Tests for time tracking features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_time_entry(self):
+        from services.hr.models import Employee
+        from tests.factories import TeacherUserFactory
+
+        teacher = TeacherUserFactory(school=self.school)
+        employee = Employee.objects.create(
+            user=teacher,
+            school=self.school,
+            employee_id="EMP002",
+            designation="Teacher",
+            joining_date="2024-01-01",
+            address="Test Address",
+        )
+        r = self.client.post(
+            "/api/v1/hr/time-entries/",
+            {
+                "employee": str(employee.id),
+                "date": "2026-08-31",
+                "clock_in": "2026-08-31T09:00:00Z",
+                "clock_out": "2026-08-31T17:30:00Z",
+                "break_minutes": 60,
+                "total_hours": "7.50",
+                "overtime_hours": "0.00",
+                "status": "pending",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+
+    def test_list_time_entries(self):
+        r = self.client.get("/api/v1/hr/time-entries/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_list_timesheets(self):
+        r = self.client.get("/api/v1/hr/timesheets/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P4: Benefits Tests
+# ---------------------------------------------------------------------------
+
+
+class TestBenefits:
+    """Tests for benefits features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_benefit_plan(self):
+        r = self.client.post(
+            "/api/v1/hr/benefit-plans/",
+            {
+                "name": "Health Insurance Basic",
+                "benefit_type": "health",
+                "provider": "Blue Cross",
+                "employee_contribution": "100.00",
+                "employer_contribution": "400.00",
+                "is_active": True,
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["name"] == "Health Insurance Basic"
+
+    def test_list_benefit_plans(self):
+        r = self.client.get("/api/v1/hr/benefit-plans/")
+        assert r.status_code == status.HTTP_200_OK
+
+
+# ---------------------------------------------------------------------------
+# P5: Training Tests
+# ---------------------------------------------------------------------------
+
+
+class TestTraining:
+    """Tests for training features."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_create_training_program(self):
+        r = self.client.post(
+            "/api/v1/hr/training-programs/",
+            {
+                "name": "Classroom Management Workshop",
+                "description": "Learn effective classroom management techniques",
+                "training_type": "workshop",
+                "start_date": "2026-09-01",
+                "duration_hours": "8.0",
+                "status": "planned",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["name"] == "Classroom Management Workshop"
+
+    def test_list_training_programs(self):
+        r = self.client.get("/api/v1/hr/training-programs/")
+        assert r.status_code == status.HTTP_200_OK
+
+    def test_create_certification(self):
+        from services.hr.models import Employee
+        from tests.factories import TeacherUserFactory
+
+        teacher = TeacherUserFactory(school=self.school)
+        employee = Employee.objects.create(
+            user=teacher,
+            school=self.school,
+            employee_id="EMP003",
+            designation="Teacher",
+            joining_date="2024-01-01",
+            address="Test Address",
+        )
+        r = self.client.post(
+            "/api/v1/hr/certifications/",
+            {
+                "employee": str(employee.id),
+                "name": "Teaching License",
+                "issuing_organization": "State Board of Education",
+                "issue_date": "2024-01-01",
+                "expiry_date": "2028-01-01",
+                "status": "active",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["name"] == "Teaching License"
+
+    def test_list_certifications(self):
+        r = self.client.get("/api/v1/hr/certifications/")
+        assert r.status_code == status.HTTP_200_OK
