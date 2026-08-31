@@ -4,7 +4,33 @@ Student Service — DRF Serializers
 
 from rest_framework import serializers
 
-from .models import AcademicYear, Classroom, Document, Enrollment, Grade, Guardian, Student, StudentGuardian
+from .models import (
+    AcademicYear,
+    Classroom,
+    Document,
+    Enrollment,
+    Grade,
+    Guardian,
+    SiblingTracking,
+    Student,
+    StudentArchive,
+    StudentCategory,
+    StudentCategoryMembership,
+    StudentContact,
+    StudentCustomField,
+    StudentCustomFieldValue,
+    StudentGuardian,
+    StudentIDCard,
+    StudentMedicalRecord,
+    StudentNote,
+    StudentPhoto,
+    StudentPortfolio,
+    StudentSocialMedia,
+    StudentStatusHistory,
+    StudentTag,
+    StudentTagAssignment,
+    StudentWellness,
+)
 
 
 class GuardianSerializer(serializers.ModelSerializer):
@@ -318,3 +344,419 @@ class DocumentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["uploaded_by"] = self.context["request"].user
         return super().create(validated_data)
+
+
+class StudentContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentContact
+        fields = [
+            "id",
+            "student",
+            "personal_phone",
+            "personal_email",
+            "emergency_contact_1_name",
+            "emergency_contact_1_phone",
+            "emergency_contact_1_relationship",
+            "emergency_contact_2_name",
+            "emergency_contact_2_phone",
+            "emergency_contact_2_relationship",
+            "medical_emergency_contact",
+            "medical_emergency_phone",
+            "doctor_name",
+            "doctor_phone",
+            "insurance_provider",
+            "insurance_policy_number",
+            "insurance_expiry",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentMedicalRecordSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    record_type_display = serializers.CharField(source="get_record_type_display", read_only=True)
+    severity_display = serializers.CharField(source="get_severity_display", read_only=True)
+
+    class Meta:
+        model = StudentMedicalRecord
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "record_type",
+            "record_type_display",
+            "title",
+            "description",
+            "severity",
+            "severity_display",
+            "date_recorded",
+            "date_of_visit",
+            "doctor_name",
+            "hospital_name",
+            "treatment_notes",
+            "medication_details",
+            "document_url",
+            "is_ongoing",
+            "resolved_date",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "date_recorded", "created_at", "updated_at"]
+
+
+class StudentCustomFieldSerializer(serializers.ModelSerializer):
+    field_type_display = serializers.CharField(source="get_field_type_display", read_only=True)
+
+    class Meta:
+        model = StudentCustomField
+        fields = [
+            "id",
+            "name",
+            "field_type",
+            "field_type_display",
+            "description",
+            "options",
+            "is_required",
+            "is_visible",
+            "order",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentCustomFieldValueSerializer(serializers.ModelSerializer):
+    field_name = serializers.CharField(source="field.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = StudentCustomFieldValue
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "field",
+            "field_name",
+            "text_value",
+            "number_value",
+            "date_value",
+            "boolean_value",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentPhotoSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    photo_type_display = serializers.CharField(source="get_photo_type_display", read_only=True)
+
+    class Meta:
+        model = StudentPhoto
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "photo_type",
+            "photo_type_display",
+            "title",
+            "description",
+            "photo_url",
+            "thumbnail_url",
+            "taken_date",
+            "photographer",
+            "is_primary",
+            "is_public",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "taken_date", "created_at"]
+
+
+class StudentIDCardSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    is_valid = serializers.ReadOnlyField()
+
+    class Meta:
+        model = StudentIDCard
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "card_number",
+            "barcode",
+            "rfid_number",
+            "issue_date",
+            "expiry_date",
+            "status",
+            "status_display",
+            "is_valid",
+            "photo_url",
+            "access_level",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "issue_date", "created_at", "updated_at"]
+
+
+class StudentStatusHistorySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = StudentStatusHistory
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "status",
+            "status_display",
+            "previous_status",
+            "effective_date",
+            "reason",
+            "document_url",
+            "approved_by",
+            "approved_by_name",
+            "approved_at",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "approved_at", "created_at"]
+
+
+class SiblingTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    sibling_name = serializers.CharField(source="sibling.user.full_name", read_only=True)
+
+    class Meta:
+        model = SiblingTracking
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "sibling",
+            "sibling_name",
+            "relationship",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StudentCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentCategory
+        fields = [
+            "id",
+            "name",
+            "description",
+            "color",
+            "is_active",
+            "student_count",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "student_count", "created_at"]
+
+
+class StudentCategoryMembershipSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = StudentCategoryMembership
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "category",
+            "category_name",
+            "start_date",
+            "end_date",
+            "is_active",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "start_date", "created_at"]
+
+
+class StudentTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentTag
+        fields = [
+            "id",
+            "name",
+            "color",
+            "usage_count",
+            "is_active",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "usage_count", "created_at"]
+
+
+class StudentTagAssignmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    tag_name = serializers.CharField(source="tag.name", read_only=True)
+
+    class Meta:
+        model = StudentTagAssignment
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "tag",
+            "tag_name",
+            "assigned_by",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StudentNoteSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    note_type_display = serializers.CharField(source="get_note_type_display", read_only=True)
+    author_name = serializers.CharField(source="author.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = StudentNote
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "note_type",
+            "note_type_display",
+            "title",
+            "content",
+            "author",
+            "author_name",
+            "is_confidential",
+            "is_pinned",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentArchiveSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    grade_name = serializers.CharField(source="grade.name", read_only=True, default=None)
+
+    class Meta:
+        model = StudentArchive
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "academic_year_name",
+            "grade",
+            "grade_name",
+            "status",
+            "final_grade",
+            "gpa",
+            "rank_in_class",
+            "attendance_percentage",
+            "achievements",
+            "report_card_url",
+            "transcript_url",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StudentSocialMediaSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    platform_display = serializers.CharField(source="get_platform_display", read_only=True)
+
+    class Meta:
+        model = StudentSocialMedia
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "platform",
+            "platform_display",
+            "username",
+            "profile_url",
+            "is_verified",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentPortfolioSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    portfolio_type_display = serializers.CharField(source="get_portfolio_type_display", read_only=True)
+
+    class Meta:
+        model = StudentPortfolio
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "portfolio_type",
+            "portfolio_type_display",
+            "title",
+            "description",
+            "file_url",
+            "thumbnail_url",
+            "subject",
+            "date_completed",
+            "grade_received",
+            "is_featured",
+            "is_public",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "date_completed", "created_at"]
+
+
+class StudentWellnessSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    wellness_type_display = serializers.CharField(source="get_wellness_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    recorded_by_name = serializers.CharField(source="recorded_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = StudentWellness
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "wellness_type",
+            "wellness_type_display",
+            "status",
+            "status_display",
+            "title",
+            "description",
+            "mood_score",
+            "stress_level",
+            "recorded_by",
+            "recorded_by_name",
+            "follow_up_required",
+            "follow_up_date",
+            "follow_up_notes",
+            "is_confidential",
+            "document_url",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]

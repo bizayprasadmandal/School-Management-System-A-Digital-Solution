@@ -16,14 +16,57 @@ from rest_framework.response import Response
 from services.auth.utils import generate_secure_password
 
 from .filters import StudentFilter
-from .models import AcademicYear, Classroom, Document, Enrollment, Grade, Student
+from .models import (
+    AcademicYear,
+    Classroom,
+    Document,
+    Enrollment,
+    Grade,
+    Guardian,
+    SiblingTracking,
+    Student,
+    StudentArchive,
+    StudentCategory,
+    StudentCategoryMembership,
+    StudentContact,
+    StudentCustomField,
+    StudentCustomFieldValue,
+    StudentIDCard,
+    StudentMedicalRecord,
+    StudentNote,
+    StudentPhoto,
+    StudentPortfolio,
+    StudentSocialMedia,
+    StudentStatusHistory,
+    StudentTag,
+    StudentTagAssignment,
+    StudentWellness,
+)
 from .serializers import (
     ClassroomSerializer,
     DocumentSerializer,
     GradeSerializer,
+    GuardianSerializer,
+    SiblingTrackingSerializer,
+    StudentArchiveSerializer,
+    StudentCategoryMembershipSerializer,
+    StudentCategorySerializer,
+    StudentContactSerializer,
     StudentCreateSerializer,
+    StudentCustomFieldSerializer,
+    StudentCustomFieldValueSerializer,
     StudentDetailSerializer,
+    StudentIDCardSerializer,
     StudentListSerializer,
+    StudentMedicalRecordSerializer,
+    StudentNoteSerializer,
+    StudentPhotoSerializer,
+    StudentPortfolioSerializer,
+    StudentSocialMediaSerializer,
+    StudentStatusHistorySerializer,
+    StudentTagAssignmentSerializer,
+    StudentTagSerializer,
+    StudentWellnessSerializer,
 )
 
 MAX_PROMOTE_BATCH = 200
@@ -542,3 +585,313 @@ class GradeViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
+
+
+class GuardianViewSet(viewsets.ModelViewSet):
+    serializer_class = GuardianSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["first_name", "last_name", "email"]
+
+    def get_queryset(self):
+        return Guardian.objects.filter(students__school=self.request.user.school).distinct()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentContactViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentContactSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student"]
+
+    def get_queryset(self):
+        return StudentContact.objects.filter(student__school=self.request.user.school).select_related("student__user")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentMedicalRecordViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentMedicalRecordSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "record_type", "severity", "is_ongoing"]
+
+    def get_queryset(self):
+        return StudentMedicalRecord.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentCustomFieldViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentCustomFieldSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["field_type", "is_active"]
+
+    def get_queryset(self):
+        return StudentCustomField.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class StudentCustomFieldValueViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentCustomFieldValueSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "field"]
+
+    def get_queryset(self):
+        return StudentCustomFieldValue.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "field"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentPhotoViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentPhotoSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "photo_type", "is_primary"]
+
+    def get_queryset(self):
+        return StudentPhoto.objects.filter(student__school=self.request.user.school).select_related("student__user")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_by=self.request.user)
+
+
+class StudentIDCardViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentIDCardSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "status"]
+
+    def get_queryset(self):
+        return StudentIDCard.objects.filter(student__school=self.request.user.school).select_related("student__user")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(issued_by=self.request.user)
+
+
+class StudentStatusHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentStatusHistorySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "status"]
+
+    def get_queryset(self):
+        return StudentStatusHistory.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "approved_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class SiblingTrackingViewSet(viewsets.ModelViewSet):
+    serializer_class = SiblingTrackingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "sibling", "relationship"]
+
+    def get_queryset(self):
+        return SiblingTracking.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "sibling__user"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentCategoryViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentCategorySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        return StudentCategory.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class StudentCategoryMembershipViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentCategoryMembershipSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "category", "is_active"]
+
+    def get_queryset(self):
+        return StudentCategoryMembership.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "category"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentTagViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentTagSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        return StudentTag.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class StudentTagAssignmentViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentTagAssignmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "tag"]
+
+    def get_queryset(self):
+        return StudentTagAssignment.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "tag", "assigned_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(assigned_by=self.request.user)
+
+
+class StudentNoteViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentNoteSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "note_type", "is_confidential", "is_pinned"]
+
+    def get_queryset(self):
+        return StudentNote.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "author"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+
+class StudentArchiveViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentArchiveSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "academic_year", "grade", "status"]
+
+    def get_queryset(self):
+        return StudentArchive.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "academic_year", "grade"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class StudentSocialMediaViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentSocialMediaSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "platform", "is_active"]
+
+    def get_queryset(self):
+        return StudentSocialMedia.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentPortfolioViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentPortfolioSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "portfolio_type", "is_featured"]
+
+    def get_queryset(self):
+        return StudentPortfolio.objects.filter(student__school=self.request.user.school).select_related("student__user")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class StudentWellnessViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentWellnessSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "wellness_type", "status", "follow_up_required"]
+
+    def get_queryset(self):
+        return StudentWellness.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "recorded_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, recorded_by=self.request.user)
