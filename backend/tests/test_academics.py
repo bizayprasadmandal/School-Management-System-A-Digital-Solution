@@ -3,6 +3,7 @@ Tests for Academics module — subjects, teacher assignments, lesson plans,
 and the new StudentSubjectEnrollment feature.
 """
 
+import uuid
 from decimal import Decimal
 
 import pytest
@@ -1726,4 +1727,191 @@ class TestCourseCatalog:
         CourseCatalogEntryFactory(subject=self.subject, is_published=True)
         self.client.force_authenticate(self.admin)
         response = self.client.get("/api/v1/academics/catalog/popular/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_catalog_retrieve_increments_view_count(self):
+        from tests.factories import CourseCatalogEntryFactory
+
+        entry = CourseCatalogEntryFactory(subject=self.subject, is_published=True)
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(f"/api/v1/academics/catalog/{entry.id}/")
+        assert response.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.view_count >= 1
+
+    def test_enroll_intent(self):
+        from tests.factories import CourseCatalogEntryFactory, EnrollmentIntentFactory
+
+        entry = CourseCatalogEntryFactory(subject=self.subject)
+        intent = EnrollmentIntentFactory(
+            catalog_entry=entry,
+            student=self.student,
+            academic_year=self.academic_year,
+            status="interested",
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            f"/api/v1/academics/enrollment-intents/{intent.id}/enroll/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "enrolled"
+
+    def test_catalog_by_grade_empty(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(
+            f"/api/v1/academics/catalog/by-grade/?grade={self.grade.id}",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {}
+
+    def test_create_enrollment_intent_duplicate(self):
+        from tests.factories import CourseCatalogEntryFactory, EnrollmentIntentFactory
+
+        entry = CourseCatalogEntryFactory(subject=self.subject)
+        EnrollmentIntentFactory(
+            catalog_entry=entry,
+            student=self.student,
+            academic_year=self.academic_year,
+        )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            "/api/v1/academics/enrollment-intents/",
+            {
+                "catalog_entry": str(entry.id),
+                "student": str(self.student.id),
+                "academic_year": str(self.academic_year.id),
+                "status": "interested",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ---------------------------------------------------------------------------
+# P6: Versioning Additional Tests
+# ---------------------------------------------------------------------------
+
+
+class TestVersioningExtended:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.teacher = TeacherUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.subject = SubjectFactory(school=self.school, grade=self.grade)
+        self.classroom = ClassroomFactory(school=self.school, grade=self.grade)
+        self.client = APIClient()
+
+    def test_snapshot_subject_creates_version(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/subject-versions/snapshot/",
+            {
+                "subject": str(self.subject.id),
+                "change_summary": "Initial snapshot",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["version_number"] == 1
+        assert response.data["name"] == self.subject.name
+
+    def test_snapshot_subject_creates_incrementing_versions(self):
+        self.client.force_authenticate(self.admin)
+        # First snapshot
+        self.client.post(
+            "/api/v1/academics/subject-versions/snapshot/",
+            {"subject": str(self.subject.id), "change_summary": "v1"},
+            format="json",
+        )
+        # Second snapshot
+        response = self.client.post(
+            "/api/v1/academics/subject-versions/snapshot/",
+            {"subject": str(self.subject.id), "change_summary": "v2"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["version_number"] == 2
+
+    def test_snapshot_subject_not_found(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/subject-versions/snapshot/",
+            {
+                "subject": str(uuid.uuid4()),
+                "change_summary": "Missing subject",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_snapshot_subject_missing_subject(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/subject-versions/snapshot/",
+            {"change_summary": "No subject"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_snapshot_lesson_plan(self):
+        from tests.factories import LessonPlanFactory, TeacherAssignmentFactory
+
+        ta = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        lp = LessonPlanFactory(assignment=ta)
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            "/api/v1/academics/lesson-plan-versions/snapshot/",
+            {
+                "lesson_plan": str(lp.id),
+                "change_summary": "Updated content",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["title"] == lp.title
+
+    def test_snapshot_assignment(self):
+        from tests.factories import AssignmentFactory, TeacherAssignmentFactory
+
+        ta = TeacherAssignmentFactory(
+            teacher=self.teacher,
+            subject=self.subject,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+        )
+        assignment = AssignmentFactory(assignment=ta)
+        self.client.force_authenticate(self.teacher)
+        response = self.client.post(
+            "/api/v1/academics/assignment-versions/snapshot/",
+            {
+                "assignment": str(assignment.id),
+                "change_summary": "Extended due date",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["title"] == assignment.title
+
+    def test_list_subject_versions(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get("/api/v1/academics/subject-versions/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_list_lesson_plan_versions(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get("/api/v1/academics/lesson-plan-versions/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_list_assignment_versions(self):
+        self.client.force_authenticate(self.teacher)
+        response = self.client.get("/api/v1/academics/assignment-versions/")
         assert response.status_code == status.HTTP_200_OK

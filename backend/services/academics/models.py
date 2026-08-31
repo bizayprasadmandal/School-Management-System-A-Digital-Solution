@@ -1,7 +1,21 @@
 """
-Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
-curriculum standards mapping, syllabus management, teacher workload, teacher evaluation,
-academic transcripts.
+Academics Service — Comprehensive academic management module.
+
+Features:
+- Core: Subjects, teacher assignments, profiles, lesson plans
+- Enrollment: Student-subject enrollment tracking
+- Standards: Curriculum standards mapping (Common Core, NGSS, CBSE, etc.)
+- Syllabus: Term-level syllabus with topic tracking and approval workflow
+- Workload: Teacher workload calculation and snapshots
+- Evaluation: Teacher evaluation with multi-phase workflow and scoring
+- Transcripts: Academic transcript generation with PDF export
+- Calendar: Academic terms, events, and holidays
+- Assignments: Homework, classwork, projects with submission tracking
+- Exams: Question bank and exam paper generation
+- Notifications: In-app notifications for academic events
+- Analytics: Subject performance, student progress, teacher effectiveness
+- Versioning: Subject, lesson plan, and assignment version history
+- Catalog: Public course catalog with enrollment intents
 """
 
 import uuid
