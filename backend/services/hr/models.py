@@ -1041,3 +1041,349 @@ class Certification(models.Model):
             delta = self.expiry_date - timezone.now().date()
             return delta.days
         return None
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service
+# ---------------------------------------------------------------------------
+
+
+class EmployeeProfileUpdate(models.Model):
+    """Tracks profile update requests from employees."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Approval"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="profile_updates")
+    field_name = models.CharField(max_length=50)
+    old_value = models.TextField(blank=True)
+    new_value = models.TextField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_profile_updates"
+    )
+    review_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_profile_updates"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["employee", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.employee} — {self.field_name} update ({self.status})"
+
+
+class PayslipViewLog(models.Model):
+    """Tracks when employees view their payslips."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="payslip_views")
+    payslip = models.ForeignKey(Payslip, on_delete=models.CASCADE, related_name="view_logs")
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_payslip_view_logs"
+        ordering = ["-viewed_at"]
+
+    def __str__(self):
+        return f"{self.employee} viewed payslip at {self.viewed_at}"
+
+
+class LeaveBalanceHR(models.Model):
+    """Employee leave balance tracking (HR side)."""
+
+    class LeaveType(models.TextChoices):
+        ANNUAL = "annual", "Annual Leave"
+        SICK = "sick", "Sick Leave"
+        PERSONAL = "personal", "Personal Leave"
+        MATERNITY = "maternity", "Maternity Leave"
+        PATERNITY = "paternity", "Paternity Leave"
+        UNPAID = "unpaid", "Unpaid Leave"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="hr_leave_balances")
+    leave_type = models.CharField(max_length=15, choices=LeaveType.choices)
+    year = models.PositiveSmallIntegerField()
+    total_days = models.PositiveSmallIntegerField(default=0)
+    used_days = models.PositiveSmallIntegerField(default=0)
+    carried_over = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_leave_balances"
+        unique_together = [("employee", "leave_type", "year")]
+        ordering = ["-year", "leave_type"]
+
+    @property
+    def remaining_days(self):
+        return self.total_days + self.carried_over - self.used_days
+
+    def __str__(self):
+        return f"{self.employee} — {self.get_leave_type_display()} {self.year}: {self.remaining_days} remaining"
+
+
+# ---------------------------------------------------------------------------
+# P7: HR Analytics
+# ---------------------------------------------------------------------------
+
+
+class HRDashboardMetrics(models.Model):
+    """Aggregated HR metrics for dashboard display."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="hr_metrics")
+    total_employees = models.PositiveIntegerField(default=0)
+    active_employees = models.PositiveIntegerField(default=0)
+    new_hires_this_month = models.PositiveIntegerField(default=0)
+    separations_this_month = models.PositiveIntegerField(default=0)
+    turnover_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    average_tenure_months = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total_payroll_this_month = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    pending_leave_requests = models.PositiveIntegerField(default=0)
+    pending_overtime_requests = models.PositiveIntegerField(default=0)
+    expiring_certifications = models.PositiveIntegerField(default=0)
+    active_trainings = models.PositiveIntegerField(default=0)
+    department_breakdown = models.JSONField(default=dict, blank=True, help_text='{"Mathematics": 5, "Science": 3}')
+    employment_type_breakdown = models.JSONField(
+        default=dict, blank=True, help_text='{"full_time": 20, "part_time": 5}'
+    )
+    calculated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_dashboard_metrics"
+        ordering = ["-calculated_at"]
+        indexes = [
+            models.Index(fields=["school", "-calculated_at"]),
+        ]
+
+    def __str__(self):
+        return f"HR Metrics — {self.school} ({self.calculated_at})"
+
+
+class TurnoverReport(models.Model):
+    """Monthly turnover report."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="turnover_reports")
+    month = models.DateField(help_text="First day of the month")
+    total_employees_start = models.PositiveIntegerField(default=0)
+    new_hires = models.PositiveIntegerField(default=0)
+    separations = models.PositiveIntegerField(default=0)
+    turnover_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    resignations = models.PositiveIntegerField(default=0)
+    terminations = models.PositiveIntegerField(default=0)
+    retirements = models.PositiveIntegerField(default=0)
+    department_breakdown = models.JSONField(default=dict, blank=True)
+    top_reasons = models.JSONField(default=list, blank=True, help_text='[{"reason": "...", "count": 3}]')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_turnover_reports"
+        unique_together = [("school", "month")]
+        ordering = ["-month"]
+
+    def __str__(self):
+        return f"Turnover Report — {self.month} ({self.turnover_rate}%)"
+
+
+class SalaryReport(models.Model):
+    """Monthly salary expenditure report."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="salary_reports")
+    month = models.DateField(help_text="First day of the month")
+    total_gross = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_net = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_tax = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_pension = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    average_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    headcount = models.PositiveIntegerField(default=0)
+    department_breakdown = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_salary_reports"
+        unique_together = [("school", "month")]
+        ordering = ["-month"]
+
+    def __str__(self):
+        return f"Salary Report — {self.month} (Total: {self.total_net})"
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management
+# ---------------------------------------------------------------------------
+
+
+class EmployeeDocument(models.Model):
+    """Employee documents (contracts, certificates, IDs)."""
+
+    class DocType(models.TextChoices):
+        CONTRACT = "contract", "Employment Contract"
+        ID_PROOF = "id_proof", "ID Proof"
+        ADDRESS_PROOF = "address_proof", "Address Proof"
+        EDUCATION = "education", "Education Certificate"
+        EXPERIENCE = "experience", "Experience Certificate"
+        OFFER_LETTER = "offer_letter", "Offer Letter"
+        APPRAISAL = "appraisal", "Appraisal Letter"
+        SALARY_SLIP = "salary_slip", "Salary Slip"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="documents")
+    document_type = models.CharField(max_length=20, choices=DocType.choices)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    file_url = models.URLField(max_length=500)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="uploaded_hr_documents")
+    expiry_date = models.DateField(null=True, blank=True)
+    is_verified = models.BooleanField(default=False)
+    verified_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_hr_documents"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_employee_documents"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["employee", "document_type"]),
+            models.Index(fields=["expiry_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.employee}"
+
+    @property
+    def is_expired(self):
+        if self.expiry_date:
+            return self.expiry_date < timezone.now().date()
+        return False
+
+
+class PolicyDocument(models.Model):
+    """School policy documents for employees to acknowledge."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        ARCHIVED = "archived", "Archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="policy_documents")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    content = models.TextField(help_text="Policy content or URL")
+    document_type = models.CharField(max_length=50, blank=True, help_text="e.g. Leave Policy, Code of Conduct, Safety")
+    version = models.CharField(max_length=20, default="1.0")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    effective_date = models.DateField(null=True, blank=True)
+    requires_acknowledgment = models.BooleanField(default=False)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="uploaded_policies")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_policy_documents"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["school", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} v{self.version}"
+
+    @property
+    def acknowledgment_count(self):
+        return self.acknowledgments.count()
+
+
+class PolicyAcknowledgment(models.Model):
+    """Tracks employee acknowledgment of policies."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    policy = models.ForeignKey(PolicyDocument, on_delete=models.CASCADE, related_name="acknowledgments")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="policy_acknowledgments")
+    acknowledged_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "hr_policy_acknowledgments"
+        unique_together = [("policy", "employee")]
+        ordering = ["-acknowledged_at"]
+
+    def __str__(self):
+        return f"{self.employee} acknowledged {self.policy.title}"
+
+
+# ---------------------------------------------------------------------------
+# P9: Compliance & Audit Trail
+# ---------------------------------------------------------------------------
+
+
+class HRAuditLog(models.Model):
+    """Immutable audit trail for HR actions."""
+
+    class ActionType(models.TextChoices):
+        CREATE = "create", "Created"
+        UPDATE = "update", "Updated"
+        DELETE = "delete", "Deleted"
+        APPROVE = "approve", "Approved"
+        REJECT = "reject", "Rejected"
+        EXPORT = "export", "Exported"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="hr_audit_logs")
+    action_type = models.CharField(max_length=10, choices=ActionType.choices)
+    model_name = models.CharField(max_length=50, help_text="e.g. Employee, Payslip, LeaveRequest")
+    object_id = models.CharField(max_length=50, blank=True)
+    object_repr = models.CharField(max_length=255, blank=True)
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="hr_audit_actions")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_audit_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["school", "model_name"]),
+            models.Index(fields=["performed_by"]),
+            models.Index(fields=["-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.action_type} {self.model_name}#{self.object_id} by {self.performed_by}"
+
+
+class DataRetentionPolicy(models.Model):
+    """Defines how long HR data is retained."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="data_retention_policies")
+    model_name = models.CharField(max_length=50, unique=True)
+    retention_days = models.PositiveIntegerField(help_text="Days to retain data")
+    auto_delete = models.BooleanField(default=False)
+    last_purge_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_data_retention_policies"
+        ordering = ["model_name"]
+
+    def __str__(self):
+        return f"{self.model_name} — {self.retention_days} days"

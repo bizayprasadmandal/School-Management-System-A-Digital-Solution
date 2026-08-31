@@ -10,10 +10,15 @@ from .views import (
     CertificationViewSet,
     DepartmentViewSet,
     EmployeeBenefitViewSet,
+    EmployeeDocumentViewSet,
+    EmployeeProfileUpdateViewSet,
     EmployeeSalaryViewSet,
     EmployeeViewSet,
+    HRAuditLogViewSet,
+    HRDashboardViewSet,
     InterviewScheduleViewSet,
     JobPostingViewSet,
+    LeaveBalanceHRViewSet,
     LeaveRequestViewSet,
     OvertimeRequestViewSet,
     PayslipViewSet,
@@ -21,11 +26,15 @@ from .views import (
     PerformanceGoalViewSet,
     PerformanceReviewCycleViewSet,
     PerformanceReviewViewSet,
+    PolicyAcknowledgmentViewSet,
+    PolicyDocumentViewSet,
+    SalaryReportViewSet,
     SalaryStructureViewSet,
     TimeEntryViewSet,
     TimesheetViewSet,
     TrainingEnrollmentViewSet,
     TrainingProgramViewSet,
+    TurnoverReportViewSet,
 )
 
 app_name = "hr_v1"
@@ -58,6 +67,19 @@ router.register(r"employee-benefits", EmployeeBenefitViewSet, basename="employee
 router.register(r"training-programs", TrainingProgramViewSet, basename="training-program")
 router.register(r"training-enrollments", TrainingEnrollmentViewSet, basename="training-enrollment")
 router.register(r"certifications", CertificationViewSet, basename="certification")
+# P6: Self-Service
+router.register(r"profile-updates", EmployeeProfileUpdateViewSet, basename="profile-update")
+router.register(r"hr-leave-balances", LeaveBalanceHRViewSet, basename="hr-leave-balance")
+# P7: Analytics
+router.register(r"hr-dashboard", HRDashboardViewSet, basename="hr-dashboard")
+router.register(r"turnover-reports", TurnoverReportViewSet, basename="turnover-report")
+router.register(r"salary-reports", SalaryReportViewSet, basename="salary-report")
+# P8: Documents
+router.register(r"employee-documents", EmployeeDocumentViewSet, basename="employee-document")
+router.register(r"policies", PolicyDocumentViewSet, basename="policy")
+router.register(r"policy-acknowledgments", PolicyAcknowledgmentViewSet, basename="policy-acknowledgment")
+# P9: Compliance
+router.register(r"audit-logs", HRAuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("", include(router.urls)),

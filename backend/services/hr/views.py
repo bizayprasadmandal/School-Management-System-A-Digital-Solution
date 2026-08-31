@@ -19,9 +19,14 @@ from .models import (
     Department,
     Employee,
     EmployeeBenefit,
+    EmployeeDocument,
+    EmployeeProfileUpdate,
     EmployeeSalary,
+    HRAuditLog,
+    HRDashboardMetrics,
     InterviewSchedule,
     JobPosting,
+    LeaveBalanceHR,
     LeaveRequest,
     OvertimeRequest,
     Payslip,
@@ -29,11 +34,15 @@ from .models import (
     PerformanceGoal,
     PerformanceReview,
     PerformanceReviewCycle,
+    PolicyAcknowledgment,
+    PolicyDocument,
+    SalaryReport,
     SalaryStructure,
     TimeEntry,
     Timesheet,
     TrainingEnrollment,
     TrainingProgram,
+    TurnoverReport,
 )
 from .serializers import (
     ApplicantSerializer,
@@ -41,10 +50,15 @@ from .serializers import (
     CertificationSerializer,
     DepartmentSerializer,
     EmployeeBenefitSerializer,
+    EmployeeDocumentSerializer,
+    EmployeeProfileUpdateSerializer,
     EmployeeSalarySerializer,
     EmployeeSerializer,
+    HRAuditLogSerializer,
+    HRDashboardMetricsSerializer,
     InterviewScheduleSerializer,
     JobPostingSerializer,
+    LeaveBalanceHRSerializer,
     LeaveRequestSerializer,
     OvertimeRequestSerializer,
     PayslipSerializer,
@@ -52,11 +66,15 @@ from .serializers import (
     PerformanceGoalSerializer,
     PerformanceReviewCycleSerializer,
     PerformanceReviewSerializer,
+    PolicyAcknowledgmentSerializer,
+    PolicyDocumentSerializer,
+    SalaryReportSerializer,
     SalaryStructureSerializer,
     TimeEntrySerializer,
     TimesheetSerializer,
     TrainingEnrollmentSerializer,
     TrainingProgramSerializer,
+    TurnoverReportSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -790,3 +808,278 @@ class CertificationViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user)
         return Response(CertificationSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service ViewSets
+# ---------------------------------------------------------------------------
+
+
+class EmployeeProfileUpdateViewSet(viewsets.ModelViewSet):
+    serializer_class = EmployeeProfileUpdateSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["employee", "status"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = EmployeeProfileUpdate.objects.filter(employee__school=user.school).select_related(
+            "employee__user", "reviewed_by"
+        )
+        if user.role == "employee":
+            qs = qs.filter(employee__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        if self.action in ["update", "partial_update", "destroy", "approve", "reject"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        employee = Employee.objects.filter(user=self.request.user).first()
+        if employee:
+            serializer.save(employee=employee)
+        else:
+            serializer.save()
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        update = self.get_object()
+        update.status = "approved"
+        update.reviewed_by = request.user
+        update.review_notes = request.data.get("review_notes", "")
+        update.save(update_fields=["status", "reviewed_by", "review_notes", "updated_at"])
+        return Response(EmployeeProfileUpdateSerializer(update).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        update = self.get_object()
+        update.status = "rejected"
+        update.reviewed_by = request.user
+        update.review_notes = request.data.get("review_notes", "")
+        update.save(update_fields=["status", "reviewed_by", "review_notes", "updated_at"])
+        return Response(EmployeeProfileUpdateSerializer(update).data)
+
+
+class LeaveBalanceHRViewSet(viewsets.ModelViewSet):
+    serializer_class = LeaveBalanceHRSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["employee", "leave_type", "year"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = LeaveBalanceHR.objects.filter(employee__school=user.school).select_related("employee__user")
+        if user.role == "employee":
+            qs = qs.filter(employee__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=False, methods=["get"], url_path="my-balance")
+    def my_balance(self, request):
+        if request.user.role != "employee":
+            return Response({"detail": "Employee only."}, status=403)
+        from datetime import date
+
+        year = date.today().year
+        qs = self.get_queryset().filter(employee__user=request.user, year=year)
+        return Response(LeaveBalanceHRSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# P7: HR Analytics ViewSets
+# ---------------------------------------------------------------------------
+
+
+class HRDashboardViewSet(viewsets.GenericViewSet):
+    """HR Dashboard metrics endpoint."""
+
+    serializer_class = HRDashboardMetricsSerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    @action(detail=False, methods=["get"], url_path="metrics")
+    def metrics(self, request):
+        """Get or calculate HR dashboard metrics."""
+        from django.utils import timezone
+
+        school = request.user.school
+        metrics, _ = HRDashboardMetrics.objects.get_or_create(
+            school=school,
+            defaults={
+                "total_employees": Employee.objects.filter(school=school).count(),
+                "active_employees": Employee.objects.filter(school=school, status="active").count(),
+            },
+        )
+        # Recalculate key metrics
+        metrics.active_employees = Employee.objects.filter(school=school, status="active").count()
+        metrics.pending_leave_requests = LeaveRequest.objects.filter(school=school, status="pending").count()
+        metrics.pending_overtime_requests = OvertimeRequest.objects.filter(
+            employee__school=school, status="pending"
+        ).count()
+        from datetime import timedelta
+
+        threshold = timezone.now().date() + timedelta(days=30)
+        metrics.expiring_certifications = Certification.objects.filter(
+            employee__school=school, expiry_date__lte=threshold, status="active"
+        ).count()
+        metrics.active_trainings = TrainingProgram.objects.filter(school=school, status="active").count()
+        metrics.save()
+        return Response(HRDashboardMetricsSerializer(metrics).data)
+
+
+class TurnoverReportViewSet(viewsets.ModelViewSet):
+    serializer_class = TurnoverReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["month"]
+
+    def get_queryset(self):
+        return TurnoverReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class SalaryReportViewSet(viewsets.ModelViewSet):
+    serializer_class = SalaryReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["month"]
+
+    def get_queryset(self):
+        return SalaryReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management ViewSets
+# ---------------------------------------------------------------------------
+
+
+class EmployeeDocumentViewSet(viewsets.ModelViewSet):
+    serializer_class = EmployeeDocumentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["employee", "document_type", "is_verified"]
+    search_fields = ["title", "description"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = EmployeeDocument.objects.filter(employee__school=user.school).select_related(
+            "employee__user", "uploaded_by", "verified_by"
+        )
+        if user.role == "employee":
+            qs = qs.filter(employee__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create"]:
+            return [IsAuthenticated(), IsSchoolMember()]
+        if self.action in ["update", "partial_update", "destroy", "verify"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="verify")
+    def verify(self, request, pk=None):
+        doc = self.get_object()
+        doc.is_verified = True
+        doc.verified_by = request.user
+        doc.save(update_fields=["is_verified", "verified_by", "updated_at"])
+        return Response(EmployeeDocumentSerializer(doc).data)
+
+    @action(detail=False, methods=["get"], url_path="my-documents")
+    def my_documents(self, request):
+        if request.user.role != "employee":
+            return Response({"detail": "Employee only."}, status=403)
+        qs = self.get_queryset().filter(employee__user=request.user)
+        return Response(EmployeeDocumentSerializer(qs, many=True).data)
+
+
+class PolicyDocumentViewSet(viewsets.ModelViewSet):
+    serializer_class = PolicyDocumentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["status", "document_type", "requires_acknowledgment"]
+    search_fields = ["title", "description"]
+
+    def get_queryset(self):
+        return PolicyDocument.objects.filter(school=self.request.user.school).select_related("uploaded_by")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, uploaded_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="acknowledge")
+    def acknowledge(self, request, pk=None):
+        policy = self.get_object()
+        employee = Employee.objects.filter(user=request.user).first()
+        if not employee:
+            return Response({"detail": "Employee not found."}, status=404)
+        ack, created = PolicyAcknowledgment.objects.get_or_create(policy=policy, employee=employee)
+        return Response(
+            PolicyAcknowledgmentSerializer(ack).data,
+            status=201 if created else 200,
+        )
+
+
+class PolicyAcknowledgmentViewSet(viewsets.ModelViewSet):
+    serializer_class = PolicyAcknowledgmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["policy", "employee"]
+
+    def get_queryset(self):
+        return PolicyAcknowledgment.objects.filter(policy__school=self.request.user.school).select_related(
+            "employee__user", "policy"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+# ---------------------------------------------------------------------------
+# P9: Compliance & Audit ViewSets
+# ---------------------------------------------------------------------------
+
+
+class HRAuditLogViewSet(viewsets.ModelViewSet):
+    serializer_class = HRAuditLogSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["action_type", "model_name", "performed_by"]
+    search_fields = ["object_repr", "notes"]
+    http_method_names = ["get", "head", "options"]  # Read-only
+
+    def get_queryset(self):
+        return HRAuditLog.objects.filter(school=self.request.user.school).select_related("performed_by")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]

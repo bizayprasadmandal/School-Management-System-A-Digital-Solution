@@ -10,24 +10,34 @@ from .models import (
     Department,
     Employee,
     EmployeeBenefit,
+    EmployeeDocument,
+    EmployeeProfileUpdate,
     EmployeeSalary,
+    HRAuditLog,
+    HRDashboardMetrics,
     InterviewSchedule,
     JobPosting,
+    LeaveBalanceHR,
     LeaveRequest,
     OnboardingChecklist,
     OnboardingProgress,
     OnboardingTask,
     OvertimeRequest,
     Payslip,
+    PayslipViewLog,
     PeerFeedback,
     PerformanceGoal,
     PerformanceReview,
     PerformanceReviewCycle,
+    PolicyAcknowledgment,
+    PolicyDocument,
+    SalaryReport,
     SalaryStructure,
     TimeEntry,
     Timesheet,
     TrainingEnrollment,
     TrainingProgram,
+    TurnoverReport,
 )
 
 
@@ -774,3 +784,238 @@ class CertificationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# P6: Employee Self-Service Serializers
+# ---------------------------------------------------------------------------
+
+
+class EmployeeProfileUpdateSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = EmployeeProfileUpdate
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "field_name",
+            "old_value",
+            "new_value",
+            "status",
+            "reviewed_by",
+            "reviewed_by_name",
+            "review_notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PayslipViewLogSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True)
+
+    class Meta:
+        model = PayslipViewLog
+        fields = ["id", "employee", "employee_name", "payslip", "viewed_at"]
+        read_only_fields = ["id", "viewed_at"]
+
+
+class LeaveBalanceHRSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True)
+    remaining_days = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LeaveBalanceHR
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "leave_type",
+            "year",
+            "total_days",
+            "used_days",
+            "carried_over",
+            "remaining_days",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# P7: HR Analytics Serializers
+# ---------------------------------------------------------------------------
+
+
+class HRDashboardMetricsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HRDashboardMetrics
+        fields = [
+            "id",
+            "school",
+            "total_employees",
+            "active_employees",
+            "new_hires_this_month",
+            "separations_this_month",
+            "turnover_rate",
+            "average_tenure_months",
+            "total_payroll_this_month",
+            "pending_leave_requests",
+            "pending_overtime_requests",
+            "expiring_certifications",
+            "active_trainings",
+            "department_breakdown",
+            "employment_type_breakdown",
+            "calculated_at",
+        ]
+        read_only_fields = ["id", "calculated_at"]
+
+
+class TurnoverReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TurnoverReport
+        fields = [
+            "id",
+            "school",
+            "month",
+            "total_employees_start",
+            "new_hires",
+            "separations",
+            "turnover_rate",
+            "resignations",
+            "terminations",
+            "retirements",
+            "department_breakdown",
+            "top_reasons",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class SalaryReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalaryReport
+        fields = [
+            "id",
+            "school",
+            "month",
+            "total_gross",
+            "total_deductions",
+            "total_net",
+            "total_tax",
+            "total_pension",
+            "average_salary",
+            "headcount",
+            "department_breakdown",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+# ---------------------------------------------------------------------------
+# P8: Document Management Serializers
+# ---------------------------------------------------------------------------
+
+
+class EmployeeDocumentSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True)
+    uploaded_by_name = serializers.CharField(source="uploaded_by.full_name", read_only=True, default=None)
+    verified_by_name = serializers.CharField(source="verified_by.full_name", read_only=True, default=None)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = EmployeeDocument
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "document_type",
+            "title",
+            "description",
+            "file_url",
+            "uploaded_by",
+            "uploaded_by_name",
+            "expiry_date",
+            "is_verified",
+            "verified_by",
+            "verified_by_name",
+            "is_expired",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PolicyDocumentSerializer(serializers.ModelSerializer):
+    uploaded_by_name = serializers.CharField(source="uploaded_by.full_name", read_only=True, default=None)
+    acknowledgment_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = PolicyDocument
+        fields = [
+            "id",
+            "school",
+            "title",
+            "description",
+            "content",
+            "document_type",
+            "version",
+            "status",
+            "effective_date",
+            "requires_acknowledgment",
+            "uploaded_by",
+            "uploaded_by_name",
+            "acknowledgment_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PolicyAcknowledgmentSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True)
+    policy_title = serializers.CharField(source="policy.title", read_only=True)
+
+    class Meta:
+        model = PolicyAcknowledgment
+        fields = [
+            "id",
+            "policy",
+            "policy_title",
+            "employee",
+            "employee_name",
+            "acknowledged_at",
+            "ip_address",
+        ]
+        read_only_fields = ["id", "acknowledged_at"]
+
+
+# ---------------------------------------------------------------------------
+# P9: Compliance & Audit Serializers
+# ---------------------------------------------------------------------------
+
+
+class HRAuditLogSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.CharField(source="performed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = HRAuditLog
+        fields = [
+            "id",
+            "school",
+            "action_type",
+            "model_name",
+            "object_id",
+            "object_repr",
+            "old_values",
+            "new_values",
+            "performed_by",
+            "performed_by_name",
+            "ip_address",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
