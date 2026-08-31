@@ -11,13 +11,45 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Application, ApplicationDocument, ApplicationReview, ApplicationTimelineEvent, EnrollmentIntake
+from .models import (
+    AdmissionsEmailNotification,
+    AdmissionsPipeline,
+    AdmissionsReport,
+    AdmissionsSMSNotification,
+    Application,
+    ApplicationDocument,
+    ApplicationFee,
+    ApplicationReview,
+    ApplicationTemplate,
+    ApplicationTimelineEvent,
+    BulkApplicationImport,
+    EnrollmentConfirmation,
+    EnrollmentIntake,
+    InterviewSchedule,
+    MeritList,
+    MeritListEntry,
+    ReEnrollment,
+    WaitlistManagement,
+)
 from .serializers import (
+    AdmissionsEmailNotificationSerializer,
+    AdmissionsPipelineSerializer,
+    AdmissionsReportSerializer,
+    AdmissionsSMSNotificationSerializer,
     ApplicationDocumentSerializer,
+    ApplicationFeeSerializer,
     ApplicationListSerializer,
     ApplicationReviewSerializer,
     ApplicationSerializer,
+    ApplicationTemplateSerializer,
+    BulkApplicationImportSerializer,
+    EnrollmentConfirmationSerializer,
     EnrollmentIntakeSerializer,
+    InterviewScheduleSerializer,
+    MeritListEntrySerializer,
+    MeritListSerializer,
+    ReEnrollmentSerializer,
+    WaitlistManagementSerializer,
 )
 
 
@@ -496,3 +528,367 @@ class ApplicationReviewViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(reviewer=self.request.user)
+
+
+# =============================================================================
+# Application Fees ViewSets
+# =============================================================================
+
+
+class ApplicationFeeViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationFeeSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "transaction_id"]
+    filterset_fields = ["application", "status", "payment_method"]
+    ordering_fields = ["created_at", "payment_date"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ApplicationFee.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Interview Schedule ViewSets
+# =============================================================================
+
+
+class InterviewScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = InterviewScheduleSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "interview_type", "status", "interviewer"]
+    ordering_fields = ["scheduled_date", "scheduled_time"]
+    ordering = ["scheduled_date", "scheduled_time"]
+
+    def get_queryset(self):
+        return InterviewSchedule.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Merit List ViewSets
+# =============================================================================
+
+
+class MeritListEntryViewSet(viewsets.ModelViewSet):
+    serializer_class = MeritListEntrySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["merit_list", "application", "status"]
+    ordering_fields = ["rank", "total_score"]
+    ordering = ["rank"]
+
+    def get_queryset(self):
+        return MeritListEntry.objects.filter(merit_list__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class MeritListViewSet(viewsets.ModelViewSet):
+    serializer_class = MeritListSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description", "grade"]
+    filterset_fields = ["status", "grade", "intake"]
+    ordering_fields = ["created_at", "published_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return MeritList.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "publish"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"])
+    def publish(self, request, pk=None):
+        """Publish the merit list."""
+        from django.utils import timezone
+
+        merit_list = self.get_object()
+        merit_list.status = MeritList.Status.PUBLISHED
+        merit_list.published_at = timezone.now()
+        merit_list.published_by = request.user
+        merit_list.save(update_fields=["status", "published_at", "published_by"])
+        return Response(MeritListSerializer(merit_list).data)
+
+
+# =============================================================================
+# Waitlist Management ViewSets
+# =============================================================================
+
+
+class WaitlistManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = WaitlistManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "status"]
+    ordering_fields = ["position", "created_at"]
+    ordering = ["position"]
+
+    def get_queryset(self):
+        return WaitlistManagement.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Enrollment Confirmation ViewSets
+# =============================================================================
+
+
+class EnrollmentConfirmationViewSet(viewsets.ModelViewSet):
+    serializer_class = EnrollmentConfirmationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "status", "payment_status"]
+    ordering_fields = ["created_at", "confirmation_deadline"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return EnrollmentConfirmation.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Admissions Reports ViewSets
+# =============================================================================
+
+
+class AdmissionsReportViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "summary"]
+    filterset_fields = ["report_type", "status", "intake"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, generated_by=self.request.user)
+
+
+# =============================================================================
+# Email Notifications ViewSets
+# =============================================================================
+
+
+class AdmissionsEmailNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsEmailNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "recipient_email"]
+    filterset_fields = ["application", "notification_type", "status"]
+    ordering_fields = ["created_at", "sent_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsEmailNotification.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# SMS Notifications ViewSets
+# =============================================================================
+
+
+class AdmissionsSMSNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsSMSNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "phone_number"]
+    filterset_fields = ["application", "notification_type", "status"]
+    ordering_fields = ["created_at", "sent_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsSMSNotification.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Re-enrollment Management ViewSets
+# =============================================================================
+
+
+class ReEnrollmentViewSet(viewsets.ModelViewSet):
+    serializer_class = ReEnrollmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "status", "intake", "fee_paid"]
+    ordering_fields = ["invited_at", "deadline"]
+    ordering = ["-invited_at"]
+
+    def get_queryset(self):
+        return ReEnrollment.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Admissions Pipeline ViewSets
+# =============================================================================
+
+
+class AdmissionsPipelineViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsPipelineSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "lead_source"]
+    filterset_fields = ["current_stage", "is_priority", "is_hot_lead", "assigned_to"]
+    ordering_fields = ["created_at", "updated_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsPipeline.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"], url_path="move-stage")
+    def move_stage(self, request, pk=None):
+        """Move application to next stage in pipeline."""
+        from django.utils import timezone
+
+        pipeline = self.get_object()
+        new_stage = request.data.get("stage")
+        valid_stages = [choice[0] for choice in AdmissionsPipeline.Stage.choices]
+        if new_stage not in valid_stages:
+            return Response({"detail": "Invalid stage."}, status=400)
+
+        # Update the current stage and set the corresponding date field
+        stage_date_field = f"{new_stage}_date"
+        if hasattr(pipeline, stage_date_field):
+            setattr(pipeline, stage_date_field, timezone.now())
+
+        pipeline.current_stage = new_stage
+        pipeline.save()
+        return Response(AdmissionsPipelineSerializer(pipeline).data)
+
+
+# =============================================================================
+# Application Templates ViewSets
+# =============================================================================
+
+
+class ApplicationTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationTemplateSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+    filterset_fields = ["is_active", "allow_late_applications"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        return ApplicationTemplate.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+# =============================================================================
+# Bulk Application Import ViewSets
+# =============================================================================
+
+
+class BulkApplicationImportViewSet(viewsets.ModelViewSet):
+    serializer_class = BulkApplicationImportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["batch_name", "description"]
+    filterset_fields = ["status"]
+    ordering_fields = ["initiated_at", "completed_at"]
+    ordering = ["-initiated_at"]
+
+    def get_queryset(self):
+        return BulkApplicationImport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, initiated_by=self.request.user)
