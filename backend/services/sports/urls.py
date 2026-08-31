@@ -2,12 +2,22 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    ComplianceTrackingViewSet,
     EquipmentInventoryViewSet,
+    FacilityBookingViewSet,
     GameLineupViewSet,
     InjuryTrackingViewSet,
     LeagueStandingViewSet,
+    LiveGameScoreViewSet,
+    LiveStreamingViewSet,
+    MultiSportSchedulingViewSet,
+    PlayerDevelopmentPlanViewSet,
     PlayerStatisticsViewSet,
     PracticeScheduleViewSet,
+    RefereeAssignmentViewSet,
+    RefereeManagementViewSet,
+    RefundManagementViewSet,
+    SeasonPassMembershipViewSet,
     SportAchievementViewSet,
     SportEventViewSet,
     SportsAnalyticsViewSet,
@@ -25,6 +35,11 @@ from .views import (
     TeamMemberViewSet,
     TeamRosterViewSet,
     TeamViewSet,
+    TryoutAssessmentViewSet,
+    TryoutScoreViewSet,
+    VideoAnalysisViewSet,
+    WearableIntegrationViewSet,
+    WeatherIntegrationViewSet,
 )
 
 app_name = "sports_v1"
@@ -62,5 +77,33 @@ router.register(r"travel", SportsTravelManagementViewSet, basename="sports-trave
 router.register(r"volunteers", SportsVolunteerManagementViewSet, basename="sports-volunteer")
 # Analytics
 router.register(r"analytics", SportsAnalyticsViewSet, basename="sports-analytics")
+# Referees
+router.register(r"referees", RefereeManagementViewSet, basename="referee-management")
+router.register(r"referee-assignments", RefereeAssignmentViewSet, basename="referee-assignment")
+# Facility
+router.register(r"facility-bookings", FacilityBookingViewSet, basename="facility-booking")
+# Live Scoring
+router.register(r"live-scores", LiveGameScoreViewSet, basename="live-game-score")
+# Video
+router.register(r"videos", VideoAnalysisViewSet, basename="video-analysis")
+# Wearables
+router.register(r"wearables", WearableIntegrationViewSet, basename="wearable-integration")
+# Development
+router.register(r"development-plans", PlayerDevelopmentPlanViewSet, basename="player-development-plan")
+# Tryouts
+router.register(r"tryouts", TryoutAssessmentViewSet, basename="tryout-assessment")
+router.register(r"tryout-scores", TryoutScoreViewSet, basename="tryout-score")
+# Memberships
+router.register(r"season-passes", SeasonPassMembershipViewSet, basename="season-pass-membership")
+# Scheduling
+router.register(r"schedule-conflicts", MultiSportSchedulingViewSet, basename="multi-sport-scheduling")
+# Refunds
+router.register(r"refunds", RefundManagementViewSet, basename="refund-management")
+# Compliance
+router.register(r"compliance", ComplianceTrackingViewSet, basename="compliance-tracking")
+# Weather
+router.register(r"weather-alerts", WeatherIntegrationViewSet, basename="weather-integration")
+# Live Streaming
+router.register(r"live-streams", LiveStreamingViewSet, basename="live-streaming")
 
 urlpatterns = [path("", include(router.urls))]

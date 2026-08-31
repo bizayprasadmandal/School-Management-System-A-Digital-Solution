@@ -13,12 +13,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
+    ComplianceTracking,
     EquipmentInventory,
+    FacilityBooking,
     GameLineup,
     InjuryTracking,
     LeagueStanding,
+    LiveGameScore,
+    LiveStreaming,
+    MultiSportScheduling,
+    PlayerDevelopmentPlan,
     PlayerStatistics,
     PracticeSchedule,
+    RefereeAssignment,
+    RefereeManagement,
+    RefundManagement,
+    SeasonPassMembership,
     Sport,
     SportAchievement,
     SportEvent,
@@ -36,14 +46,29 @@ from .models import (
     TeamCommunication,
     TeamMember,
     TeamRoster,
+    TryoutAssessment,
+    TryoutScore,
+    VideoAnalysis,
+    WearableIntegration,
+    WeatherIntegration,
 )
 from .serializers import (
+    ComplianceTrackingSerializer,
     EquipmentInventorySerializer,
+    FacilityBookingSerializer,
     GameLineupSerializer,
     InjuryTrackingSerializer,
     LeagueStandingSerializer,
+    LiveGameScoreSerializer,
+    LiveStreamingSerializer,
+    MultiSportSchedulingSerializer,
+    PlayerDevelopmentPlanSerializer,
     PlayerStatisticsSerializer,
     PracticeScheduleSerializer,
+    RefereeAssignmentSerializer,
+    RefereeManagementSerializer,
+    RefundManagementSerializer,
+    SeasonPassMembershipSerializer,
     SportAchievementSerializer,
     SportEventSerializer,
     SportsAnalyticsSerializer,
@@ -61,6 +86,11 @@ from .serializers import (
     TeamMemberSerializer,
     TeamRosterSerializer,
     TeamSerializer,
+    TryoutAssessmentSerializer,
+    TryoutScoreSerializer,
+    VideoAnalysisSerializer,
+    WearableIntegrationSerializer,
+    WeatherIntegrationSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -512,3 +542,274 @@ class SportsAnalyticsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(generated_by=self.request.user)
+
+
+class RefereeManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = RefereeManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["first_name", "last_name", "email"]
+    filterset_fields = ["referee_type", "certification_level", "status"]
+
+    def get_queryset(self):
+        return RefereeManagement.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class RefereeAssignmentViewSet(viewsets.ModelViewSet):
+    serializer_class = RefereeAssignmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["referee", "event", "status"]
+
+    def get_queryset(self):
+        return RefereeAssignment.objects.filter(referee__school=self.request.user.school).select_related(
+            "referee", "event"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class FacilityBookingViewSet(viewsets.ModelViewSet):
+    serializer_class = FacilityBookingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["facility_name", "location"]
+    filterset_fields = ["facility_type", "status", "date"]
+
+    def get_queryset(self):
+        return FacilityBooking.objects.filter(school=self.request.user.school).select_related(
+            "booked_by", "team", "event"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, booked_by=self.request.user)
+
+
+class LiveGameScoreViewSet(viewsets.ModelViewSet):
+    serializer_class = LiveGameScoreSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status"]
+
+    def get_queryset(self):
+        return LiveGameScore.objects.filter(event__school=self.request.user.school).select_related(
+            "event", "updated_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+
+class VideoAnalysisViewSet(viewsets.ModelViewSet):
+    serializer_class = VideoAnalysisSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title"]
+    filterset_fields = ["team", "video_type", "status"]
+
+    def get_queryset(self):
+        return VideoAnalysis.objects.filter(school=self.request.user.school).select_related(
+            "team", "event", "uploaded_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, uploaded_by=self.request.user)
+
+
+class WearableIntegrationViewSet(viewsets.ModelViewSet):
+    serializer_class = WearableIntegrationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "team", "device_type", "sync_status"]
+
+    def get_queryset(self):
+        return WearableIntegration.objects.filter(team__school=self.request.user.school).select_related(
+            "student__user", "team"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class PlayerDevelopmentPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = PlayerDevelopmentPlanSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title"]
+    filterset_fields = ["student", "team", "phase", "status"]
+
+    def get_queryset(self):
+        return PlayerDevelopmentPlan.objects.filter(team__school=self.request.user.school).select_related(
+            "student__user", "team", "created_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class TryoutAssessmentViewSet(viewsets.ModelViewSet):
+    serializer_class = TryoutAssessmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title"]
+    filterset_fields = ["sport", "team", "status"]
+
+    def get_queryset(self):
+        return TryoutAssessment.objects.filter(school=self.request.user.school).select_related(
+            "sport", "team", "created_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+class TryoutScoreViewSet(viewsets.ModelViewSet):
+    serializer_class = TryoutScoreSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["tryout", "student", "selection_status"]
+
+    def get_queryset(self):
+        return TryoutScore.objects.filter(tryout__school=self.request.user.school).select_related(
+            "tryout", "student__user", "evaluated_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(evaluated_by=self.request.user)
+
+
+class SeasonPassMembershipViewSet(viewsets.ModelViewSet):
+    serializer_class = SeasonPassMembershipSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "membership_type", "status"]
+
+    def get_queryset(self):
+        return SeasonPassMembership.objects.filter(school=self.request.user.school).select_related("student__user")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class MultiSportSchedulingViewSet(viewsets.ModelViewSet):
+    serializer_class = MultiSportSchedulingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["conflict_type", "status"]
+
+    def get_queryset(self):
+        return MultiSportScheduling.objects.filter(school=self.request.user.school).select_related(
+            "event_1", "event_2", "resolved_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class RefundManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = RefundManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "refund_reason", "status"]
+
+    def get_queryset(self):
+        return RefundManagement.objects.filter(school=self.request.user.school).select_related(
+            "requested_by", "student__user", "registration", "reviewed_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, requested_by=self.request.user)
+
+
+class ComplianceTrackingViewSet(viewsets.ModelViewSet):
+    serializer_class = ComplianceTrackingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["staff_member", "compliance_type", "status"]
+
+    def get_queryset(self):
+        return ComplianceTracking.objects.filter(school=self.request.user.school).select_related(
+            "staff_member", "verified_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class WeatherIntegrationViewSet(viewsets.ModelViewSet):
+    serializer_class = WeatherIntegrationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["weather_condition", "action_taken"]
+
+    def get_queryset(self):
+        return WeatherIntegration.objects.filter(school=self.request.user.school).select_related("event", "decided_by")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class LiveStreamingViewSet(viewsets.ModelViewSet):
+    serializer_class = LiveStreamingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["team", "status", "quality"]
+
+    def get_queryset(self):
+        return LiveStreaming.objects.filter(school=self.request.user.school).select_related(
+            "event", "team", "created_by"
+        )
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)

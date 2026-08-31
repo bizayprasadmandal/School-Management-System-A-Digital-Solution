@@ -1,12 +1,22 @@
 from django.contrib import admin
 
 from .models import (
+    ComplianceTracking,
     EquipmentInventory,
+    FacilityBooking,
     GameLineup,
     InjuryTracking,
     LeagueStanding,
+    LiveGameScore,
+    LiveStreaming,
+    MultiSportScheduling,
+    PlayerDevelopmentPlan,
     PlayerStatistics,
     PracticeSchedule,
+    RefereeAssignment,
+    RefereeManagement,
+    RefundManagement,
+    SeasonPassMembership,
     Sport,
     SportAchievement,
     SportEvent,
@@ -24,6 +34,11 @@ from .models import (
     TeamCommunication,
     TeamMember,
     TeamRoster,
+    TryoutAssessment,
+    TryoutScore,
+    VideoAnalysis,
+    WearableIntegration,
+    WeatherIntegration,
 )
 
 
@@ -191,4 +206,109 @@ class SportsVolunteerManagementAdmin(admin.ModelAdmin):
 class SportsAnalyticsAdmin(admin.ModelAdmin):
     list_display = ["team", "analytics_type", "title", "start_date", "end_date"]
     list_filter = ["analytics_type"]
+    search_fields = ["title"]
+
+
+@admin.register(RefereeManagement)
+class RefereeManagementAdmin(admin.ModelAdmin):
+    list_display = ["first_name", "last_name", "referee_type", "certification_level", "status"]
+    list_filter = ["referee_type", "certification_level", "status"]
+    search_fields = ["first_name", "last_name", "email"]
+
+
+@admin.register(RefereeAssignment)
+class RefereeAssignmentAdmin(admin.ModelAdmin):
+    list_display = ["referee", "event", "role", "status", "fee_amount"]
+    list_filter = ["status"]
+    search_fields = ["referee__first_name", "referee__last_name"]
+
+
+@admin.register(FacilityBooking)
+class FacilityBookingAdmin(admin.ModelAdmin):
+    list_display = ["facility_name", "facility_type", "date", "start_time", "end_time", "status"]
+    list_filter = ["facility_type", "status"]
+    search_fields = ["facility_name"]
+
+
+@admin.register(LiveGameScore)
+class LiveGameScoreAdmin(admin.ModelAdmin):
+    list_display = ["event", "home_score", "away_score", "status", "current_period"]
+    list_filter = ["status"]
+    search_fields = ["event__title"]
+
+
+@admin.register(VideoAnalysis)
+class VideoAnalysisAdmin(admin.ModelAdmin):
+    list_display = ["title", "team", "video_type", "status", "created_at"]
+    list_filter = ["video_type", "status"]
+    search_fields = ["title"]
+
+
+@admin.register(WearableIntegration)
+class WearableIntegrationAdmin(admin.ModelAdmin):
+    list_display = ["student", "device_type", "sync_status", "last_sync"]
+    list_filter = ["device_type", "sync_status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(PlayerDevelopmentPlan)
+class PlayerDevelopmentPlanAdmin(admin.ModelAdmin):
+    list_display = ["student", "title", "phase", "progress_percentage", "status"]
+    list_filter = ["phase", "status"]
+    search_fields = ["student__user__full_name", "title"]
+
+
+@admin.register(TryoutAssessment)
+class TryoutAssessmentAdmin(admin.ModelAdmin):
+    list_display = ["title", "team", "tryout_date", "status", "current_participants"]
+    list_filter = ["status"]
+    search_fields = ["title"]
+
+
+@admin.register(TryoutScore)
+class TryoutScoreAdmin(admin.ModelAdmin):
+    list_display = ["student", "tryout", "total_score", "selection_status"]
+    list_filter = ["selection_status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(SeasonPassMembership)
+class SeasonPassMembershipAdmin(admin.ModelAdmin):
+    list_display = ["student", "membership_type", "season", "final_amount", "status"]
+    list_filter = ["membership_type", "status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(MultiSportScheduling)
+class MultiSportSchedulingAdmin(admin.ModelAdmin):
+    list_display = ["event_1", "event_2", "conflict_type", "status"]
+    list_filter = ["conflict_type", "status"]
+    search_fields = ["event_1__title", "event_2__title"]
+
+
+@admin.register(RefundManagement)
+class RefundManagementAdmin(admin.ModelAdmin):
+    list_display = ["student", "refund_amount", "refund_reason", "status", "created_at"]
+    list_filter = ["refund_reason", "status"]
+    search_fields = ["student__user__full_name"]
+
+
+@admin.register(ComplianceTracking)
+class ComplianceTrackingAdmin(admin.ModelAdmin):
+    list_display = ["staff_member", "compliance_type", "status", "expiry_date"]
+    list_filter = ["compliance_type", "status"]
+    search_fields = ["staff_member__full_name"]
+
+
+@admin.register(WeatherIntegration)
+class WeatherIntegrationAdmin(admin.ModelAdmin):
+    list_display = ["event", "weather_condition", "action_taken", "created_at"]
+    list_filter = ["weather_condition", "action_taken"]
+    search_fields = ["event__title"]
+
+
+@admin.register(LiveStreaming)
+class LiveStreamingAdmin(admin.ModelAdmin):
+    list_display = ["title", "team", "status", "scheduled_start", "peak_viewers"]
+    list_filter = ["status", "quality"]
     search_fields = ["title"]
