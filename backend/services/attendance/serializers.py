@@ -5,16 +5,28 @@ from rest_framework import serializers
 
 from .models import (
     AttendanceChangeLog,
+    AttendanceCorrectionWorkflow,
+    AttendanceDashboard,
     AttendanceDataArchive,
+    AttendanceHistoryView,
     AttendanceLeave,
+    AttendancePatterns,
     AttendancePolicy,
     AttendanceRecord,
+    AttendanceReport,
+    BiometricCheckin,
+    BulkAttendanceImport,
+    ChronicAbsenceTracking,
+    GPSAttendance,
     Holiday,
     LeaveApprovalLevel,
     LeaveBalance,
+    ParentNotification,
     PeriodAttendance,
     QRCodeCheckin,
     QRCodeSession,
+    RealTimeDashboard,
+    RFIDCheckin,
     SubstituteTeacher,
 )
 
@@ -490,3 +502,308 @@ class AttendanceDataArchiveSerializer(serializers.ModelSerializer):
             "is_purged",
         ]
         read_only_fields = ["archived_at"]
+
+
+class BiometricCheckinSerializer(serializers.ModelSerializer):
+    """Serializer for biometric check-ins."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = BiometricCheckin
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "biometric_type",
+            "device_id",
+            "status",
+            "confidence_score",
+            "checkin_time",
+        ]
+        read_only_fields = ["status", "confidence_score", "checkin_time"]
+
+
+class RFIDCheckinSerializer(serializers.ModelSerializer):
+    """Serializer for RFID check-ins."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = RFIDCheckin
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "card_number",
+            "reader_id",
+            "location",
+            "checkin_time",
+        ]
+        read_only_fields = ["checkin_time"]
+
+
+class GPSAttendanceSerializer(serializers.ModelSerializer):
+    """Serializer for GPS-based attendance."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    is_within_school = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = GPSAttendance
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "latitude",
+            "longitude",
+            "geofence_name",
+            "geofence_radius",
+            "accuracy_meters",
+            "status",
+            "checkin_time",
+            "is_within_school",
+        ]
+        read_only_fields = ["checkin_time"]
+
+
+class ParentNotificationSerializer(serializers.ModelSerializer):
+    """Serializer for parent notifications."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = ParentNotification
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "notification_type",
+            "channel",
+            "title",
+            "message",
+            "status",
+            "sent_at",
+            "delivered_at",
+            "read_at",
+        ]
+        read_only_fields = ["sent_at", "delivered_at", "read_at"]
+
+
+class AttendanceDashboardSerializer(serializers.ModelSerializer):
+    """Serializer for attendance dashboard."""
+
+    present_percentage = serializers.SerializerMethodField()
+    absent_percentage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AttendanceDashboard
+        fields = [
+            "id",
+            "school",
+            "dashboard_type",
+            "title",
+            "start_date",
+            "end_date",
+            "total_students",
+            "average_attendance",
+            "present_count",
+            "absent_count",
+            "late_count",
+            "excused_count",
+            "present_percentage",
+            "absent_percentage",
+        ]
+        read_only_fields = fields
+
+    def get_present_percentage(self, obj):
+        if obj.total_students == 0:
+            return 0
+        return round((obj.present_count / obj.total_students) * 100, 2)
+
+    def get_absent_percentage(self, obj):
+        if obj.total_students == 0:
+            return 0
+        return round((obj.absent_count / obj.total_students) * 100, 2)
+
+
+class ChronicAbsenceTrackingSerializer(serializers.ModelSerializer):
+    """Serializer for chronic absence tracking."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = ChronicAbsenceTracking
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "total_days",
+            "days_present",
+            "days_absent",
+            "absence_percentage",
+            "severity_level",
+            "status",
+            "intervention_plan",
+            "intervention_start_date",
+            "follow_up_date",
+        ]
+        read_only_fields = ["absence_percentage"]
+
+
+class AttendanceReportSerializer(serializers.ModelSerializer):
+    """Serializer for attendance reports."""
+
+    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = AttendanceReport
+        fields = [
+            "id",
+            "school",
+            "report_type",
+            "title",
+            "start_date",
+            "end_date",
+            "classroom",
+            "status",
+            "generated_by",
+            "generated_by_name",
+            "created_at",
+        ]
+        read_only_fields = ["generated_by", "created_at"]
+
+
+class BulkAttendanceImportSerializer(serializers.ModelSerializer):
+    """Serializer for bulk attendance imports."""
+
+    imported_by_name = serializers.CharField(source="imported_by.full_name", read_only=True, default=None)
+    success_rate = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BulkAttendanceImport
+        fields = [
+            "id",
+            "school",
+            "file_name",
+            "status",
+            "total_records",
+            "successful_records",
+            "failed_records",
+            "error_log",
+            "imported_by",
+            "imported_by_name",
+            "success_rate",
+            "created_at",
+            "completed_at",
+        ]
+        read_only_fields = [
+            "imported_by",
+            "status",
+            "total_records",
+            "successful_records",
+            "failed_records",
+            "error_log",
+            "created_at",
+            "completed_at",
+        ]
+
+    def get_success_rate(self, obj):
+        return obj.success_rate
+
+
+class AttendanceCorrectionWorkflowSerializer(serializers.ModelSerializer):
+    """Serializer for attendance correction workflow."""
+
+    requested_by_name = serializers.CharField(source="requested_by.full_name", read_only=True, default=None)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
+
+    class Meta:
+        model = AttendanceCorrectionWorkflow
+        fields = [
+            "id",
+            "correction_type",
+            "attendance_record",
+            "period_attendance",
+            "old_status",
+            "new_status",
+            "reason",
+            "status",
+            "requested_by",
+            "requested_by_name",
+            "reviewed_by",
+            "reviewed_by_name",
+            "review_notes",
+            "created_at",
+            "reviewed_at",
+        ]
+        read_only_fields = ["requested_by", "status", "reviewed_by", "review_notes", "created_at", "reviewed_at"]
+
+
+class AttendanceHistoryViewSerializer(serializers.ModelSerializer):
+    """Serializer for attendance history view."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = AttendanceHistoryView
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "total_days",
+            "days_present",
+            "days_absent",
+            "days_late",
+            "days_excused",
+            "attendance_percentage",
+            "current_streak",
+            "longest_streak",
+        ]
+        read_only_fields = fields
+
+
+class AttendancePatternsSerializer(serializers.ModelSerializer):
+    """Serializer for attendance patterns."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = AttendancePatterns
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "academic_year",
+            "pattern_type",
+            "pattern_name",
+            "description",
+            "frequency",
+            "percentage",
+            "risk_level",
+            "intervention_recommended",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+
+class RealTimeDashboardSerializer(serializers.ModelSerializer):
+    """Serializer for real-time dashboard."""
+
+    class Meta:
+        model = RealTimeDashboard
+        fields = [
+            "id",
+            "school",
+            "scope",
+            "total_expected",
+            "total_present",
+            "total_absent",
+            "total_late",
+            "attendance_percentage",
+            "last_refreshed",
+            "auto_refresh",
+        ]
+        read_only_fields = fields

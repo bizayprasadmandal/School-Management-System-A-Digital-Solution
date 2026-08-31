@@ -17,29 +17,53 @@ from services.students.models import Student
 
 from .models import (
     AttendanceChangeLog,
+    AttendanceCorrectionWorkflow,
+    AttendanceDashboard,
     AttendanceDataArchive,
+    AttendanceHistoryView,
     AttendanceLeave,
+    AttendancePatterns,
     AttendancePolicy,
     AttendanceRecord,
+    AttendanceReport,
+    BiometricCheckin,
+    BulkAttendanceImport,
+    ChronicAbsenceTracking,
+    GPSAttendance,
     Holiday,
     LeaveBalance,
+    ParentNotification,
     PeriodAttendance,
     QRCodeCheckin,
     QRCodeSession,
+    RealTimeDashboard,
+    RFIDCheckin,
     SubstituteTeacher,
 )
 from .serializers import (
     AttendanceChangeLogSerializer,
+    AttendanceCorrectionWorkflowSerializer,
+    AttendanceDashboardSerializer,
     AttendanceDataArchiveSerializer,
+    AttendanceHistoryViewSerializer,
     AttendanceLeaveSerializer,
+    AttendancePatternsSerializer,
     AttendancePolicySerializer,
     AttendanceRecordSerializer,
+    AttendanceReportSerializer,
+    BiometricCheckinSerializer,
+    BulkAttendanceImportSerializer,
     BulkAttendanceSerializer,
     BulkPeriodAttendanceSerializer,
+    ChronicAbsenceTrackingSerializer,
+    GPSAttendanceSerializer,
     HolidaySerializer,
     LeaveBalanceSerializer,
+    ParentNotificationSerializer,
     PeriodAttendanceSerializer,
     QRCodeSessionSerializer,
+    RealTimeDashboardSerializer,
+    RFIDCheckinSerializer,
     SubstituteTeacherSerializer,
     log_attendance_change,
 )
@@ -1333,3 +1357,186 @@ class AttendanceDataArchiveViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return AttendanceDataArchive.objects.filter(school=self.request.user.school).order_by("-archived_at")
+
+
+class BiometricCheckinViewSet(viewsets.ModelViewSet):
+    """Biometric check-in management."""
+
+    serializer_class = BiometricCheckinSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return BiometricCheckin.objects.filter(student__school=user.school).order_by("-checked_in_at")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class RFIDCheckinViewSet(viewsets.ModelViewSet):
+    """RFID check-in management."""
+
+    serializer_class = RFIDCheckinSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return RFIDCheckin.objects.filter(student__school=user.school).order_by("-checked_in_at")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class GPSAttendanceViewSet(viewsets.ModelViewSet):
+    """GPS-based attendance management."""
+
+    serializer_class = GPSAttendanceSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return GPSAttendance.objects.filter(student__school=user.school).order_by("-checked_in_at")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class ParentNotificationViewSet(viewsets.ModelViewSet):
+    """Parent notification management."""
+
+    serializer_class = ParentNotificationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return ParentNotification.objects.filter(student__school=user.school).order_by("-sent_at")
+        if user.role == "parent":
+            return ParentNotification.objects.filter(parent=user).order_by("-sent_at")
+        return ParentNotification.objects.none()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class AttendanceDashboardViewSet(viewsets.ReadOnlyModelViewSet):
+    """Attendance dashboard analytics."""
+
+    serializer_class = AttendanceDashboardSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return AttendanceDashboard.objects.filter(school=user.school).order_by("-date")
+
+
+class ChronicAbsenceTrackingViewSet(viewsets.ModelViewSet):
+    """Chronic absence tracking management."""
+
+    serializer_class = ChronicAbsenceTrackingSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return ChronicAbsenceTracking.objects.filter(student__school=user.school).order_by("-absence_percentage")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+
+class AttendanceReportViewSet(viewsets.ModelViewSet):
+    """Attendance report management."""
+
+    serializer_class = AttendanceReportSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return AttendanceReport.objects.filter(school=user.school).order_by("-generated_at")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, generated_by=self.request.user)
+
+
+class BulkAttendanceImportViewSet(viewsets.ModelViewSet):
+    """Bulk attendance import management."""
+
+    serializer_class = BulkAttendanceImportSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return BulkAttendanceImport.objects.filter(school=user.school).order_by("-created_at")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, imported_by=self.request.user)
+
+
+class AttendanceCorrectionWorkflowViewSet(viewsets.ModelViewSet):
+    """Attendance correction workflow management."""
+
+    serializer_class = AttendanceCorrectionWorkflowSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return AttendanceCorrectionWorkflow.objects.filter(original_record__classroom__school=user.school).order_by(
+                "-requested_at"
+            )
+        if user.role == "teacher":
+            return AttendanceCorrectionWorkflow.objects.filter(requested_by=user).order_by("-requested_at")
+        return AttendanceCorrectionWorkflow.objects.none()
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(requested_by=self.request.user)
+
+
+class AttendanceHistoryViewViewSet(viewsets.ReadOnlyModelViewSet):
+    """Attendance history view."""
+
+    serializer_class = AttendanceHistoryViewSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return AttendanceHistoryView.objects.filter(student__school=user.school).order_by("-academic_year")
+
+
+class AttendancePatternsViewSet(viewsets.ReadOnlyModelViewSet):
+    """Attendance patterns view."""
+
+    serializer_class = AttendancePatternsSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return AttendancePatterns.objects.filter(student__school=user.school).order_by("-academic_year")
+
+
+class RealTimeDashboardViewSet(viewsets.ReadOnlyModelViewSet):
+    """Real-time dashboard view."""
+
+    serializer_class = RealTimeDashboardSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return RealTimeDashboard.objects.filter(school=user.school).order_by("-date")
