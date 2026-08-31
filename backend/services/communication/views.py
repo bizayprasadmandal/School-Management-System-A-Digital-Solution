@@ -12,8 +12,51 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Announcement, DeviceToken, DirectMessage, Notification
-from .serializers import AnnouncementSerializer, DeviceTokenSerializer, DirectMessageSerializer, NotificationSerializer
+from .models import (
+    Announcement,
+    BroadcastMessage,
+    ChatGroup,
+    CommunicationLog,
+    ConferenceParticipant,
+    DeviceToken,
+    DirectMessage,
+    EmailIntegration,
+    FileAttachment,
+    GroupMembership,
+    GroupMessage,
+    MessageReaction,
+    MessageThread,
+    Notification,
+    ParentTeacherChat,
+    ParentTeacherMessage,
+    ReadReceipt,
+    SMSIntegration,
+    TypingIndicator,
+    VideoConference,
+    VoiceMessage,
+)
+from .serializers import (
+    AnnouncementSerializer,
+    BroadcastMessageSerializer,
+    ChatGroupSerializer,
+    CommunicationLogSerializer,
+    ConferenceParticipantSerializer,
+    DeviceTokenSerializer,
+    DirectMessageSerializer,
+    EmailIntegrationSerializer,
+    FileAttachmentSerializer,
+    GroupMessageSerializer,
+    MessageReactionSerializer,
+    MessageThreadSerializer,
+    NotificationSerializer,
+    ParentTeacherChatSerializer,
+    ParentTeacherMessageSerializer,
+    ReadReceiptSerializer,
+    SMSIntegrationSerializer,
+    TypingIndicatorSerializer,
+    VideoConferenceSerializer,
+    VoiceMessageSerializer,
+)
 from .services import broadcast_announcement
 
 
@@ -243,3 +286,387 @@ class DeviceTokenView(viewsets.ViewSet):
             {"detail": "Token not found."},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+
+# =============================================================================
+# Group Messaging Views
+# =============================================================================
+
+
+class ChatGroupViewSet(viewsets.ModelViewSet):
+    serializer_class = ChatGroupSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return ChatGroup.objects.filter(school=user.school, memberships__user=user)
+
+    def perform_create(self, serializer):
+        group = serializer.save(school=self.request.user.school, created_by=self.request.user)
+        # Auto-add creator as owner
+        GroupMembership.objects.create(group=group, user=self.request.user, role=GroupMembership.Role.OWNER)
+
+    @action(detail=True, methods=["post"], url_path="add-member")
+    def add_member(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=400)
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        try:
+            member_user = User.objects.get(id=user_id, school=request.user.school)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
+        membership, created = GroupMembership.objects.get_or_create(
+            group=group, user=member_user, defaults={"role": request.data.get("role", GroupMembership.Role.MEMBER)}
+        )
+        if not created:
+            return Response({"error": "User already in group"}, status=400)
+        return Response({"detail": "Member added"}, status=201)
+
+    @action(detail=True, methods=["post"], url_path="remove-member")
+    def remove_member(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=400)
+        deleted, _ = GroupMembership.objects.filter(group=group, user_id=user_id).delete()
+        if deleted:
+            return Response({"detail": "Member removed"})
+        return Response({"error": "Member not found"}, status=404)
+
+
+class GroupMessageViewSet(viewsets.ModelViewSet):
+    serializer_class = GroupMessageSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        group_id = self.request.query_params.get("group_id")
+        if group_id:
+            return GroupMessage.objects.filter(group_id=group_id, group__memberships__user=user)
+        return GroupMessage.objects.filter(group__memberships__user=user)
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        message = self.get_object()
+        ReadReceipt.objects.get_or_create(message=message, user=request.user)
+        return Response({"detail": "Marked as read"})
+
+    @action(detail=True, methods=["get"], url_path="read-by")
+    def read_by(self, request, pk=None):
+        message = self.get_object()
+        receipts = ReadReceipt.objects.filter(message=message).select_related("user")
+        data = [{"user": r.user.id, "name": r.user.full_name, "read_at": r.read_at} for r in receipts]
+        return Response(data)
+
+
+class MessageReactionViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageReactionSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        message_id = self.request.query_params.get("message_id")
+        if message_id:
+            return MessageReaction.objects.filter(message_id=message_id)
+        return MessageReaction.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class ReadReceiptViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ReadReceiptSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        message_id = self.request.query_params.get("message_id")
+        if message_id:
+            return ReadReceipt.objects.filter(message_id=message_id)
+        return ReadReceipt.objects.filter(user=self.request.user)
+
+
+class TypingIndicatorViewSet(viewsets.ModelViewSet):
+    serializer_class = TypingIndicatorSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        chat_type = self.request.query_params.get("chat_type")
+        chat_id = self.request.query_params.get("chat_id")
+        if chat_type and chat_id:
+            return TypingIndicator.objects.filter(chat_type=chat_type, chat_id=chat_id)
+        return TypingIndicator.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        from datetime import timedelta
+
+        expires_at = timezone.now() + timedelta(seconds=10)
+        serializer.save(user=self.request.user, expires_at=expires_at)
+
+
+class MessageThreadViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageThreadSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        message_id = self.request.query_params.get("message_id")
+        if message_id:
+            return MessageThread.objects.filter(parent_message_id=message_id)
+        return MessageThread.objects.all()
+
+
+class FileAttachmentViewSet(viewsets.ModelViewSet):
+    serializer_class = FileAttachmentSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return FileAttachment.objects.filter(school=user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, uploaded_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="download")
+    def download(self, request, pk=None):
+        attachment = self.get_object()
+        attachment.download_count += 1
+        attachment.save(update_fields=["download_count"])
+        return Response({"url": attachment.file.url if attachment.file else None})
+
+
+# =============================================================================
+# Parent-Teacher Chat Views
+# =============================================================================
+
+
+class ParentTeacherChatViewSet(viewsets.ModelViewSet):
+    serializer_class = ParentTeacherChatSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == "parent":
+            return ParentTeacherChat.objects.filter(parent=user)
+        elif user.role == "teacher":
+            return ParentTeacherChat.objects.filter(teacher=user)
+        elif user.role in ["school_admin", "super_admin"]:
+            return ParentTeacherChat.objects.filter(school=user.school)
+        return ParentTeacherChat.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class ParentTeacherMessageViewSet(viewsets.ModelViewSet):
+    serializer_class = ParentTeacherMessageSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        chat_id = self.request.query_params.get("chat_id")
+        if chat_id:
+            return ParentTeacherMessage.objects.filter(chat_id=chat_id)
+        return ParentTeacherMessage.objects.filter(Q(chat__parent=user) | Q(chat__teacher=user)).select_related(
+            "sender"
+        )
+
+    def perform_create(self, serializer):
+        msg = serializer.save(sender=self.request.user)
+        # Update last_message_at on chat
+        msg.chat.last_message_at = msg.sent_at
+        msg.chat.save(update_fields=["last_message_at"])
+
+    @action(detail=True, methods=["post"], url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        message = self.get_object()
+        user = request.user
+        if user == message.chat.parent:
+            message.is_read_by_parent = True
+        elif user == message.chat.teacher:
+            message.is_read_by_teacher = True
+        message.save(update_fields=["is_read_by_parent", "is_read_by_teacher"])
+        return Response({"detail": "Marked as read"})
+
+
+# =============================================================================
+# Video Conferencing Views
+# =============================================================================
+
+
+class VideoConferenceViewSet(viewsets.ModelViewSet):
+    serializer_class = VideoConferenceSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return VideoConference.objects.filter(school=user.school)
+
+    def perform_create(self, serializer):
+        conference = serializer.save(school=self.request.user.school, host=self.request.user)
+        # Auto-add host as participant
+        ConferenceParticipant.objects.create(
+            conference=conference, user=self.request.user, status=ConferenceParticipant.Status.ACCEPTED
+        )
+
+    @action(detail=True, methods=["post"], url_path="invite")
+    def invite(self, request, pk=None):
+        conference = self.get_object()
+        user_ids = request.data.get("user_ids", [])
+        invited = 0
+        for uid in user_ids:
+            _, created = ConferenceParticipant.objects.get_or_create(
+                conference=conference, user_id=uid, defaults={"status": ConferenceParticipant.Status.INVITED}
+            )
+            if created:
+                invited += 1
+        return Response({"invited": invited})
+
+    @action(detail=True, methods=["post"], url_path="start")
+    def start(self, request, pk=None):
+        conference = self.get_object()
+        conference.status = VideoConference.Status.ACTIVE
+        conference.save(update_fields=["status"])
+        return Response({"detail": "Conference started"})
+
+    @action(detail=True, methods=["post"], url_path="end")
+    def end(self, request, pk=None):
+        conference = self.get_object()
+        conference.status = VideoConference.Status.ENDED
+        conference.save(update_fields=["status"])
+        return Response({"detail": "Conference ended"})
+
+
+class ConferenceParticipantViewSet(viewsets.ModelViewSet):
+    serializer_class = ConferenceParticipantSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        conference_id = self.request.query_params.get("conference_id")
+        if conference_id:
+            return ConferenceParticipant.objects.filter(conference_id=conference_id)
+        return ConferenceParticipant.objects.filter(user=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="join")
+    def join(self, request, pk=None):
+        participant = self.get_object()
+        participant.status = ConferenceParticipant.Status.ATTENDED
+        participant.joined_at = timezone.now()
+        participant.save(update_fields=["status", "joined_at"])
+        return Response({"detail": "Joined conference"})
+
+    @action(detail=True, methods=["post"], url_path="leave")
+    def leave(self, request, pk=None):
+        participant = self.get_object()
+        participant.left_at = timezone.now()
+        if participant.joined_at:
+            duration = (participant.left_at - participant.joined_at).seconds // 60
+            participant.duration_minutes = duration
+        participant.save(update_fields=["left_at", "duration_minutes"])
+        return Response({"detail": "Left conference"})
+
+
+# =============================================================================
+# SMS/Email Integration Views
+# =============================================================================
+
+
+class SMSIntegrationViewSet(viewsets.ModelViewSet):
+    serializer_class = SMSIntegrationSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return SMSIntegration.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, sent_by=self.request.user)
+
+
+class EmailIntegrationViewSet(viewsets.ModelViewSet):
+    serializer_class = EmailIntegrationSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return EmailIntegration.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, sent_by=self.request.user)
+
+
+# =============================================================================
+# Broadcast Messages Views
+# =============================================================================
+
+
+class BroadcastMessageViewSet(viewsets.ModelViewSet):
+    serializer_class = BroadcastMessageSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return BroadcastMessage.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="send")
+    def send_broadcast(self, request, pk=None):
+        broadcast = self.get_object()
+        broadcast.status = BroadcastMessage.Status.SENDING
+        broadcast.save(update_fields=["status"])
+        # In production, this would trigger a Celery task
+        return Response({"detail": "Broadcast sending queued"})
+
+
+# =============================================================================
+# Communication Logs Views
+# =============================================================================
+
+
+class CommunicationLogViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = CommunicationLogSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        qs = CommunicationLog.objects.filter(school=self.request.user.school)
+        comm_type = self.request.query_params.get("communication_type")
+        if comm_type:
+            qs = qs.filter(communication_type=comm_type)
+        return qs
+
+
+# =============================================================================
+# Voice Messages Views
+# =============================================================================
+
+
+class VoiceMessageViewSet(viewsets.ModelViewSet):
+    serializer_class = VoiceMessageSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        group_id = self.request.query_params.get("group_id")
+        if group_id:
+            return VoiceMessage.objects.filter(group_id=group_id, group__memberships__user=user)
+        return VoiceMessage.objects.filter(
+            Q(group__memberships__user=user)
+            | Q(parent_teacher_chat__parent=user)
+            | Q(parent_teacher_chat__teacher=user)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
