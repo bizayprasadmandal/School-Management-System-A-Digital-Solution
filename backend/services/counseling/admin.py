@@ -75,14 +75,11 @@ class StudentReferralAdmin(admin.ModelAdmin):
 class CounselorProfileAdmin(admin.ModelAdmin):
     list_display = [
         "user",
-        "employee_id",
-        "specialization",
-        "experience_years",
-        "is_active",
+        "specialties",
+        "office_hours",
     ]
-    list_filter = ["is_active", "specialization"]
     search_fields = [
         "user__first_name",
         "user__last_name",
-        "employee_id",
+        "specialties",
     ]

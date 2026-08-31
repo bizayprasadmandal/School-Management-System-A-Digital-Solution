@@ -18,7 +18,7 @@ class BookAdmin(admin.ModelAdmin):
         "available_copies",
         "school",
     ]
-    list_filter = ["category", "school"]
+    list_filter = ["category", "school", "is_active"]
     search_fields = ["title", "author", "isbn"]
 
 
@@ -30,9 +30,9 @@ class CheckoutAdmin(admin.ModelAdmin):
         "checked_out_at",
         "due_date",
         "returned_at",
-        "is_overdue",
+        "fine_amount",
     ]
-    list_filter = ["due_date"]
+    list_filter = ["fine_paid"]
     search_fields = [
         "student__user__first_name",
         "student__admission_number",
@@ -44,13 +44,13 @@ class CheckoutAdmin(admin.ModelAdmin):
 class LibrarianProfileAdmin(admin.ModelAdmin):
     list_display = [
         "user",
-        "employee_id",
-        "department",
-        "is_active",
+        "library_section",
+        "qualification",
+        "experience_years",
     ]
-    list_filter = ["is_active", "department"]
+    list_filter = ["library_section"]
     search_fields = [
         "user__first_name",
         "user__last_name",
-        "employee_id",
+        "qualification",
     ]

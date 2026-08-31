@@ -94,29 +94,32 @@ class GradeAdmin(admin.ModelAdmin):
 @admin.register(GradeChangeLog)
 class GradeChangeLogAdmin(admin.ModelAdmin):
     list_display = [
-        "grade",
-        "old_marks",
-        "new_marks",
+        "student",
+        "exam_schedule",
+        "action",
+        "marks_obtained_old",
+        "marks_obtained_new",
         "changed_by",
-        "reason",
-        "created_at",
+        "changed_at",
     ]
-    list_filter = ["created_at"]
-    search_fields = ["reason"]
-    date_hierarchy = "created_at"
+    list_filter = ["action"]
+    search_fields = ["remarks_old", "remarks_new"]
+    date_hierarchy = "changed_at"
 
 
 @admin.register(GradeChangeProposal)
 class GradeChangeProposalAdmin(admin.ModelAdmin):
     list_display = [
-        "grade",
-        "proposed_by",
+        "student",
+        "exam_schedule",
+        "action",
         "status",
-        "created_at",
+        "proposed_by",
+        "proposed_at",
     ]
-    list_filter = ["status"]
+    list_filter = ["status", "action"]
     search_fields = ["reason"]
-    date_hierarchy = "created_at"
+    date_hierarchy = "proposed_at"
 
 
 @admin.register(ReportCard)
@@ -142,11 +145,10 @@ class AssessmentAdmin(admin.ModelAdmin):
     list_display = [
         "title",
         "assessment_type",
-        "subject",
         "due_date",
         "max_marks",
     ]
-    list_filter = ["assessment_type", "subject"]
+    list_filter = ["assessment_type"]
     search_fields = ["title"]
 
 
@@ -155,11 +157,8 @@ class AssessmentSubmissionAdmin(admin.ModelAdmin):
     list_display = [
         "assessment",
         "student",
-        "score",
-        "status",
         "submitted_at",
     ]
-    list_filter = ["status"]
     search_fields = [
         "student__user__first_name",
         "student__admission_number",

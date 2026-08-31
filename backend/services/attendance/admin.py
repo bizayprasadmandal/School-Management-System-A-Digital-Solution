@@ -43,10 +43,10 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
 class PeriodAttendanceAdmin(admin.ModelAdmin):
     list_display = [
         "student",
-        "period",
+        "assignment",
         "date",
+        "period_number",
         "status",
-        "recorded_by",
     ]
     list_filter = ["status", "date"]
     search_fields = [
@@ -64,7 +64,6 @@ class AttendanceLeaveAdmin(admin.ModelAdmin):
         "from_date",
         "to_date",
         "status",
-        "total_days",
     ]
     list_filter = ["leave_type", "status"]
     search_fields = [
@@ -76,16 +75,15 @@ class AttendanceLeaveAdmin(admin.ModelAdmin):
 @admin.register(AttendanceChangeLog)
 class AttendanceChangeLogAdmin(admin.ModelAdmin):
     list_display = [
-        "attendance_record",
-        "old_status",
-        "new_status",
+        "attendance_type",
+        "attendance_id",
+        "change_type",
         "changed_by",
-        "reason",
-        "created_at",
+        "changed_at",
     ]
-    list_filter = ["old_status", "new_status"]
+    list_filter = ["attendance_type", "change_type"]
     search_fields = ["reason"]
-    date_hierarchy = "created_at"
+    date_hierarchy = "changed_at"
 
 
 @admin.register(AttendancePolicy)
@@ -94,17 +92,17 @@ class AttendancePolicyAdmin(admin.ModelAdmin):
         "school",
         "name",
         "min_attendance_pct",
-        "consecutive_absent_limit",
-        "auto_notify_guardian",
+        "edit_window_days",
+        "is_active",
     ]
-    list_filter = ["auto_notify_guardian"]
+    list_filter = ["is_active"]
     search_fields = ["name"]
 
 
 @admin.register(Holiday)
 class HolidayAdmin(admin.ModelAdmin):
-    list_display = ["school", "name", "date", "end_date", "description"]
-    list_filter = ["school"]
+    list_display = ["school", "name", "date", "holiday_type", "description"]
+    list_filter = ["school", "holiday_type"]
     search_fields = ["name"]
     date_hierarchy = "date"
 
@@ -114,32 +112,33 @@ class LeaveBalanceAdmin(admin.ModelAdmin):
     list_display = [
         "student",
         "academic_year",
-        "leave_type",
-        "total_days",
-        "used_days",
-        "remaining_days",
+        "sick_leave_total",
+        "sick_leave_used",
+        "casual_leave_total",
+        "casual_leave_used",
     ]
-    list_filter = ["leave_type", "academic_year"]
+    list_filter = ["academic_year"]
     search_fields = ["student__user__first_name", "student__admission_number"]
 
 
 @admin.register(LeaveApprovalLevel)
 class LeaveApprovalLevelAdmin(admin.ModelAdmin):
     list_display = [
-        "school",
+        "leave",
         "level",
-        "approver_role",
-        "auto_approve_days",
+        "approver",
+        "status",
+        "decided_at",
     ]
-    list_filter = ["level"]
-    search_fields = ["approver_role"]
+    list_filter = ["status", "level"]
+    search_fields = ["remarks"]
 
 
 @admin.register(QRCodeSession)
 class QRCodeSessionAdmin(admin.ModelAdmin):
     list_display = [
         "classroom",
-        "period",
+        "teacher",
         "date",
         "expires_at",
         "is_active",
@@ -155,9 +154,7 @@ class QRCodeCheckinAdmin(admin.ModelAdmin):
         "student",
         "session",
         "checked_in_at",
-        "method",
     ]
-    list_filter = ["method"]
     search_fields = ["student__user__first_name", "student__admission_number"]
 
 
@@ -185,8 +182,9 @@ class AttendanceDataArchiveAdmin(admin.ModelAdmin):
     list_display = [
         "school",
         "academic_year",
-        "archived_at",
+        "archive_type",
         "record_count",
+        "archived_at",
     ]
-    list_filter = ["academic_year"]
+    list_filter = ["archive_type"]
     search_fields = ["school__name"]
