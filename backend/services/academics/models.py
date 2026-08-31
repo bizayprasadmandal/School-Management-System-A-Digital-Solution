@@ -1,11 +1,13 @@
 """
-Academics Service — Subjects, curriculum, teacher assignments
+Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
+curriculum standards mapping.
 """
 
 import uuid
+
 from django.db import models
-from services.auth.models import User, School
-from services.students.models import Grade, Classroom, AcademicYear
+from services.auth.models import School, User
+from services.students.models import AcademicYear, Classroom, Grade, Student
 
 
 class Subject(models.Model):
@@ -31,6 +33,7 @@ class Subject(models.Model):
 
 class TeacherAssignment(models.Model):
     """Maps a teacher to a subject-classroom combination."""
+
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="assignments")
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="assignments")
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name="assignments")
@@ -98,3 +101,138 @@ class LessonPlan(models.Model):
 
     def __str__(self):
         return f"{self.title} — {self.date}"
+
+
+class StudentSubjectEnrollment(models.Model):
+    """Tracks which students are enrolled in which subjects per academic year.
+
+    This is independent of classroom enrollment — a student may take subjects
+    from different streams or have elective choices that differ from their
+    classroom peers.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        DROPPED = "dropped", "Dropped"
+        TRANSFERRED = "transferred", "Transferred"
+        COMPLETED = "completed", "Completed"
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="subject_enrollments")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="student_enrollments")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="subject_enrollments")
+    enrolled_date = models.DateField(auto_now_add=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_subject_enrollments"
+        unique_together = [("student", "subject", "academic_year")]
+        indexes = [
+            models.Index(fields=["student", "academic_year"]),
+            models.Index(fields=["subject", "academic_year"]),
+            models.Index(fields=["status"]),
+        ]
+        ordering = ["-enrolled_date"]
+
+    def __str__(self):
+        return f"{self.student} → {self.subject} ({self.academic_year})"
+
+    @property
+    def is_active(self):
+        return self.status == self.Status.ACTIVE
+
+
+class CurriculumStandard(models.Model):
+    """A curriculum standard (e.g., Common Core, NGSS, CBSE, NCERT).
+
+    Schools import or define the standards framework they follow,
+    then map individual standards to subjects for tracking and
+    accreditation reporting.
+    """
+
+    class Framework(models.TextChoices):
+        COMMON_CORE = "common_core", "Common Core State Standards"
+        NGSS = "ngss", "Next Generation Science Standards"
+        CBSE = "cbse", "CBSE Curriculum"
+        NCERT = "ncert", "NCERT Curriculum"
+        NATIONAL_UK = "national_uk", "National Curriculum (UK)"
+        IB = "ib", "International Baccalaureate"
+        CUSTOM = "custom", "Custom / School-Defined"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="curriculum_standards")
+    framework = models.CharField(max_length=20, choices=Framework.choices, default=Framework.CUSTOM)
+    code = models.CharField(
+        max_length=50,
+        help_text="Unique standard code, e.g. CCSS.MATH.8.EE.1",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    grade = models.ForeignKey(
+        Grade, on_delete=models.CASCADE, related_name="curriculum_standards", null=True, blank=True
+    )
+    subject = models.ForeignKey(
+        Subject, on_delete=models.CASCADE, related_name="curriculum_standards", null=True, blank=True
+    )
+    domain = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="High-level domain, e.g. Algebra, Geometry, Life Science",
+    )
+    cluster = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Sub-domain cluster within the domain",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "curriculum_standards"
+        unique_together = [("school", "code")]
+        ordering = ["grade", "code"]
+        indexes = [
+            models.Index(fields=["school", "framework"]),
+            models.Index(fields=["school", "grade"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"
+
+
+class SubjectStandardMapping(models.Model):
+    """Maps a subject to one or more curriculum standards.
+
+    Tracks which standards a subject covers and to what extent,
+    useful for accreditation and curriculum review.
+    """
+
+    class CoverageLevel(models.TextChoices):
+        FULL = "full", "Fully Covered"
+        PARTIAL = "partial", "Partially Covered"
+        INTRODUCED = "introduced", "Introduced"
+        NOT_COVERED = "not_covered", "Not Covered"
+
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="standard_mappings")
+    standard = models.ForeignKey(CurriculumStandard, on_delete=models.CASCADE, related_name="subject_mappings")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="standard_mappings")
+    coverage_level = models.CharField(max_length=15, choices=CoverageLevel.choices, default=CoverageLevel.PARTIAL)
+    notes = models.TextField(blank=True)
+    mapped_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="standard_mappings")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "subject_standard_mappings"
+        unique_together = [("subject", "standard", "academic_year")]
+        ordering = ["subject", "standard__code"]
+        indexes = [
+            models.Index(fields=["subject", "academic_year"]),
+            models.Index(fields=["standard", "academic_year"]),
+        ]
+
+    def __str__(self):
+        return f"{self.subject} ↔ {self.standard.code} ({self.get_coverage_level_display()})"

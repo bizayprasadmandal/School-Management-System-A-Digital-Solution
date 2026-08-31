@@ -1,19 +1,36 @@
 """
-Academics Service — Views for subjects, teacher assignments, lesson plans
+Academics Service — Views for subjects, teacher assignments, lesson plans, student-subject enrollments
 """
 
 from uuid import uuid4
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsTeacher
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import LessonPlan, Subject, TeacherAssignment, TeacherProfile
-from .serializers import LessonPlanSerializer, SubjectSerializer, TeacherAssignmentSerializer, TeacherProfileSerializer
+from .models import (
+    CurriculumStandard,
+    LessonPlan,
+    StudentSubjectEnrollment,
+    Subject,
+    SubjectStandardMapping,
+    TeacherAssignment,
+    TeacherProfile,
+)
+from .serializers import (
+    CurriculumStandardSerializer,
+    LessonPlanSerializer,
+    StudentSubjectEnrollmentSerializer,
+    SubjectSerializer,
+    SubjectStandardMappingSerializer,
+    TeacherAssignmentSerializer,
+    TeacherProfileSerializer,
+)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
@@ -235,3 +252,346 @@ class LessonPlanViewSet(viewsets.ModelViewSet):
         plan.status = "approved"
         plan.save(update_fields=["status"])
         return Response({"status": "approved"})
+
+
+class StudentSubjectEnrollmentViewSet(viewsets.ModelViewSet):
+    """CRUD for student-subject enrollments.
+
+    Supports filtering by student, subject, academic_year, and status.
+    Teachers see only enrollments for their own subjects.
+    Admins see all enrollments for their school.
+    """
+
+    serializer_class = StudentSubjectEnrollmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["student", "subject", "academic_year", "status"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "student__admission_number",
+        "subject__name",
+        "subject__code",
+    ]
+    ordering_fields = ["enrolled_date", "created_at"]
+    ordering = ["-enrolled_date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentSubjectEnrollment.objects.filter(subject__school=user.school).select_related(
+            "student__user",
+            "subject__grade",
+            "academic_year",
+        )
+        if user.role == "teacher":
+            qs = qs.filter(subject__assignments__teacher=user).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_enroll"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=False, methods=["post"], url_path="bulk-enroll")
+    def bulk_enroll(self, request):
+        """Bulk-enroll students into a subject.
+
+        Request body:
+        {
+            "subject": <subject_id>,
+            "academic_year": <academic_year_id>,
+            "student_ids": [<student_id>, ...],
+            "notes": "optional"
+        }
+        """
+        subject_id = request.data.get("subject")
+        academic_year_id = request.data.get("academic_year")
+        student_ids = request.data.get("student_ids", [])
+        notes = request.data.get("notes", "")
+
+        if not subject_id or not academic_year_id or not student_ids:
+            return Response(
+                {"error": "subject, academic_year, and student_ids are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enrolled = 0
+        skipped = 0
+        errors = []
+
+        with transaction.atomic():
+            for idx, student_id in enumerate(student_ids):
+                try:
+                    obj, created = StudentSubjectEnrollment.objects.get_or_create(
+                        student_id=student_id,
+                        subject_id=subject_id,
+                        academic_year_id=academic_year_id,
+                        defaults={"notes": notes},
+                    )
+                    if created:
+                        enrolled += 1
+                    else:
+                        skipped += 1
+                except Exception as e:
+                    errors.append({"student_id": student_id, "error": str(e)[:100]})
+
+        return Response(
+            {
+                "enrolled": enrolled,
+                "skipped": skipped,
+                "errors": errors,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="my-subjects")
+    def my_subjects(self, request):
+        """Return subjects the current student is enrolled in."""
+        user = request.user
+        if user.role != "student":
+            return Response(
+                {"detail": "This endpoint is for students only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(
+            student__user=user,
+            status=StudentSubjectEnrollment.Status.ACTIVE,
+        )
+        return Response(StudentSubjectEnrollmentSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="subject-students/(?P<subject_id>[^/.]+)")
+    def subject_students(self, request, subject_id=None):
+        """Return all active students enrolled in a specific subject."""
+        qs = self.get_queryset().filter(
+            subject_id=subject_id,
+            status=StudentSubjectEnrollment.Status.ACTIVE,
+        )
+        return Response(StudentSubjectEnrollmentSerializer(qs, many=True).data)
+
+
+class CurriculumStandardViewSet(viewsets.ModelViewSet):
+    """CRUD for curriculum standards.
+
+    Admins can manage all standards. Teachers and other school members
+    can read standards for reference.
+    """
+
+    serializer_class = CurriculumStandardSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["framework", "grade", "subject", "domain", "is_active"]
+    search_fields = ["code", "name", "description", "domain", "cluster"]
+    ordering_fields = ["code", "name", "created_at"]
+    ordering = ["grade", "code"]
+
+    def get_queryset(self):
+        return CurriculumStandard.objects.filter(school=self.request.user.school).select_related("grade", "subject")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_create"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=False, methods=["post"], url_path="bulk-create")
+    def bulk_create(self, request):
+        """Bulk-create curriculum standards.
+
+        Request body:
+        {
+            "framework": "common_core",
+            "standards": [
+                {"code": "CCSS.MATH.8.EE.1", "name": "...', "grade_id": ..., ...},
+            ]
+        }
+        """
+        framework = request.data.get("framework", "custom")
+        standards_data = request.data.get("standards", [])
+
+        if not standards_data:
+            return Response(
+                {"error": "standards list is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        school = request.user.school
+        created = 0
+        skipped = 0
+        errors = []
+
+        with transaction.atomic():
+            for idx, item in enumerate(standards_data):
+                code = (item.get("code") or "").strip()
+                name = (item.get("name") or "").strip()
+                if not code or not name:
+                    errors.append({"index": idx, "error": "code and name are required"})
+                    continue
+                if CurriculumStandard.objects.filter(school=school, code=code).exists():
+                    skipped += 1
+                    continue
+                try:
+                    CurriculumStandard.objects.create(
+                        school=school,
+                        framework=framework,
+                        code=code,
+                        name=name,
+                        description=item.get("description", ""),
+                        grade_id=item.get("grade_id"),
+                        subject_id=item.get("subject_id"),
+                        domain=item.get("domain", ""),
+                        cluster=item.get("cluster", ""),
+                    )
+                    created += 1
+                except Exception as e:
+                    errors.append({"index": idx, "error": str(e)[:100]})
+
+        return Response(
+            {"created": created, "skipped": skipped, "errors": errors},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="by-framework")
+    def by_framework(self, request):
+        """List standards grouped by framework."""
+        qs = self.get_queryset().filter(is_active=True)
+        framework = request.query_params.get("framework")
+        if framework:
+            qs = qs.filter(framework=framework)
+
+        from collections import defaultdict
+
+        grouped = defaultdict(list)
+        for std in qs:
+            grouped[std.framework].append(CurriculumStandardSerializer(std).data)
+        return Response(grouped)
+
+
+class SubjectStandardMappingViewSet(viewsets.ModelViewSet):
+    """CRUD for subject-standard mappings.
+
+    Maps which curriculum standards each subject covers and to what extent.
+    Teachers see mappings for their assigned subjects; admins see all.
+    """
+
+    serializer_class = SubjectStandardMappingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["subject", "standard", "academic_year", "coverage_level"]
+    search_fields = [
+        "subject__name",
+        "subject__code",
+        "standard__code",
+        "standard__name",
+    ]
+    ordering_fields = ["created_at", "coverage_level"]
+    ordering = ["subject", "standard__code"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = SubjectStandardMapping.objects.filter(subject__school=user.school).select_related(
+            "subject", "standard", "academic_year", "mapped_by"
+        )
+        if user.role == "teacher":
+            qs = qs.filter(subject__assignments__teacher=user).distinct()
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_map"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(mapped_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="bulk-map")
+    def bulk_map(self, request):
+        """Bulk-map standards to a subject.
+
+        Request body:
+        {
+            "subject": <subject_id>,
+            "academic_year": <academic_year_id>,
+            "standard_ids": [<standard_id>, ...],
+            "coverage_level": "partial"
+        }
+        """
+        subject_id = request.data.get("subject")
+        academic_year_id = request.data.get("academic_year")
+        standard_ids = request.data.get("standard_ids", [])
+        coverage_level = request.data.get("coverage_level", "partial")
+
+        if not subject_id or not academic_year_id or not standard_ids:
+            return Response(
+                {"error": "subject, academic_year, and standard_ids are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        mapped = 0
+        skipped = 0
+        errors = []
+
+        with transaction.atomic():
+            for idx, standard_id in enumerate(standard_ids):
+                try:
+                    obj, created = SubjectStandardMapping.objects.get_or_create(
+                        subject_id=subject_id,
+                        standard_id=standard_id,
+                        academic_year_id=academic_year_id,
+                        defaults={
+                            "coverage_level": coverage_level,
+                            "mapped_by": request.user,
+                        },
+                    )
+                    if created:
+                        mapped += 1
+                    else:
+                        skipped += 1
+                except Exception as e:
+                    errors.append({"standard_id": standard_id, "error": str(e)[:100]})
+
+        return Response(
+            {"mapped": mapped, "skipped": skipped, "errors": errors},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="subject-coverage/(?P<subject_id>[^/.]+)")
+    def subject_coverage(self, request, subject_id=None):
+        """Return all standards mapped to a subject for a given academic year."""
+        academic_year = request.query_params.get("academic_year")
+        qs = self.get_queryset().filter(subject_id=subject_id)
+        if academic_year:
+            qs = qs.filter(academic_year_id=academic_year)
+        return Response(SubjectStandardMappingSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="coverage-report")
+    def coverage_report(self, request):
+        """Generate a coverage report for an academic year."""
+        academic_year = request.query_params.get("academic_year")
+        if not academic_year:
+            return Response(
+                {"error": "academic_year query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.db.models import Count, Q
+
+        qs = self.get_queryset().filter(academic_year_id=academic_year)
+
+        report = (
+            qs.values("subject__id", "subject__name", "subject__code")
+            .annotate(
+                total_standards=Count("standard", distinct=True),
+                full_count=Count("id", filter=Q(coverage_level="full")),
+                partial_count=Count("id", filter=Q(coverage_level="partial")),
+                introduced_count=Count("id", filter=Q(coverage_level="introduced")),
+                not_covered_count=Count("id", filter=Q(coverage_level="not_covered")),
+            )
+            .order_by("subject__name")
+        )
+
+        return Response(list(report))

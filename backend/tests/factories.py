@@ -354,6 +354,40 @@ class LessonPlanFactory(factory.django.DjangoModelFactory):
     status = "draft"
 
 
+class StudentSubjectEnrollmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.StudentSubjectEnrollment"
+
+    student = SubFactory(StudentFactory)
+    subject = SubFactory(SubjectFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    status = "active"
+    notes = ""
+
+
+class CurriculumStandardFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.CurriculumStandard"
+
+    school = SubFactory(SchoolFactory)
+    framework = "custom"
+    code = factory.Sequence(lambda n: f"STD-{n:04d}")
+    name = factory.Sequence(lambda n: f"Standard {n}")
+    description = factory.Faker("sentence")
+    is_active = True
+
+
+class SubjectStandardMappingFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.SubjectStandardMapping"
+
+    subject = SubFactory(SubjectFactory)
+    standard = SubFactory(CurriculumStandardFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    coverage_level = "partial"
+    notes = ""
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"
