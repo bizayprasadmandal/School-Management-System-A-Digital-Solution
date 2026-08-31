@@ -509,6 +509,25 @@ class EvaluationCommentFactory(factory.django.DjangoModelFactory):
     is_private = False
 
 
+class AcademicTranscriptFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "academics.AcademicTranscript"
+
+    student = SubFactory(StudentFactory)
+    academic_year = SubFactory(AcademicYearFactory)
+    status = "draft"
+    total_marks = Decimal("800.00")
+    obtained_marks = Decimal("640.00")
+    percentage = Decimal("80.00")
+    gpa = Decimal("3.20")
+    grade_letter = "A"
+    attendance_days = 180
+    total_school_days = 200
+    attendance_percentage = Decimal("90.00")
+    subjects_data = factory.LazyFunction(list)
+    generated_by = SubFactory(AdminUserFactory)
+
+
 class DirectMessageFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "communication.DirectMessage"

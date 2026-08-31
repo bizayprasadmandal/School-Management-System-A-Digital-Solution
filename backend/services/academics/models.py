@@ -1,6 +1,7 @@
 """
 Academics Service — Subjects, curriculum, teacher assignments, student-subject enrollment,
-curriculum standards mapping, syllabus management, teacher workload, teacher evaluation.
+curriculum standards mapping, syllabus management, teacher workload, teacher evaluation,
+academic transcripts.
 """
 
 import uuid
@@ -628,3 +629,77 @@ class EvaluationComment(models.Model):
 
     def __str__(self):
         return f"{self.get_comment_type_display()} by {self.author} on {self.evaluation.title}"
+
+
+class AcademicTranscript(models.Model):
+    """Official academic transcript for a student.
+
+    Aggregates grades across all exams and subjects for a given academic year.
+    Generates a PDF-ready document with grades, GPA, rank, and attendance.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        GENERATED = "generated", "Generated"
+        VERIFIED = "verified", "Verified"
+        ARCHIVED = "archived", "Archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="transcripts")
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="transcripts")
+    transcript_number = models.CharField(max_length=50, unique=True, help_text="Unique transcript identifier")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+    total_marks = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, help_text="Sum of max marks across all subjects"
+    )
+    obtained_marks = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Sum of marks obtained")
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    gpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True, help_text="Cumulative GPA")
+    grade_letter = models.CharField(max_length=5, blank=True, help_text="Overall letter grade")
+    rank_in_class = models.PositiveSmallIntegerField(null=True, blank=True)
+    rank_in_grade = models.PositiveSmallIntegerField(null=True, blank=True)
+    attendance_days = models.PositiveSmallIntegerField(default=0)
+    total_school_days = models.PositiveSmallIntegerField(default=0)
+    attendance_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    subjects_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='JSON array of per-subject data: [{"name": ..., "marks": ..., "grade": ...}]',
+    )
+    principal_name = models.CharField(max_length=255, blank=True)
+    principal_signature = models.ImageField(upload_to="transcripts/signatures/", null=True, blank=True)
+    class_teacher_name = models.CharField(max_length=255, blank=True)
+    remarks = models.TextField(blank=True)
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="generated_transcripts")
+    verified_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_transcripts"
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    pdf_file = models.FileField(upload_to="transcripts/pdfs/%Y/%m/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_transcripts"
+        unique_together = [("student", "academic_year")]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "academic_year"]),
+            models.Index(fields=["transcript_number"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"Transcript {self.transcript_number} — {self.student} ({self.academic_year})"
+
+    def save(self, *args, **kwargs):
+        if not self.transcript_number:
+            self.transcript_number = f"TR-{self.student.admission_number}-{uuid.uuid4().hex[:8].upper()}"
+        super().save(*args, **kwargs)
+
+    @property
+    def score_display(self):
+        if self.grade_letter:
+            return f"{self.grade_letter} ({self.percentage}%)"
+        return f"{self.percentage}%"

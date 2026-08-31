@@ -3,9 +3,23 @@ Tests for Academics module — subjects, teacher assignments, lesson plans,
 and the new StudentSubjectEnrollment feature.
 """
 
+from decimal import Decimal
+
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
+from tests.factories import (
+    AcademicTranscriptFactory,
+    AcademicYearFactory,
+    AdminUserFactory,
+    ClassroomFactory,
+    GradeFactory,
+    SchoolFactory,
+    StudentFactory,
+    StudentUserFactory,
+    SubjectFactory,
+    TeacherUserFactory,
+)
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -943,3 +957,207 @@ class TestTeacherEvaluation:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "completed"
         assert response.data["review_date"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Academic Transcript Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAcademicTranscript:
+    """Tests for the AcademicTranscript model and API endpoints."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        self.school = SchoolFactory()
+        self.admin = AdminUserFactory(school=self.school)
+        self.teacher = TeacherUserFactory(school=self.school)
+        self.grade = GradeFactory(school=self.school)
+        self.classroom = ClassroomFactory(school=self.school, grade=self.grade)
+        self.academic_year = AcademicYearFactory(school=self.school)
+        self.subject = SubjectFactory(school=self.school, grade=self.grade)
+        self.student_user = StudentUserFactory(school=self.school)
+        self.student = StudentFactory(user=self.student_user, school=self.school)
+        self.client = APIClient()
+
+    def test_create_transcript(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/transcripts/",
+            {
+                "student": str(self.student.id),
+                "academic_year": str(self.academic_year.id),
+                "status": "draft",
+                "total_marks": "800.00",
+                "obtained_marks": "640.00",
+                "percentage": "80.00",
+                "gpa": "3.20",
+                "grade_letter": "A",
+                "attendance_days": 180,
+                "total_school_days": 200,
+                "attendance_percentage": "90.00",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["student"] == str(self.student.id)
+        assert response.data["grade_letter"] == "A"
+        assert float(response.data["percentage"]) == 80.0
+
+    def test_list_transcripts(self):
+        self.client.force_authenticate(self.admin)
+        AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )
+        response = self.client.get("/api/v1/academics/transcripts/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    def test_student_sees_own_transcript(self):
+        AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )  # noqa: E501
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get("/api/v1/academics/transcripts/my-transcript/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+
+    def test_student_cannot_see_other_students_transcripts(self):
+        other_user = StudentUserFactory(school=self.school)
+        AcademicTranscriptFactory(  # noqa: F841
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )
+        self.client.force_authenticate(other_user)
+        response = self.client.get("/api/v1/academics/transcripts/my-transcript/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+
+    def test_verify_transcript(self):
+        self.client.force_authenticate(self.admin)
+        transcript = AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+            status="draft",
+        )
+        response = self.client.post(
+            f"/api/v1/academics/transcripts/{transcript.id}/verify/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "verified"
+        assert response.data["verified_by"] == str(self.admin.id)
+
+    def test_bulk_generate_transcripts(self):
+        from services.students.models import Enrollment
+
+        Enrollment.objects.create(
+            student=self.student,
+            classroom=self.classroom,
+            academic_year=self.academic_year,
+            status="active",
+            is_active=True,
+        )
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/transcripts/bulk-generate/",
+            {
+                "classroom": str(self.classroom.id),
+                "academic_year": str(self.academic_year.id),
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["generated"] == 1
+
+    def test_class_rankings(self):
+        self.client.force_authenticate(self.admin)
+        AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            percentage=Decimal("85.00"),
+            generated_by=self.admin,
+            status="generated",
+        )
+        other_user2 = StudentUserFactory(school=self.school)
+        student2 = StudentFactory(user=other_user2, school=self.school)
+        AcademicTranscriptFactory(
+            student=student2,
+            academic_year=self.academic_year,
+            percentage=Decimal("90.00"),
+            generated_by=self.admin,
+            status="generated",
+        )
+        response = self.client.get(
+            f"/api/v1/academics/transcripts/class-rankings/{self.academic_year.id}/",
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_duplicate_transcript_rejected(self):
+        self.client.force_authenticate(self.admin)
+        AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )  # noqa: F841
+        response = self.client.post(
+            "/api/v1/academics/transcripts/generate/",
+            {
+                "student": str(self.student.id),
+                "academic_year": str(self.academic_year.id),
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_generate_transcript_missing_params(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            "/api/v1/academics/transcripts/generate/",
+            {},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_verify_already_verified(self):
+        self.client.force_authenticate(self.admin)
+        transcript = AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+            status="verified",
+            verified_by=self.admin,
+        )  # noqa: F841
+        response = self.client.post(
+            f"/api/v1/academics/transcripts/{transcript.id}/verify/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_non_admin_cannot_verify(self):
+        self.client.force_authenticate(self.teacher)
+        transcript = AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )  # noqa: F841
+        response = self.client.post(
+            f"/api/v1/academics/transcripts/{transcript.id}/verify/",
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_transcript_number_auto_generated(self):
+        transcript = AcademicTranscriptFactory(
+            student=self.student,
+            academic_year=self.academic_year,
+            generated_by=self.admin,
+        )
+        assert transcript.transcript_number.startswith("TR-")
+        assert len(transcript.transcript_number) > 10

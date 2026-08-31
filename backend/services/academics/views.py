@@ -2,6 +2,7 @@
 Academics Service — Views for subjects, teacher assignments, lesson plans, student-subject enrollments
 """
 
+from decimal import Decimal
 from uuid import uuid4
 
 from core.pagination import StandardResultsSetPagination
@@ -13,8 +14,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.auth.models import User
+from services.students.models import Student
 
 from .models import (
+    AcademicTranscript,
     CurriculumStandard,
     EvaluationCriteria,
     EvaluationScore,
@@ -32,6 +35,7 @@ from .models import (
     TeacherWorkloadSnapshot,
 )
 from .serializers import (
+    AcademicTranscriptSerializer,
     CurriculumStandardSerializer,
     EvaluationCommentSerializer,
     EvaluationCriteriaSerializer,
@@ -1302,3 +1306,573 @@ class TeacherEvaluationViewSet(viewsets.ModelViewSet):
         if page is not None:
             return self.get_paginated_response(TeacherEvaluationSerializer(page, many=True).data)
         return Response(TeacherEvaluationSerializer(qs, many=True).data)
+
+
+class AcademicTranscriptViewSet(viewsets.ModelViewSet):
+    """CRUD for academic transcripts.
+
+    Admins generate and verify transcripts. Teachers/students can view.
+    Supports bulk generation and PDF export.
+    """
+
+    serializer_class = AcademicTranscriptSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["student", "academic_year", "status"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "student__admission_number",
+        "transcript_number",
+    ]
+    ordering_fields = ["created_at", "percentage", "gpa"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = AcademicTranscript.objects.filter(student__school=user.school).select_related(
+            "student__user",
+            "academic_year",
+            "generated_by",
+            "verified_by",
+        )
+        if user.role == "student":
+            qs = qs.filter(student__user=user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(generated_by=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="generate")
+    def generate_transcript(self, request):
+        """Generate a transcript for a specific student and academic year.
+
+        Collects grade data from the gradebook, attendance from attendance module,
+        calculates GPA and rank, and creates the transcript.
+
+        Request body:
+        {
+            "student": <student_id>,
+            "academic_year": <academic_year_id>,
+            "remarks": "optional",
+            "principal_name": "optional",
+            "class_teacher_name": "optional"
+        }
+        """
+        student_id = request.data.get("student")
+        academic_year_id = request.data.get("academic_year")
+
+        if not student_id or not academic_year_id:
+            return Response(
+                {"error": "student and academic_year are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from services.attendance.models import AttendanceRecord
+        from services.gradebook.models import Grade as GradeRecord
+        from services.students.models import AcademicYear as AY
+
+        student = request.user.school.students.filter(id=student_id).first()
+        if not student:
+            return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        academic_year = AY.objects.filter(id=academic_year_id, school=request.user.school).first()
+        if not academic_year:
+            return Response({"error": "Academic year not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check for existing transcript
+        existing = AcademicTranscript.objects.filter(student_id=student_id, academic_year_id=academic_year_id).first()
+        if existing:
+            return Response(
+                {"error": "Transcript already exists.", "transcript_id": str(existing.id)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Collect grade data from gradebook
+        grade_records = GradeRecord.objects.filter(
+            student_id=student_id,
+            exam_schedule__exam__academic_year_id=academic_year_id,
+            is_absent=False,
+        ).select_related("exam_schedule__subject", "exam_schedule")
+
+        # Also check for the student directly via user link
+        if not grade_records.exists():
+            student_user = Student.objects.filter(id=student_id).values_list("user_id", flat=True).first()
+            if student_user:
+                grade_records = GradeRecord.objects.filter(
+                    student__user_id=student_user,
+                    exam_schedule__exam__academic_year_id=academic_year_id,
+                    is_absent=False,
+                ).select_related("exam_schedule__subject", "exam_schedule")
+
+        subjects_data = []
+        total_marks = Decimal("0")
+        obtained_marks = Decimal("0")
+        subject_grades = []
+
+        # Group by subject to calculate per-subject totals
+        from collections import defaultdict
+        from decimal import Decimal as D
+
+        subject_totals = defaultdict(lambda: {"total_max": D("0"), "total_obtained": D("0"), "name": "", "code": ""})
+        for gr in grade_records:
+            subj = gr.exam_schedule.subject
+            key = str(subj.id)
+            subject_totals[key]["total_max"] += gr.exam_schedule.max_marks
+            subject_totals[key]["total_obtained"] += gr.marks_obtained or D("0")
+            subject_totals[key]["name"] = subj.name
+            subject_totals[key]["code"] = subj.code
+
+        for subj_id, data in subject_totals.items():
+            total_marks += data["total_max"]
+            obtained_marks += data["total_obtained"]
+            pct = (
+                round((float(data["total_obtained"]) / float(data["total_max"]) * 100), 1)
+                if data["total_max"] > 0
+                else 0
+            )
+            grade_letter = _calculate_grade_letter(pct)
+            subject_grades.append(pct)
+            subjects_data.append(
+                {
+                    "subject_id": subj_id,
+                    "name": data["name"],
+                    "code": data["code"],
+                    "total_marks": float(data["total_max"]),
+                    "obtained_marks": float(data["total_obtained"]),
+                    "percentage": pct,
+                    "grade_letter": grade_letter,
+                }
+            )
+
+        # Calculate overall stats
+        percentage = round((float(obtained_marks) / float(total_marks) * 100), 2) if total_marks > 0 else 0
+        gpa = round(percentage / 25, 2) if percentage > 0 else 0  # Simple 4.0 scale
+        grade_letter = _calculate_grade_letter(percentage)
+
+        # Attendance data
+        attendance_records = AttendanceRecord.objects.filter(
+            student_id=student_id,
+            academic_year_id=academic_year_id,
+        )
+        total_school_days = attendance_records.count()
+        attendance_days = attendance_records.filter(status="P").count()
+        attendance_pct = round((attendance_days / total_school_days * 100), 2) if total_school_days > 0 else 0
+
+        transcript = AcademicTranscript.objects.create(
+            student_id=student_id,
+            academic_year_id=academic_year_id,
+            status=AcademicTranscript.Status.DRAFT,
+            total_marks=total_marks,
+            obtained_marks=obtained_marks,
+            percentage=percentage,
+            gpa=gpa,
+            grade_letter=grade_letter,
+            attendance_days=attendance_days,
+            total_school_days=total_school_days,
+            attendance_percentage=attendance_pct,
+            subjects_data=subjects_data,
+            remarks=request.data.get("remarks", ""),
+            principal_name=request.data.get("principal_name", ""),
+            class_teacher_name=request.data.get("class_teacher_name", ""),
+            generated_by=request.user,
+        )
+
+        return Response(
+            AcademicTranscriptSerializer(transcript).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk-generate")
+    def bulk_generate(self, request):
+        """Bulk-generate transcripts for all students in a classroom."""
+        classroom_id = request.data.get("classroom")
+        academic_year_id = request.data.get("academic_year")
+
+        if not classroom_id or not academic_year_id:
+            return Response(
+                {"error": "classroom and academic_year are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from services.students.models import Enrollment
+
+        enrolled = Enrollment.objects.filter(
+            classroom_id=classroom_id,
+            academic_year_id=academic_year_id,
+            is_active=True,
+        ).select_related("student")
+
+        generated = 0
+        skipped = 0
+        errors = []
+
+        for enrollment in enrolled:
+            existing = AcademicTranscript.objects.filter(
+                student=enrollment.student,
+                academic_year_id=academic_year_id,
+            ).exists()
+            if existing:
+                skipped += 1
+                continue
+            try:
+                # Use the generate logic inline
+                self._generate_single_transcript(
+                    enrollment.student.id,
+                    academic_year_id,
+                    request.user,
+                )
+                generated += 1
+            except Exception as e:
+                errors.append({"student_id": str(enrollment.student.id), "error": str(e)[:100]})
+
+        return Response(
+            {"generated": generated, "skipped": skipped, "errors": errors},
+            status=status.HTTP_200_OK,
+        )
+
+    def _generate_single_transcript(self, student_id, academic_year_id, user):
+        """Internal method to generate a single transcript."""
+        from collections import defaultdict
+        from decimal import Decimal as D
+
+        from services.attendance.models import AttendanceRecord
+        from services.gradebook.models import Grade as GradeRecord
+
+        grade_records = GradeRecord.objects.filter(
+            student_id=student_id,
+            exam_schedule__exam__academic_year_id=academic_year_id,
+            is_absent=False,
+        ).select_related("exam_schedule__subject")
+
+        subjects_data = []
+        total_marks = D("0")
+        obtained_marks = D("0")
+        subject_totals = defaultdict(lambda: {"total_max": D("0"), "total_obtained": D("0"), "name": "", "code": ""})
+
+        for gr in grade_records:
+            subj = gr.exam_schedule.subject
+            key = str(subj.id)
+            subject_totals[key]["total_max"] += gr.exam_schedule.max_marks
+            subject_totals[key]["total_obtained"] += gr.marks_obtained or D("0")
+            subject_totals[key]["name"] = subj.name
+            subject_totals[key]["code"] = subj.code
+
+        for subj_id, data in subject_totals.items():
+            total_marks += data["total_max"]
+            obtained_marks += data["total_obtained"]
+            pct = (
+                round((float(data["total_obtained"]) / float(data["total_max"]) * 100), 1)
+                if data["total_max"] > 0
+                else 0
+            )
+            subjects_data.append(
+                {
+                    "subject_id": subj_id,
+                    "name": data["name"],
+                    "code": data["code"],
+                    "total_marks": float(data["total_max"]),
+                    "obtained_marks": float(data["total_obtained"]),
+                    "percentage": pct,
+                    "grade_letter": _calculate_grade_letter(pct),
+                }
+            )
+
+        percentage = round((float(obtained_marks) / float(total_marks) * 100), 2) if total_marks > 0 else 0
+        gpa = round(percentage / 25, 2) if percentage > 0 else 0
+
+        attendance_records = AttendanceRecord.objects.filter(student_id=student_id, academic_year_id=academic_year_id)
+        total_days = attendance_records.count()
+        present_days = attendance_records.filter(status="P").count()
+
+        AcademicTranscript.objects.create(
+            student_id=student_id,
+            academic_year_id=academic_year_id,
+            status=AcademicTranscript.Status.DRAFT,
+            total_marks=total_marks,
+            obtained_marks=obtained_marks,
+            percentage=percentage,
+            gpa=gpa,
+            grade_letter=_calculate_grade_letter(percentage),
+            attendance_days=present_days,
+            total_school_days=total_days,
+            attendance_percentage=round((present_days / total_days * 100), 2) if total_days > 0 else 0,
+            subjects_data=subjects_data,
+            generated_by=user,
+        )
+
+    @action(detail=True, methods=["post"])
+    def verify(self, request, pk=None):
+        """Admin verifies a transcript."""
+        if request.user.role not in ["school_admin", "super_admin"]:
+            return Response(
+                {"detail": "Only admins can verify transcripts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        transcript = self.get_object()
+        if transcript.status == AcademicTranscript.Status.VERIFIED:
+            return Response(
+                {"detail": "Transcript is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        transcript.status = AcademicTranscript.Status.VERIFIED
+        transcript.verified_by = request.user
+        from django.utils import timezone
+
+        transcript.verified_at = timezone.now()
+        transcript.save(update_fields=["status", "verified_by", "verified_at", "updated_at"])
+        return Response(AcademicTranscriptSerializer(transcript).data)
+
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def download_pdf(self, request, pk=None):
+        """Download the PDF version of a transcript.
+
+        If a cached PDF exists, returns it. Otherwise generates one on the fly.
+        """
+        transcript = self.get_object()
+        if transcript.pdf_file:
+            from django.http import FileResponse
+
+            return FileResponse(transcript.pdf_file.open(), content_type="application/pdf")
+
+        # Generate PDF on the fly
+        try:
+            pdf_bytes = self._generate_pdf(transcript)
+            # Save to model
+            from django.core.files.base import ContentFile
+
+            filename = f"transcript_{transcript.transcript_number}.pdf"
+            transcript.pdf_file.save(filename, ContentFile(pdf_bytes), save=True)
+            transcript.status = AcademicTranscript.Status.GENERATED
+            transcript.save(update_fields=["status", "updated_at"])
+
+            from django.http import HttpResponse
+
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        except ImportError:
+            return Response(
+                {"detail": "PDF generation requires reportlab. Install with: pip install reportlab"},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+
+    def _generate_pdf(self, transcript):
+        """Generate PDF bytes for a transcript using reportlab."""
+        import io
+
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Title
+        title_style = ParagraphStyle("Title2", parent=styles["Title"], fontSize=16, spaceAfter=6)
+        elements.append(Paragraph(transcript.student.school.name, title_style))
+        elements.append(Paragraph("ACADEMIC TRANSCRIPT", styles["Heading1"]))
+        elements.append(Spacer(1, 0.2 * inch))
+
+        # Student info table
+        info_data = [
+            ["Student Name:", str(transcript.student), "Transcript #:", transcript.transcript_number],
+            ["Admission #:", transcript.student.admission_number, "Academic Year:", str(transcript.academic_year)],
+            [
+                "Date of Birth:",
+                str(transcript.student.date_of_birth or ""),
+                "Generated:",
+                str(transcript.generated_at.date()),
+            ],
+        ]
+        info_table = Table(info_data, colWidths=[1.5 * inch, 2 * inch, 1.5 * inch, 2 * inch])
+        info_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(info_table)
+        elements.append(Spacer(1, 0.3 * inch))
+
+        # Grades table
+        elements.append(Paragraph("Subject Results", styles["Heading2"]))
+        grade_data = [["Subject", "Code", "Max Marks", "Obtained", "Percentage", "Grade"]]
+        for subj in transcript.subjects_data or []:
+            grade_data.append(
+                [
+                    subj.get("name", ""),
+                    subj.get("code", ""),
+                    str(subj.get("total_marks", "")),
+                    str(subj.get("obtained_marks", "")),
+                    f"{subj.get('percentage', 0)}%",
+                    subj.get("grade_letter", ""),
+                ]
+            )
+
+        if len(grade_data) > 1:
+            grade_table = Table(grade_data, colWidths=[2 * inch, 1 * inch, 1 * inch, 1 * inch, 1 * inch, 0.8 * inch])
+            grade_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("ALIGN", (2, 0), (-1, -1), "CENTER"),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ]
+                )
+            )
+            elements.append(grade_table)
+
+        elements.append(Spacer(1, 0.2 * inch))
+
+        # Summary
+        elements.append(Paragraph("Summary", styles["Heading2"]))
+        summary_data = [
+            ["Total Marks:", f"{transcript.obtained_marks} / {transcript.total_marks}"],
+            ["Percentage:", f"{transcript.percentage}%"],
+            ["GPA:", f"{transcript.gpa}"],
+            ["Grade:", transcript.grade_letter],
+            [
+                "Attendance:",
+                f"{transcript.attendance_days} / "
+                f"{transcript.total_school_days} days "
+                f"({transcript.attendance_percentage}%)",
+            ],
+        ]
+        if transcript.rank_in_class:
+            summary_data.append(["Class Rank:", str(transcript.rank_in_class)])
+        if transcript.rank_in_grade:
+            summary_data.append(["Grade Rank:", str(transcript.rank_in_grade)])
+
+        summary_table = Table(summary_data, colWidths=[2 * inch, 4 * inch])
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.3 * inch))
+
+        # Signatures
+        sig_data = [
+            ["_____________________", "", "_____________________"],
+            [f"{transcript.principal_name or 'Principal'}", "", f"{transcript.class_teacher_name or 'Class Teacher'}"],
+            ["Signature & Seal", "", "Signature"],
+        ]
+        sig_table = Table(sig_data, colWidths=[3 * inch, 1 * inch, 3 * inch])
+        sig_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(sig_table)
+
+        if transcript.remarks:
+            elements.append(Spacer(1, 0.2 * inch))
+            elements.append(Paragraph("Remarks", styles["Heading2"]))
+            elements.append(Paragraph(transcript.remarks, styles["Normal"]))
+
+        doc.build(elements)
+        return buffer.getvalue()
+
+    @action(detail=False, methods=["get"], url_path="my-transcript")
+    def my_transcript(self, request):
+        """Return transcripts for the current student."""
+        if request.user.role != "student":
+            return Response(
+                {"detail": "This endpoint is for students only."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = self.get_queryset().filter(student__user=request.user)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(AcademicTranscriptSerializer(page, many=True).data)
+        return Response(AcademicTranscriptSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="class-rankings/(?P<academic_year_id>[^/.]+)")
+    def class_rankings(self, request, academic_year_id=None):
+        """Get rankings of students by class based on transcript percentages."""
+        transcripts = (
+            AcademicTranscript.objects.filter(
+                academic_year_id=academic_year_id,
+                student__school=request.user.school,
+                status__in=[AcademicTranscript.Status.GENERATED, AcademicTranscript.Status.VERIFIED],
+            )
+            .select_related("student__user")
+            .order_by("-percentage")
+        )
+
+        # Group by classroom
+        from collections import defaultdict
+
+        rankings = defaultdict(list)
+        for idx, t in enumerate(transcripts, start=1):
+            try:
+                enrollment = t.student.user.enrollments.filter(academic_year_id=academic_year_id).first()
+                classroom_key = str(enrollment.classroom) if enrollment else "Unassigned"
+            except Exception:
+                classroom_key = "Unassigned"
+            rankings[classroom_key].append(
+                {
+                    "rank": len(rankings[classroom_key]) + 1,
+                    "student_id": str(t.student.id),
+                    "student_name": str(t.student),
+                    "admission_number": t.student.admission_number,
+                    "percentage": float(t.percentage),
+                    "gpa": float(t.gpa) if t.gpa else None,
+                    "grade_letter": t.grade_letter,
+                }
+            )
+
+        return Response(dict(rankings))
+
+
+def _calculate_grade_letter(percentage):
+    """Convert a percentage to a letter grade."""
+    if percentage >= 90:
+        return "A+"
+    elif percentage >= 80:
+        return "A"
+    elif percentage >= 70:
+        return "B+"
+    elif percentage >= 60:
+        return "B"
+    elif percentage >= 50:
+        return "C+"
+    elif percentage >= 40:
+        return "C"
+    elif percentage >= 30:
+        return "D"
+    else:
+        return "F"

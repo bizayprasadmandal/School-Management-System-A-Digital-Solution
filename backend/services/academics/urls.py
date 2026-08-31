@@ -54,6 +54,11 @@ router.register(
     views.TeacherEvaluationViewSet,
     basename="evaluation",
 )
+router.register(
+    "transcripts",
+    views.AcademicTranscriptViewSet,
+    basename="transcript",
+)
 
 # Nested router for syllabus topics
 syllabus_router = DefaultRouter()

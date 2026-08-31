@@ -5,6 +5,7 @@ Academics Service — Serializers
 from rest_framework import serializers
 
 from .models import (
+    AcademicTranscript,
     CurriculumStandard,
     EvaluationComment,
     EvaluationCriteria,
@@ -574,3 +575,89 @@ class TeacherEvaluationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class AcademicTranscriptSerializer(serializers.ModelSerializer):
+    """Serializer for academic transcripts."""
+
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    admission_number = serializers.CharField(source="student.admission_number", read_only=True)
+    student_dob = serializers.DateField(source="student.date_of_birth", read_only=True)
+    student_gender = serializers.CharField(source="student.gender", read_only=True)
+    grade_name = serializers.SerializerMethodField()
+    classroom_name = serializers.SerializerMethodField()
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    school_name = serializers.CharField(source="student.school.name", read_only=True)
+    school_address = serializers.CharField(source="student.school.address", read_only=True)
+    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
+    verified_by_name = serializers.CharField(source="verified_by.full_name", read_only=True, default=None)
+    score_display = serializers.CharField(read_only=True)
+    subjects_data = serializers.JSONField(read_only=True)
+    pdf_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AcademicTranscript
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "admission_number",
+            "student_dob",
+            "student_gender",
+            "grade_name",
+            "classroom_name",
+            "academic_year",
+            "academic_year_name",
+            "school_name",
+            "school_address",
+            "transcript_number",
+            "status",
+            "total_marks",
+            "obtained_marks",
+            "percentage",
+            "gpa",
+            "grade_letter",
+            "rank_in_class",
+            "rank_in_grade",
+            "attendance_days",
+            "total_school_days",
+            "attendance_percentage",
+            "subjects_data",
+            "score_display",
+            "principal_name",
+            "class_teacher_name",
+            "remarks",
+            "generated_by",
+            "generated_by_name",
+            "verified_by",
+            "verified_by_name",
+            "verified_at",
+            "generated_at",
+            "pdf_url",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "transcript_number",
+            "generated_at",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_grade_name(self, obj):
+        try:
+            return obj.student.user.enrollments.filter(academic_year=obj.academic_year).first().classroom.grade.name
+        except Exception:
+            return ""
+
+    def get_classroom_name(self, obj):
+        try:
+            return str(obj.student.user.enrollments.filter(academic_year=obj.academic_year).first().classroom)
+        except Exception:
+            return ""
+
+    def get_pdf_url(self, obj):
+        if obj.pdf_file:
+            return self.context["request"].build_absolute_uri(obj.pdf_file.url)
+        return None
