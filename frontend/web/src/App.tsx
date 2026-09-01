@@ -94,6 +94,14 @@ const StudentMessages = React.lazy(() => import("./pages/student/MessagesPage"))
 const StudentFees = React.lazy(() => import("./pages/student/FeesPage"));
 const StudentConferences = React.lazy(() => import("./pages/student/ConferencesPage"));
 const StudentSettings = React.lazy(() => import("./pages/student/SettingsPage"));
+const StudentHealth = React.lazy(() => import("./pages/student/HealthPage"));
+const StudentLibrary = React.lazy(() => import("./pages/student/LibraryPage"));
+const StudentCafeteria = React.lazy(() => import("./pages/student/CafeteriaPage"));
+const StudentSports = React.lazy(() => import("./pages/student/SportsPage"));
+const StudentBehavior = React.lazy(() => import("./pages/student/BehaviorPage"));
+const StudentCounseling = React.lazy(() => import("./pages/student/CounselingPage"));
+const StudentHostel = React.lazy(() => import("./pages/student/HostelPage"));
+const StudentTransport = React.lazy(() => import("./pages/student/TransportPage"));
 
 // Payment callback page
 const PaymentCallbackPage = React.lazy(() => import("./pages/fees/PaymentCallbackPage"));
@@ -308,6 +316,14 @@ function App() {
                   <Route path="fees" element={<StudentFees />} />
                   <Route path="conferences" element={<StudentConferences />} />
                   <Route path="settings" element={<StudentSettings />} />
+                  <Route path="health" element={<StudentHealth />} />
+                  <Route path="library" element={<StudentLibrary />} />
+                  <Route path="cafeteria" element={<StudentCafeteria />} />
+                  <Route path="sports" element={<StudentSports />} />
+                  <Route path="behavior" element={<StudentBehavior />} />
+                  <Route path="counseling" element={<StudentCounseling />} />
+                  <Route path="hostel" element={<StudentHostel />} />
+                  <Route path="transport" element={<StudentTransport />} />
                 </Route>
               </Route>
 

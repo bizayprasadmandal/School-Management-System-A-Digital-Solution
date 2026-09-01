@@ -26,6 +26,10 @@ import {
   UserGroupIcon,
   ReceiptPercentIcon,
   ArrowPathIcon,
+  HeartIcon,
+  TrophyIcon,
+  TruckIcon,
+  CakeIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -54,6 +58,14 @@ const STUDENT_NAV = [
   { label: "My Grades", to: "/student/grades", icon: BookOpenIcon },
   { label: "Assignments", to: "/student/assignments", icon: DocumentTextIcon },
   { label: "Timetable", to: "/student/timetable", icon: CalendarDaysIcon },
+  { label: "Health", to: "/student/health", icon: HeartIcon },
+  { label: "Library", to: "/student/library", icon: BookOpenIcon },
+  { label: "Cafeteria", to: "/student/cafeteria", icon: CakeIcon },
+  { label: "Sports", to: "/student/sports", icon: TrophyIcon },
+  { label: "Behavior", to: "/student/behavior", icon: ExclamationTriangleIcon },
+  { label: "Counseling", to: "/student/counseling", icon: ChatBubbleLeftRightIcon },
+  { label: "Hostel", to: "/student/hostel", icon: HomeIcon },
+  { label: "Transport", to: "/student/transport", icon: TruckIcon },
   { label: "Conferences", to: "/student/conferences", icon: VideoCameraIcon },
   { label: "Messages", to: "/student/messages", icon: ChatBubbleLeftRightIcon },
   { label: "Fees", to: "/student/fees", icon: BanknotesIcon },
