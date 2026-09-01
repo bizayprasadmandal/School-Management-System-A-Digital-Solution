@@ -13,49 +13,110 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
+    AcademicAdvising,
+    BullyingFollowUp,
+    BullyingReport,
+    CareerAssessment,
+    CareerGoal,
     CaseManagement,
+    CaseNote,
+    CollegeApplication,
     CounselingAppointment,
+    CounselingContract,
     CounselingFeedback,
+    CounselingGoalTracking,
+    CounselingNotification,
     CounselingOutcome,
     CounselingReport,
     CounselingSession,
+    CounselingSessionLog,
+    CounselingSurvey,
+    CounselingSurveyResponse,
+    CounselingWaitlist,
+    CounselingWorkshop,
+    CounselorAbsence,
     CounselorAvailability,
+    CounselorCoverage,
     CounselorProfile,
+    CourseRecommendation,
     CrisisFollowUp,
     CrisisIntervention,
+    ExternalReferralProvider,
     GroupSession,
     GroupSessionAttendance,
+    GroupSessionMember,
     InterventionGoal,
     InterventionPlan,
     MentalHealthScreening,
     ParentConsent,
+    PeerMentor,
+    PeerMentoringSession,
     ProgressMilestone,
     ProgressTracking,
+    ReferralTracking,
+    RestorativeCommitment,
+    RestorativeJusticeSession,
     ScreeningResponse,
+    SELAssessment,
+    SELGoal,
+    SessionAttachment,
+    SpecialEducationReferral,
     StudentReferral,
+    WorkshopRegistration,
 )
 from .serializers import (
+    AcademicAdvisingSerializer,
+    BullyingFollowUpSerializer,
+    BullyingReportSerializer,
+    CareerAssessmentSerializer,
+    CareerGoalSerializer,
     CaseManagementSerializer,
+    CaseNoteSerializer,
+    CollegeApplicationSerializer,
     CounselingAppointmentCreateUpdateSerializer,
     CounselingAppointmentSerializer,
+    CounselingContractSerializer,
     CounselingFeedbackSerializer,
+    CounselingGoalTrackingSerializer,
+    CounselingNotificationSerializer,
     CounselingOutcomeSerializer,
     CounselingReportSerializer,
+    CounselingSessionLogSerializer,
     CounselingSessionSerializer,
+    CounselingSurveyResponseSerializer,
+    CounselingSurveySerializer,
+    CounselingWaitlistSerializer,
+    CounselingWorkshopSerializer,
+    CounselorAbsenceSerializer,
     CounselorAvailabilitySerializer,
+    CounselorCoverageSerializer,
+    CounselorProfileSerializer,
+    CourseRecommendationSerializer,
     CrisisFollowUpSerializer,
     CrisisInterventionSerializer,
+    ExternalReferralProviderSerializer,
     GroupSessionAttendanceSerializer,
+    GroupSessionMemberSerializer,
     GroupSessionSerializer,
     InterventionGoalSerializer,
     InterventionPlanSerializer,
     MentalHealthScreeningSerializer,
     ParentConsentSerializer,
+    PeerMentoringSessionSerializer,
+    PeerMentorSerializer,
     ProgressMilestoneSerializer,
     ProgressTrackingSerializer,
+    ReferralTrackingSerializer,
+    RestorativeCommitmentSerializer,
+    RestorativeJusticeSessionSerializer,
     ScreeningResponseSerializer,
+    SELAssessmentSerializer,
+    SELGoalSerializer,
+    SessionAttachmentSerializer,
+    SpecialEducationReferralSerializer,
     StudentReferralCreateUpdateSerializer,
     StudentReferralSerializer,
+    WorkshopRegistrationSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -671,3 +732,251 @@ class CounselingFeedbackViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, submitted_by=self.request.user)
+
+
+class AcademicAdvisingViewSet(viewsets.ModelViewSet):
+    queryset = AcademicAdvising.objects.all()
+    serializer_class = AcademicAdvisingSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class BullyingFollowUpViewSet(viewsets.ModelViewSet):
+    queryset = BullyingFollowUp.objects.all()
+    serializer_class = BullyingFollowUpSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class BullyingReportViewSet(viewsets.ModelViewSet):
+    queryset = BullyingReport.objects.all()
+    serializer_class = BullyingReportSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CareerAssessmentViewSet(viewsets.ModelViewSet):
+    queryset = CareerAssessment.objects.all()
+    serializer_class = CareerAssessmentSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CareerGoalViewSet(viewsets.ModelViewSet):
+    queryset = CareerGoal.objects.all()
+    serializer_class = CareerGoalSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CaseNoteViewSet(viewsets.ModelViewSet):
+    queryset = CaseNote.objects.all()
+    serializer_class = CaseNoteSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CollegeApplicationViewSet(viewsets.ModelViewSet):
+    queryset = CollegeApplication.objects.all()
+    serializer_class = CollegeApplicationSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingContractViewSet(viewsets.ModelViewSet):
+    queryset = CounselingContract.objects.all()
+    serializer_class = CounselingContractSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingGoalTrackingViewSet(viewsets.ModelViewSet):
+    queryset = CounselingGoalTracking.objects.all()
+    serializer_class = CounselingGoalTrackingSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingNotificationViewSet(viewsets.ModelViewSet):
+    queryset = CounselingNotification.objects.all()
+    serializer_class = CounselingNotificationSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingSessionLogViewSet(viewsets.ModelViewSet):
+    queryset = CounselingSessionLog.objects.all()
+    serializer_class = CounselingSessionLogSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingSurveyViewSet(viewsets.ModelViewSet):
+    queryset = CounselingSurvey.objects.all()
+    serializer_class = CounselingSurveySerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingSurveyResponseViewSet(viewsets.ModelViewSet):
+    queryset = CounselingSurveyResponse.objects.all()
+    serializer_class = CounselingSurveyResponseSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingWaitlistViewSet(viewsets.ModelViewSet):
+    queryset = CounselingWaitlist.objects.all()
+    serializer_class = CounselingWaitlistSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselingWorkshopViewSet(viewsets.ModelViewSet):
+    queryset = CounselingWorkshop.objects.all()
+    serializer_class = CounselingWorkshopSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselorAbsenceViewSet(viewsets.ModelViewSet):
+    queryset = CounselorAbsence.objects.all()
+    serializer_class = CounselorAbsenceSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselorCoverageViewSet(viewsets.ModelViewSet):
+    queryset = CounselorCoverage.objects.all()
+    serializer_class = CounselorCoverageSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CounselorProfileViewSet(viewsets.ModelViewSet):
+    queryset = CounselorProfile.objects.all()
+    serializer_class = CounselorProfileSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class CourseRecommendationViewSet(viewsets.ModelViewSet):
+    queryset = CourseRecommendation.objects.all()
+    serializer_class = CourseRecommendationSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class ExternalReferralProviderViewSet(viewsets.ModelViewSet):
+    queryset = ExternalReferralProvider.objects.all()
+    serializer_class = ExternalReferralProviderSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class GroupSessionMemberViewSet(viewsets.ModelViewSet):
+    queryset = GroupSessionMember.objects.all()
+    serializer_class = GroupSessionMemberSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class PeerMentorViewSet(viewsets.ModelViewSet):
+    queryset = PeerMentor.objects.all()
+    serializer_class = PeerMentorSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class PeerMentoringSessionViewSet(viewsets.ModelViewSet):
+    queryset = PeerMentoringSession.objects.all()
+    serializer_class = PeerMentoringSessionSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class ReferralTrackingViewSet(viewsets.ModelViewSet):
+    queryset = ReferralTracking.objects.all()
+    serializer_class = ReferralTrackingSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class RestorativeCommitmentViewSet(viewsets.ModelViewSet):
+    queryset = RestorativeCommitment.objects.all()
+    serializer_class = RestorativeCommitmentSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class RestorativeJusticeSessionViewSet(viewsets.ModelViewSet):
+    queryset = RestorativeJusticeSession.objects.all()
+    serializer_class = RestorativeJusticeSessionSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class SELAssessmentViewSet(viewsets.ModelViewSet):
+    queryset = SELAssessment.objects.all()
+    serializer_class = SELAssessmentSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class SELGoalViewSet(viewsets.ModelViewSet):
+    queryset = SELGoal.objects.all()
+    serializer_class = SELGoalSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class SessionAttachmentViewSet(viewsets.ModelViewSet):
+    queryset = SessionAttachment.objects.all()
+    serializer_class = SessionAttachmentSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class SpecialEducationReferralViewSet(viewsets.ModelViewSet):
+    queryset = SpecialEducationReferral.objects.all()
+    serializer_class = SpecialEducationReferralSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class WorkshopRegistrationViewSet(viewsets.ModelViewSet):
+    queryset = WorkshopRegistration.objects.all()
+    serializer_class = WorkshopRegistrationSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
