@@ -2,28 +2,65 @@
 
 from rest_framework import serializers
 
-from .models import Category, InventoryItem, PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier
+from .models import (
+    AssetTag,
+    Barcode,
+    Category,
+    InventoryAlert,
+    InventoryAnalytics,
+    InventoryBudget,
+    InventoryCatalog,
+    InventoryCatalogExtended,
+    InventoryCatalogItem,
+    InventoryCompositeItem,
+    InventoryItem,
+    InventoryLeaseAgreement,
+    InventoryLeaseAgreementExtended,
+    InventoryParts,
+    InventoryPricingHistory,
+    InventoryReport,
+    InventorySettings,
+    InventorySubscription,
+    InventorySubscriptionPlan,
+    InventorySupplierPerformance,
+    InventoryTransferRoute,
+    Invoice,
+    InvoicePayment,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    PurchaseRequisition,
+    PurchaseRequisitionItem,
+    ReturnRequest,
+    StockAdjustment,
+    StockCountSchedule,
+    StockLevel,
+    StockMovement,
+    StockTransfer,
+    StockTransferItem,
+    Supplier,
+    SupplierRating,
+    Warehouse,
+    WarehouseLocation,
+    WarehouseZone,
+    WarrantyClaimExtended,
+)
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    item_count = serializers.SerializerMethodField()
-
     class Meta:
         model = Category
-        fields = ["id", "name", "description", "is_active", "item_count", "created_at"]
+        fields = ["id", "school", "on_delete", "name", "description", "is_active", "created_at"]
         read_only_fields = ["id", "created_at"]
-
-    def get_item_count(self, obj):
-        return getattr(obj, "item_count", obj.items.count())
 
 
 class SupplierSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = Supplier
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "contact_person",
             "email",
@@ -32,7 +69,6 @@ class SupplierSerializer(serializers.ModelSerializer):
             "tax_id",
             "payment_terms",
             "status",
-            "status_display",
             "notes",
             "created_at",
             "updated_at",
@@ -41,71 +77,38 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source="category.name", read_only=True, default=None)
-    supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
-    unit_display = serializers.CharField(source="get_unit_display", read_only=True)
-    is_low_stock = serializers.BooleanField(read_only=True)
-    stock_value = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
-
     class Meta:
         model = InventoryItem
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "category",
-            "category_name",
+            "on_delete",
             "supplier",
-            "supplier_name",
+            "on_delete",
             "name",
             "sku",
             "description",
             "unit",
-            "unit_display",
             "unit_price",
             "current_stock",
             "minimum_stock",
             "maximum_stock",
-            "location",
-            "barcode",
-            "is_active",
-            "is_low_stock",
-            "stock_value",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "current_stock", "created_at", "updated_at"]
-
-    def validate_category(self, value):
-        # Inventory items must stay within the tenant — the category has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Category not found in your school.")
-        return value
-
-    def validate_supplier(self, value):
-        # Inventory items must stay within the tenant — the supplier has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Supplier not found in your school.")
-        return value
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
-    item_name = serializers.CharField(source="item.name", read_only=True)
-    item_sku = serializers.CharField(source="item.sku", read_only=True)
-    movement_type_display = serializers.CharField(source="get_movement_type_display", read_only=True)
-    performed_by_name = serializers.CharField(source="performed_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = StockMovement
         fields = [
             "id",
+            "id",
             "item",
-            "item_name",
-            "item_sku",
+            "on_delete",
             "movement_type",
-            "movement_type_display",
             "quantity",
             "unit_price",
             "total_amount",
@@ -113,40 +116,45 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "reference_type",
             "notes",
             "performed_by",
-            "performed_by_name",
+            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
-    def validate_item(self, value):
-        # Stock movements inherit tenant scope from the item — reject items
-        # from another school.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Item not found in your school.")
-        return value
 
-    def validate_performed_by(self, value):
-        # Stock movements must stay within the tenant — the performing user
-        # has to belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Performed-by user must be in your school.")
-        return value
+class PurchaseOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PurchaseOrder
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "order_number",
+            "supplier",
+            "on_delete",
+            "order_date",
+            "expected_date",
+            "status",
+            "subtotal",
+            "tax_amount",
+            "shipping_cost",
+            "total_amount",
+            "notes",
+            "ordered_by",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
-    item_name = serializers.CharField(source="item.name", read_only=True)
-    item_sku = serializers.CharField(source="item.sku", read_only=True)
-
     class Meta:
         model = PurchaseOrderItem
         fields = [
             "id",
             "purchase_order",
+            "on_delete",
             "item",
-            "item_name",
-            "item_sku",
+            "on_delete",
             "quantity_ordered",
             "quantity_received",
             "unit_price",
@@ -156,40 +164,622 @@ class PurchaseOrderItemSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
-class PurchaseOrderSerializer(serializers.ModelSerializer):
-    supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    ordered_by_name = serializers.CharField(source="ordered_by.full_name", read_only=True, default=None)
-    items = PurchaseOrderItemSerializer(many=True, read_only=True)
-
+class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PurchaseOrder
+        model = Warehouse
         fields = [
             "id",
-            "order_number",
-            "supplier",
-            "supplier_name",
-            "order_date",
-            "expected_date",
-            "status",
-            "status_display",
-            "subtotal",
-            "tax_amount",
-            "shipping_cost",
-            "total_amount",
-            "notes",
-            "ordered_by",
-            "ordered_by_name",
-            "items",
+            "school",
+            "on_delete",
+            "name",
+            "code",
+            "address",
+            "capacity",
+            "manager",
+            "on_delete",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class WarehouseZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarehouseZone
+        fields = ["id", "warehouse", "on_delete", "name", "zone_type", "capacity", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class WarehouseLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarehouseLocation
+        fields = [
+            "id",
+            "zone",
+            "on_delete",
+            "aisle",
+            "shelf",
+            "bin_label",
+            "item",
+            "on_delete",
+            "max_capacity",
+            "current_quantity",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StockLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockLevel
+        fields = [
+            "id",
+            "item",
+            "on_delete",
+            "warehouse",
+            "on_delete",
+            "quantity",
+            "reserved",
+            "available",
+            "reorder_point",
+            "last_counted",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "ordered_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_supplier(self, value):
-        # Purchase orders must stay within the tenant — the supplier has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Supplier not found in your school.")
-        return value
+
+class StockAdjustmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockAdjustment
+        fields = [
+            "id",
+            "item",
+            "on_delete",
+            "warehouse",
+            "on_delete",
+            "adjustment_type",
+            "quantity",
+            "reason",
+            "adjusted_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StockCountScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockCountSchedule
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "warehouse",
+            "on_delete",
+            "name",
+            "frequency",
+            "next_count_date",
+            "last_count_date",
+            "assigned_to",
+            "on_delete",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StockTransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockTransfer
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "transfer_number",
+            "source_warehouse",
+            "on_delete",
+            "dest_warehouse",
+            "on_delete",
+            "status",
+            "requested_by",
+            "on_delete",
+            "approved_by",
+            "on_delete",
+            "notes",
+            "created_at",
+            "received_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StockTransferItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockTransferItem
+        fields = [
+            "id",
+            "transfer",
+            "on_delete",
+            "item",
+            "on_delete",
+            "quantity_requested",
+            "quantity_sent",
+            "quantity_received",
+            "notes",
+        ]
+        read_only_fields = ["id"]
+
+
+class PurchaseRequisitionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PurchaseRequisition
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "requisition_number",
+            "department",
+            "status",
+            "requested_by",
+            "on_delete",
+            "approved_by",
+            "on_delete",
+            "priority",
+            "justification",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PurchaseRequisitionItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PurchaseRequisitionItem
+        fields = [
+            "id",
+            "requisition",
+            "on_delete",
+            "item",
+            "on_delete",
+            "quantity",
+            "estimated_cost",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "purchase_order",
+            "on_delete",
+            "invoice_number",
+            "supplier",
+            "on_delete",
+            "invoice_date",
+            "due_date",
+            "subtotal",
+            "tax",
+            "total",
+            "amount_paid",
+            "status",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InvoicePaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvoicePayment
+        fields = [
+            "id",
+            "invoice",
+            "on_delete",
+            "payment_date",
+            "amount",
+            "payment_method",
+            "reference_number",
+            "notes",
+            "created_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ReturnRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnRequest
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "purchase_order",
+            "on_delete",
+            "quantity",
+            "reason",
+            "status",
+            "requested_by",
+            "on_delete",
+            "approved_by",
+            "on_delete",
+            "refund_amount",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class WarrantyClaimExtendedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarrantyClaimExtended
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "claim_number",
+            "issue_description",
+            "date_filed",
+            "status",
+            "resolution_notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class BarcodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Barcode
+        fields = ["id", "item", "on_delete", "barcode_type", "code_value", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class AssetTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetTag
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "tag_number",
+            "qr_code",
+            "assigned_date",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class SupplierRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupplierRating
+        fields = [
+            "id",
+            "school",
+            "supplier",
+            "on_delete",
+            "on_delete",
+            "quality_rating",
+            "delivery_rating",
+            "price_rating",
+            "overall_rating",
+            "comments",
+            "rated_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryAlert
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "alert_type",
+            "threshold",
+            "current_value",
+            "is_active",
+            "notified",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryReport
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "report_type",
+            "title",
+            "date_from",
+            "date_to",
+            "generated_by",
+            "on_delete",
+            "file",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryAnalytics
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "period",
+            "total_items",
+            "total_value",
+            "turnover_rate",
+            "average_order_value",
+            "stockout_count",
+            "overstock_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventorySettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventorySettings
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "default_warehouse",
+            "on_delete",
+            "low_stock_threshold",
+            "auto_reorder",
+            "enable_barcode",
+            "enable_serial_tracking",
+            "fiscal_year_start_month",
+            "currency",
+            "tax_rate",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class InventorySubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventorySubscriptionPlan
+        fields = ["id", "school", "on_delete", "name", "plan_type", "cost", "items_included", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventorySubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventorySubscription
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "plan",
+            "on_delete",
+            "supplier",
+            "on_delete",
+            "start_date",
+            "end_date",
+            "status",
+            "auto_renew",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryBudgetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryBudget
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "department_name",
+            "fiscal_year",
+            "total_budget",
+            "spent",
+            "notes",
+            "is_approved",
+            "approved_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryLeaseAgreementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryLeaseAgreement
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "supplier",
+            "on_delete",
+            "lease_start",
+            "lease_end",
+            "monthly_cost",
+            "terms",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventorySupplierPerformanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventorySupplierPerformance
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "supplier",
+            "on_delete",
+            "evaluation_period",
+            "quality_score",
+            "delivery_score",
+            "price_score",
+            "overall_score",
+            "comments",
+            "evaluated_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryCatalog
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "description",
+            "version",
+            "effective_date",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryCatalogItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryCatalogItem
+        fields = ["id", "catalog", "on_delete", "item", "on_delete", "catalog_price", "notes"]
+        read_only_fields = ["id"]
+
+
+class InventoryPartsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryParts
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "part_number",
+            "category",
+            "on_delete",
+            "unit_cost",
+            "quantity_in_stock",
+            "reorder_level",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryCompositeItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryCompositeItem
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "description",
+            "quantity",
+            "unit_cost",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryTransferRouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryTransferRoute
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "origin_warehouse",
+            "on_delete",
+            "dest_warehouse",
+            "on_delete",
+            "estimated_time_minutes",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryLeaseAgreementExtendedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryLeaseAgreementExtended
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "supplier_name",
+            "lease_start",
+            "lease_end",
+            "monthly_cost",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryCatalogExtendedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryCatalogExtended
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "description",
+            "version",
+            "effective_date",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class InventoryPricingHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryPricingHistory
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "item",
+            "on_delete",
+            "supplier",
+            "on_delete",
+            "unit_price",
+            "effective_date",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
