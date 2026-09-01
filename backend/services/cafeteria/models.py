@@ -759,3 +759,911 @@ class WasteTracking(models.Model):
 
     def __str__(self):
         return f"{self.item_name} - {self.quantity_wasted} ({self.get_waste_type_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Online Ordering
+# =============================================================================
+
+
+class OnlineOrder(models.Model):
+    """Online food ordering system."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        CONFIRMED = "confirmed", "Confirmed"
+        PREPARING = "preparing", "Preparing"
+        READY = "ready", "Ready for Pickup"
+        DELIVERED = "delivered", "Delivered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="online_orders")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="online_orders")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Items
+    items = models.JSONField(default=list, help_text="List of ordered items")
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Delivery
+    pickup_time = models.TimeField(null=True, blank=True)
+    delivery_location = models.CharField(max_length=200, blank=True)
+    delivery_required = models.BooleanField(default=False)
+    # Payment
+    paid = models.BooleanField(default=False)
+    payment_method = models.CharField(max_length=20, blank=True)
+    # Notes
+    special_instructions = models.TextField(blank=True)
+    # Metadata
+    ordered_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_online_orders"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.student} ({self.get_status_display()})"
+
+
+class OnlineOrderItem(models.Model):
+    """Individual items in an online order."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(OnlineOrder, on_delete=models.CASCADE, related_name="order_items")
+    menu_item = models.ForeignKey("MealMenu", on_delete=models.SET_NULL, null=True, blank=True)
+    item_name = models.CharField(max_length=200)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    special_requests = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_online_order_items"
+
+    def __str__(self):
+        return f"{self.quantity}x {self.item_name}"
+
+
+# =============================================================================
+# NEW MODELS: Meal Delivery
+# =============================================================================
+
+
+class MealDelivery(models.Model):
+    """Meal delivery to classrooms/desks."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_TRANSIT = "in_transit", "In Transit"
+        DELIVERED = "delivered", "Delivered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="meal_deliveries")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    # Schedule
+    delivery_date = models.DateField()
+    delivery_time = models.TimeField()
+    delivery_location = models.CharField(max_length=200)
+    class_group = models.CharField(max_length=50, blank=True)
+    # Items
+    meals_ordered = models.PositiveIntegerField(default=0)
+    meals_delivered = models.PositiveIntegerField(default=0)
+    meals_returned = models.PositiveIntegerField(default=0)
+    # Personnel
+    delivered_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "cafeteria_meal_deliveries"
+        ordering = ["-delivery_date"]
+
+    def __str__(self):
+        return f"Delivery - {self.delivery_location} ({self.delivery_date})"
+
+
+# =============================================================================
+# NEW MODELS: Cash Register / POS
+# =============================================================================
+
+
+class CashRegister(models.Model):
+    """Cash register management."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cash_registers")
+    register_name = models.CharField(max_length=100)
+    location = models.CharField(max_length=200, blank=True)
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_open = models.BooleanField(default=False)
+    # Opening
+    opening_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    opened_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    # Closing
+    closing_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    expected_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    variance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    closed_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="registers_closed"
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_cash_registers"
+
+    def __str__(self):
+        return f"{self.register_name} ({'Open' if self.is_open else 'Closed'})"
+
+
+class DailySalesSummary(models.Model):
+    """Daily sales summary."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="daily_sales_summaries")
+    date = models.DateField()
+    # Sales
+    total_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_transactions = models.PositiveIntegerField(default=0)
+    total_items_sold = models.PositiveIntegerField(default=0)
+    avg_transaction_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # By payment type
+    cash_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    card_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    account_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    free_meal_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # By meal
+    breakfast_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    lunch_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    snack_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dinner_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Top items
+    top_items = models.JSONField(default=list, blank=True)
+    # Cost
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    profit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Metadata
+    prepared_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_daily_sales_summaries"
+        unique_together = [("school", "date")]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Sales Summary - {self.date} (${self.total_sales})"
+
+
+# =============================================================================
+# NEW MODELS: Food Safety
+# =============================================================================
+
+
+class FoodSafetyCheck(models.Model):
+    """Food safety and hygiene checks."""
+
+    class CheckType(models.TextChoices):
+        TEMPERATURE = "temperature", "Temperature Check"
+        CLEANLINESS = "cleanliness", "Cleanliness"
+        STORAGE = "storage", "Storage Check"
+        PERSONAL_HYGIENE = "hygiene", "Personal Hygiene"
+        EQUIPMENT = "equipment", "Equipment Check"
+        WASTE = "waste", "Waste Management"
+
+    class Status(models.TextChoices):
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+        CONDITIONAL = "conditional", "Conditional"
+        PENDING = "pending", "Pending Review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="food_safety_checks")
+    check_type = models.CharField(max_length=15, choices=CheckType.choices)
+    check_date = models.DateField()
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Details
+    checked_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    temperature_reading = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    # Findings
+    findings = models.TextField(blank=True)
+    corrective_actions = models.TextField(blank=True)
+    compliance_notes = models.TextField(blank=True)
+    # File
+    photo = models.ImageField(upload_to="cafeteria/safety_checks/", null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_food_safety_checks"
+        ordering = ["-check_date"]
+
+    def __str__(self):
+        return f"{self.get_check_type_display()} - {self.get_status_display()} ({self.check_date})"
+
+
+class FoodSafetyIncident(models.Model):
+    """Food safety incidents."""
+
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
+    class Status(models.TextChoices):
+        REPORTED = "reported", "Reported"
+        INVESTIGATING = "investigating", "Investigating"
+        RESOLVED = "resolved", "Resolved"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="food_safety_incidents")
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.REPORTED)
+    # People affected
+    reported_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, related_name="food_safety_incidents_reported"
+    )
+    people_affected = models.PositiveIntegerField(default=0)
+    # Investigation
+    root_cause = models.TextField(blank=True)
+    investigation_notes = models.TextField(blank=True)
+    corrective_actions = models.TextField(blank=True)
+    preventive_measures = models.TextField(blank=True)
+    # Resolution
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        "auth_service.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="food_safety_incidents_resolved",
+    )
+    # Metadata
+    incident_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_food_safety_incidents"
+        ordering = ["-incident_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_severity_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Cafeteria Staff
+# =============================================================================
+
+
+class CafeteriaStaff(models.Model):
+    """Cafeteria staff management."""
+
+    class Role(models.TextChoices):
+        COOK = "cook", "Cook"
+        ASSISTANT = "assistant", "Assistant"
+        CASHIER = "cashier", "Cashier"
+        MANAGER = "manager", "Manager"
+        CLEANER = "cleaner", "Cleaner"
+        DELIVERY = "delivery", "Delivery"
+        SUPERVISOR = "supervisor", "Supervisor"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_staff")
+    user = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="cafeteria_roles")
+    role = models.CharField(max_length=15, choices=Role.choices)
+    # Schedule
+    shift_start = models.TimeField(null=True, blank=True)
+    shift_end = models.TimeField(null=True, blank=True)
+    days_of_week = models.JSONField(default=list, blank=True)
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_certified = models.BooleanField(default=False)
+    certification_expiry = models.DateField(null=True, blank=True)
+    # Performance
+    performance_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_staff"
+        unique_together = [("school", "user", "role")]
+
+    def __str__(self):
+        return f"{self.user.full_name} ({self.get_role_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Customer Feedback
+# =============================================================================
+
+
+class CafeteriaFeedback(models.Model):
+    """Customer feedback on food and service."""
+
+    class FeedbackType(models.TextChoices):
+        FOOD_QUALITY = "food", "Food Quality"
+        SERVICE = "service", "Service"
+        CLEANLINESS = "cleanliness", "Cleanliness"
+        PRICE = "price", "Price/Value"
+        WAIT_TIME = "wait", "Wait Time"
+        GENERAL = "general", "General"
+
+    class Rating(models.IntegerChoices):
+        VERY_POOR = 1, "Very Poor"
+        POOR = 2, "Poor"
+        AVERAGE = 3, "Average"
+        GOOD = 4, "Good"
+        EXCELLENT = 5, "Excellent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_feedbacks")
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="cafeteria_feedbacks"
+    )
+    staff_member = models.ForeignKey(
+        "auth_service.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cafeteria_feedback_received",
+    )
+    # Feedback
+    feedback_type = models.CharField(max_length=15, choices=FeedbackType.choices)
+    rating = models.IntegerField(choices=Rating.choices)
+    comment = models.TextField(blank=True)
+    # Specifics
+    meal_rated = models.ForeignKey(
+        "MealMenu", on_delete=models.SET_NULL, null=True, blank=True, related_name="feedbacks"
+    )
+    date_of_experience = models.DateField(null=True, blank=True)
+    # Response
+    response = models.TextField(blank=True)
+    responded_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    # Anonymous
+    is_anonymous = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_feedbacks"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_feedback_type_display()} - {self.get_rating_display()} ({self.created_at})"
+
+
+# =============================================================================
+# NEW MODELS: Meal Pre-order
+# =============================================================================
+
+
+class MealPreOrder(models.Model):
+    """Pre-order system for meals."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        CONFIRMED = "confirmed", "Confirmed"
+        PREPARING = "preparing", "Preparing"
+        READY = "ready", "Ready"
+        COLLECTED = "collected", "Collected"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="meal_pre_orders")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="meal_pre_orders")
+    # Order details
+    meal_date = models.DateField()
+    meal_type = models.CharField(
+        max_length=10, choices=[("breakfast", "Breakfast"), ("lunch", "Lunch"), ("dinner", "Dinner")]
+    )
+    menu_items = models.JSONField(default=list)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Payment
+    paid = models.BooleanField(default=False)
+    paid_via = models.CharField(max_length=20, blank=True)
+    # Pickup
+    pickup_time = models.TimeField(null=True, blank=True)
+    pickup_location = models.CharField(max_length=200, blank=True)
+    collected_at = models.DateTimeField(null=True, blank=True)
+    # Notes
+    special_instructions = models.TextField(blank=True)
+    # Metadata
+    ordered_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_meal_pre_orders"
+        ordering = ["-meal_date"]
+
+    def __str__(self):
+        return f"Pre-order - {self.student} ({self.meal_date})"
+
+
+# =============================================================================
+# NEW MODELS: Nutrition Analysis
+# =============================================================================
+
+
+class NutritionAnalysis(models.Model):
+    """Nutritional analysis for menu items."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    menu_item = models.OneToOneField("MealMenu", on_delete=models.CASCADE, related_name="nutrition_analysis")
+    # Macros
+    calories = models.PositiveIntegerField(default=0)
+    protein_g = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    carbohydrates_g = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    fat_g = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    fiber_g = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    sugar_g = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    sodium_mg = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    # Vitamins (optional)
+    vitamin_a = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    vitamin_c = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    calcium = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    iron = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    # Ratings
+    health_score = models.DecimalField(max_digits=3, decimal_places=1, default=5, help_text="1-10 scale")
+    is_healthy_choice = models.BooleanField(default=True)
+    # Metadata
+    analyzed_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_nutrition_analysis"
+
+    def __str__(self):
+        return f"Nutrition: {self.menu_item} ({self.calories} cal)"
+
+
+# =============================================================================
+# NEW MODELS: Cafeteria Equipment
+# =============================================================================
+
+
+class CafeteriaEquipment(models.Model):
+    """Cafeteria kitchen equipment tracking."""
+
+    class EquipmentType(models.TextChoices):
+        OVEN = "oven", "Oven"
+        REFRIGERATOR = "fridge", "Refrigerator"
+        FREEZER = "freezer", "Freezer"
+        DISHWASHER = "dishwasher", "Dishwasher"
+        MIXER = "mixer", "Mixer"
+        FRYER = "fryer", "Fryer"
+        STEAMER = "steamer", "Steamer"
+        WARMER = "warmer", "Food Warmer"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        WORKING = "working", "Working"
+        MAINTENANCE = "maintenance", "Under Maintenance"
+        BROKEN = "broken", "Broken"
+        RETIRED = "retired", "Retired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_equipment")
+    name = models.CharField(max_length=200)
+    equipment_type = models.CharField(max_length=15, choices=EquipmentType.choices)
+    asset_tag = models.CharField(max_length=50, blank=True)
+    brand = models.CharField(max_length=100, blank=True)
+    model_number = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.WORKING)
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    last_maintenance = models.DateField(null=True, blank=True)
+    next_maintenance = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_equipment"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Cafeteria Reservation
+# =============================================================================
+
+
+class CafeteriaReservation(models.Model):
+    """Reservation for cafeteria space (events, meetings)."""
+
+    class ReservationType(models.TextChoices):
+        EVENT = "event", "Event"
+        MEETING = "meeting", "Meeting"
+        CELEBRATION = "celebration", "Celebration"
+        MEETING_LUNCH = "lunch_meeting", "Lunch Meeting"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        CANCELLED = "cancelled", "Cancelled"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_reservations")
+    requested_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="cafeteria_reservations"
+    )
+    reservation_type = models.CharField(max_length=15, choices=ReservationType.choices)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    # Schedule
+    reservation_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    # Capacity
+    expected_guests = models.PositiveIntegerField(default=10)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    # Menu
+    menu_items = models.JSONField(default=list, blank=True)
+    special_requests = models.TextField(blank=True)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_reservations"
+        ordering = ["-reservation_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.reservation_date})"
+
+
+# =============================================================================
+# NEW MODELS: Cafeteria Alerts
+# =============================================================================
+
+
+class CafeteriaAlert(models.Model):
+    """Cafeteria system alerts."""
+
+    class AlertType(models.TextChoices):
+        LOW_INVENTORY = "inventory", "Low Inventory"
+        EQUIPMENT_FAILURE = "equipment", "Equipment Failure"
+        SAFETY_ISSUE = "safety", "Safety Issue"
+        FOOD_WASTE = "waste", "High Food Waste"
+        OVERBUDGET = "budget", "Over Budget"
+        STAFF_SHORTAGE = "staff", "Staff Shortage"
+
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_alerts")
+    alert_type = models.CharField(max_length=15, choices=AlertType.choices)
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    # Actions
+    acknowledged_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        "auth_service.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cafeteria_alert_resolutions",
+    )
+    resolution_notes = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_severity_display()}] {self.title}"
+
+
+# =============================================================================
+# NEW MODELS: Meal Subscription
+# =============================================================================
+
+
+class MealSubscription(models.Model):
+    """Meal subscription plans for students."""
+
+    class PlanType(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+        YEARLY = "yearly", "Yearly"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="meal_subscriptions")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="meal_subscriptions")
+    plan_type = models.CharField(max_length=15, choices=PlanType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    # Meals
+    meals_included = models.JSONField(default=list, help_text="Which meals are included")
+    meals_per_week = models.PositiveIntegerField(default=5)
+    # Pricing
+    price_per_meal = models.DecimalField(max_digits=8, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Dates
+    start_date = models.DateField()
+    end_date = models.DateField()
+    next_billing_date = models.DateField(null=True, blank=True)
+    # Payment
+    payment_method = models.CharField(max_length=20, blank=True)
+    auto_renew = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_meal_subscriptions"
+
+    def __str__(self):
+        return f"{self.student} - {self.get_plan_type_display()} ({self.get_status_display()})"
+
+
+class SubscriptionUsage(models.Model):
+    """Track subscription meal usage."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    subscription = models.ForeignKey(MealSubscription, on_delete=models.CASCADE, related_name="usage_records")
+    meal_date = models.DateField()
+    meal_type = models.CharField(max_length=10)
+    menu_item = models.ForeignKey("MealMenu", on_delete=models.SET_NULL, null=True, blank=True)
+    # Tracking
+    used = models.BooleanField(default=True)
+    skipped = models.BooleanField(default=False)
+    # Metadata
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_subscription_usage"
+        unique_together = [("subscription", "meal_date", "meal_type")]
+
+    def __str__(self):
+        return f"Usage: {self.subscription.student} ({self.meal_date})"
+
+
+# =============================================================================
+# NEW MODELS: Cafeteria Analytics
+# =============================================================================
+
+
+class CafeteriaAnalytics(models.Model):
+    """Cafeteria performance analytics."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_analytics")
+    date = models.DateField()
+    # Visitors
+    total_visitors = models.PositiveIntegerField(default=0)
+    unique_visitors = models.PositiveIntegerField(default=0)
+    avg_wait_time_minutes = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    peak_hour = models.TimeField(null=True, blank=True)
+    # Meals
+    total_meals_served = models.PositiveIntegerField(default=0)
+    meals_by_type = models.JSONField(default=dict, blank=True)
+    # Top items
+    top_items = models.JSONField(default=list, blank=True)
+    least_popular = models.JSONField(default=list, blank=True)
+    # Waste
+    total_waste_kg = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    waste_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Financial
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    profit_margin = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_analytics"
+        unique_together = [("school", "date")]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Cafeteria Analytics - {self.date}"
+
+
+class CafeteriaCapacity(models.Model):
+    """Cafeteria seating capacity management."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_capacities")
+    seating_area = models.CharField(max_length=200)
+    total_seats = models.PositiveIntegerField(default=0)
+    available_seats = models.PositiveIntegerField(default=0)
+    # Schedule
+    meal_type = models.CharField(
+        max_length=10, choices=[("breakfast", "Breakfast"), ("lunch", "Lunch"), ("dinner", "Dinner")]
+    )
+    time_slot_start = models.TimeField()
+    time_slot_end = models.TimeField()
+    # Status
+    is_full = models.BooleanField(default=False)
+    reservation_required = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cafeteria_capacities"
+
+    def __str__(self):
+        return f"{self.seating_area} ({self.available_seats}/{self.total_seats})"
+
+    @property
+    def occupancy_percentage(self):
+        if self.total_seats == 0:
+            return 0
+        return round(((self.total_seats - self.available_seats) / self.total_seats) * 100, 2)
+
+
+class MenuItemRating(models.Model):
+    """Individual ratings for menu items."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    menu_item = models.ForeignKey("MealMenu", on_delete=models.CASCADE, related_name="item_ratings")
+    student = models.ForeignKey("students.Student", on_delete=models.SET_NULL, null=True, blank=True)
+    rating = models.PositiveSmallIntegerField(help_text="1-5 stars")
+    review = models.TextField(blank=True)
+    would_order_again = models.BooleanField(null=True, blank=True)
+    date_rated = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_menu_item_ratings"
+        ordering = ["-date_rated"]
+
+    def __str__(self):
+        return f"{self.menu_item} - {self.rating}/5 ({self.date_rated})"
+
+
+class CafeteriaHolidaySchedule(models.Model):
+    """Holiday schedule for cafeteria operations."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_holiday_schedules"
+    )
+    date = models.DateField()
+    is_closed = models.BooleanField(default=True)
+    special_hours = models.BooleanField(default=False)
+    opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
+    reason = models.CharField(max_length=200, blank=True)
+    # Menu
+    special_menu = models.ForeignKey("MealMenu", on_delete=models.SET_NULL, null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_holiday_schedules"
+        unique_together = [("school", "date")]
+
+    def __str__(self):
+        status = "Closed" if self.is_closed else "Open"
+        return f"Cafeteria {status} ({self.date})"
+
+
+class CafeteriaMonthlyReport(models.Model):
+    """Monthly cafeteria performance reports."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_monthly_reports"
+    )
+    month = models.PositiveIntegerField()
+    year = models.PositiveIntegerField()
+    # Financial
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Operations
+    total_meals_served = models.PositiveIntegerField(default=0)
+    total_operational_days = models.PositiveIntegerField(default=0)
+    avg_daily_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Quality
+    avg_food_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    avg_service_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    total_complaints = models.PositiveIntegerField(default=0)
+    complaints_resolved = models.PositiveIntegerField(default=0)
+    # Waste
+    total_waste_kg = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    waste_reduction_goal = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    waste_reduction_actual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # Highlights
+    highlights = models.TextField(blank=True)
+    improvements_needed = models.TextField(blank=True)
+    next_month_goals = models.TextField(blank=True)
+    # Metadata
+    generated_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_monthly_reports"
+        unique_together = [("school", "month", "year")]
+
+    def __str__(self):
+        return f"Cafeteria Report - {self.month}/{self.year}"
+
+
+class CafeteriaInventoryAlert(models.Model):
+    """Inventory alerts for cafeteria."""
+
+    class AlertType(models.TextChoices):
+        LOW_STOCK = "low_stock", "Low Stock"
+        EXPIRING = "expiring", "Expiring Soon"
+        OUT_OF_STOCK = "out_of_stock", "Out of Stock"
+        PRICE_CHANGE = "price", "Price Change"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="cafeteria_inventory_alerts"
+    )
+    item = models.ForeignKey("CafeteriaInventory", on_delete=models.CASCADE, related_name="alerts")
+    alert_type = models.CharField(max_length=15, choices=AlertType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    message = models.TextField()
+    current_quantity = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    reorder_quantity = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    # Actions
+    acknowledged_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cafeteria_inventory_alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_alert_type_display()} - {self.item} ({self.get_status_display()})"
