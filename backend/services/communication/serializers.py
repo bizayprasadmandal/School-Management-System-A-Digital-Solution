@@ -1,28 +1,43 @@
-"""
-Communication Service — DRF Serializers
-"""
+"""Serializers for communication."""
 
 from rest_framework import serializers
 
 from .models import (
     Announcement,
+    AnnouncementRead,
     BroadcastMessage,
     ChatGroup,
+    CommunicationAnalytics,
+    CommunicationBlacklist,
     CommunicationLog,
+    CommunicationPreference,
     ConferenceParticipant,
     DeviceToken,
     DirectMessage,
     EmailIntegration,
+    EmailTemplate,
+    EmergencyAlert,
     FileAttachment,
     GroupMembership,
     GroupMessage,
+    MessageDeliveryStatus,
     MessageReaction,
+    MessageTemplate,
     MessageThread,
+    Newsletter,
     Notification,
+    NotificationSchedule,
+    NotificationTemplate,
     ParentTeacherChat,
     ParentTeacherMessage,
+    Poll,
+    PollVote,
     ReadReceipt,
+    SMSGatewayConfig,
     SMSIntegration,
+    SMSLog,
+    Survey,
+    SurveyResponse,
     TypingIndicator,
     VideoConference,
     VoiceMessage,
@@ -30,143 +45,77 @@ from .models import (
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
-    is_read = serializers.SerializerMethodField()
-
     class Meta:
         model = Announcement
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "content",
             "priority",
             "audience",
+            "target_grades",
+            "target_classrooms",
+            "attachment",
             "send_email",
             "send_sms",
             "send_push",
-            "target_grades",
-            "target_classrooms",
             "published_at",
             "expires_at",
-            "is_draft",
-            "view_count",
-            "created_by_name",
-            "created_at",
-            "is_read",
-            "attachment",
         ]
-        read_only_fields = ["id", "created_by", "created_at", "published_at", "view_count"]
+        read_only_fields = ["id", "created_at"]
 
-    MAX_FILE_SIZE_MB = 10
 
-    def validate_attachment(self, value):
-        if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise serializers.ValidationError(f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB.")
-        if value:
-            allowed_types = [
-                "application/pdf",
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "text/plain",
-                "application/msword",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ]
-            if value.content_type not in allowed_types:
-                raise serializers.ValidationError(
-                    f"File type '{value.content_type}' is not allowed. "
-                    f"Allowed types: PDF, JPEG, PNG, GIF, TXT, DOC, DOCX."
-                )
-        return value
-
-    def get_is_read(self, obj):
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return False
-        return obj.reads.filter(user=request.user).exists()
+class AnnouncementReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnnouncementRead
+        fields = ["id", "announcement", "on_delete", "user", "on_delete", "read_at"]
+        read_only_fields = ["id"]
 
 
 class DirectMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.full_name", read_only=True)
-    sender_avatar = serializers.ImageField(source="sender.avatar", read_only=True)
-    sender_role = serializers.CharField(source="sender.role", read_only=True)
-    recipient_name = serializers.CharField(source="recipient.full_name", read_only=True)
-    recipient_avatar = serializers.ImageField(source="recipient.avatar", read_only=True)
-
     class Meta:
         model = DirectMessage
         fields = [
             "id",
+            "id",
             "sender",
-            "sender_name",
-            "sender_avatar",
-            "sender_role",
+            "on_delete",
             "recipient",
-            "recipient_name",
-            "recipient_avatar",
+            "on_delete",
             "content",
             "attachment",
             "status",
-            "sent_at",
-            "read_at",
             "parent_message",
+            "on_delete",
+            "is_deleted_sender",
+            "is_deleted_recipient",
+            "sent_at",
+            "delivered_at",
+            "read_at",
         ]
-        read_only_fields = ["id", "sender", "status", "sent_at", "read_at"]
-
-    def validate_recipient(self, value):
-        request = self.context["request"]
-        if value == request.user:
-            raise serializers.ValidationError("You cannot message yourself.")
-        if value.school != request.user.school:
-            raise serializers.ValidationError("Recipient must be in the same school.")
-        return value
-
-    MAX_FILE_SIZE_MB = 10
-
-    def validate_attachment(self, value):
-        if value and value.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise serializers.ValidationError(f"File size must not exceed {self.MAX_FILE_SIZE_MB} MB.")
-        if value:
-            allowed_types = [
-                "application/pdf",
-                "image/jpeg",
-                "image/png",
-                "image/gif",
-                "text/plain",
-            ]
-            if value.content_type not in allowed_types:
-                raise serializers.ValidationError(
-                    f"File type '{value.content_type}' is not allowed. " f"Allowed types: PDF, JPEG, PNG, GIF, TXT."
-                )
-        return value
-
-    def create(self, validated_data):
-        return DirectMessage.objects.create(**validated_data)
+        read_only_fields = ["id"]
 
 
-class DeviceTokenSerializer(serializers.ModelSerializer):
-    """Register/update a push notification token for the authenticated user."""
-
+class NotificationTemplateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DeviceToken
-        fields = ["id", "token", "platform", "device_id", "device_name", "app_version", "is_active"]
-        read_only_fields = ["id", "is_active"]
-
-    def create(self, validated_data):
-        validated_data["user"] = self.context["request"].user
-        # Upsert: if token already exists for this user, update it
-        token, created = DeviceToken.objects.update_or_create(
-            token=validated_data["token"],
-            defaults={
-                "user": validated_data["user"],
-                "platform": validated_data.get("platform", "android"),
-                "device_id": validated_data.get("device_id", ""),
-                "device_name": validated_data.get("device_name", ""),
-                "app_version": validated_data.get("app_version", ""),
-                "is_active": True,
-            },
-        )
-        return token
+        model = NotificationTemplate
+        fields = [
+            "id",
+            "school",
+            "on_delete",
+            "name",
+            "event_type",
+            "email_subject",
+            "email_body",
+            "sms_body",
+            "push_title",
+            "push_body",
+            "is_active",
+        ]
+        read_only_fields = ["id"]
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -174,258 +123,234 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = [
             "id",
+            "id",
+            "user",
+            "on_delete",
             "title",
             "body",
             "channel",
             "status",
             "reference_type",
             "reference_id",
-            "created_at",
             "sent_at",
             "read_at",
-        ]
-        read_only_fields = fields
-
-
-# =============================================================================
-# Group Messaging Serializers
-# =============================================================================
-
-
-class GroupMembershipSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-
-    class Meta:
-        model = GroupMembership
-        fields = [
-            "id",
-            "group",
-            "user",
-            "user_name",
-            "user_email",
-            "role",
-            "nickname",
-            "is_muted",
-            "is_pinned",
-            "unread_count",
-            "joined_at",
-        ]
-        read_only_fields = ["id", "joined_at", "unread_count"]
-
-
-class ChatGroupSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
-    member_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ChatGroup
-        fields = [
-            "id",
-            "name",
-            "description",
-            "group_type",
-            "classroom",
-            "subject",
-            "created_by",
-            "created_by_name",
-            "avatar",
-            "is_archived",
-            "is_muted",
-            "max_members",
-            "member_count",
+            "failure_reason",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
-    def get_member_count(self, obj):
-        return obj.member_count
+
+class DeviceTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceToken
+        fields = [
+            "id",
+            "user",
+            "on_delete",
+            "token",
+            "platform",
+            "device_id",
+            "device_name",
+            "app_version",
+            "is_active",
+            "registered_at",
+            "last_used_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class ChatGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatGroup
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "group_type",
+            "classroom",
+            "on_delete",
+            "subject",
+            "on_delete",
+            "created_by",
+            "on_delete",
+            "avatar",
+            "is_archived",
+            "is_muted",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class GroupMembershipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupMembership
+        fields = [
+            "id",
+            "id",
+            "group",
+            "on_delete",
+            "user",
+            "on_delete",
+            "role",
+            "nickname",
+            "is_muted",
+            "is_pinned",
+            "last_read_at",
+            "unread_count",
+            "joined_at",
+            "last_active_at",
+        ]
+        read_only_fields = ["id"]
 
 
 class GroupMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.full_name", read_only=True)
-    reply_count = serializers.SerializerMethodField()
-
     class Meta:
         model = GroupMessage
         fields = [
             "id",
+            "id",
             "group",
+            "on_delete",
             "sender",
-            "sender_name",
+            "on_delete",
             "message_type",
             "content",
             "attachment",
             "reply_to",
+            "on_delete",
             "is_pinned",
             "is_edited",
+            "is_deleted",
             "reactions",
             "sent_at",
-            "reply_count",
         ]
-        read_only_fields = ["id", "sender", "is_pinned", "is_edited", "sent_at"]
-
-    def get_reply_count(self, obj):
-        return obj.reply_count
-
-
-# =============================================================================
-# Parent-Teacher Chat Serializers
-# =============================================================================
-
-
-class ParentTeacherMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.full_name", read_only=True)
-
-    class Meta:
-        model = ParentTeacherMessage
-        fields = [
-            "id",
-            "chat",
-            "sender",
-            "sender_name",
-            "message_type",
-            "content",
-            "attachment",
-            "reply_to",
-            "is_read_by_parent",
-            "is_read_by_teacher",
-            "sent_at",
-        ]
-        read_only_fields = ["id", "sender", "is_read_by_parent", "is_read_by_teacher", "sent_at"]
+        read_only_fields = ["id", "updated_at"]
 
 
 class ParentTeacherChatSerializer(serializers.ModelSerializer):
-    parent_name = serializers.CharField(source="parent.full_name", read_only=True)
-    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    last_message = serializers.SerializerMethodField()
-
     class Meta:
         model = ParentTeacherChat
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "parent",
-            "parent_name",
+            "on_delete",
             "teacher",
-            "teacher_name",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "subject",
             "status",
+            "is_archived_by_parent",
+            "is_archived_by_teacher",
             "last_message_at",
             "parent_unread_count",
-            "teacher_unread_count",
-            "last_message",
-            "created_at",
         ]
-        read_only_fields = ["id", "last_message_at", "parent_unread_count", "teacher_unread_count", "created_at"]
-
-    def get_last_message(self, obj):
-        last_msg = obj.messages.last()
-        if last_msg:
-            return ParentTeacherMessageSerializer(last_msg, context=self.context).data
-        return None
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
-# =============================================================================
-# Video Conferencing Serializers
-# =============================================================================
+class ParentTeacherMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParentTeacherMessage
+        fields = [
+            "id",
+            "id",
+            "chat",
+            "on_delete",
+            "sender",
+            "on_delete",
+            "message_type",
+            "content",
+            "attachment",
+            "reply_to",
+            "on_delete",
+            "is_read_by_parent",
+            "is_read_by_teacher",
+            "sent_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "updated_at"]
+
+
+class VideoConferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoConference
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "conference_type",
+            "host",
+            "on_delete",
+            "meeting_url",
+            "meeting_id",
+            "meeting_password",
+            "scheduled_at",
+            "duration_minutes",
+            "status",
+            "max_participants",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceParticipantSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
     class Meta:
         model = ConferenceParticipant
         fields = [
             "id",
+            "id",
             "conference",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "status",
             "joined_at",
             "left_at",
             "duration_minutes",
             "invited_at",
         ]
-        read_only_fields = ["id", "invited_at"]
-
-
-class VideoConferenceSerializer(serializers.ModelSerializer):
-    host_name = serializers.CharField(source="host.full_name", read_only=True)
-    participant_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = VideoConference
-        fields = [
-            "id",
-            "title",
-            "description",
-            "conference_type",
-            "host",
-            "host_name",
-            "meeting_url",
-            "meeting_id",
-            "scheduled_at",
-            "duration_minutes",
-            "status",
-            "max_participants",
-            "is_recorded",
-            "recording_url",
-            "participant_count",
-            "created_at",
-        ]
-        read_only_fields = ["id", "created_at"]
-
-    def get_participant_count(self, obj):
-        return obj.participants.count()
-
-
-# =============================================================================
-# SMS/Email Integration Serializers
-# =============================================================================
+        read_only_fields = ["id"]
 
 
 class SMSIntegrationSerializer(serializers.ModelSerializer):
-    sent_by_name = serializers.CharField(source="sent_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = SMSIntegration
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "provider",
             "from_number",
             "to_number",
             "message",
             "status",
-            "cost",
-            "sent_by",
-            "sent_by_name",
-            "error_message",
-            "sent_at",
-            "delivered_at",
-            "created_at",
-        ]
-        read_only_fields = [
-            "id",
-            "status",
             "provider_message_id",
             "cost",
+            "sent_by",
+            "on_delete",
             "error_message",
             "sent_at",
             "delivered_at",
-            "created_at",
         ]
+        read_only_fields = ["id", "created_at"]
 
 
 class EmailIntegrationSerializer(serializers.ModelSerializer):
-    sent_by_name = serializers.CharField(source="sent_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = EmailIntegration
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "provider",
             "from_email",
             "to_email",
@@ -435,170 +360,106 @@ class EmailIntegrationSerializer(serializers.ModelSerializer):
             "body_html",
             "body_text",
             "status",
+            "provider_message_id",
             "attachment",
             "sent_by",
-            "sent_by_name",
-            "error_message",
-            "sent_at",
-            "delivered_at",
-            "opened_at",
-            "created_at",
         ]
-        read_only_fields = [
-            "id",
-            "status",
-            "provider_message_id",
-            "error_message",
-            "sent_at",
-            "delivered_at",
-            "opened_at",
-            "clicked_at",
-            "created_at",
-        ]
-
-
-# =============================================================================
-# File Sharing Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class FileAttachmentSerializer(serializers.ModelSerializer):
-    uploaded_by_name = serializers.CharField(source="uploaded_by.full_name", read_only=True)
-    file_size_display = serializers.SerializerMethodField()
-
     class Meta:
         model = FileAttachment
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "uploaded_by",
-            "uploaded_by_name",
+            "on_delete",
             "file",
             "file_name",
             "file_type",
             "file_size",
-            "file_size_display",
             "mime_type",
             "description",
+            "reference_type",
+            "reference_id",
             "is_public",
             "download_count",
-            "created_at",
         ]
-        read_only_fields = ["id", "download_count", "created_at"]
-
-    def get_file_size_display(self, obj):
-        return obj.file_size_display
-
-
-# =============================================================================
-# Message Threading Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class MessageThreadSerializer(serializers.ModelSerializer):
-    last_reply_by_name = serializers.CharField(source="last_reply_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = MessageThread
         fields = [
             "id",
+            "id",
             "parent_message",
+            "on_delete",
             "reply_count",
             "last_reply_at",
             "last_reply_by",
-            "last_reply_by_name",
+            "on_delete",
             "is_closed",
             "created_at",
         ]
-        read_only_fields = ["id", "reply_count", "last_reply_at", "created_at"]
-
-
-# =============================================================================
-# Read Receipts Serializers
-# =============================================================================
-
-
-class ReadReceiptSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
-    class Meta:
-        model = ReadReceipt
-        fields = ["id", "message", "user", "user_name", "read_at"]
-        read_only_fields = ["id", "read_at"]
-
-
-# =============================================================================
-# Typing Indicators Serializers
-# =============================================================================
-
-
-class TypingIndicatorSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
-    class Meta:
-        model = TypingIndicator
-        fields = ["id", "user", "user_name", "chat_type", "chat_id", "started_at", "expires_at"]
-        read_only_fields = ["id", "started_at"]
-
-
-# =============================================================================
-# Message Reactions Serializers
-# =============================================================================
-
-
-class MessageReactionSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
-    class Meta:
-        model = MessageReaction
-        fields = ["id", "message", "user", "user_name", "emoji", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
-# =============================================================================
-# Voice Messages Serializers
-# =============================================================================
+class ReadReceiptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadReceipt
+        fields = ["id", "id", "message", "on_delete", "user", "on_delete", "read_at"]
+        read_only_fields = ["id"]
+
+
+class TypingIndicatorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TypingIndicator
+        fields = ["id", "id", "user", "on_delete", "chat_type", "chat_id", "started_at", "expires_at"]
+        read_only_fields = ["id"]
+
+
+class MessageReactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageReaction
+        fields = ["id", "id", "message", "on_delete", "user", "on_delete", "emoji", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class VoiceMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.full_name", read_only=True)
-    duration_display = serializers.SerializerMethodField()
-
     class Meta:
         model = VoiceMessage
         fields = [
             "id",
+            "id",
             "sender",
-            "sender_name",
+            "on_delete",
             "group",
+            "on_delete",
             "parent_teacher_chat",
+            "on_delete",
             "audio_file",
             "duration_seconds",
-            "duration_display",
             "file_size",
             "transcription",
             "is_transcribed",
             "sent_at",
         ]
-        read_only_fields = ["id", "sent_at"]
-
-    def get_duration_display(self, obj):
-        return obj.duration_display
-
-
-# =============================================================================
-# Broadcast Messages Serializers
-# =============================================================================
+        read_only_fields = ["id"]
 
 
 class BroadcastMessageSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-    delivery_rate = serializers.SerializerMethodField()
-    read_rate = serializers.SerializerMethodField()
-
     class Meta:
         model = BroadcastMessage
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "content",
             "channel",
@@ -611,63 +472,379 @@ class BroadcastMessageSerializer(serializers.ModelSerializer):
             "sent_at",
             "total_recipients",
             "total_sent",
-            "total_delivered",
-            "total_failed",
-            "total_read",
-            "priority",
-            "require_read_receipt",
-            "allow_reply",
-            "attachment",
-            "created_by",
-            "created_by_name",
-            "delivery_rate",
-            "read_rate",
-            "created_at",
         ]
-        read_only_fields = [
-            "id",
-            "status",
-            "total_recipients",
-            "total_sent",
-            "total_delivered",
-            "total_failed",
-            "total_read",
-            "created_at",
-            "updated_at",
-        ]
-
-    def get_delivery_rate(self, obj):
-        return obj.delivery_rate
-
-    def get_read_rate(self, obj):
-        return obj.read_rate
-
-
-# =============================================================================
-# Communication Logs Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class CommunicationLogSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.full_name", read_only=True, default=None)
-    recipient_name = serializers.CharField(source="recipient.full_name", read_only=True, default=None)
-
     class Meta:
         model = CommunicationLog
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "communication_type",
             "sender",
-            "sender_name",
+            "on_delete",
             "recipient",
-            "recipient_name",
+            "on_delete",
+            "recipient_group",
+            "on_delete",
             "subject",
             "content_preview",
+            "reference_type",
+            "reference_id",
+            "status",
+        ]
+        read_only_fields = ["id"]
+
+
+class SurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Survey
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "survey_type",
+            "status",
+            "questions",
+            "target_audience",
+            "target_grades",
+            "is_anonymous",
+            "allow_multiple_responses",
+            "start_date",
+            "end_date",
+            "total_invited",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SurveyResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SurveyResponse
+        fields = [
+            "id",
+            "id",
+            "survey",
+            "on_delete",
+            "respondent_type",
+            "student",
+            "on_delete",
+            "parent",
+            "on_delete",
+            "staff",
+            "on_delete",
+            "answers",
+            "overall_rating",
+            "comments",
+            "submitted_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class PollSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Poll
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "created_by",
+            "on_delete",
+            "title",
+            "description",
+            "options",
+            "status",
+            "target_group",
+            "on_delete",
+            "target_audience",
+            "is_anonymous",
+            "allow_multiple_choices",
+            "max_choices",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class PollVoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PollVote
+        fields = [
+            "id",
+            "id",
+            "poll",
+            "on_delete",
+            "voter_type",
+            "student",
+            "on_delete",
+            "parent",
+            "on_delete",
+            "staff",
+            "on_delete",
+            "selected_options",
+            "voted_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class EmailTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "category",
+            "subject",
+            "body_html",
+            "body_text",
+            "is_active",
+            "times_used",
+            "last_used_at",
+            "created_by",
+            "on_delete",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SMSGatewayConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SMSGatewayConfig
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "provider",
+            "api_key",
+            "api_secret",
+            "sender_id",
+            "webhook_url",
+            "is_active",
+            "total_sms_sent",
+            "total_sms_cost",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SMSLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SMSLog
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "recipient_phone",
+            "recipient_name",
+            "message",
+            "status",
+            "provider_message_id",
+            "cost",
+            "error_message",
+            "reference_type",
+            "reference_id",
+            "sent_by",
+            "on_delete",
+            "sent_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class NewsletterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Newsletter
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "subject",
+            "content_html",
+            "content_text",
+            "status",
+            "target_audience",
+            "target_grades",
+            "scheduled_date",
+            "sent_date",
+            "total_recipients",
+            "total_opened",
+            "total_clicked",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class EmergencyAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmergencyAlert
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "message",
+            "alert_level",
+            "status",
+            "send_email",
+            "send_sms",
+            "send_push",
+            "send_pa",
+            "target_audience",
+            "total_sent",
+            "total_delivered",
+            "total_read",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CommunicationPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommunicationPreference
+        fields = [
+            "id",
+            "school",
+            "id",
+            "user",
+            "on_delete",
+            "on_delete",
+            "email_enabled",
+            "sms_enabled",
+            "push_enabled",
+            "in_app_enabled",
+            "announcements",
+            "fee_notices",
+            "attendance_alerts",
+            "emergency_alerts",
+            "event_reminders",
+            "quiet_hours_start",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MessageTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageTemplate
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "template_type",
+            "category",
+            "subject",
+            "body",
+            "variables",
+            "is_active",
+            "times_used",
+            "created_by",
+            "on_delete",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MessageDeliveryStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageDeliveryStatus
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "notification",
+            "on_delete",
+            "broadcast",
+            "on_delete",
+            "recipient",
+            "on_delete",
+            "channel",
             "status",
             "sent_at",
             "delivered_at",
             "read_at",
-            "cost",
             "error_message",
         ]
-        read_only_fields = fields
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CommunicationBlacklistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommunicationBlacklist
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "user",
+            "on_delete",
+            "channel",
+            "category",
+            "reason",
+            "blacklisted_at",
+            "expires_at",
+            "is_active",
+        ]
+        read_only_fields = ["id"]
+
+
+class CommunicationAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommunicationAnalytics
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "period_start",
+            "period_end",
+            "emails_sent",
+            "emails_delivered",
+            "emails_opened",
+            "emails_clicked",
+            "emails_bounced",
+            "emails_unsubscribed",
+            "sms_sent",
+            "sms_delivered",
+            "sms_failed",
+            "push_sent",
+        ]
+        read_only_fields = ["id"]
+
+
+class NotificationScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "notification",
+            "on_delete",
+            "announcement",
+            "on_delete",
+            "scheduled_at",
+            "status",
+            "is_recurring",
+            "recurrence_pattern",
+            "recurrence_end",
+            "last_executed",
+            "next_execution",
+            "execution_count",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
