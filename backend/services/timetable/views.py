@@ -10,7 +10,26 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Period, SchoolEvent, TimetableSlot
+from .models import (
+    AcademicCalendar,
+    CoCurricularSchedule,
+    ConflictDetection,
+    ExamSchedule,
+    ExamScheduleEntry,
+    Period,
+    RoomBooking,
+    SchoolClosure,
+    SchoolEvent,
+    SubstituteTeacher,
+    TeacherPreference,
+    TeacherTimetable,
+    TimetableApproval,
+    TimetableChange,
+    TimetableReport,
+    TimetableSlot,
+    TimetableTemplate,
+    TimetableTemplateSlot,
+)
 
 # ─── Serializers ──────────────────────────────────────────────────────────────
 
@@ -256,3 +275,299 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
 
         qs = self.get_queryset().filter(start_date__gte=timezone.now().date())[:10]
         return Response(SchoolEventSerializer(qs, many=True).data)
+
+
+# ─── New Serializers ─────────────────────────────────────────────────────────
+
+
+class TeacherTimetableSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TeacherTimetable
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+
+
+class SubstituteTeacherSerializer(serializers.ModelSerializer):
+    original_teacher_name = serializers.CharField(source="original_teacher.get_full_name", read_only=True)
+    substitute_teacher_name = serializers.CharField(source="substitute_teacher.get_full_name", read_only=True)
+
+    class Meta:
+        model = SubstituteTeacher
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ConflictDetectionSerializer(serializers.ModelSerializer):
+    conflict_type_display = serializers.CharField(source="get_conflict_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = ConflictDetection
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class ExamScheduleEntrySerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    invigilator_name = serializers.CharField(source="invigilator.get_full_name", read_only=True)
+
+    class Meta:
+        model = ExamScheduleEntry
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class ExamScheduleSerializer(serializers.ModelSerializer):
+    entries = ExamScheduleEntrySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ExamSchedule
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AcademicCalendarSerializer(serializers.ModelSerializer):
+    calendar_type_display = serializers.CharField(source="get_calendar_type_display", read_only=True)
+
+    class Meta:
+        model = AcademicCalendar
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RoomBookingSerializer(serializers.ModelSerializer):
+    booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
+    booking_type_display = serializers.CharField(source="get_booking_type_display", read_only=True)
+
+    class Meta:
+        model = RoomBooking
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TimetableTemplateSlotSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TimetableTemplateSlot
+        fields = "__all__"
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+
+
+class TimetableTemplateSerializer(serializers.ModelSerializer):
+    slots = TimetableTemplateSlotSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = TimetableTemplate
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+
+
+class TeacherPreferenceSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    preference_type_display = serializers.CharField(source="get_preference_type_display", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TeacherPreference
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_day_name(self, obj):
+        if obj.day_of_week is not None:
+            return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+        return None
+
+
+class TimetableApprovalSerializer(serializers.ModelSerializer):
+    submitted_by_name = serializers.CharField(source="submitted_by.get_full_name", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TimetableApproval
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TimetableChangeSerializer(serializers.ModelSerializer):
+    change_type_display = serializers.CharField(source="get_change_type_display", read_only=True)
+    changed_by_name = serializers.CharField(source="changed_by.get_full_name", read_only=True)
+
+    class Meta:
+        model = TimetableChange
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CoCurricularScheduleSerializer(serializers.ModelSerializer):
+    activity_type_display = serializers.CharField(source="get_activity_type_display", read_only=True)
+    instructor_name = serializers.CharField(source="instructor.get_full_name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CoCurricularSchedule
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+
+
+class TimetableReportSerializer(serializers.ModelSerializer):
+    report_type_display = serializers.CharField(source="get_report_type_display", read_only=True)
+    generated_by_name = serializers.CharField(source="generated_by.get_full_name", read_only=True)
+
+    class Meta:
+        model = TimetableReport
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class SchoolClosureSerializer(serializers.ModelSerializer):
+    closure_type_display = serializers.CharField(source="get_closure_type_display", read_only=True)
+
+    class Meta:
+        model = SchoolClosure
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# ─── New Views ───────────────────────────────────────────────────────────────
+
+
+class TeacherTimetableViewSet(viewsets.ModelViewSet):
+    serializer_class = TeacherTimetableSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TeacherTimetable.objects.filter(teacher=self.request.user)
+
+
+class SubstituteTeacherViewSet(viewsets.ModelViewSet):
+    serializer_class = SubstituteTeacherSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return SubstituteTeacher.objects.filter(school=self.request.user.school)
+
+
+class ConflictDetectionViewSet(viewsets.ModelViewSet):
+    serializer_class = ConflictDetectionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ConflictDetection.objects.filter(school=self.request.user.school)
+
+
+class ExamScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = ExamScheduleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExamSchedule.objects.filter(school=self.request.user.school)
+
+
+class ExamScheduleEntryViewSet(viewsets.ModelViewSet):
+    serializer_class = ExamScheduleEntrySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExamScheduleEntry.objects.filter(exam_schedule__school=self.request.user.school)
+
+
+class AcademicCalendarViewSet(viewsets.ModelViewSet):
+    serializer_class = AcademicCalendarSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return AcademicCalendar.objects.filter(school=self.request.user.school)
+
+
+class RoomBookingViewSet(viewsets.ModelViewSet):
+    serializer_class = RoomBookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RoomBooking.objects.filter(school=self.request.user.school)
+
+
+class TimetableTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = TimetableTemplateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TimetableTemplate.objects.filter(school=self.request.user.school)
+
+
+class TimetableTemplateSlotViewSet(viewsets.ModelViewSet):
+    serializer_class = TimetableTemplateSlotSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TimetableTemplateSlot.objects.filter(template__school=self.request.user.school)
+
+
+class TeacherPreferenceViewSet(viewsets.ModelViewSet):
+    serializer_class = TeacherPreferenceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TeacherPreference.objects.filter(teacher=self.request.user)
+
+
+class TimetableApprovalViewSet(viewsets.ModelViewSet):
+    serializer_class = TimetableApprovalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TimetableApproval.objects.filter(school=self.request.user.school)
+
+
+class TimetableChangeViewSet(viewsets.ModelViewSet):
+    serializer_class = TimetableChangeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TimetableChange.objects.filter(school=self.request.user.school)
+
+
+class CoCurricularScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = CoCurricularScheduleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return CoCurricularSchedule.objects.filter(school=self.request.user.school)
+
+
+class TimetableReportViewSet(viewsets.ModelViewSet):
+    serializer_class = TimetableReportSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TimetableReport.objects.filter(school=self.request.user.school)
+
+
+class SchoolClosureViewSet(viewsets.ModelViewSet):
+    serializer_class = SchoolClosureSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return SchoolClosure.objects.filter(school=self.request.user.school)
