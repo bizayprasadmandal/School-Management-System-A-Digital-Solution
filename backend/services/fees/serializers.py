@@ -1,124 +1,111 @@
-"""
-Fees Service — Serializers
-"""
+"""Serializers for fees."""
 
 from rest_framework import serializers
 
 from .models import (
+    AccountingEntry,
     AdvancePayment,
+    BankReconciliation,
+    BudgetLineItem,
+    BudgetPlan,
     BulkInvoiceGeneration,
+    CreditNote,
+    DebitNote,
+    ExpenseTracking,
     FeeAdjustment,
     FeeCategory,
     FeeCollectionDashboard,
     FeeConcession,
+    FeeDiscount,
+    FeeExemption,
     FeeInvoice,
     FeeStructure,
     FeeTemplate,
     FeeWaiver,
+    FeeWaiverApproval,
+    FinancialAudit,
+    FinancialYear,
     InstallmentPayment,
     InstallmentPlan,
+    InvoiceTemplate,
+    LateFeeRule,
+    ParentAccount,
     Payment,
     PaymentGatewayConfig,
+    PaymentMethod,
     PaymentReconciliation,
     PaymentReminder,
+    ReceiptTemplate,
+    RefundRecord,
     RevenueReport,
     Scholarship,
     SiblingDiscount,
+    StudentFinancialAccount,
     StudentLedger,
+    TransactionLog,
 )
 
 
 class FeeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FeeCategory
-        fields = ["id", "name", "description", "is_mandatory", "is_recurring", "recurrence"]
+        fields = ["id", "school", "on_delete", "name", "description", "is_mandatory", "is_recurring", "recurrence"]
+        read_only_fields = ["id"]
 
 
 class FeeStructureSerializer(serializers.ModelSerializer):
-    grade_name = serializers.CharField(source="grade.name", read_only=True)
-    category_name = serializers.CharField(source="fee_category.name", read_only=True)
-    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
-
     class Meta:
         model = FeeStructure
         fields = [
             "id",
-            "grade",
-            "grade_name",
-            "fee_category",
-            "category_name",
+            "school",
+            "on_delete",
             "academic_year",
-            "academic_year_name",
+            "on_delete",
+            "grade",
+            "on_delete",
+            "fee_category",
+            "on_delete",
             "amount",
             "due_day",
             "late_fee_per_day",
             "is_active",
         ]
+        read_only_fields = ["id"]
 
 
 class FeeInvoiceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    student_admission_number = serializers.CharField(source="student.admission_number", read_only=True)
-    category_name = serializers.CharField(source="fee_structure.fee_category.name", read_only=True)
-    outstanding_amount = serializers.ReadOnlyField()
-    is_overdue = serializers.SerializerMethodField()
-
     class Meta:
         model = FeeInvoice
         fields = [
             "id",
+            "id",
             "invoice_number",
             "student",
-            "student_name",
-            "student_admission_number",
+            "on_delete",
             "academic_year",
+            "on_delete",
             "fee_structure",
-            "category_name",
+            "on_delete",
             "due_date",
             "base_amount",
             "discount_amount",
             "late_fee",
             "total_amount",
             "paid_amount",
-            "outstanding_amount",
             "status",
-            "notes",
-            "created_at",
-            "is_overdue",
         ]
-        read_only_fields = [
-            "id",
-            "invoice_number",
-            "outstanding_amount",
-            "created_at",
-        ]
-
-    def get_is_overdue(self, obj):
-        from django.utils import timezone
-
-        return obj.status in ["unpaid", "partial"] and obj.due_date < timezone.now().date()
-
-    def create(self, validated_data):
-        import uuid
-
-        validated_data["invoice_number"] = f"INV-{uuid.uuid4().hex[:8].upper()}"
-        return super().create(validated_data)
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="invoice.student.user.full_name", read_only=True)
-    student_admission_number = serializers.CharField(source="invoice.student.admission_number", read_only=True)
-    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
-    collected_by_name = serializers.CharField(source="collected_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = Payment
         fields = [
             "id",
+            "id",
             "invoice",
-            "invoice_number",
-            "student_name",
-            "student_admission_number",
+            "on_delete",
             "amount",
             "payment_method",
             "status",
@@ -126,109 +113,57 @@ class PaymentSerializer(serializers.ModelSerializer):
             "gateway_response",
             "receipt_number",
             "paid_at",
-            "collected_by_name",
-            "notes",
-            "created_at",
+            "receipt_sent_at",
+            "collected_by",
+            "on_delete",
+            "refunded_by",
+            "on_delete",
         ]
-        read_only_fields = ["id", "receipt_number", "status", "paid_at", "created_at"]
-
-    def validate(self, attrs):
-        """
-        Tenant isolation + amount sanity on the write path.
-
-        The invoice must belong to the caller's school (otherwise an admin of
-        one school could credit another school's invoice by UUID), and the
-        payment amount must not exceed the invoice's outstanding balance
-        (prevents negative outstanding / silent overpayment absorption).
-        """
-        invoice = attrs.get("invoice")
-        amount = attrs.get("amount")
-        if invoice is not None:
-            request = self.context.get("request")
-            user = getattr(request, "user", None) if request else None
-            school_id = getattr(user, "school_id", None)
-            if school_id and invoice.student.school_id != school_id:
-                raise serializers.ValidationError({"invoice": "Invoice not found in your school."})
-            if amount is not None and amount > invoice.outstanding_amount:
-                raise serializers.ValidationError({"amount": "Amount exceeds the invoice's outstanding balance."})
-        return attrs
-
-    def create(self, validated_data):
-        import uuid
-
-        from django.utils import timezone
-
-        validated_data["receipt_number"] = f"RCP-{uuid.uuid4().hex[:8].upper()}"
-        validated_data["status"] = "successful"
-        validated_data["paid_at"] = timezone.now()
-        validated_data["collected_by"] = self.context["request"].user
-        return super().create(validated_data)
+        read_only_fields = ["id", "created_at"]
 
 
 class ScholarshipSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True)
-
     class Meta:
         model = Scholarship
         fields = [
             "id",
+            "school",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "academic_year",
+            "on_delete",
             "name",
             "discount_type",
             "discount_value",
             "applies_to_categories",
             "reason",
             "approved_by",
-            "approved_by_name",
+            "on_delete",
             "is_active",
         ]
-        read_only_fields = ["id", "approved_by"]
+        read_only_fields = ["id"]
 
 
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentGatewayConfig
-        fields = ["stripe_enabled", "khalti_enabled", "esewa_enabled"]
-
-
-# =============================================================================
-# Installment Plans Serializers
-# =============================================================================
-
-
-class InstallmentPaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InstallmentPayment
-        fields = [
-            "id",
-            "installment_plan",
-            "installment_number",
-            "amount",
-            "due_date",
-            "paid_date",
-            "status",
-            "late_fee",
-            "payment",
-            "notes",
-            "created_at",
-        ]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "school", "on_delete", "stripe_enabled", "khalti_enabled", "esewa_enabled", "updated_at"]
+        read_only_fields = ["id", "updated_at"]
 
 
 class InstallmentPlanSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    payments = InstallmentPaymentSerializer(many=True, read_only=True)
-
     class Meta:
         model = InstallmentPlan
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "invoice",
+            "on_delete",
             "total_amount",
             "number_of_installments",
             "installment_amount",
@@ -237,16 +172,30 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
             "status",
             "late_fee_per_installment",
             "grace_period_days",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class InstallmentPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InstallmentPayment
+        fields = [
+            "id",
+            "id",
+            "installment_plan",
+            "on_delete",
+            "installment_number",
+            "amount",
+            "due_date",
+            "paid_date",
+            "status",
+            "late_fee",
+            "payment",
+            "on_delete",
             "notes",
-            "payments",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Sibling Discounts Serializers
-# =============================================================================
 
 
 class SiblingDiscountSerializer(serializers.ModelSerializer):
@@ -254,6 +203,9 @@ class SiblingDiscountSerializer(serializers.ModelSerializer):
         model = SiblingDiscount
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "discount_type",
             "discount_value",
@@ -263,27 +215,23 @@ class SiblingDiscountSerializer(serializers.ModelSerializer):
             "priority",
             "notes",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Payment Reminders Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class PaymentReminderSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
-
     class Meta:
         model = PaymentReminder
         fields = [
             "id",
-            "student",
-            "student_name",
+            "school",
+            "id",
+            "on_delete",
             "invoice",
-            "invoice_number",
+            "on_delete",
+            "student",
+            "on_delete",
             "reminder_type",
             "status",
             "subject",
@@ -293,24 +241,21 @@ class PaymentReminderSerializer(serializers.ModelSerializer):
             "sent_at",
             "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "created_at"]
-
-
-# =============================================================================
-# Fee Concessions Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class FeeConcessionSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = FeeConcession
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
+            "academic_year",
+            "on_delete",
             "concession_type",
             "name",
             "discount_type",
@@ -319,31 +264,18 @@ class FeeConcessionSerializer(serializers.ModelSerializer):
             "max_amount",
             "status",
             "approved_by",
-            "approved_by_name",
-            "approved_at",
-            "rejection_reason",
-            "valid_from",
-            "valid_until",
-            "supporting_documents",
-            "reason",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "approved_by", "approved_at", "created_at"]
-
-
-# =============================================================================
-# Revenue Reports Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class RevenueReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = RevenueReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "report_type",
             "status",
@@ -356,20 +288,8 @@ class RevenueReportSerializer(serializers.ModelSerializer):
             "total_outstanding",
             "total_refunded",
             "total_scholarships",
-            "total_concessions",
-            "collection_by_category",
-            "collection_by_grade",
-            "collection_by_payment_method",
-            "generated_by",
-            "generated_by_name",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Fee Collection Dashboard Serializers
-# =============================================================================
 
 
 class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
@@ -378,6 +298,8 @@ class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
+            "id",
+            "on_delete",
             "total_expected",
             "total_collected",
             "total_outstanding",
@@ -390,146 +312,114 @@ class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
             "daily_collection",
             "monthly_collection",
             "total_defaulters",
-            "total_overdue_amount",
-            "last_updated",
-            "created_at",
         ]
-        read_only_fields = ["id", "last_updated", "created_at"]
-
-
-# =============================================================================
-# Fee Adjustments Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class FeeAdjustmentSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = FeeAdjustment
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "invoice",
+            "on_delete",
             "adjustment_type",
             "amount",
             "description",
             "approved_by",
-            "approved_by_name",
+            "on_delete",
             "approved_at",
             "adjustment_date",
             "notes",
-            "created_by",
-            "created_by_name",
-            "created_at",
         ]
-        read_only_fields = ["id", "approved_by", "approved_at", "created_at"]
-
-
-# =============================================================================
-# Advance Payments Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class AdvancePaymentSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = AdvancePayment
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "amount",
             "payment",
+            "on_delete",
             "applied_to_invoice",
+            "on_delete",
             "applied_amount",
             "status",
             "payment_date",
             "applied_date",
             "expiry_date",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Fee Waivers Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class FeeWaiverSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = FeeWaiver
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
+            "academic_year",
+            "on_delete",
             "waiver_type",
             "amount",
             "applies_to_categories",
             "status",
             "approved_by",
-            "approved_by_name",
+            "on_delete",
             "approved_at",
             "rejection_reason",
-            "valid_from",
-            "valid_until",
-            "reason",
-            "supporting_documents",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "approved_by", "approved_at", "created_at"]
-
-
-# =============================================================================
-# Student Ledger Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class StudentLedgerSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = StudentLedger
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
+            "academic_year",
+            "on_delete",
             "transaction_type",
             "amount",
             "balance_after",
             "invoice",
+            "on_delete",
             "payment",
+            "on_delete",
             "description",
-            "transaction_date",
-            "reference_number",
-            "notes",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
-# =============================================================================
-# Fee Templates Serializers
-# =============================================================================
-
-
 class FeeTemplateSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = FeeTemplate
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "template_type",
             "description",
@@ -540,27 +430,24 @@ class FeeTemplateSerializer(serializers.ModelSerializer):
             "late_fee_per_day",
             "is_active",
             "created_by",
-            "created_by_name",
+            "on_delete",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Bulk Invoice Generation Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class BulkInvoiceGenerationSerializer(serializers.ModelSerializer):
-    initiated_by_name = serializers.CharField(source="initiated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = BulkInvoiceGeneration
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "batch_name",
             "description",
             "academic_year",
+            "on_delete",
             "grades",
             "fee_categories",
             "status",
@@ -569,27 +456,18 @@ class BulkInvoiceGenerationSerializer(serializers.ModelSerializer):
             "total_amount",
             "errors",
             "initiated_by",
-            "initiated_by_name",
-            "initiated_at",
-            "completed_at",
-            "notes",
         ]
-        read_only_fields = ["id", "initiated_at", "completed_at"]
-
-
-# =============================================================================
-# Payment Reconciliation Serializers
-# =============================================================================
+        read_only_fields = ["id"]
 
 
 class PaymentReconciliationSerializer(serializers.ModelSerializer):
-    initiated_by_name = serializers.CharField(source="initiated_by.full_name", read_only=True, default=None)
-    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = PaymentReconciliation
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "reconciliation_type",
             "status",
             "period_start",
@@ -601,13 +479,462 @@ class PaymentReconciliationSerializer(serializers.ModelSerializer):
             "discrepancies",
             "discrepancy_count",
             "initiated_by",
-            "initiated_by_name",
-            "reviewed_by",
-            "reviewed_by_name",
-            "initiated_at",
-            "completed_at",
-            "reviewed_at",
-            "notes",
-            "report_url",
+            "on_delete",
         ]
-        read_only_fields = ["id", "initiated_at", "completed_at", "reviewed_at"]
+        read_only_fields = ["id"]
+
+
+class BudgetPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BudgetPlan
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "academic_year",
+            "on_delete",
+            "title",
+            "total_budget",
+            "allocated",
+            "spent",
+            "status",
+            "approved_by",
+            "on_delete",
+            "approved_date",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class BudgetLineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BudgetLineItem
+        fields = [
+            "id",
+            "id",
+            "budget_plan",
+            "on_delete",
+            "category",
+            "on_delete",
+            "description",
+            "budgeted_amount",
+            "actual_amount",
+            "variance",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ExpenseTrackingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseTracking
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "expense_type",
+            "description",
+            "amount",
+            "vendor",
+            "invoice_number",
+            "expense_date",
+            "category",
+            "on_delete",
+            "approved_by",
+            "on_delete",
+            "status",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RefundRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RefundRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "payment",
+            "on_delete",
+            "invoice",
+            "on_delete",
+            "amount",
+            "reason",
+            "status",
+            "processed_date",
+            "refund_method",
+            "approved_by",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class LateFeeRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LateFeeRule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "days_after_due",
+            "fee_amount",
+            "fee_type",
+            "percentage",
+            "max_late_fee",
+            "applies_to",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FeeDiscountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeeDiscount
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "discount_type",
+            "value",
+            "applies_to",
+            "grade",
+            "on_delete",
+            "category",
+            "on_delete",
+            "start_date",
+            "end_date",
+            "is_active",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FeeExemptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeeExemption
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "fee_structure",
+            "on_delete",
+            "reason",
+            "exemption_type",
+            "percentage",
+            "approved_by",
+            "on_delete",
+            "approved_date",
+            "valid_from",
+            "valid_to",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class InvoiceTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvoiceTemplate
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "header_text",
+            "footer_text",
+            "terms_and_conditions",
+            "logo_url",
+            "is_default",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ReceiptTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReceiptTemplate
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "header_text",
+            "footer_text",
+            "is_default",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AccountingEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountingEntry
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "entry_type",
+            "account_code",
+            "account_name",
+            "description",
+            "amount",
+            "reference_type",
+            "reference_id",
+            "entry_date",
+            "created_by",
+            "on_delete",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class FinancialAuditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinancialAudit
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "audit_type",
+            "title",
+            "audit_period_start",
+            "audit_period_end",
+            "status",
+            "auditor_name",
+            "auditor_organization",
+            "findings",
+            "recommendations",
+            "total_revenue",
+            "total_expenses",
+            "net_income",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentFinancialAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentFinancialAccount
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "account_type",
+            "balance",
+            "credit_limit",
+            "total_paid",
+            "total_outstanding",
+            "last_payment_date",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ParentAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParentAccount
+        fields = [
+            "id",
+            "school",
+            "id",
+            "parent",
+            "on_delete",
+            "on_delete",
+            "balance",
+            "total_paid",
+            "total_outstanding",
+            "payment_method",
+            "auto_pay_enabled",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class BankReconciliationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankReconciliation
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "bank_statement_date",
+            "statement_balance",
+            "book_balance",
+            "difference",
+            "status",
+            "matched_transactions",
+            "unmatched_transactions",
+            "adjustments",
+            "reconciled_by",
+            "on_delete",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentMethod
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "method_type",
+            "description",
+            "processing_fee_percentage",
+            "processing_fee_fixed",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransactionLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransactionLog
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "transaction_type",
+            "transaction_id",
+            "student",
+            "on_delete",
+            "amount",
+            "payment_method",
+            "reference_number",
+            "status",
+            "description",
+            "metadata",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CreditNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CreditNote
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "note_number",
+            "student",
+            "on_delete",
+            "invoice",
+            "on_delete",
+            "amount",
+            "reason",
+            "status",
+            "issued_date",
+            "applied_date",
+            "issued_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DebitNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DebitNote
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "note_number",
+            "student",
+            "on_delete",
+            "invoice",
+            "on_delete",
+            "amount",
+            "reason",
+            "status",
+            "issued_date",
+            "applied_date",
+            "issued_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FinancialYearSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinancialYear
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "start_date",
+            "end_date",
+            "is_current",
+            "is_closed",
+            "closed_by",
+            "on_delete",
+            "closed_date",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FeeWaiverApprovalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeeWaiverApproval
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "waiver",
+            "on_delete",
+            "approver",
+            "on_delete",
+            "status",
+            "comments",
+            "approved_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
