@@ -13,9 +13,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
+    AccountantProfile,
     Applicant,
     BenefitPlan,
     Certification,
+    DataRetentionPolicy,
     Department,
     Employee,
     EmployeeBenefit,
@@ -28,8 +30,12 @@ from .models import (
     JobPosting,
     LeaveBalanceHR,
     LeaveRequest,
+    OnboardingChecklist,
+    OnboardingProgress,
+    OnboardingTask,
     OvertimeRequest,
     Payslip,
+    PayslipViewLog,
     PeerFeedback,
     PerformanceGoal,
     PerformanceReview,
@@ -45,9 +51,11 @@ from .models import (
     TurnoverReport,
 )
 from .serializers import (
+    AccountantProfileSerializer,
     ApplicantSerializer,
     BenefitPlanSerializer,
     CertificationSerializer,
+    DataRetentionPolicySerializer,
     DepartmentSerializer,
     EmployeeBenefitSerializer,
     EmployeeDocumentSerializer,
@@ -60,8 +68,12 @@ from .serializers import (
     JobPostingSerializer,
     LeaveBalanceHRSerializer,
     LeaveRequestSerializer,
+    OnboardingChecklistSerializer,
+    OnboardingProgressSerializer,
+    OnboardingTaskSerializer,
     OvertimeRequestSerializer,
     PayslipSerializer,
+    PayslipViewLogSerializer,
     PeerFeedbackSerializer,
     PerformanceGoalSerializer,
     PerformanceReviewCycleSerializer,
@@ -1083,3 +1095,59 @@ class HRAuditLogViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
+
+
+class AccountantProfileViewSet(viewsets.ModelViewSet):
+    queryset = AccountantProfile.objects.all()
+    serializer_class = AccountantProfileSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class DataRetentionPolicyViewSet(viewsets.ModelViewSet):
+    queryset = DataRetentionPolicy.objects.all()
+    serializer_class = DataRetentionPolicySerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class HRDashboardMetricsViewSet(viewsets.ModelViewSet):
+    queryset = HRDashboardMetrics.objects.all()
+    serializer_class = HRDashboardMetricsSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class OnboardingChecklistViewSet(viewsets.ModelViewSet):
+    queryset = OnboardingChecklist.objects.all()
+    serializer_class = OnboardingChecklistSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class OnboardingProgressViewSet(viewsets.ModelViewSet):
+    queryset = OnboardingProgress.objects.all()
+    serializer_class = OnboardingProgressSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class OnboardingTaskViewSet(viewsets.ModelViewSet):
+    queryset = OnboardingTask.objects.all()
+    serializer_class = OnboardingTaskSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class PayslipViewLogViewSet(viewsets.ModelViewSet):
+    queryset = PayslipViewLog.objects.all()
+    serializer_class = PayslipViewLogSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
