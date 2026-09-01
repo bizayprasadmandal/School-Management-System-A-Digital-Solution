@@ -3,6 +3,7 @@
 from django.contrib import admin
 
 from .models import (
+    AccountantProfile,
     Applicant,
     BenefitPlan,
     Certification,
@@ -346,3 +347,9 @@ class DataRetentionPolicyAdmin(admin.ModelAdmin):
     list_display = ["model_name", "retention_days", "auto_delete", "last_purge_date", "is_active"]
     list_filter = ["is_active", "auto_delete"]
     search_fields = ["model_name"]
+
+
+@admin.register(AccountantProfile)
+class AccountantProfileAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = ["school"]
