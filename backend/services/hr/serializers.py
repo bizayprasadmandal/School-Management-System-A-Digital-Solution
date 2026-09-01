@@ -7,6 +7,7 @@ from .models import (
     Applicant,
     BenefitPlan,
     Certification,
+    DataRetentionPolicy,
     Department,
     Employee,
     EmployeeBenefit,
@@ -1019,3 +1020,10 @@ class HRAuditLogSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class DataRetentionPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DataRetentionPolicy
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]

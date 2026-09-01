@@ -390,6 +390,6 @@ class ReportCardCommentAdmin(admin.ModelAdmin):
 
 @admin.register(GradingScaleEntry)
 class GradingScaleEntryAdmin(admin.ModelAdmin):
-    list_display = ["grading_scale", "grade_label", "min_percentage", "max_percentage", "gpa_value"]
-    list_filter = ["grading_scale"]
-    search_fields = ["grade_label"]
+    list_display = ["scale", "grade_letter", "min_percentage", "max_percentage", "grade_point"]
+    list_filter = ["scale"]
+    search_fields = ["grade_letter"]

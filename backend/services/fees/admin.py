@@ -83,9 +83,9 @@ class ScholarshipAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentGatewayConfig)
 class PaymentGatewayConfigAdmin(admin.ModelAdmin):
-    list_display = ["id", "school"]
-    list_filter = ["school"]
-    search_fields = ["id"]
+    list_display = ["school", "stripe_enabled", "khalti_enabled", "esewa_enabled"]
+    list_filter = ["stripe_enabled", "khalti_enabled", "esewa_enabled"]
+    search_fields = ["school__name"]
 
 
 @admin.register(InstallmentPlan)
