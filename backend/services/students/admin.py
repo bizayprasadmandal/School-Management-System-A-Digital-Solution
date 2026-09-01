@@ -1,189 +1,390 @@
+"""Django Admin registrations for students."""
+
 from django.contrib import admin
 
 from .models import (
     AcademicYear,
     Classroom,
+    Document,
     Enrollment,
     Grade,
     Guardian,
+    ParentProfile,
     SiblingTracking,
     Student,
+    StudentAcademicAdvisor,
+    StudentAchievement,
+    StudentActivity,
     StudentArchive,
+    StudentAward,
+    StudentCareerGuidance,
     StudentCategory,
     StudentCategoryMembership,
+    StudentClub,
     StudentContact,
     StudentCustomField,
     StudentCustomFieldValue,
+    StudentDiscipline,
+    StudentFeedback,
+    StudentFinancialAid,
+    StudentGraduation,
     StudentGuardian,
+    StudentIDActivity,
     StudentIDCard,
+    StudentInternship,
+    StudentLearningStyle,
+    StudentMealPlan,
     StudentMedicalRecord,
+    StudentMentor,
     StudentNote,
+    StudentParentCommunication,
+    StudentParking,
     StudentPhoto,
     StudentPortfolio,
+    StudentScholarship,
     StudentSocialMedia,
     StudentStatusHistory,
     StudentTag,
     StudentTagAssignment,
+    StudentTransfer,
+    StudentTransportAssignment,
+    StudentTutoring,
+    StudentVolunteer,
     StudentWellness,
 )
 
 
 @admin.register(AcademicYear)
 class AcademicYearAdmin(admin.ModelAdmin):
-    list_display = ["name", "school", "start_date", "end_date", "is_current"]
-    list_filter = ["school", "is_current"]
+    list_display = ["name", "school"]
+    list_filter = ["school"]
+    search_fields = ["name"]
 
 
 @admin.register(Grade)
 class GradeAdmin(admin.ModelAdmin):
-    list_display = ["name", "level", "school"]
+    list_display = ["name", "school"]
     list_filter = ["school"]
-    ordering = ["school", "level"]
+    search_fields = ["name"]
 
 
 @admin.register(Classroom)
 class ClassroomAdmin(admin.ModelAdmin):
-    list_display = ["name", "grade", "capacity", "class_teacher", "academic_year"]
-    list_filter = ["grade__school", "academic_year", "grade"]
-    search_fields = ["name", "room_number"]
-
-
-class StudentGuardianInline(admin.TabularInline):
-    model = StudentGuardian
-    extra = 1
-
-
-class EnrollmentInline(admin.TabularInline):
-    model = Enrollment
-    extra = 0
-    readonly_fields = ["enrollment_date"]
+    list_display = ["name", "school"]
+    list_filter = ["school"]
+    search_fields = ["name"]
 
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ["admission_number", "full_name", "gender", "is_active", "admission_date"]
-    list_filter = ["gender", "is_active", "school"]
-    search_fields = ["admission_number", "user__first_name", "user__last_name", "user__email"]
-    readonly_fields = ["id", "created_at", "updated_at"]
-    inlines = [StudentGuardianInline, EnrollmentInline]
-
-    def full_name(self, obj):
-        return obj.user.full_name
-
-    full_name.short_description = "Full Name"
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
 
 
 @admin.register(Guardian)
 class GuardianAdmin(admin.ModelAdmin):
-    list_display = ["full_name", "email", "phone", "is_primary"]
-    search_fields = ["first_name", "last_name", "email"]
+    list_display = ["id"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(StudentGuardian)
+class StudentGuardianAdmin(admin.ModelAdmin):
+    list_display = ["id"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "is_active"]
+    list_filter = ["is_active", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(ParentProfile)
+class ParentProfileAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = ["id"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentContact)
 class StudentContactAdmin(admin.ModelAdmin):
-    list_display = ["student", "personal_phone", "personal_email", "created_at"]
-    search_fields = ["student__user__full_name", "personal_email"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentMedicalRecord)
 class StudentMedicalRecordAdmin(admin.ModelAdmin):
-    list_display = ["student", "record_type", "title", "severity", "is_ongoing"]
-    list_filter = ["record_type", "severity", "is_ongoing"]
-    search_fields = ["student__user__full_name", "title"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentCustomField)
 class StudentCustomFieldAdmin(admin.ModelAdmin):
-    list_display = ["name", "field_type", "is_required", "is_active"]
-    list_filter = ["field_type", "is_active"]
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
 
 
 @admin.register(StudentCustomFieldValue)
 class StudentCustomFieldValueAdmin(admin.ModelAdmin):
-    list_display = ["student", "field", "text_value", "created_at"]
-    search_fields = ["student__user__full_name", "field__name"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentPhoto)
 class StudentPhotoAdmin(admin.ModelAdmin):
-    list_display = ["student", "photo_type", "taken_date", "is_primary"]
-    list_filter = ["photo_type", "is_primary"]
-    search_fields = ["student__user__full_name"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentIDCard)
 class StudentIDCardAdmin(admin.ModelAdmin):
-    list_display = ["student", "card_number", "status", "issue_date", "expiry_date"]
+    list_display = ["id", "status", "created_at"]
     list_filter = ["status"]
-    search_fields = ["student__user__full_name", "card_number"]
+    search_fields = ["id"]
 
 
 @admin.register(StudentStatusHistory)
 class StudentStatusHistoryAdmin(admin.ModelAdmin):
-    list_display = ["student", "status", "previous_status", "effective_date"]
+    list_display = ["id", "status", "created_at"]
     list_filter = ["status"]
-    search_fields = ["student__user__full_name"]
+    search_fields = ["id"]
 
 
 @admin.register(SiblingTracking)
 class SiblingTrackingAdmin(admin.ModelAdmin):
-    list_display = ["student", "sibling", "relationship"]
-    list_filter = ["relationship"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentCategory)
 class StudentCategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "color", "student_count", "is_active"]
-    list_filter = ["is_active"]
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
     search_fields = ["name"]
 
 
 @admin.register(StudentCategoryMembership)
 class StudentCategoryMembershipAdmin(admin.ModelAdmin):
-    list_display = ["student", "category", "start_date", "is_active"]
+    list_display = ["id", "is_active", "created_at"]
     list_filter = ["is_active"]
+    search_fields = ["id"]
 
 
 @admin.register(StudentTag)
 class StudentTagAdmin(admin.ModelAdmin):
-    list_display = ["name", "color", "usage_count", "is_active"]
-    list_filter = ["is_active"]
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
     search_fields = ["name"]
 
 
 @admin.register(StudentTagAssignment)
 class StudentTagAssignmentAdmin(admin.ModelAdmin):
-    list_display = ["student", "tag", "assigned_by"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentNote)
 class StudentNoteAdmin(admin.ModelAdmin):
-    list_display = ["student", "note_type", "title", "author", "is_confidential"]
-    list_filter = ["note_type", "is_confidential"]
-    search_fields = ["student__user__full_name", "title"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentArchive)
 class StudentArchiveAdmin(admin.ModelAdmin):
-    list_display = ["student", "academic_year", "grade", "status", "final_grade"]
-    list_filter = ["status", "academic_year"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(StudentSocialMedia)
 class StudentSocialMediaAdmin(admin.ModelAdmin):
-    list_display = ["student", "platform", "username", "is_active"]
-    list_filter = ["platform", "is_active"]
+    list_display = ["id", "is_active", "created_at"]
+    list_filter = ["is_active"]
+    search_fields = ["id"]
 
 
 @admin.register(StudentPortfolio)
 class StudentPortfolioAdmin(admin.ModelAdmin):
-    list_display = ["student", "portfolio_type", "title", "date_completed"]
-    list_filter = ["portfolio_type"]
-    search_fields = ["student__user__full_name", "title"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(StudentWellness)
 class StudentWellnessAdmin(admin.ModelAdmin):
-    list_display = ["student", "wellness_type", "status", "mood_score", "follow_up_required"]
-    list_filter = ["wellness_type", "status", "follow_up_required"]
-    search_fields = ["student__user__full_name"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentLearningStyle)
+class StudentLearningStyleAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentAchievement)
+class StudentAchievementAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentClub)
+class StudentClubAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentActivity)
+class StudentActivityAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentAward)
+class StudentAwardAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentDiscipline)
+class StudentDisciplineAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentTutoring)
+class StudentTutoringAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentMentor)
+class StudentMentorAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentCareerGuidance)
+class StudentCareerGuidanceAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentParentCommunication)
+class StudentParentCommunicationAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentAcademicAdvisor)
+class StudentAcademicAdvisorAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentTransfer)
+class StudentTransferAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentGraduation)
+class StudentGraduationAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentVolunteer)
+class StudentVolunteerAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentInternship)
+class StudentInternshipAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentScholarship)
+class StudentScholarshipAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentFinancialAid)
+class StudentFinancialAidAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentTransportAssignment)
+class StudentTransportAssignmentAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentMealPlan)
+class StudentMealPlanAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentParking)
+class StudentParkingAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentIDActivity)
+class StudentIDActivityAdmin(admin.ModelAdmin):
+    list_display = ["id", "school"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentFeedback)
+class StudentFeedbackAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
