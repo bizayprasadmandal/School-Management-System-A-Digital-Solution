@@ -1094,3 +1094,623 @@ class TelehealthSession(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.get_session_type_display()} ({self.scheduled_date})"
+
+
+class DentalRecord(models.Model):
+    """Dental health records."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        FOLLOW_UP = "follow_up", "Follow-up Needed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="dental_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="dental_records")
+    visit_date = models.DateField()
+    dentist_name = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.COMPLETED)
+    examination_findings = models.TextField(blank=True)
+    cavities_count = models.PositiveSmallIntegerField(default=0)
+    gum_health = models.CharField(max_length=50, blank=True)
+    treatment_provided = models.TextField(blank=True)
+    prescriptions = models.TextField(blank=True)
+    next_checkup_date = models.DateField(null=True, blank=True)
+    xray_url = models.URLField(max_length=500, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_dental_records"
+        ordering = ["-visit_date"]
+
+    def __str__(self):
+        return f"Dental: {self.student} ({self.visit_date})"
+
+
+class VisionRecord(models.Model):
+    """Vision screening records."""
+
+    class Result(models.TextChoices):
+        NORMAL = "normal", "Normal"
+        NEEDS_CORRECTION = "needs_correction", "Needs Correction"
+        REFERRED = "referred", "Referred to Specialist"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="vision_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="vision_records")
+    screening_date = models.DateField()
+    result = models.CharField(max_length=20, choices=Result.choices, default=Result.NORMAL)
+    left_eye_vision = models.CharField(max_length=20, blank=True)
+    right_eye_vision = models.CharField(max_length=20, blank=True)
+    color_blindness = models.BooleanField(default=False)
+    glasses_prescribed = models.BooleanField(default=False)
+    prescription_details = models.TextField(blank=True)
+    specialist_referral = models.BooleanField(default=False)
+    referral_details = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_vision_records"
+        ordering = ["-screening_date"]
+
+    def __str__(self):
+        return f"Vision: {self.student} ({self.screening_date})"
+
+
+class GrowthChart(models.Model):
+    """Growth tracking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="growth_charts")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="growth_charts")
+    recorded_date = models.DateField()
+    height_cm = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    bmi = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    head_circumference_cm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    blood_pressure_systolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    blood_pressure_diastolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "health_growth_charts"
+        ordering = ["-recorded_date"]
+
+    def __str__(self):
+        return f"Growth: {self.student} ({self.recorded_date})"
+
+
+class VitalSigns(models.Model):
+    """Vital signs tracking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="vital_signs")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="vital_signs")
+    recorded_date = models.DateField()
+    recorded_time = models.TimeField(null=True, blank=True)
+    temperature = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    heart_rate = models.PositiveSmallIntegerField(null=True, blank=True)
+    respiratory_rate = models.PositiveSmallIntegerField(null=True, blank=True)
+    blood_pressure_systolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    blood_pressure_diastolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    oxygen_saturation = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    blood_glucose = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    pain_scale = models.PositiveSmallIntegerField(null=True, blank=True, help_text="0-10 scale")
+    notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "health_vital_signs"
+        ordering = ["-recorded_date", "-recorded_time"]
+
+    def __str__(self):
+        return f"Vitals: {self.student} ({self.recorded_date})"
+
+
+class LabResult(models.Model):
+    """Lab test results."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        REVIEWED = "reviewed", "Reviewed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="lab_results")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="lab_results")
+    test_name = models.CharField(max_length=200)
+    test_date = models.DateField()
+    result_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    result_value = models.CharField(max_length=100, blank=True)
+    normal_range = models.CharField(max_length=100, blank=True)
+    is_abnormal = models.BooleanField(default=False)
+    lab_name = models.CharField(max_length=200, blank=True)
+    ordered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_lab_results"
+    )
+    document_url = models.URLField(max_length=500, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_lab_results"
+        ordering = ["-test_date"]
+
+    def __str__(self):
+        return f"Lab: {self.student} - {self.test_name} ({self.test_date})"
+
+
+class MedicalHistory(models.Model):
+    """Complete medical history."""
+
+    class HistoryType(models.TextChoices):
+        CONDITION = "condition", "Medical Condition"
+        SURGERY = "surgery", "Surgery"
+        HOSPITALIZATION = "hospitalization", "Hospitalization"
+        INJURY = "injury", "Injury"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="medical_history_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="medical_history_records")
+    history_type = models.CharField(max_length=20, choices=HistoryType.choices)
+    condition_name = models.CharField(max_length=200)
+    diagnosis_date = models.DateField(null=True, blank=True)
+    treating_physician = models.CharField(max_length=200, blank=True)
+    treatment = models.TextField(blank=True)
+    outcome = models.TextField(blank=True)
+    is_chronic = models.BooleanField(default=False)
+    is_resolved = models.BooleanField(default=False)
+    resolved_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_medical_history"
+        ordering = ["-diagnosis_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.condition_name}"
+
+
+class FamilyMedicalHistory(models.Model):
+    """Family medical history."""
+
+    class Relationship(models.TextChoices):
+        MOTHER = "mother", "Mother"
+        FATHER = "father", "Father"
+        SIBLING = "sibling", "Sibling"
+        GRANDPARENT = "grandparent", "Grandparent"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="family_medical_history_records"
+    )
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="family_medical_history_records")
+    relationship = models.CharField(max_length=20, choices=Relationship.choices)
+    condition_name = models.CharField(max_length=200)
+    age_at_diagnosis = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_hereditary = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "health_family_medical_history"
+        ordering = ["relationship", "condition_name"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_relationship_display()} - {self.condition_name}"
+
+
+class HealthInsuranceRecord(models.Model):
+    """Insurance records."""
+
+    class InsuranceType(models.TextChoices):
+        HEALTH = "health", "Health Insurance"
+        DENTAL = "dental", "Dental Insurance"
+        VISION = "vision", "Vision Insurance"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="health_insurance_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_insurance_records")
+    insurance_type = models.CharField(max_length=20, choices=InsuranceType.choices, default=InsuranceType.HEALTH)
+    provider_name = models.CharField(max_length=200)
+    policy_number = models.CharField(max_length=100)
+    group_number = models.CharField(max_length=100, blank=True)
+    subscriber_name = models.CharField(max_length=200, blank=True)
+    subscriber_relationship = models.CharField(max_length=50, blank=True)
+    effective_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    coverage_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    copay_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    deductible = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_insurance_records"
+        ordering = ["-effective_date"]
+
+    def __str__(self):
+        return f"Insurance: {self.student} - {self.provider_name}"
+
+
+class VaccinationSchedule(models.Model):
+    """Vaccination schedules."""
+
+    class Status(models.TextChoices):
+        DUE = "due", "Due"
+        COMPLETED = "completed", "Completed"
+        OVERDUE = "overdue", "Overdue"
+        EXEMPTED = "exempted", "Exempted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="vaccination_schedule_records"
+    )
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="vaccination_schedule_records")
+    vaccine_name = models.CharField(max_length=200)
+    dose_number = models.PositiveSmallIntegerField(default=1)
+    due_date = models.DateField()
+    completed_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DUE)
+    administered_by = models.CharField(max_length=200, blank=True)
+    batch_number = models.CharField(max_length=50, blank=True)
+    site_of_administration = models.CharField(max_length=50, blank=True)
+    reactions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_vaccination_schedule"
+        ordering = ["due_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.vaccine_name} (Dose {self.dose_number})"
+
+
+class HealthAssessment(models.Model):
+    """Health assessments."""
+
+    class AssessmentType(models.TextChoices):
+        ANNUAL = "annual", "Annual Physical"
+        SPORTS = "sports", "Sports Physical"
+        PRE_ENROLLMENT = "pre_enrollment", "Pre-Enrollment"
+        FOLLOW_UP = "follow_up", "Follow-up"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="health_assessments")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_assessments")
+    assessment_type = models.CharField(max_length=20, choices=AssessmentType.choices)
+    assessment_date = models.DateField()
+    assessed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    general_health = models.CharField(max_length=50, blank=True)
+    immunizations_current = models.BooleanField(default=True)
+    allergies_checked = models.BooleanField(default=True)
+    medications_checked = models.BooleanField(default=True)
+    vision_screened = models.BooleanField(default=False)
+    hearing_screened = models.BooleanField(default=False)
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    follow_up_needed = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    document_url = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_assessments"
+        ordering = ["-assessment_date"]
+
+    def __str__(self):
+        return f"Assessment: {self.student} - {self.get_assessment_type_display()}"
+
+
+class HealthRiskAssessment(models.Model):
+    """Health risk assessments."""
+
+    class RiskLevel(models.TextChoices):
+        LOW = "low", "Low Risk"
+        MODERATE = "moderate", "Moderate Risk"
+        HIGH = "high", "High Risk"
+        CRITICAL = "critical", "Critical Risk"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="health_risk_assessments")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_risk_assessments")
+    assessment_date = models.DateField()
+    risk_level = models.CharField(max_length=20, choices=RiskLevel.choices, default=RiskLevel.LOW)
+    risk_factors = models.JSONField(default=list, blank=True)
+    chronic_conditions = models.TextField(blank=True)
+    family_history_risks = models.TextField(blank=True)
+    lifestyle_factors = models.TextField(blank=True)
+    environmental_factors = models.TextField(blank=True)
+    mitigation_plan = models.TextField(blank=True)
+    assessed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_risk_assessments"
+        ordering = ["-assessment_date"]
+
+    def __str__(self):
+        return f"Risk: {self.student} - {self.get_risk_level_display()}"
+
+
+class MentalHealthRecord(models.Model):
+    """Mental health records."""
+
+    class SessionType(models.TextChoices):
+        COUNSELING = "counseling", "Counseling"
+        THERAPY = "therapy", "Therapy"
+        ASSESSMENT = "assessment", "Assessment"
+        CRISIS = "crisis", "Crisis Intervention"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="mental_health_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="mental_health_records")
+    session_type = models.CharField(max_length=20, choices=SessionType.choices)
+    session_date = models.DateField()
+    provider = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    presenting_issue = models.TextField(blank=True)
+    assessment_findings = models.TextField(blank=True)
+    diagnosis = models.CharField(max_length=200, blank=True)
+    treatment_plan = models.TextField(blank=True)
+    interventions = models.TextField(blank=True)
+    progress_notes = models.TextField(blank=True)
+    risk_level = models.CharField(
+        max_length=20, choices=HealthRiskAssessment.RiskLevel.choices, default=HealthRiskAssessment.RiskLevel.LOW
+    )
+    follow_up_needed = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    is_confidential = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_mental_health_records"
+        ordering = ["-session_date"]
+
+    def __str__(self):
+        return f"Mental Health: {self.student} ({self.session_date})"
+
+
+class HealthEducationMaterial(models.Model):
+    """Health education resources."""
+
+    class MaterialType(models.TextChoices):
+        BROCHURE = "brochure", "Brochure"
+        VIDEO = "video", "Video"
+        ARTICLE = "article", "Article"
+        POSTER = "poster", "Poster"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_education_materials")
+    title = models.CharField(max_length=200)
+    material_type = models.CharField(max_length=20, choices=MaterialType.choices)
+    topic = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    content = models.TextField(blank=True)
+    file_url = models.URLField(max_length=500, blank=True)
+    target_audience = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_education_materials"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_material_type_display()})"
+
+
+class HealthCampaign(models.Model):
+    """Health campaigns."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_campaigns")
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    campaign_type = models.CharField(max_length=100, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    target_audience = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
+    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    participants_count = models.PositiveIntegerField(default=0)
+    materials = models.ManyToManyField(HealthEducationMaterial, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_campaigns"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return self.name
+
+
+class HealthSurvey(models.Model):
+    """Health surveys."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_surveys")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    questions = models.JSONField(default=list, blank=True)
+    target_audience = models.CharField(max_length=100, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    is_anonymous = models.BooleanField(default=True)
+    response_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_surveys"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class MedicalEquipment(models.Model):
+    """Medical equipment tracking."""
+
+    class Status(models.TextChoices):
+        OPERATIONAL = "operational", "Operational"
+        MAINTENANCE = "maintenance", "Under Maintenance"
+        RETIRED = "retired", "Retired"
+        OUT_OF_SERVICE = "out_of_service", "Out of Service"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="medical_equipment")
+    name = models.CharField(max_length=200)
+    equipment_type = models.CharField(max_length=100, blank=True)
+    model_name = models.CharField(max_length=100, blank=True)
+    serial_number = models.CharField(max_length=100, blank=True)
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPERATIONAL)
+    location = models.CharField(max_length=200, blank=True)
+    last_calibration_date = models.DateField(null=True, blank=True)
+    next_calibration_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_medical_equipment"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class EquipmentMaintenance(models.Model):
+    """Equipment maintenance records."""
+
+    class MaintenanceType(models.TextChoices):
+        CALIBRATION = "calibration", "Calibration"
+        REPAIR = "repair", "Repair"
+        PREVENTIVE = "preventive", "Preventive"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    equipment = models.ForeignKey(MedicalEquipment, on_delete=models.CASCADE, related_name="maintenance_records")
+    maintenance_type = models.CharField(max_length=20, choices=MaintenanceType.choices)
+    maintenance_date = models.DateField()
+    next_due_date = models.DateField(null=True, blank=True)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    performed_by = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "health_equipment_maintenance"
+        ordering = ["-maintenance_date"]
+
+    def __str__(self):
+        return f"Maintenance: {self.equipment.name} ({self.maintenance_date})"
+
+
+class HealthStaffTraining(models.Model):
+    """Health staff training records."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_staff_training")
+    staff_member = models.ForeignKey(User, on_delete=models.CASCADE, related_name="health_training")
+    training_name = models.CharField(max_length=200)
+    training_type = models.CharField(max_length=100, blank=True)
+    provider = models.CharField(max_length=200, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    certificate_url = models.URLField(max_length=500, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    is_completed = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "health_staff_training"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.staff_member.full_name} - {self.training_name}"
+
+
+class HealthAudit(models.Model):
+    """Health audits."""
+
+    class AuditType(models.TextChoices):
+        COMPLIANCE = "compliance", "Compliance"
+        QUALITY = "quality", "Quality"
+        SAFETY = "safety", "Safety"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="health_audits")
+    audit_type = models.CharField(max_length=20, choices=AuditType.choices)
+    title = models.CharField(max_length=200)
+    audit_date = models.DateField()
+    auditor = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    corrective_actions = models.TextField(blank=True)
+    compliance_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    report_url = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "health_audits"
+        ordering = ["-audit_date"]
+
+    def __str__(self):
+        return f"Audit: {self.title} ({self.audit_date})"
