@@ -28,6 +28,7 @@ from .models import (
     CourseCatalogEntry,
     CurriculumStandard,
     EnrollmentIntent,
+    EvaluationComment,
     EvaluationCriteria,
     EvaluationScore,
     EvaluationTemplate,
@@ -65,6 +66,7 @@ from .serializers import (
     EnrollmentIntentSerializer,
     EvaluationCommentSerializer,
     EvaluationCriteriaSerializer,
+    EvaluationScoreSerializer,
     EvaluationTemplateSerializer,
     ExamPaperSerializer,
     HomeworkTrackerSerializer,
@@ -2945,3 +2947,43 @@ class EnrollmentIntentViewSet(viewsets.ModelViewSet):
         intent.status = EnrollmentIntent.Status.ENROLLED
         intent.save(update_fields=["status", "updated_at"])
         return Response(EnrollmentIntentSerializer(intent).data)
+
+
+class CourseCatalogEntryViewSet(viewsets.ModelViewSet):
+    queryset = CourseCatalogEntry.objects.all()
+    serializer_class = CourseCatalogEntrySerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class EvaluationCommentViewSet(viewsets.ModelViewSet):
+    queryset = EvaluationComment.objects.all()
+    serializer_class = EvaluationCommentSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class EvaluationScoreViewSet(viewsets.ModelViewSet):
+    queryset = EvaluationScore.objects.all()
+    serializer_class = EvaluationScoreSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class StudentProgressReportViewSet(viewsets.ModelViewSet):
+    queryset = StudentProgressReport.objects.all()
+    serializer_class = StudentProgressReportSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class TeacherWorkloadSnapshotViewSet(viewsets.ModelViewSet):
+    queryset = TeacherWorkloadSnapshot.objects.all()
+    serializer_class = TeacherWorkloadSnapshotSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
