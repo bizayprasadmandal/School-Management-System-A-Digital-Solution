@@ -1,43 +1,63 @@
-"""Health/Clinic serializers."""
+"""Serializers for health_clinic."""
 
 from rest_framework import serializers
 
 from .models import (
     AllergyManagement,
     ChronicConditionTracking,
+    DentalRecord,
     EmergencyContact,
     EmergencyPlan,
+    EquipmentMaintenance,
+    FamilyMedicalHistory,
+    GrowthChart,
     HealthAlert,
+    HealthAssessment,
+    HealthAudit,
+    HealthCampaign,
     HealthCompliance,
     HealthEducation,
+    HealthEducationMaterial,
     HealthForm,
     HealthFormSubmission,
+    HealthInsuranceRecord,
     HealthRecord,
     HealthReport,
+    HealthRiskAssessment,
     HealthScreening,
+    HealthStaffTraining,
+    HealthSurvey,
     Immunization,
     IncidentReport,
+    LabResult,
+    MedicalEquipment,
+    MedicalHistory,
     MedicalReferral,
     MedicationInventory,
     MedicationLog,
     MedicationPrescription,
+    MentalHealthRecord,
     NurseSchedule,
     NurseVisit,
     ParentNotification,
     ScreeningResult,
     TelehealthSession,
+    VaccinationSchedule,
+    VisionRecord,
+    VitalSigns,
 )
 
 
 class HealthRecordSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = HealthRecord
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "blood_type",
             "height_cm",
             "weight_kg",
@@ -48,37 +68,21 @@ class HealthRecordSerializer(serializers.ModelSerializer):
             "emergency_contact_phone",
             "doctor_name",
             "doctor_phone",
-            "insurance_provider",
-            "insurance_number",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_student(self, value):
-        # Health records must stay within the tenant — the student has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
-
 
 class NurseVisitSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    visit_type_display = serializers.CharField(source="get_visit_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    treated_by_name = serializers.CharField(source="treated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = NurseVisit
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "visit_type",
-            "visit_type_display",
             "visit_date",
             "symptoms",
             "diagnosis",
@@ -87,33 +91,19 @@ class NurseVisitSerializer(serializers.ModelSerializer):
             "temperature_c",
             "blood_pressure",
             "status",
-            "status_display",
             "treated_by",
-            "treated_by_name",
-            "notes",
-            "follow_up_date",
-            "created_at",
         ]
-        read_only_fields = ["id", "treated_by", "visit_date", "created_at"]
-
-    def validate_student(self, value):
-        # Nurse visits must stay within the tenant — the student has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
+        read_only_fields = ["id", "created_at"]
 
 
 class ImmunizationSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = Immunization
         fields = [
             "id",
+            "id",
             "student",
-            "student_name",
+            "on_delete",
             "vaccine_name",
             "dose_number",
             "date_administered",
@@ -126,48 +116,25 @@ class ImmunizationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
-    def validate_student(self, value):
-        # Immunizations must stay within the tenant — the student has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
-
 
 class MedicationLogSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    administered_by_name = serializers.CharField(source="administered_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = MedicationLog
         fields = [
             "id",
+            "id",
             "student",
-            "student_name",
+            "on_delete",
             "medication_name",
             "dosage",
             "route",
             "time_administered",
             "administered_by",
-            "administered_by_name",
+            "on_delete",
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "administered_by", "created_at"]
-
-    def validate_student(self, value):
-        # Medication logs must stay within the tenant — the student has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
-
-
-# =============================================================================
-# Health Forms & Waivers Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class HealthFormSerializer(serializers.ModelSerializer):
@@ -175,6 +142,9 @@ class HealthFormSerializer(serializers.ModelSerializer):
         model = HealthForm
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "description",
             "form_type",
@@ -183,55 +153,48 @@ class HealthFormSerializer(serializers.ModelSerializer):
             "instructions",
             "is_required",
             "due_date",
+            "created_by",
+            "on_delete",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class HealthFormSubmissionSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    form_title = serializers.CharField(source="form.title", read_only=True)
-    submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True, default=None)
-    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HealthFormSubmission
         fields = [
             "id",
+            "id",
             "form",
-            "form_title",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "submitted_by",
-            "submitted_by_name",
+            "on_delete",
             "status",
             "form_data",
             "attachments",
             "reviewed_by",
-            "reviewed_by_name",
+            "on_delete",
             "reviewed_at",
             "review_notes",
             "signature_data",
-            "signed_at",
-            "submitted_at",
         ]
-        read_only_fields = ["id", "submitted_at"]
-
-
-# =============================================================================
-# Allergy Management Serializers
-# =============================================================================
+        read_only_fields = ["id", "updated_at"]
 
 
 class AllergyManagementSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = AllergyManagement
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "allergen_name",
             "allergy_type",
             "severity",
@@ -242,27 +205,20 @@ class AllergyManagementSerializer(serializers.ModelSerializer):
             "medication_location",
             "diagnosis_date",
             "diagnosed_by",
-            "is_active",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Chronic Condition Tracking Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ChronicConditionTrackingSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = ChronicConditionTracking
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "condition_type",
             "condition_name",
             "severity",
@@ -273,22 +229,8 @@ class ChronicConditionTrackingSerializer(serializers.ModelSerializer):
             "dietary_restrictions",
             "activity_restrictions",
             "emergency_protocol",
-            "emergency_medication",
-            "emergency_med_location",
-            "specialist_name",
-            "specialist_phone",
-            "is_active",
-            "last_review_date",
-            "next_review_date",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Emergency Plans & Contacts Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class EmergencyPlanSerializer(serializers.ModelSerializer):
@@ -296,6 +238,9 @@ class EmergencyPlanSerializer(serializers.ModelSerializer):
         model = EmergencyPlan
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "plan_type",
             "status",
@@ -308,21 +253,18 @@ class EmergencyPlanSerializer(serializers.ModelSerializer):
             "last_training_date",
             "training_notes",
             "effective_date",
-            "review_date",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class EmergencyContactSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = EmergencyContact
         fields = [
             "id",
+            "id",
             "student",
-            "student_name",
+            "on_delete",
             "contact_name",
             "relationship",
             "phone_primary",
@@ -333,13 +275,33 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
             "can_pickup",
             "notes",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
-# =============================================================================
-# Health Screenings Serializers
-# =============================================================================
+class HealthScreeningSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthScreening
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "screening_type",
+            "screening_date",
+            "status",
+            "result_summary",
+            "is_normal",
+            "referral_needed",
+            "referral_notes",
+            "referred_to",
+            "screened_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ScreeningResultSerializer(serializers.ModelSerializer):
@@ -347,7 +309,9 @@ class ScreeningResultSerializer(serializers.ModelSerializer):
         model = ScreeningResult
         fields = [
             "id",
+            "id",
             "screening",
+            "on_delete",
             "metric_name",
             "metric_value",
             "normal_range",
@@ -358,44 +322,14 @@ class ScreeningResultSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
-class HealthScreeningSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    results = ScreeningResultSerializer(many=True, read_only=True)
-    screened_by_name = serializers.CharField(source="screened_by.full_name", read_only=True, default=None)
-
-    class Meta:
-        model = HealthScreening
-        fields = [
-            "id",
-            "student",
-            "student_name",
-            "screening_type",
-            "screening_date",
-            "status",
-            "result_summary",
-            "is_normal",
-            "referral_needed",
-            "referral_notes",
-            "referred_to",
-            "screened_by",
-            "screened_by_name",
-            "notes",
-            "results",
-            "created_at",
-        ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Medication Inventory & Prescriptions Serializers
-# =============================================================================
-
-
 class MedicationInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicationInventory
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "medication_name",
             "generic_name",
             "category",
@@ -408,23 +342,20 @@ class MedicationInventorySerializer(serializers.ModelSerializer):
             "lot_number",
             "supplier",
             "last_reorder_date",
-            "is_controlled",
-            "is_active",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class MedicationPrescriptionSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = MedicationPrescription
         fields = [
             "id",
+            "school",
+            "id",
             "student",
-            "student_name",
+            "on_delete",
+            "on_delete",
             "medication_name",
             "dosage",
             "frequency",
@@ -435,56 +366,44 @@ class MedicationPrescriptionSerializer(serializers.ModelSerializer):
             "administration_times",
             "prescribed_by",
             "prescriber_phone",
-            "parent_consent",
-            "consent_date",
-            "status",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Parent Notifications Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ParentNotificationSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = ParentNotification
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "notification_type",
             "delivery_method",
             "status",
             "subject",
             "message",
+            "nurse_visit",
+            "on_delete",
+            "medication_log",
+            "on_delete",
             "sent_at",
-            "read_at",
-            "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "read_at", "created_at"]
-
-
-# =============================================================================
-# Health Compliance Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class HealthComplianceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    verified_by_name = serializers.CharField(source="verified_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HealthCompliance
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "compliance_type",
             "status",
             "due_date",
@@ -494,26 +413,21 @@ class HealthComplianceSerializer(serializers.ModelSerializer):
             "notes",
             "document_url",
             "verified_by",
-            "verified_by_name",
-            "created_at",
+            "on_delete",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Nurse Scheduling Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class NurseScheduleSerializer(serializers.ModelSerializer):
-    nurse_name = serializers.CharField(source="nurse.full_name", read_only=True)
-
     class Meta:
         model = NurseSchedule
         fields = [
             "id",
+            "school",
+            "id",
             "nurse",
-            "nurse_name",
+            "on_delete",
+            "on_delete",
             "day_of_week",
             "shift_type",
             "start_time",
@@ -524,26 +438,20 @@ class NurseScheduleSerializer(serializers.ModelSerializer):
             "is_recurring",
             "effective_from",
             "effective_until",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Incident Reports Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class IncidentReportSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    reported_by_name = serializers.CharField(source="reported_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = IncidentReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "incident_type",
             "severity",
             "incident_date",
@@ -552,34 +460,22 @@ class IncidentReportSerializer(serializers.ModelSerializer):
             "action_taken",
             "action_details",
             "reported_by",
-            "reported_by_name",
+            "on_delete",
             "witnessed_by",
-            "parent_notified",
-            "parent_notified_at",
-            "follow_up_needed",
-            "follow_up_notes",
-            "treatment_given",
-            "hospital_name",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Medical Referrals Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class MedicalReferralSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    referred_by_name = serializers.CharField(source="referred_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = MedicalReferral
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "referral_reason",
             "status",
             "provider_name",
@@ -590,28 +486,18 @@ class MedicalReferralSerializer(serializers.ModelSerializer):
             "referral_date",
             "appointment_date",
             "completed_date",
-            "follow_up_needed",
-            "follow_up_notes",
-            "referred_by",
-            "referred_by_name",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Health Reports Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class HealthReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HealthReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "report_type",
             "status",
@@ -624,26 +510,20 @@ class HealthReportSerializer(serializers.ModelSerializer):
             "total_visits",
             "total_incidents",
             "generated_by",
-            "generated_by_name",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
-# =============================================================================
-# Critical Health Alerts Serializers
-# =============================================================================
-
-
 class HealthAlertSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = HealthAlert
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "alert_type",
             "urgency_level",
             "alert_message",
@@ -655,21 +535,17 @@ class HealthAlertSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Health Education Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class HealthEducationSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HealthEducation
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "description",
             "resource_type",
@@ -680,29 +556,22 @@ class HealthEducationSerializer(serializers.ModelSerializer):
             "target_grades",
             "is_required",
             "created_by",
-            "created_by_name",
+            "on_delete",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Telehealth Sessions Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class TelehealthSessionSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    healthcare_provider_name = serializers.CharField(
-        source="healthcare_provider.full_name", read_only=True, default=None
-    )
-
     class Meta:
         model = TelehealthSession
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "session_type",
             "status",
             "scheduled_date",
@@ -710,15 +579,453 @@ class TelehealthSessionSerializer(serializers.ModelSerializer):
             "duration_minutes",
             "meeting_link",
             "meeting_id",
+            "meeting_password",
             "healthcare_provider",
-            "healthcare_provider_name",
-            "parent_present",
-            "nurse_present",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DentalRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DentalRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "visit_date",
+            "dentist_name",
+            "status",
+            "examination_findings",
+            "cavities_count",
+            "gum_health",
+            "treatment_provided",
+            "prescriptions",
+            "next_checkup_date",
+            "xray_url",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VisionRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VisionRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "screening_date",
+            "result",
+            "left_eye_vision",
+            "right_eye_vision",
+            "color_blindness",
+            "glasses_prescribed",
+            "prescription_details",
+            "specialist_referral",
+            "referral_details",
             "notes",
-            "diagnosis",
-            "treatment_plan",
-            "follow_up_needed",
-            "follow_up_date",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class GrowthChartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GrowthChart
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "recorded_date",
+            "height_cm",
+            "weight_kg",
+            "bmi",
+            "head_circumference_cm",
+            "blood_pressure_systolic",
+            "blood_pressure_diastolic",
+            "notes",
+            "recorded_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class VitalSignsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VitalSigns
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "recorded_date",
+            "recorded_time",
+            "temperature",
+            "heart_rate",
+            "respiratory_rate",
+            "blood_pressure_systolic",
+            "blood_pressure_diastolic",
+            "oxygen_saturation",
+            "blood_glucose",
+            "pain_scale",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class LabResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabResult
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "test_name",
+            "test_date",
+            "result_date",
+            "status",
+            "result_value",
+            "normal_range",
+            "is_abnormal",
+            "lab_name",
+            "ordered_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MedicalHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalHistory
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "history_type",
+            "condition_name",
+            "diagnosis_date",
+            "treating_physician",
+            "treatment",
+            "outcome",
+            "is_chronic",
+            "is_resolved",
+            "resolved_date",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FamilyMedicalHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FamilyMedicalHistory
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "relationship",
+            "condition_name",
+            "age_at_diagnosis",
+            "is_hereditary",
+            "notes",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class HealthInsuranceRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthInsuranceRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "insurance_type",
+            "provider_name",
+            "policy_number",
+            "group_number",
+            "subscriber_name",
+            "subscriber_relationship",
+            "effective_date",
+            "expiry_date",
+            "coverage_amount",
+            "copay_amount",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VaccinationScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VaccinationSchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "vaccine_name",
+            "dose_number",
+            "due_date",
+            "completed_date",
+            "status",
+            "administered_by",
+            "batch_number",
+            "site_of_administration",
+            "reactions",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HealthAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthAssessment
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "assessment_type",
+            "assessment_date",
+            "assessed_by",
+            "on_delete",
+            "general_health",
+            "immunizations_current",
+            "allergies_checked",
+            "medications_checked",
+            "vision_screened",
+            "hearing_screened",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HealthRiskAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthRiskAssessment
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "assessment_date",
+            "risk_level",
+            "risk_factors",
+            "chronic_conditions",
+            "family_history_risks",
+            "lifestyle_factors",
+            "environmental_factors",
+            "mitigation_plan",
+            "assessed_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MentalHealthRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MentalHealthRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "session_type",
+            "session_date",
+            "provider",
+            "on_delete",
+            "presenting_issue",
+            "assessment_findings",
+            "diagnosis",
+            "treatment_plan",
+            "interventions",
+            "progress_notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HealthEducationMaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthEducationMaterial
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "material_type",
+            "topic",
+            "description",
+            "content",
+            "file_url",
+            "target_audience",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HealthCampaignSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthCampaign
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "campaign_type",
+            "start_date",
+            "end_date",
+            "target_audience",
+            "status",
+            "budget",
+            "participants_count",
+            "materials",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HealthSurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthSurvey
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "questions",
+            "target_audience",
+            "start_date",
+            "end_date",
+            "status",
+            "is_anonymous",
+            "response_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MedicalEquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalEquipment
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "equipment_type",
+            "model_name",
+            "serial_number",
+            "purchase_date",
+            "purchase_cost",
+            "status",
+            "location",
+            "last_calibration_date",
+            "next_calibration_date",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class EquipmentMaintenanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EquipmentMaintenance
+        fields = [
+            "id",
+            "id",
+            "equipment",
+            "on_delete",
+            "maintenance_type",
+            "maintenance_date",
+            "next_due_date",
+            "cost",
+            "performed_by",
+            "description",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class HealthStaffTrainingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthStaffTraining
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "staff_member",
+            "on_delete",
+            "training_name",
+            "training_type",
+            "provider",
+            "start_date",
+            "end_date",
+            "hours",
+            "certificate_url",
+            "expiry_date",
+            "is_completed",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class HealthAuditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthAudit
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "audit_type",
+            "title",
+            "audit_date",
+            "auditor",
+            "status",
+            "findings",
+            "recommendations",
+            "corrective_actions",
+            "compliance_score",
+            "notes",
+            "report_url",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
