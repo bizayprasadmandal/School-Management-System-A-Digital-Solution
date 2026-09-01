@@ -1,157 +1,326 @@
-"""Transportation Management — Django Admin registrations."""
+"""Django Admin registrations for transportation."""
 
 from django.contrib import admin
 
 from .models import (
+    BusTracking,
     DailyTransportAttendance,
     Driver,
+    DriverLicense,
+    DriverPerformance,
     FuelLog,
+    GeofenceAlert,
+    GeofenceZone,
+    ParentTransportAccess,
     Route,
+    RouteOptimization,
     RouteStop,
+    StopETA,
     StudentRoute,
+    StudentTransportProfile,
+    TransportAlert,
+    TransportationDailyReport,
+    TransportAuditLog,
+    TransportBudget,
+    TransportComplianceRecord,
+    TransportDriverSchedule,
+    TransportEmergencyContact,
     TransportFee,
+    TransportFeeStructure,
+    TransportIncident,
     TransportIncidentReport,
+    TransportMonthlyReport,
     TransportNotification,
     TransportReport,
+    TransportSchedule,
     TripSchedule,
     Vehicle,
+    VehicleAssignmentLog,
+    VehicleConditionReport,
     VehicleDocument,
+    VehicleGPSLog,
     VehicleInspection,
     VehicleInsurance,
     VehicleMaintenance,
+    VehiclePool,
 )
 
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
-    list_display = ["plate_number", "vehicle_type", "capacity", "status", "insurance_expiry", "is_active"]
-    list_filter = ["vehicle_type", "status", "is_active", "school"]
-    search_fields = ["plate_number", "model_name", "chassis_number"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "school", "status", "is_active", "created_at"]
+    list_filter = ["school", "is_active", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(Driver)
 class DriverAdmin(admin.ModelAdmin):
-    list_display = ["full_name", "phone_number", "license_number", "status"]
-    list_filter = ["status", "school"]
-    search_fields = ["full_name", "phone_number", "license_number"]
-    readonly_fields = ["id", "created_at", "updated_at"]
-
-
-class RouteStopInline(admin.TabularInline):
-    model = RouteStop
-    extra = 1
-    fields = ["name", "address", "stop_order", "stop_type", "pickup_time", "dropoff_time"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(Route)
 class RouteAdmin(admin.ModelAdmin):
-    list_display = ["name", "vehicle", "driver", "origin", "destination", "is_active"]
-    list_filter = ["is_active", "school"]
-    search_fields = ["name", "origin", "destination"]
-    inlines = [RouteStopInline]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
 
 
 @admin.register(RouteStop)
 class RouteStopAdmin(admin.ModelAdmin):
-    list_display = ["name", "route", "stop_order", "stop_type", "pickup_time"]
-    list_filter = ["stop_type", "is_active"]
-    search_fields = ["name", "address", "landmark"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["name", "is_active", "created_at"]
+    list_filter = ["is_active"]
+    search_fields = ["name"]
 
 
 @admin.register(StudentRoute)
 class StudentRouteAdmin(admin.ModelAdmin):
-    list_display = ["student", "route", "is_active", "effective_from", "effective_to"]
+    list_display = ["id", "is_active", "created_at"]
     list_filter = ["is_active"]
-    search_fields = ["student__user__full_name", "route__name"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    search_fields = ["id"]
 
 
 @admin.register(VehicleMaintenance)
 class VehicleMaintenanceAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "maintenance_type", "status", "scheduled_date", "cost"]
-    list_filter = ["maintenance_type", "status"]
-    search_fields = ["vehicle__plate_number", "vendor_name", "invoice_number"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(TransportFee)
 class TransportFeeAdmin(admin.ModelAdmin):
-    list_display = ["student", "fee_type", "amount", "status", "due_date"]
-    list_filter = ["fee_type", "status"]
-    search_fields = ["student__user__full_name"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(VehicleInsurance)
 class VehicleInsuranceAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "provider", "policy_number", "end_date", "status"]
-    list_filter = ["insurance_type", "status"]
-    search_fields = ["vehicle__plate_number", "policy_number"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(DailyTransportAttendance)
 class DailyTransportAttendanceAdmin(admin.ModelAdmin):
-    list_display = ["student", "route", "date", "status", "pickup_time"]
-    list_filter = ["status", "attendance_type"]
-    search_fields = ["student__user__full_name"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(TransportIncidentReport)
 class TransportIncidentReportAdmin(admin.ModelAdmin):
-    list_display = ["incident_type", "severity", "status", "incident_date", "vehicle"]
-    list_filter = ["incident_type", "severity", "status"]
-    search_fields = ["description"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(VehicleInspection)
 class VehicleInspectionAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "inspection_type", "result", "inspection_date"]
-    list_filter = ["inspection_type", "result"]
-    search_fields = ["vehicle__plate_number"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(TripSchedule)
 class TripScheduleAdmin(admin.ModelAdmin):
-    list_display = ["title", "trip_type", "trip_date", "destination", "status"]
-    list_filter = ["trip_type", "status"]
-    search_fields = ["title", "destination"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(FuelLog)
 class FuelLogAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "fuel_type", "liters", "total_cost", "fill_date"]
-    list_filter = ["fuel_type"]
-    search_fields = ["vehicle__plate_number"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(TransportNotification)
 class TransportNotificationAdmin(admin.ModelAdmin):
-    list_display = ["title", "notification_type", "status", "sent_at"]
-    list_filter = ["notification_type", "status"]
-    search_fields = ["title", "message"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(TransportReport)
 class TransportReportAdmin(admin.ModelAdmin):
-    list_display = ["title", "report_type", "date_from", "date_to", "created_at"]
-    list_filter = ["report_type"]
-    search_fields = ["title"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
 
 
 @admin.register(VehicleDocument)
 class VehicleDocumentAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "document_type", "document_name", "expiry_date", "is_valid"]
-    list_filter = ["document_type", "is_valid"]
-    search_fields = ["vehicle__plate_number", "document_name"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(VehicleGPSLog)
+class VehicleGPSLogAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(GeofenceZone)
+class GeofenceZoneAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(GeofenceAlert)
+class GeofenceAlertAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(BusTracking)
+class BusTrackingAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(StopETA)
+class StopETAAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(DriverLicense)
+class DriverLicenseAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(DriverPerformance)
+class DriverPerformanceAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(VehicleConditionReport)
+class VehicleConditionReportAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(RouteOptimization)
+class RouteOptimizationAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportationDailyReport)
+class TransportationDailyReportAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ParentTransportAccess)
+class ParentTransportAccessAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportComplianceRecord)
+class TransportComplianceRecordAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(StudentTransportProfile)
+class StudentTransportProfileAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportAlert)
+class TransportAlertAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(VehiclePool)
+class VehiclePoolAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportSchedule)
+class TransportScheduleAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportFeeStructure)
+class TransportFeeStructureAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(TransportIncident)
+class TransportIncidentAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportBudget)
+class TransportBudgetAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportAuditLog)
+class TransportAuditLogAdmin(admin.ModelAdmin):
+    list_display = ["id", "school"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportMonthlyReport)
+class TransportMonthlyReportAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(TransportEmergencyContact)
+class TransportEmergencyContactAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(VehicleAssignmentLog)
+class VehicleAssignmentLogAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(TransportDriverSchedule)
+class TransportDriverScheduleAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]

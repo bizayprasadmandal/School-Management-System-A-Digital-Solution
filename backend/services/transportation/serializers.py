@@ -1,40 +1,61 @@
-"""Transportation Management serializers."""
+"""Serializers for transportation."""
 
 from rest_framework import serializers
 
 from .models import (
+    BusTracking,
     DailyTransportAttendance,
     Driver,
+    DriverLicense,
+    DriverPerformance,
     FuelLog,
+    GeofenceAlert,
+    GeofenceZone,
+    ParentTransportAccess,
     Route,
+    RouteOptimization,
     RouteStop,
+    StopETA,
     StudentRoute,
+    StudentTransportProfile,
+    TransportAlert,
+    TransportationDailyReport,
+    TransportAuditLog,
+    TransportBudget,
+    TransportComplianceRecord,
+    TransportDriverSchedule,
+    TransportEmergencyContact,
     TransportFee,
+    TransportFeeStructure,
+    TransportIncident,
     TransportIncidentReport,
+    TransportMonthlyReport,
     TransportNotification,
     TransportReport,
+    TransportSchedule,
     TripSchedule,
     Vehicle,
+    VehicleAssignmentLog,
+    VehicleConditionReport,
     VehicleDocument,
+    VehicleGPSLog,
     VehicleInspection,
     VehicleInsurance,
     VehicleMaintenance,
+    VehiclePool,
 )
 
 
 class VehicleSerializer(serializers.ModelSerializer):
-    vehicle_type_display = serializers.CharField(source="get_vehicle_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    route_count = serializers.SerializerMethodField()
-    maintenance_count = serializers.SerializerMethodField()
-
     class Meta:
         model = Vehicle
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "plate_number",
             "vehicle_type",
-            "vehicle_type_display",
             "model_name",
             "year",
             "capacity",
@@ -45,58 +66,66 @@ class VehicleSerializer(serializers.ModelSerializer):
             "insurance_expiry",
             "fitness_expiry",
             "status",
-            "status_display",
-            "notes",
-            "is_active",
-            "route_count",
-            "maintenance_count",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def get_route_count(self, obj):
-        return getattr(obj, "route_count", obj.assigned_routes.count())
-
-    def get_maintenance_count(self, obj):
-        return getattr(obj, "maintenance_count", obj.maintenance_records.count())
-
 
 class DriverSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    employee_name = serializers.CharField(source="employee.user.full_name", read_only=True, default=None)
-
     class Meta:
         model = Driver
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "employee",
-            "employee_name",
+            "on_delete",
             "user",
+            "on_delete",
             "full_name",
             "phone_number",
             "email",
             "license_number",
             "license_expiry",
             "status",
-            "status_display",
             "emergency_contact_name",
             "emergency_contact_phone",
-            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Route
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "vehicle",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "origin",
+            "destination",
+            "estimated_duration_minutes",
+            "operating_days",
+            "is_active",
             "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class RouteStopSerializer(serializers.ModelSerializer):
-    stop_type_display = serializers.CharField(source="get_stop_type_display", read_only=True)
-
     class Meta:
         model = RouteStop
         fields = [
             "id",
+            "id",
             "route",
+            "on_delete",
             "name",
             "address",
             "landmark",
@@ -104,7 +133,6 @@ class RouteStopSerializer(serializers.ModelSerializer):
             "longitude",
             "stop_order",
             "stop_type",
-            "stop_type_display",
             "pickup_time",
             "dropoff_time",
             "is_active",
@@ -113,106 +141,40 @@ class RouteStopSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
-class RouteSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True, default=None)
-    driver_name = serializers.CharField(source="driver.full_name", read_only=True, default=None)
-    stops = RouteStopSerializer(many=True, read_only=True)
-    student_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Route
-        fields = [
-            "id",
-            "name",
-            "description",
-            "vehicle",
-            "vehicle_plate",
-            "driver",
-            "driver_name",
-            "origin",
-            "destination",
-            "estimated_duration_minutes",
-            "operating_days",
-            "is_active",
-            "stops",
-            "student_count",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-    def get_student_count(self, obj):
-        return getattr(obj, "student_count", obj.student_assignments.filter(is_active=True).count())
-
-
-class RouteStopDetailSerializer(serializers.ModelSerializer):
-    """Used for nested CRUD within a Route."""
-
-    class Meta:
-        model = RouteStop
-        fields = [
-            "id",
-            "route",
-            "name",
-            "address",
-            "landmark",
-            "latitude",
-            "longitude",
-            "stop_order",
-            "stop_type",
-            "pickup_time",
-            "dropoff_time",
-            "is_active",
-        ]
-        read_only_fields = ["id"]
-
-
 class StudentRouteSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    route_name = serializers.CharField(source="route.name", read_only=True)
-    pickup_stop_name = serializers.CharField(source="pickup_stop.name", read_only=True, default=None)
-    dropoff_stop_name = serializers.CharField(source="dropoff_stop.name", read_only=True, default=None)
-
     class Meta:
         model = StudentRoute
         fields = [
             "id",
+            "id",
             "route",
-            "route_name",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "pickup_stop",
-            "pickup_stop_name",
+            "on_delete",
             "dropoff_stop",
-            "dropoff_stop_name",
+            "on_delete",
             "service_type",
             "fee_amount",
             "effective_from",
             "effective_to",
             "is_active",
             "notes",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class VehicleMaintenanceSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
-    maintenance_type_display = serializers.CharField(source="get_maintenance_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    performed_by_name = serializers.CharField(source="performed_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = VehicleMaintenance
         fields = [
             "id",
+            "id",
             "vehicle",
-            "vehicle_plate",
+            "on_delete",
             "maintenance_type",
-            "maintenance_type_display",
             "status",
-            "status_display",
             "scheduled_date",
             "completed_date",
             "odometer_reading",
@@ -222,118 +184,810 @@ class VehicleMaintenanceSerializer(serializers.ModelSerializer):
             "description",
             "notes",
             "performed_by",
-            "performed_by_name",
-            "next_service_date",
-            "next_service_odometer",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportFeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportFee
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "route",
+            "on_delete",
+            "fee_type",
+            "amount",
+            "paid_amount",
+            "status",
+            "due_date",
+            "paid_date",
+            "academic_year",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VehicleInsuranceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleInsurance
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "insurance_type",
+            "provider",
+            "policy_number",
+            "start_date",
+            "end_date",
+            "premium_amount",
+            "coverage_amount",
+            "status",
+            "document_url",
+            "notes",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
-class TransportFeeSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    fee_type_display = serializers.CharField(source="get_fee_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
-    class Meta:
-        model = TransportFee
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-
-class VehicleInsuranceSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
-    insurance_type_display = serializers.CharField(source="get_insurance_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
-    class Meta:
-        model = VehicleInsurance
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-
 class DailyTransportAttendanceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    route_name = serializers.CharField(source="route.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = DailyTransportAttendance
-        fields = "__all__"
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "route",
+            "on_delete",
+            "vehicle",
+            "on_delete",
+            "date",
+            "attendance_type",
+            "status",
+            "pickup_time",
+            "dropoff_time",
+            "pickup_stop",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class TransportIncidentReportSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True, default=None)
-    driver_name = serializers.CharField(source="driver.full_name", read_only=True, default=None)
-    incident_type_display = serializers.CharField(source="get_incident_type_display", read_only=True)
-    severity_display = serializers.CharField(source="get_severity_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = TransportIncidentReport
-        fields = "__all__"
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "incident_type",
+            "severity",
+            "status",
+            "vehicle",
+            "on_delete",
+            "route",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "incident_date",
+            "incident_time",
+            "location",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class VehicleInspectionSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
-    inspection_type_display = serializers.CharField(source="get_inspection_type_display", read_only=True)
-    result_display = serializers.CharField(source="get_result_display", read_only=True)
-
     class Meta:
         model = VehicleInspection
-        fields = "__all__"
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "inspection_type",
+            "inspection_date",
+            "inspector_name",
+            "result",
+            "odometer_reading",
+            "exterior_check",
+            "interior_check",
+            "tires_check",
+            "lights_check",
+            "brakes_check",
+            "signals_check",
+            "emergency_equipment",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class TripScheduleSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True, default=None)
-    driver_name = serializers.CharField(source="driver.full_name", read_only=True, default=None)
-    trip_type_display = serializers.CharField(source="get_trip_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = TripSchedule
-        fields = "__all__"
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "trip_type",
+            "destination",
+            "trip_date",
+            "departure_time",
+            "return_time",
+            "vehicle",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "route",
+            "on_delete",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class FuelLogSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
-    fuel_type_display = serializers.CharField(source="get_fuel_type_display", read_only=True)
-
     class Meta:
         model = FuelLog
-        fields = "__all__"
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "fuel_type",
+            "fill_date",
+            "odometer_reading",
+            "liters",
+            "cost_per_liter",
+            "total_cost",
+            "station_name",
+            "invoice_number",
+            "filled_by",
+            "on_delete",
+            "notes",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class TransportNotificationSerializer(serializers.ModelSerializer):
-    notification_type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = TransportNotification
-        fields = "__all__"
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "notification_type",
+            "title",
+            "message",
+            "route",
+            "on_delete",
+            "vehicle",
+            "on_delete",
+            "recipients",
+            "status",
+            "sent_at",
+            "sent_by",
+            "on_delete",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class TransportReportSerializer(serializers.ModelSerializer):
-    report_type_display = serializers.CharField(source="get_report_type_display", read_only=True)
-
     class Meta:
         model = TransportReport
-        fields = "__all__"
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "report_type",
+            "date_from",
+            "date_to",
+            "report_data",
+            "summary",
+            "generated_by",
+            "on_delete",
+            "file_url",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class VehicleDocumentSerializer(serializers.ModelSerializer):
-    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
-    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
-
     class Meta:
         model = VehicleDocument
-        fields = "__all__"
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "document_type",
+            "document_name",
+            "document_number",
+            "issue_date",
+            "expiry_date",
+            "issued_by",
+            "document_url",
+            "notes",
+            "is_valid",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VehicleGPSLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleGPSLog
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "latitude",
+            "longitude",
+            "speed_kmh",
+            "heading",
+            "timestamp",
+            "ignition_on",
+            "battery_level",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class GeofenceZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GeofenceZone
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "zone_type",
+            "center_latitude",
+            "center_longitude",
+            "radius_meters",
+            "polygon_coordinates",
+            "is_active",
+            "alert_on_entry",
+            "alert_on_exit",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class GeofenceAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GeofenceAlert
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "zone",
+            "on_delete",
+            "gps_log",
+            "on_delete",
+            "alert_type",
+            "status",
+            "description",
+            "speed_recorded",
+            "speed_limit",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class BusTrackingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusTracking
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "route",
+            "on_delete",
+            "status",
+            "scheduled_start",
+            "scheduled_end",
+            "actual_start",
+            "actual_end",
+            "current_stop",
+            "on_delete",
+            "next_stop",
+            "on_delete",
+            "estimated_arrival",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StopETASerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StopETA
+        fields = [
+            "id",
+            "id",
+            "tracking",
+            "on_delete",
+            "stop",
+            "on_delete",
+            "scheduled_time",
+            "estimated_time",
+            "actual_time",
+            "students_expected",
+            "students_picked_up",
+            "students_dropped",
+            "delay_minutes",
+            "delay_reason",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DriverLicenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverLicense
+        fields = [
+            "id",
+            "id",
+            "driver",
+            "on_delete",
+            "license_number",
+            "license_type",
+            "issue_date",
+            "expiry_date",
+            "issuing_authority",
+            "endorsements",
+            "restrictions",
+            "license_image",
+            "is_valid",
+            "suspension_reason",
+            "suspension_date",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DriverPerformanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverPerformance
+        fields = [
+            "id",
+            "id",
+            "driver",
+            "on_delete",
+            "evaluation_date",
+            "evaluator",
+            "on_delete",
+            "safety_rating",
+            "punctuality_rating",
+            "vehicle_care_rating",
+            "student_interaction_rating",
+            "overall_rating",
+            "total_trips",
+            "accidents",
+            "complaints",
+            "compliments",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class VehicleConditionReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleConditionReport
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "report_type",
+            "report_date",
+            "tires_condition",
+            "brakes_condition",
+            "lights_condition",
+            "mirrors_condition",
+            "body_condition",
+            "interior_condition",
+            "fuel_level",
+            "mileage",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class RouteOptimizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RouteOptimization
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "route",
+            "on_delete",
+            "optimization_date",
+            "original_distance_km",
+            "original_time_minutes",
+            "original_fuel_cost",
+            "optimized_distance_km",
+            "optimized_time_minutes",
+            "optimized_fuel_cost",
+            "distance_saved_km",
+            "time_saved_minutes",
+            "fuel_saved",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportationDailyReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportationDailyReport
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "total_vehicles_active",
+            "total_trips_completed",
+            "total_routes_served",
+            "total_students_transport",
+            "avg_occupancy_rate",
+            "total_fuel_consumed",
+            "total_fuel_cost",
+            "total_incidents",
+            "total_delays",
+            "avg_delay_minutes",
+            "vehicles_maintained",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ParentTransportAccessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParentTransportAccess
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "parent",
+            "on_delete",
+            "student",
+            "on_delete",
+            "tracking_enabled",
+            "notifications_enabled",
+            "email_alerts",
+            "sms_alerts",
+            "alert_pickup",
+            "alert_dropoff",
+            "alert_delay",
+            "alert_incident",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportComplianceRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportComplianceRecord
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "compliance_type",
+            "status",
+            "vehicle",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "document_number",
+            "issue_date",
+            "expiry_date",
+            "issued_by",
+            "document_file",
+            "alert_days_before",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class StudentTransportProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentTransportProfile
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "assigned_route",
+            "on_delete",
+            "assigned_stop",
+            "on_delete",
+            "needs_morning",
+            "needs_evening",
+            "has_disability",
+            "disability_notes",
+            "needs_wheelchair",
+            "needs_escort",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportAlert
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "vehicle",
+            "on_delete",
+            "route",
+            "on_delete",
+            "alert_type",
+            "severity",
+            "status",
+            "title",
+            "description",
+            "affected_students",
+            "affected_routes",
+            "estimated_delay_minutes",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class VehiclePoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehiclePool
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "vehicle",
+            "on_delete",
+            "pool_type",
+            "status",
+            "booked_by",
+            "on_delete",
+            "purpose",
+            "destination",
+            "start_date",
+            "start_time",
+            "end_date",
+            "end_time",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportSchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "route",
+            "on_delete",
+            "day_of_week",
+            "pickup_start",
+            "pickup_end",
+            "dropoff_start",
+            "dropoff_end",
+            "vehicle",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "is_active",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportFeeStructureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportFeeStructure
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "fee_type",
+            "amount",
+            "route",
+            "on_delete",
+            "min_distance_km",
+            "max_distance_km",
+            "sibling_discount",
+            "early_bird_discount",
+            "is_active",
+            "academic_year",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportIncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportIncident
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "vehicle",
+            "on_delete",
+            "route",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "incident_type",
+            "severity",
+            "status",
+            "description",
+            "location",
+            "incident_date",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportBudgetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportBudget
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "academic_year",
+            "fuel_budget",
+            "maintenance_budget",
+            "insurance_budget",
+            "salary_budget",
+            "new_vehicle_budget",
+            "miscellaneous_budget",
+            "total_budget",
+            "fuel_spent",
+            "maintenance_spent",
+            "insurance_spent",
+            "salary_spent",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportAuditLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportAuditLog
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "user",
+            "on_delete",
+            "action_type",
+            "target_model",
+            "target_id",
+            "description",
+            "old_values",
+            "new_values",
+            "ip_address",
+            "timestamp",
+        ]
+        read_only_fields = ["id"]
+
+
+class TransportMonthlyReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportMonthlyReport
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "month",
+            "year",
+            "total_operational_days",
+            "total_trips",
+            "total_routes_active",
+            "vehicles_active",
+            "vehicles_maintained",
+            "avg_fleet_age_years",
+            "total_students_served",
+            "avg_daily_riders",
+            "total_fuel_liters",
+            "total_fuel_cost",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportEmergencyContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportEmergencyContact
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "role",
+            "phone",
+            "alternate_phone",
+            "email",
+            "organization",
+            "is_primary",
+            "is_active",
+            "priority_order",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VehicleAssignmentLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleAssignmentLog
+        fields = [
+            "id",
+            "id",
+            "vehicle",
+            "on_delete",
+            "route",
+            "on_delete",
+            "driver",
+            "on_delete",
+            "assignment_date",
+            "assignment_type",
+            "start_time",
+            "end_time",
+            "purpose",
+            "assigned_by",
+            "on_delete",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportDriverScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransportDriverSchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "driver",
+            "on_delete",
+            "on_delete",
+            "date",
+            "shift_type",
+            "start_time",
+            "end_time",
+            "routes_assigned",
+            "total_distance_km",
+            "total_hours",
+            "overtime_hours",
+            "is_available",
+            "is_on_leave",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
