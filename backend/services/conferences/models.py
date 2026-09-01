@@ -599,3 +599,791 @@ class WaitlistManagement(models.Model):
 
     def __str__(self):
         return f"{self.parent.full_name} - Position {self.position} for {self.slot}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Waiting List
+# =============================================================================
+
+
+class ConferenceWaitingList(models.Model):
+    """Waitlist for full conference slots."""
+
+    class Status(models.TextChoices):
+        WAITING = "waiting", "Waiting"
+        CONTACTED = "contacted", "Contacted"
+        SCHEDULED = "scheduled", "Scheduled"
+        EXPIRED = "expired", "Expired"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_waiting_lists")
+    parent = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="conference_waiting_lists")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="conference_waiting_lists")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.WAITING)
+    position = models.PositiveIntegerField(default=0)
+    preferred_dates = models.JSONField(default=list, blank=True)
+    preferred_times = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "conference_waiting_lists"
+        ordering = ["position"]
+
+    def __str__(self):
+        return f"#{self.position} {self.parent.full_name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Recurring Conferences
+# =============================================================================
+
+
+class RecurringConference(models.Model):
+    """Recurring conference schedules."""
+
+    class Frequency(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        BIWEEKLY = "biweekly", "Bi-weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        ENDED = "ended", "Ended"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="recurring_conferences")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    frequency = models.CharField(max_length=10, choices=Frequency.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    day_of_week = models.CharField(max_length=10, blank=True)
+    time_of_day = models.TimeField()
+    duration_minutes = models.PositiveIntegerField(default=30)
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="recurring_conferences_led")
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    last_occurrence = models.DateField(null=True, blank=True)
+    next_occurrence = models.DateField(null=True, blank=True)
+    total_occurrences = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "recurring_conferences"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_frequency_display()})"
+
+
+class RecurringConferenceParticipant(models.Model):
+    """Participants in recurring conferences."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    recurring_conference = models.ForeignKey(RecurringConference, on_delete=models.CASCADE, related_name="participants")
+    user = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="recurring_conference_participations"
+    )
+    role = models.CharField(max_length=50, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "recurring_conference_participants"
+        unique_together = [("recurring_conference", "user")]
+
+    def __str__(self):
+        return f"{self.user.full_name} - {self.recurring_conference.title}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Settings
+# =============================================================================
+
+
+class ConferenceSettings(models.Model):
+    """School-wide conference settings."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.OneToOneField("auth_service.School", on_delete=models.CASCADE, related_name="conference_settings")
+    booking_window_days = models.PositiveIntegerField(default=30)
+    cancellation_window_hours = models.PositiveIntegerField(default=24)
+    buffer_between_minutes = models.PositiveIntegerField(default=5)
+    max_conferences_per_day = models.PositiveIntegerField(default=20)
+    send_confirmation_email = models.BooleanField(default=True)
+    send_reminder_email = models.BooleanField(default=True)
+    reminder_hours_before = models.PositiveIntegerField(default=24)
+    collect_feedback = models.BooleanField(default=True)
+    feedback_deadline_days = models.PositiveIntegerField(default=7)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "conference_settings"
+
+    def __str__(self):
+        return f"Conference Settings - {self.school.name}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Analytics
+# =============================================================================
+
+
+class ConferenceAnalytics(models.Model):
+    """Conference analytics and metrics."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_analytics")
+    date = models.DateField()
+    total_scheduled = models.PositiveIntegerField(default=0)
+    total_completed = models.PositiveIntegerField(default=0)
+    total_no_show = models.PositiveIntegerField(default=0)
+    total_cancelled = models.PositiveIntegerField(default=0)
+    total_parents = models.PositiveIntegerField(default=0)
+    total_teachers = models.PositiveIntegerField(default=0)
+    parent_participation_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    avg_duration_minutes = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    avg_satisfaction_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    by_type_breakdown = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_analytics"
+        unique_together = [("school", "date")]
+
+    def __str__(self):
+        return f"Analytics - {self.date}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Booking Rules
+# =============================================================================
+
+
+class ConferenceBookingRule(models.Model):
+    """Rules for conference booking."""
+
+    class RuleType(models.TextChoices):
+        TIME_SLOT = "time_slot", "Time Slot Restriction"
+        GRADE_RESTRICTION = "grade", "Grade Restriction"
+        TEACHER_LIMIT = "teacher_limit", "Teacher Booking Limit"
+        PARENT_LIMIT = "parent_limit", "Parent Booking Limit"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_booking_rules")
+    name = models.CharField(max_length=200)
+    rule_type = models.CharField(max_length=15, choices=RuleType.choices)
+    description = models.TextField(blank=True)
+    parameters = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_booking_rules"
+        ordering = ["-priority"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_rule_type_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Notifications
+# =============================================================================
+
+
+class ConferenceSystemNotification(models.Model):
+    """Conference-specific notifications."""
+
+    class NotificationType(models.TextChoices):
+        BOOKING_CONFIRMED = "booking_confirmed", "Booking Confirmed"
+        BOOKING_REMINDER = "booking_reminder", "Booking Reminder"
+        BOOKING_CANCELLED = "booking_cancelled", "Booking Cancellation"
+        WAITLIST_AVAILABLE = "waitlist_available", "Waitlist Spot Available"
+        FEEDBACK_REQUEST = "feedback_request", "Feedback Request"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_system_notifications"
+    )
+    recipient = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="conference_sys_notifications"
+    )
+    notification_type = models.CharField(max_length=20, choices=NotificationType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    channel = models.CharField(max_length=10, default="email")
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_system_notifications"
+
+    def __str__(self):
+        return f"{self.get_notification_type_display()} - {self.recipient.full_name}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Export
+# =============================================================================
+
+
+class ConferenceExport(models.Model):
+    """Conference data exports."""
+
+    class ExportType(models.TextChoices):
+        SCHEDULE = "schedule", "Schedule Export"
+        ATTENDANCE = "attendance", "Attendance Report"
+        FEEDBACK = "feedback", "Feedback Summary"
+        ALL = "all", "All Data"
+
+    class Format(models.TextChoices):
+        CSV = "csv", "CSV"
+        PDF = "pdf", "PDF"
+        EXCEL = "excel", "Excel"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_exports")
+    export_type = models.CharField(max_length=15, choices=ExportType.choices)
+    format = models.CharField(max_length=10, choices=Format.choices, default=Format.CSV)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    date_from = models.DateField(null=True, blank=True)
+    date_to = models.DateField(null=True, blank=True)
+    file = models.FileField(upload_to="conferences/exports/", null=True, blank=True)
+    record_count = models.PositiveIntegerField(default=0)
+    requested_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "conference_exports"
+
+    def __str__(self):
+        return f"{self.get_export_type_display()} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Locations
+# =============================================================================
+
+
+class ConferenceLocation(models.Model):
+    """Conference locations/venues."""
+
+    class LocationType(models.TextChoices):
+        IN_PERSON = "in_person", "In-Person"
+        VIRTUAL = "virtual", "Virtual"
+        HYBRID = "hybrid", "Hybrid"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_locations")
+    name = models.CharField(max_length=200)
+    location_type = models.CharField(max_length=10, choices=LocationType.choices)
+    building = models.CharField(max_length=200, blank=True)
+    room = models.CharField(max_length=100, blank=True)
+    capacity = models.PositiveIntegerField(default=10)
+    virtual_link = models.URLField(max_length=500, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_locations"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_location_type_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Blocked Slots
+# =============================================================================
+
+
+class ConferenceBlockedSlot(models.Model):
+    """Blocked time slots for conferences."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_blocked_slots")
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="conference_blocked_slots")
+    title = models.CharField(max_length=200, blank=True)
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    reason = models.TextField(blank=True)
+    is_recurring = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_blocked_slots"
+
+    def __str__(self):
+        return f"Blocked: {self.teacher.full_name} ({self.date})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Schedule Override
+# =============================================================================
+
+
+class ConferenceScheduleOverride(models.Model):
+    """Override default conference schedule."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_schedule_overrides"
+    )
+    date = models.DateField()
+    override_type = models.CharField(
+        max_length=20,
+        choices=[("early_close", "Early Closure"), ("late_open", "Late Opening"), ("no_conferences", "No Conferences")],
+    )
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_schedule_overrides"
+        unique_together = [("school", "date")]
+
+    def __str__(self):
+        return f"Override - {self.date} ({self.override_type})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Reminder Schedule
+# =============================================================================
+
+
+class ConferenceReminderSchedule(models.Model):
+    """Custom reminder schedules."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_reminder_schedules"
+    )
+    name = models.CharField(max_length=200)
+    hours_before = models.PositiveIntegerField()
+    channel = models.CharField(max_length=10, choices=[("email", "Email"), ("sms", "SMS"), ("push", "Push")])
+    message_template = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_reminder_schedules"
+
+    def __str__(self):
+        return f"{self.name} ({self.hours_before}h before)"
+
+
+# =============================================================================
+# NEW MODELS: Conference Accessibility
+# =============================================================================
+
+
+class ConferenceAccessibilityRequirement(models.Model):
+    """Accessibility requirements for conferences."""
+
+    class RequirementType(models.TextChoices):
+        INTERPRETER = "interpreter", "Sign Language Interpreter"
+        TRANSLATOR = "translator", "Language Translator"
+        WHEELCHAIR = "wheelchair", "Wheelchair Access"
+        LARGE_PRINT = "large_print", "Large Print Materials"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking = models.ForeignKey(
+        "ConferenceBooking", on_delete=models.CASCADE, related_name="accessibility_requirements"
+    )
+    requirement_type = models.CharField(max_length=15, choices=RequirementType.choices)
+    details = models.TextField(blank=True)
+    language = models.CharField(max_length=50, blank=True)
+    is_confirmed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_accessibility_requirements"
+
+    def __str__(self):
+        return f"{self.get_requirement_type_display()} - {self.booking}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Note Templates
+# =============================================================================
+
+
+class ConferenceNoteTemplate(models.Model):
+    """Note templates for conferences."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_note_templates"
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    sections = models.JSONField(default=list)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_note_templates"
+
+    def __str__(self):
+        return self.name
+
+
+# =============================================================================
+# NEW MODELS: Conference Approval
+# =============================================================================
+
+
+class ConferenceApproval(models.Model):
+    """Approval workflow for conferences."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.CASCADE, related_name="approvals")
+    approver = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="conference_approvals_made"
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    comments = models.TextField(blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_approvals"
+        unique_together = [("booking", "approver")]
+
+    def __str__(self):
+        return f"Approval - {self.booking} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Resources
+# =============================================================================
+
+
+class ConferenceResource(models.Model):
+    """Resources needed for conferences."""
+
+    class ResourceType(models.TextChoices):
+        ROOM = "room", "Meeting Room"
+        EQUIPMENT = "equipment", "Equipment"
+        DOCUMENT = "document", "Document"
+        TRANSLATOR = "translator", "Translator"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.CASCADE, related_name="resources")
+    resource_type = models.CharField(max_length=15, choices=ResourceType.choices)
+    name = models.CharField(max_length=200)
+    quantity = models.PositiveIntegerField(default=1)
+    is_reserved = models.BooleanField(default=False)
+    cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_resources"
+
+    def __str__(self):
+        return f"{self.get_resource_type_display()} - {self.name}"
+
+
+# =============================================================================
+# NEW MODELS: Conference Survey
+# =============================================================================
+
+
+class ConferenceSurvey(models.Model):
+    """Conference satisfaction surveys."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_surveys")
+    title = models.CharField(max_length=200)
+    questions = models.JSONField(default=list)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    total_responses = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_surveys"
+
+    def __str__(self):
+        return self.title
+
+
+class ConferenceSurveyResponse(models.Model):
+    """Survey responses."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    survey = models.ForeignKey(ConferenceSurvey, on_delete=models.CASCADE, related_name="responses")
+    respondent = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    answers = models.JSONField(default=dict)
+    overall_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    comments = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_survey_responses"
+
+    def __str__(self):
+        return f"Response - {self.survey} ({self.submitted_at})"
+
+
+# =============================================================================
+# NEW MODELS: Conference Calendar Sync
+# =============================================================================
+
+
+class ConferenceCalendarSync(models.Model):
+    """Calendar sync for conferences."""
+
+    class CalendarType(models.TextChoices):
+        GOOGLE = "google", "Google Calendar"
+        OUTLOOK = "outlook", "Outlook Calendar"
+        ICS = "ics", "iCal Feed"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ERROR = "error", "Sync Error"
+        DISABLED = "disabled", "Disabled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="conference_calendar_syncs")
+    calendar_type = models.CharField(max_length=10, choices=CalendarType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    calendar_id = models.CharField(max_length=255, blank=True)
+    ical_url = models.URLField(max_length=500, blank=True)
+    auto_sync = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "conference_calendar_syncs"
+        unique_together = [("user", "calendar_type")]
+
+    def __str__(self):
+        return f"{self.get_calendar_type_display()} - {self.user.full_name}"
+
+
+# =============================================================================
+# NEW MODELS: Conference History Extended
+# =============================================================================
+
+
+class ConferenceHistoryDetail(models.Model):
+    """Detailed conference history."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_history_details"
+    )
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.SET_NULL, null=True, blank=True)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="conference_history_details")
+    conference_date = models.DateField()
+    conference_type = models.CharField(max_length=50, blank=True)
+    topics_discussed = models.JSONField(default=list, blank=True)
+    outcome = models.TextField(blank=True)
+    follow_up_needed = models.BooleanField(default=False)
+    recommendations = models.TextField(blank=True)
+    recorded_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_history_details"
+        ordering = ["-conference_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.conference_date}"
+
+
+class ConferenceTimeSlot(models.Model):
+    """Available time slots for booking."""
+
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "Available"
+        BOOKED = "booked", "Booked"
+        BLOCKED = "blocked", "Blocked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="conference_time_slots")
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="conference_time_slots")
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.AVAILABLE)
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.SET_NULL, null=True, blank=True)
+    location = models.ForeignKey(ConferenceLocation, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_time_slots"
+        ordering = ["date", "start_time"]
+
+    def __str__(self):
+        return f"{self.teacher.full_name} - {self.date} {self.start_time}-{self.end_time}"
+
+
+class ConferenceFeedbackTemplate(models.Model):
+    """Templates for conference feedback questions."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="conference_feedback_templates"
+    )
+    name = models.CharField(max_length=200)
+    questions = models.JSONField(default=list)
+    target_audience = models.CharField(max_length=50, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_feedback_templates"
+
+    def __str__(self):
+        return self.name
+
+
+class ConferenceFollowUp(models.Model):
+    """Follow-up actions after conferences."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.CASCADE, related_name="conference_follow_ups")
+    assigned_to = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    action_required = models.TextField()
+    due_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    notes = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "conference_follow_ups"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Follow-up: {self.action_required[:50]} ({self.get_status_display()})"
+
+
+class ConferenceRoomBooking(models.Model):
+    """Room booking for conferences."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        CONFIRMED = "confirmed", "Confirmed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    location = models.ForeignKey(ConferenceLocation, on_delete=models.CASCADE, related_name="room_bookings")
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.CASCADE, related_name="room_bookings")
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    booked_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_room_bookings"
+        ordering = ["-date", "-start_time"]
+
+    def __str__(self):
+        return f"{self.location.name} - {self.date} {self.start_time}-{self.end_time}"
+
+
+class ConferenceTemplateSection(models.Model):
+    """Sections within a conference template."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    template = models.ForeignKey(ConferenceTemplate, on_delete=models.CASCADE, related_name="sections")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_required = models.BooleanField(default=True)
+    suggested_questions = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_template_sections"
+        ordering = ["sort_order"]
+
+    def __str__(self):
+        return f"{self.title} ({self.template.name})"
+
+
+class ConferenceNoShow(models.Model):
+    """Track no-shows for rescheduling."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking = models.ForeignKey("ConferenceBooking", on_delete=models.CASCADE, related_name="no_shows")
+    user = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="conference_no_shows")
+    rescheduled = models.BooleanField(default=False)
+    rescheduled_to = models.ForeignKey(
+        "ConferenceBooking", on_delete=models.SET_NULL, null=True, blank=True, related_name="rescheduled_from"
+    )
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "conference_no_shows"
+
+    def __str__(self):
+        return f"No-show: {self.user.full_name} ({self.booking})"
+
+
+class ConferenceConferenceType(models.Model):
+    """Extended conference type settings."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    conference_type = models.OneToOneField(ConferenceType, on_delete=models.CASCADE, related_name="extended_settings")
+    requires_parent_consent = models.BooleanField(default=False)
+    requires_student_consent = models.BooleanField(default=False)
+    auto_generate_notes = models.BooleanField(default=False)
+    default_location = models.ForeignKey(ConferenceLocation, on_delete=models.SET_NULL, null=True, blank=True)
+    max_duration_minutes = models.PositiveIntegerField(default=60)
+    allow_virtual = models.BooleanField(default=True)
+    allow_walk_in = models.BooleanField(default=False)
+    fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "conference_type_extended_settings"
+
+    def __str__(self):
+        return f"Extended: {self.conference_type.name}"
