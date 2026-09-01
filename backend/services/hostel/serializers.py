@@ -1,141 +1,106 @@
-"""Hostel / Accommodation Management serializers."""
+"""Serializers for hostel."""
 
 from rest_framework import serializers
 
 from .models import (
     CheckoutProcess,
+    CommonAreaBooking,
     ComplaintManagement,
     EmergencyContact,
     Hostel,
     HostelAllocation,
+    HostelAsset,
+    HostelAssetTransfer,
     HostelAttendance,
+    HostelAttendanceAlert,
+    HostelEmergencyDrill,
+    HostelEmergencyProtocol,
+    HostelEvent,
+    HostelEventParticipant,
     HostelFee,
     HostelFeedback,
+    HostelFeePayment,
+    HostelInspectionSchedule,
     HostelNotification,
     HostelReport,
     HostelRoom,
     HostelVisitor,
     InventoryManagement,
+    LaundryService,
     LeaveManagement,
     MessAttendance,
+    MessDietaryRequest,
+    MessFeedback,
     MessManagement,
+    MessMenuPlan,
     RoomInspection,
+    RoomKey,
     RoomMaintenance,
+    RoommateAssignment,
+    RoommateMatchRequest,
+    RoommatePreference,
     RoomTransfer,
+    VisitorPass,
+    WellnessCheck,
 )
 
 
 class HostelSerializer(serializers.ModelSerializer):
-    gender_display = serializers.CharField(source="get_gender_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    warden_name = serializers.CharField(source="warden.full_name", read_only=True, default=None)
-    assistant_warden_name = serializers.CharField(source="assistant_warden.full_name", read_only=True, default=None)
-    total_rooms = serializers.IntegerField(read_only=True)
-    total_beds = serializers.IntegerField(read_only=True)
-    occupied_beds = serializers.IntegerField(read_only=True)
-    available_beds = serializers.IntegerField(read_only=True)
-
     class Meta:
         model = Hostel
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "code",
             "gender",
-            "gender_display",
             "status",
-            "status_display",
             "warden",
-            "warden_name",
+            "on_delete",
             "assistant_warden",
-            "assistant_warden_name",
+            "on_delete",
             "address",
             "phone",
             "total_floors",
             "rules",
-            "amenities",
-            "notes",
-            "total_rooms",
-            "total_beds",
-            "occupied_beds",
-            "available_beds",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_warden(self, value):
-        # Hostels must stay within the tenant — the warden has to be a staff
-        # member of the same school.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Warden must be in your school.")
-        return value
-
-    def validate_assistant_warden(self, value):
-        # Hostels must stay within the tenant — the assistant warden has to be
-        # a staff member of the same school.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Assistant warden must be in your school.")
-        return value
-
 
 class HostelRoomSerializer(serializers.ModelSerializer):
-    room_type_display = serializers.CharField(source="get_room_type_display", read_only=True)
-    hostel_name = serializers.CharField(source="hostel.name", read_only=True)
-    occupied_beds = serializers.IntegerField(read_only=True)
-    available_beds = serializers.IntegerField(read_only=True)
-
     class Meta:
         model = HostelRoom
         fields = [
             "id",
             "hostel",
-            "hostel_name",
+            "on_delete",
             "room_number",
             "floor",
             "room_type",
-            "room_type_display",
             "capacity",
             "is_furnished",
             "has_ac",
             "has_attached_bathroom",
             "monthly_fee",
-            "occupied_beds",
-            "available_beds",
             "is_active",
             "notes",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
-    def validate_hostel(self, value):
-        # Rooms inherit tenant scope from their hostel — reject hostels from
-        # another school.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Hostel not found in your school.")
-        return value
-
 
 class HostelAllocationSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    room_display = serializers.CharField(source="room.__str__", read_only=True)
-    hostel_name = serializers.CharField(source="room.hostel.name", read_only=True)
-    room_number = serializers.CharField(source="room.room_number", read_only=True)
-    allocated_by_name = serializers.CharField(source="allocated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HostelAllocation
         fields = [
             "id",
+            "id",
             "student",
-            "student_name",
+            "on_delete",
             "room",
-            "room_display",
-            "hostel_name",
-            "room_number",
+            "on_delete",
             "status",
             "check_in_date",
             "check_out_date",
@@ -143,44 +108,27 @@ class HostelAllocationSerializer(serializers.ModelSerializer):
             "is_paid",
             "notes",
             "allocated_by",
-            "allocated_by_name",
+            "on_delete",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "allocated_by", "created_at", "updated_at"]
-
-    def validate_student(self, value):
-        # Allocations must stay within the tenant — the student has to belong
-        # to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
-
-    def validate_room(self, value):
-        # Allocations inherit tenant scope from the room (which belongs to a
-        # hostel) — reject rooms from another school.
-        user = self.context["request"].user
-        if value.hostel.school_id != user.school_id:
-            raise serializers.ValidationError("Room not found in your school.")
-        return value
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class HostelFeeSerializer(serializers.ModelSerializer):
-    billing_cycle_display = serializers.CharField(source="get_billing_cycle_display", read_only=True)
-    hostel_name = serializers.CharField(source="hostel.name", read_only=True)
-
     class Meta:
         model = HostelFee
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "hostel",
-            "hostel_name",
+            "on_delete",
             "room_type",
             "amount",
             "billing_cycle",
-            "billing_cycle_display",
             "includes_meals",
             "includes_laundry",
             "includes_wifi",
@@ -189,138 +137,84 @@ class HostelFeeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
-    def validate_hostel(self, value):
-        # Fee structures must stay within the tenant — the hostel has to
-        # belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Hostel not found in your school.")
-        return value
-
 
 class HostelVisitorSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student_visited.user.full_name", read_only=True)
-    hostel_name = serializers.CharField(source="hostel.name", read_only=True)
-    checked_in_by_name = serializers.CharField(source="checked_in_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HostelVisitor
         fields = [
             "id",
+            "id",
             "hostel",
-            "hostel_name",
+            "on_delete",
             "visitor_name",
             "phone",
             "id_proof",
             "student_visited",
-            "student_name",
+            "on_delete",
             "purpose",
             "in_time",
             "out_time",
             "relationship",
             "checked_in_by",
-            "checked_in_by_name",
+            "on_delete",
             "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "checked_in_by", "created_at"]
-
-    def validate_hostel(self, value):
-        # Visitor logs must stay within the tenant — the hostel has to belong
-        # to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Hostel not found in your school.")
-        return value
-
-    def validate_student_visited(self, value):
-        # Visitor logs must stay within the tenant — the student visited has
-        # to belong to the same school as the caller.
-        user = self.context["request"].user
-        if value.school_id != user.school_id:
-            raise serializers.ValidationError("Student not found in your school.")
-        return value
-
-
-# =============================================================================
-# Room Maintenance Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class RoomMaintenanceSerializer(serializers.ModelSerializer):
-    room_number = serializers.CharField(source="room.room_number", read_only=True)
-    reported_by_name = serializers.CharField(source="reported_by.user.full_name", read_only=True, default=None)
-    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
-
     class Meta:
         model = RoomMaintenance
         fields = [
             "id",
+            "id",
             "room",
-            "room_number",
+            "on_delete",
             "maintenance_type",
             "description",
             "status",
             "priority",
             "reported_by",
-            "reported_by_name",
+            "on_delete",
             "assigned_to",
-            "assigned_to_name",
+            "on_delete",
             "reported_date",
             "scheduled_date",
             "completed_date",
             "estimated_cost",
-            "actual_cost",
-            "notes",
-            "resolution_notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "reported_date", "created_at"]
-
-
-# =============================================================================
-# Hostel Attendance Serializers
-# =============================================================================
+        read_only_fields = ["id", "updated_at"]
 
 
 class HostelAttendanceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    room_number = serializers.CharField(source="allocation.room.room_number", read_only=True)
-
     class Meta:
         model = HostelAttendance
         fields = [
             "id",
+            "id",
             "allocation",
-            "student_name",
-            "room_number",
+            "on_delete",
             "date",
             "status",
             "check_in_time",
             "check_out_time",
             "is_in_campus",
             "recorded_by",
+            "on_delete",
             "notes",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
-# =============================================================================
-# Leave Management Serializers
-# =============================================================================
-
-
 class LeaveManagementSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = LeaveManagement
         fields = [
             "id",
+            "id",
             "allocation",
-            "student_name",
+            "on_delete",
             "leave_type",
             "reason",
             "status",
@@ -328,43 +222,23 @@ class LeaveManagementSerializer(serializers.ModelSerializer):
             "to_date",
             "total_days",
             "approved_by",
-            "approved_by_name",
+            "on_delete",
             "approved_at",
             "rejection_reason",
             "parent_notified",
             "parent_consent",
-            "emergency_contact",
-            "emergency_phone",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "approved_at", "created_at"]
-
-
-# =============================================================================
-# Mess Management Serializers
-# =============================================================================
-
-
-class MessAttendanceSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-
-    class Meta:
-        model = MessAttendance
-        fields = ["id", "mess_menu", "allocation", "student_name", "status", "recorded_at"]
-        read_only_fields = ["id", "recorded_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class MessManagementSerializer(serializers.ModelSerializer):
-    hostel_name = serializers.CharField(source="hostel.name", read_only=True)
-    attendance = MessAttendanceSerializer(many=True, read_only=True)
-
     class Meta:
         model = MessManagement
         fields = [
             "id",
+            "id",
             "hostel",
-            "hostel_name",
+            "on_delete",
             "date",
             "meal_type",
             "menu_items",
@@ -377,64 +251,49 @@ class MessManagementSerializer(serializers.ModelSerializer):
             "cost_per_meal",
             "is_active",
             "created_by",
-            "attendance",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
-# =============================================================================
-# Complaint Management Serializers
-# =============================================================================
+class MessAttendanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessAttendance
+        fields = ["id", "id", "mess_menu", "on_delete", "allocation", "on_delete", "status", "recorded_at"]
+        read_only_fields = ["id"]
 
 
 class ComplaintManagementSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
-    resolved_by_name = serializers.CharField(source="resolved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = ComplaintManagement
         fields = [
             "id",
+            "id",
             "hostel",
+            "on_delete",
             "allocation",
-            "student_name",
+            "on_delete",
             "complaint_type",
             "title",
             "description",
             "status",
             "priority",
             "assigned_to",
-            "assigned_to_name",
+            "on_delete",
             "resolution_notes",
             "resolved_at",
             "resolved_by",
-            "resolved_by_name",
-            "satisfaction_rating",
-            "feedback",
-            "is_anonymous",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "resolved_at", "created_at"]
-
-
-# =============================================================================
-# Room Inspection Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class RoomInspectionSerializer(serializers.ModelSerializer):
-    room_number = serializers.CharField(source="room.room_number", read_only=True)
-    inspected_by_name = serializers.CharField(source="inspected_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = RoomInspection
         fields = [
             "id",
+            "id",
             "room",
-            "room_number",
+            "on_delete",
             "inspection_type",
             "status",
             "scheduled_date",
@@ -443,33 +302,24 @@ class RoomInspectionSerializer(serializers.ModelSerializer):
             "orderliness_rating",
             "condition_rating",
             "inspected_by",
-            "inspected_by_name",
+            "on_delete",
             "issues_found",
             "has_issues",
             "notes",
-            "action_required",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Inventory Management Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class InventoryManagementSerializer(serializers.ModelSerializer):
-    hostel_name = serializers.CharField(source="hostel.name", read_only=True)
-    room_number = serializers.CharField(source="room.room_number", read_only=True, default=None)
-
     class Meta:
         model = InventoryManagement
         fields = [
             "id",
+            "id",
             "hostel",
-            "hostel_name",
+            "on_delete",
             "room",
-            "room_number",
+            "on_delete",
             "item_name",
             "item_category",
             "description",
@@ -480,28 +330,18 @@ class InventoryManagementSerializer(serializers.ModelSerializer):
             "purchase_date",
             "warranty_expiry",
             "supplier",
-            "last_inspected_date",
-            "condition_notes",
-            "asset_tag",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
-# =============================================================================
-# Hostel Reports Serializers
-# =============================================================================
-
-
 class HostelReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HostelReport
         fields = [
             "id",
+            "id",
             "hostel",
+            "on_delete",
             "title",
             "report_type",
             "status",
@@ -514,19 +354,8 @@ class HostelReportSerializer(serializers.ModelSerializer):
             "occupied_rooms",
             "occupancy_rate",
             "total_complaints",
-            "resolved_complaints",
-            "total_maintenance",
-            "completed_maintenance",
-            "generated_by",
-            "generated_by_name",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Emergency Contacts Serializers
-# =============================================================================
 
 
 class EmergencyContactSerializer(serializers.ModelSerializer):
@@ -534,7 +363,9 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
         model = EmergencyContact
         fields = [
             "id",
+            "id",
             "hostel",
+            "on_delete",
             "contact_type",
             "name",
             "phone_primary",
@@ -546,60 +377,43 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
             "is_active",
             "notes",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Room Transfer Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class RoomTransferSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    from_room_number = serializers.CharField(source="from_room.room_number", read_only=True)
-    to_room_number = serializers.CharField(source="to_room.room_number", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = RoomTransfer
         fields = [
             "id",
+            "id",
             "allocation",
-            "student_name",
+            "on_delete",
             "from_room",
-            "from_room_number",
+            "on_delete",
             "to_room",
-            "to_room_number",
+            "on_delete",
             "reason",
             "status",
             "approved_by",
-            "approved_by_name",
+            "on_delete",
             "approved_at",
             "rejection_reason",
             "requested_date",
             "transfer_date",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "approved_at", "requested_date", "created_at"]
-
-
-# =============================================================================
-# Checkout Process Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class CheckoutProcessSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = CheckoutProcess
         fields = [
             "id",
+            "id",
             "allocation",
-            "student_name",
+            "on_delete",
             "status",
             "checkout_date",
             "room_inspected",
@@ -612,18 +426,8 @@ class CheckoutProcessSerializer(serializers.ModelSerializer):
             "pending_dues",
             "security_deposit_refund",
             "final_amount",
-            "keys_returned",
-            "approved_by",
-            "approved_by_name",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Hostel Notifications Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class HostelNotificationSerializer(serializers.ModelSerializer):
@@ -631,7 +435,9 @@ class HostelNotificationSerializer(serializers.ModelSerializer):
         model = HostelNotification
         fields = [
             "id",
+            "id",
             "hostel",
+            "on_delete",
             "notification_type",
             "status",
             "title",
@@ -642,27 +448,22 @@ class HostelNotificationSerializer(serializers.ModelSerializer):
             "read_count",
             "is_priority",
             "created_by",
+            "on_delete",
             "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "created_at"]
-
-
-# =============================================================================
-# Hostel Feedback Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class HostelFeedbackSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="allocation.student.user.full_name", read_only=True)
-    responded_by_name = serializers.CharField(source="responded_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = HostelFeedback
         fields = [
             "id",
+            "id",
             "hostel",
+            "on_delete",
             "allocation",
-            "student_name",
+            "on_delete",
             "feedback_type",
             "rating",
             "title",
@@ -671,8 +472,469 @@ class HostelFeedbackSerializer(serializers.ModelSerializer):
             "is_anonymous",
             "response",
             "responded_by",
-            "responded_by_name",
+            "on_delete",
+            "responded_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class RoommatePreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoommatePreference
+        fields = [
+            "id",
+            "school",
+            "id",
+            "student",
+            "on_delete",
+            "on_delete",
+            "sleep_time",
+            "wake_time",
+            "is_light_sleeper",
+            "study_habits",
+            "prefers_study_at",
+            "visitor_frequency",
+            "is_social",
+            "smoking",
+            "snoring",
+            "neatness_level",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RoommateAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoommateAssignment
+        fields = [
+            "id",
+            "id",
+            "room",
+            "on_delete",
+            "student",
+            "on_delete",
+            "allocation",
+            "on_delete",
+            "match_score",
+            "assigned_date",
+            "is_active",
+            "notes",
+        ]
+        read_only_fields = ["id"]
+
+
+class RoomKeySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomKey
+        fields = [
+            "id",
+            "id",
+            "room",
+            "on_delete",
+            "key_number",
+            "status",
+            "allocated_to",
+            "on_delete",
+            "issued_date",
+            "return_date",
+            "replacement_cost",
+            "reported_lost_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class LaundryServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LaundryService
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "allocation",
+            "on_delete",
+            "status",
+            "garment_type",
+            "quantity",
+            "description",
+            "pickup_date",
+            "pickup_time",
+            "delivery_date",
+            "delivery_time",
+            "total_cost",
+            "paid",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CommonAreaBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommonAreaBooking
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "student",
+            "on_delete",
+            "area_type",
+            "area_name",
+            "status",
+            "booking_date",
+            "start_time",
+            "end_time",
+            "group_size",
+            "additional_members",
+            "purpose",
+            "rules_acknowledged",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class WellnessCheckSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WellnessCheck
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "allocation",
+            "on_delete",
+            "checked_by",
+            "on_delete",
+            "check_type",
+            "status",
+            "check_date",
+            "physical_wellbeing",
+            "emotional_state",
+            "room_condition",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VisitorPassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VisitorPass
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "hostel",
+            "on_delete",
+            "resident",
+            "on_delete",
+            "visitor_name",
+            "visitor_phone",
+            "visitor_id_number",
+            "relationship",
+            "status",
+            "visit_date",
+            "expected_arrival",
+            "expected_departure",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class RoommateMatchRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoommateMatchRequest
+        fields = [
+            "id",
+            "id",
+            "requester",
+            "on_delete",
+            "requested",
+            "on_delete",
+            "status",
+            "message",
+            "response_message",
             "responded_at",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "responded_at", "created_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MessMenuPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessMenuPlan
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "meal_type",
+            "day_of_week",
+            "week_number",
+            "main_course",
+            "side_dish",
+            "bread_rice",
+            "dessert",
+            "beverage",
+            "is_vegetarian",
+            "is_vegan",
+            "is_gluten_free",
+            "calories",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MessDietaryRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessDietaryRequest
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "allocation",
+            "on_delete",
+            "diet_type",
+            "status",
+            "medical_reason",
+            "doctor_note",
+            "start_date",
+            "end_date",
+            "approved_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelAssetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelAsset
+        fields = [
+            "id",
+            "id",
+            "room",
+            "on_delete",
+            "hostel",
+            "on_delete",
+            "asset_name",
+            "asset_tag",
+            "description",
+            "condition",
+            "purchase_date",
+            "purchase_cost",
+            "warranty_expiry",
+            "last_inspected",
+            "is_active",
+            "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelAssetTransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelAssetTransfer
+        fields = [
+            "id",
+            "id",
+            "asset",
+            "on_delete",
+            "from_room",
+            "on_delete",
+            "to_room",
+            "on_delete",
+            "transferred_by",
+            "on_delete",
+            "transfer_date",
+            "reason",
+            "condition_at_transfer",
+            "notes",
+        ]
+        read_only_fields = ["id"]
+
+
+class HostelEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelEvent
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "organizer",
+            "on_delete",
+            "title",
+            "description",
+            "event_type",
+            "status",
+            "event_date",
+            "start_time",
+            "end_time",
+            "location",
+            "max_participants",
+            "current_participants",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelEventParticipantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelEventParticipant
+        fields = [
+            "id",
+            "id",
+            "event",
+            "on_delete",
+            "student",
+            "on_delete",
+            "registered_at",
+            "attended",
+            "feedback_rating",
+            "feedback_comment",
+        ]
+        read_only_fields = ["id"]
+
+
+class HostelEmergencyProtocolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelEmergencyProtocol
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "emergency_type",
+            "title",
+            "description",
+            "procedures",
+            "contacts",
+            "assembly_point",
+            "last_drill_date",
+            "next_drill_date",
+            "is_active",
+            "document",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelEmergencyDrillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelEmergencyDrill
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "protocol",
+            "on_delete",
+            "conducted_by",
+            "on_delete",
+            "status",
+            "drill_date",
+            "start_time",
+            "end_time",
+            "participants_count",
+            "evaluation",
+            "evacuation_time_minutes",
+            "issues_identified",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelFeePaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelFeePayment
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "allocation",
+            "on_delete",
+            "hostel_fee",
+            "on_delete",
+            "status",
+            "amount_due",
+            "amount_paid",
+            "late_fee",
+            "discount",
+            "payment_method",
+            "transaction_id",
+            "payment_date",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class HostelInspectionScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelInspectionSchedule
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "inspector",
+            "on_delete",
+            "frequency",
+            "day_of_week",
+            "time_of_day",
+            "rooms_to_inspect",
+            "checklist_items",
+            "is_active",
+            "last_inspection_date",
+            "next_inspection_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MessFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessFeedback
+        fields = [
+            "id",
+            "id",
+            "hostel",
+            "on_delete",
+            "student",
+            "on_delete",
+            "meal_type",
+            "rating",
+            "food_quality",
+            "portion_size",
+            "hygiene_rating",
+            "liked_items",
+            "disliked_items",
+            "suggestions",
+            "meal_date",
+            "is_anonymous",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class HostelAttendanceAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HostelAttendanceAlert
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "hostel",
+            "on_delete",
+            "alert_type",
+            "severity",
+            "status",
+            "alert_date",
+            "description",
+            "related_attendance",
+            "on_delete",
+            "acknowledged_by",
+        ]
+        read_only_fields = ["id", "created_at"]
