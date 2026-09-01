@@ -1194,3 +1194,1171 @@ class CounselingFeedback(models.Model):
     def average_rating(self):
         ratings = [self.helpfulness_rating, self.communication_rating, self.professionalism_rating]
         return round(sum(ratings) / len(ratings), 2)
+
+
+# =============================================================================
+# NEW MODELS: Career Counseling
+# =============================================================================
+
+
+class CareerAssessment(models.Model):
+    """Career assessment tools and results (e.g. Holland Code, MBTI)."""
+
+    class AssessmentType(models.TextChoices):
+        HOLLAND_CODE = "holland_code", "Holland Code (RIASEC)"
+        MBTI = "mbti", "Myers-Briggs Type"
+        CLIFTON_STRENGTHS = "clifton", "CliftonStrengths"
+        STRONG_INTEREST = "strong", "Strong Interest Inventory"
+        SKILLS_APTITUDE = "skills", "Skills & Aptitude Test"
+        VALUES_INVENTORY = "values", "Values Inventory"
+        CUSTOM = "custom", "Custom Assessment"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="career_assessments")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="career_assessments")
+    assessment_type = models.CharField(max_length=20, choices=AssessmentType.choices)
+    administered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    administered_date = models.DateField()
+    # Results
+    result_summary = models.TextField(blank=True, help_text="Overall result summary")
+    result_data = models.JSONField(default=dict, blank=True, help_text="Structured result data")
+    recommended_careers = models.JSONField(default=list, blank=True, help_text="List of recommended careers")
+    recommended_fields = models.JSONField(default=list, blank=True, help_text="Recommended study fields")
+    # Recommendations
+    recommendations = models.TextField(blank=True)
+    counselor_notes = models.TextField(blank=True)
+    # File
+    report_file = models.FileField(upload_to="counseling/career_assessments/", null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "career_assessments"
+        ordering = ["-administered_date"]
+        indexes = [
+            models.Index(fields=["school", "student"]),
+        ]
+        verbose_name = "Career Assessment"
+        verbose_name_plural = "Career Assessments"
+
+    def __str__(self):
+        return f"{self.get_assessment_type_display()} — {self.student.user.full_name} ({self.administered_date})"
+
+
+class CareerGoal(models.Model):
+    """Student career goals and aspirations."""
+
+    class GoalStatus(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACHIEVED = "achieved", "Achieved"
+        CHANGED = "changed", "Goal Changed"
+        ABANDONED = "abandoned", "Abandoned"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="career_goals")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="career_goals")
+    counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="guided_career_goals")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    target_field = models.CharField(max_length=100, blank=True, help_text="Target career field")
+    target_university = models.CharField(max_length=200, blank=True)
+    target_program = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=10, choices=GoalStatus.choices, default=GoalStatus.ACTIVE)
+    action_steps = models.TextField(blank=True)
+    resources_needed = models.TextField(blank=True)
+    timeline = models.TextField(blank=True)
+    progress_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "career_goals"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} — {self.student.user.full_name}"
+
+
+class CollegeApplication(models.Model):
+    """Track college/university applications."""
+
+    class Status(models.TextChoices):
+        RESEARCHING = "researching", "Researching"
+        PREPARING = "preparing", "Preparing"
+        SUBMITTED = "submitted", "Submitted"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+        WAITLISTED = "waitlisted", "Waitlisted"
+        ENROLLED = "enrolled", "Enrolled"
+        DECLINED = "declined", "Declined by Student"
+
+    class DegreeType(models.TextChoices):
+        BACHELORS = "bachelors", "Bachelor's Degree"
+        MASTERS = "masters", "Master's Degree"
+        ASSOCIATE = "associate", "Associate's Degree"
+        DIPLOMA = "diploma", "Diploma/Certificate"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="college_applications")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="college_applications")
+    counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="supervised_applications")
+    university_name = models.CharField(max_length=200)
+    program_name = models.CharField(max_length=200, blank=True)
+    degree_type = models.CharField(max_length=15, choices=DegreeType.choices, default=DegreeType.BACHELORS)
+    location = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.RESEARCHING)
+    # Dates
+    application_deadline = models.DateField(null=True, blank=True)
+    application_submitted_date = models.DateField(null=True, blank=True)
+    decision_date = models.DateField(null=True, blank=True)
+    enrollment_deadline = models.DateField(null=True, blank=True)
+    # Financial
+    estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    scholarship_offered = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    financial_aid_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Requirements
+    sat_score = models.PositiveIntegerField(null=True, blank=True)
+    act_score = models.PositiveIntegerField(null=True, blank=True)
+    gpa_required = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    essays_completed = models.BooleanField(default=False)
+    letters_of_rec_sent = models.BooleanField(default=False)
+    # Notes
+    notes = models.TextField(blank=True)
+    counselor_recommendation = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "college_applications"
+        ordering = ["application_deadline"]
+        indexes = [
+            models.Index(fields=["student", "status"]),
+        ]
+        verbose_name = "College Application"
+        verbose_name_plural = "College Applications"
+
+    def __str__(self):
+        return f"{self.university_name} — {self.student.user.full_name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Workshop & Program Management
+# =============================================================================
+
+
+class CounselingWorkshop(models.Model):
+    """Workshops and programs run by counseling department."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class WorkshopType(models.TextChoices):
+        ORIENTATION = "orientation", "Student Orientation"
+        PARENT_WORKSHOP = "parent", "Parent Workshop"
+        STRESS_MANAGEMENT = "stress", "Stress Management"
+        BULLYING_PREVENTION = "bullying", "Bullying Prevention"
+        COLLEGE_PREP = "college_prep", "College Preparation"
+        FINANCIAL_LITERACY = "financial", "Financial Literacy"
+        MENTAL_HEALTH_AWARENESS = "mental_health", "Mental Health Awareness"
+        CAREER_EXPLORATION = "career", "Career Exploration"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_workshops")
+    organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name="organized_workshops")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    workshop_type = models.CharField(max_length=20, choices=WorkshopType.choices, default=WorkshopType.OTHER)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PLANNED)
+    # Schedule
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    # Capacity
+    max_participants = models.PositiveIntegerField(default=30)
+    current_participants = models.PositiveIntegerField(default=0)
+    # Target audience
+    target_grades = models.CharField(max_length=100, blank=True, help_text="Comma-separated grades")
+    target_audience = models.CharField(max_length=50, blank=True, help_text="Students, Parents, Teachers")
+    # Content
+    objectives = models.TextField(blank=True)
+    materials = models.TextField(blank=True)
+    speaker_name = models.CharField(max_length=200, blank=True)
+    speaker_org = models.CharField(max_length=200, blank=True)
+    # Feedback
+    avg_satisfaction = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    total_feedback_count = models.PositiveIntegerField(default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counseling_workshops"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_workshop_type_display()})"
+
+
+class WorkshopRegistration(models.Model):
+    """Registration for counseling workshops."""
+
+    class Status(models.TextChoices):
+        REGISTERED = "registered", "Registered"
+        ATTENDED = "attended", "Attended"
+        NO_SHOW = "no_show", "No Show"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workshop = models.ForeignKey(CounselingWorkshop, on_delete=models.CASCADE, related_name="registrations")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="workshop_registrations")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.REGISTERED)
+    registered_at = models.DateTimeField(auto_now_add=True)
+    attended_at = models.DateTimeField(null=True, blank=True)
+    feedback_rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Rating 1-5")
+    feedback_comments = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "workshop_registrations"
+        unique_together = [("workshop", "student")]
+
+    def __str__(self):
+        return f"{self.student} — {self.workshop}"
+
+
+# =============================================================================
+# NEW MODELS: Academic Advising
+# =============================================================================
+
+
+class AcademicAdvising(models.Model):
+    """Academic advising records."""
+
+    class AdvisingType(models.TextChoices):
+        COURSE_SELECTION = "course_selection", "Course Selection"
+        SCHEDULING = "scheduling", "Schedule Planning"
+        ACADEMIC_STANDING = "standing", "Academic Standing Review"
+        GRADUATION_REQUIREMENTS = "graduation", "Graduation Requirements"
+        TRANSFER_CREDITS = "transfer", "Transfer Credit Review"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        FOLLOW_UP = "follow_up", "Follow-up Needed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="academic_advising")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="counseling_academic_advising")
+    advisor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="advised_students")
+    advising_type = models.CharField(max_length=20, choices=AdvisingType.choices, default=AdvisingType.COURSE_SELECTION)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_date = models.DateField()
+    completed_date = models.DateField(null=True, blank=True)
+    # Content
+    topics_discussed = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    courses_recommended = models.JSONField(default=list, blank=True)
+    courses_to_drop = models.JSONField(default=list, blank=True)
+    # Academic status
+    current_gpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    credits_earned = models.PositiveIntegerField(null=True, blank=True)
+    credits_required = models.PositiveIntegerField(null=True, blank=True)
+    standing = models.CharField(max_length=30, blank=True, help_text="Good, Academic Probation, etc.")
+    # Follow-up
+    follow_up_date = models.DateField(null=True, blank=True)
+    follow_up_notes = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_advising"
+        ordering = ["-scheduled_date"]
+        indexes = [
+            models.Index(fields=["student", "advising_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_advising_type_display()} — {self.student.user.full_name} ({self.scheduled_date})"
+
+
+class CourseRecommendation(models.Model):
+    """Course recommendations for students."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    advising = models.ForeignKey(AcademicAdvising, on_delete=models.CASCADE, related_name="course_recommendations")
+    course_code = models.CharField(max_length=20)
+    course_name = models.CharField(max_length=200)
+    semester = models.CharField(max_length=20, blank=True)
+    priority = models.CharField(max_length=20, blank=True, help_text="Required, Recommended, Optional")
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "course_recommendations"
+
+    def __str__(self):
+        return f"{self.course_code} — {self.course_name}"
+
+
+# =============================================================================
+# NEW MODELS: Peer Mentoring
+# =============================================================================
+
+
+class PeerMentor(models.Model):
+    """Student peer mentors."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+        GRADUATED = "graduated", "Graduated"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="peer_mentors")
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name="peer_mentor_profile")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    training_completed = models.BooleanField(default=False)
+    training_date = models.DateField(null=True, blank=True)
+    specialties = models.TextField(blank=True)
+    max_mentees = models.PositiveIntegerField(default=3)
+    current_mentees = models.PositiveIntegerField(default=0)
+    supervisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="supervised_mentors")
+    # Stats
+    total_sessions = models.PositiveIntegerField(default=0)
+    avg_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "peer_mentors"
+        verbose_name = "Peer Mentor"
+        verbose_name_plural = "Peer Mentors"
+
+    def __str__(self):
+        return f"{self.student.user.full_name} — Peer Mentor"
+
+
+class PeerMentoringSession(models.Model):
+    """Individual peer mentoring sessions."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+        NO_SHOW = "no_show", "No Show"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    mentor = models.ForeignKey(PeerMentor, on_delete=models.CASCADE, related_name="sessions")
+    mentee = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="peer_mentoring_sessions")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    session_date = models.DateField()
+    session_time = models.TimeField()
+    duration_minutes = models.PositiveIntegerField(default=30)
+    location = models.CharField(max_length=200, blank=True)
+    topics_covered = models.TextField(blank=True)
+    mentor_notes = models.TextField(blank=True)
+    mentee_feedback = models.TextField(blank=True)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Rating 1-5")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "peer_mentoring_sessions"
+        ordering = ["-session_date"]
+
+    def __str__(self):
+        return f"{self.mentor} → {self.mentee} ({self.session_date})"
+
+
+# =============================================================================
+# NEW MODELS: Counseling Scheduling
+# =============================================================================
+
+
+class CounselingWaitlist(models.Model):
+    """Waitlist for counseling appointments."""
+
+    class Status(models.TextChoices):
+        WAITING = "waiting", "Waiting"
+        CONTACTED = "contacted", "Contacted"
+        SCHEDULED = "scheduled", "Scheduled"
+        EXPIRED = "expired", "Expired"
+        REMOVED = "removed", "Removed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_waitlist")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="counseling_waitlist")
+    preferred_counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    reason = models.TextField()
+    priority = models.CharField(
+        max_length=10, choices=StudentReferral.Priority.choices, default=StudentReferral.Priority.MEDIUM
+    )
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.WAITING)
+    position = models.PositiveIntegerField(default=0)
+    added_date = models.DateField(auto_now_add=True)
+    contact_date = models.DateField(null=True, blank=True)
+    scheduled_appointment = models.ForeignKey(CounselingAppointment, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "counseling_waitlist"
+        ordering = ["position"]
+        verbose_name = "Counseling Waitlist"
+        verbose_name_plural = "Counseling Waitlist"
+
+    def __str__(self):
+        return f"#{self.position} {self.student.user.full_name} — {self.get_status_display()}"
+
+
+class CounselingNotification(models.Model):
+    """Notifications related to counseling services."""
+
+    class NotificationType(models.TextChoices):
+        APPOINTMENT_REMINDER = "appt_reminder", "Appointment Reminder"
+        APPOINTMENT_CONFIRMED = "appt_confirmed", "Appointment Confirmed"
+        APPOINTMENT_CANCELLED = "appt_cancelled", "Appointment Cancelled"
+        FOLLOW_UP = "follow_up", "Follow-up Reminder"
+        WORKSHOP_INVITE = "workshop", "Workshop Invitation"
+        WAITLIST_UPDATE = "waitlist", "Waitlist Update"
+        SCREENING_DUE = "screening", "Screening Due"
+        CRISIS_ALERT = "crisis", "Crisis Alert"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_notifications")
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="counseling_notifications")
+    student = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="counseling_notifications"
+    )
+    notification_type = models.CharField(max_length=20, choices=NotificationType.choices)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    is_sent = models.BooleanField(default=False)
+    sent_via = models.CharField(max_length=50, blank=True, help_text="email, sms, push")
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "counseling_notifications"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_notification_type_display()} — {self.title}"
+
+
+# =============================================================================
+# NEW MODELS: Counseling Contracts & Agreements
+# =============================================================================
+
+
+class CounselingContract(models.Model):
+    """Confidentiality agreements and counseling contracts."""
+
+    class ContractType(models.TextChoices):
+        CONFIDENTIALITY = "confidentiality", "Confidentiality Agreement"
+        SERVICE_AGREEMENT = "service", "Service Agreement"
+        CONSENT_TREATMENT = "consent", "Consent for Treatment"
+        INFORMATION_RELEASE = "release", "Information Release"
+        SAFETY_PLAN = "safety", "Safety Plan"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Signature"
+        SIGNED = "signed", "Signed"
+        EXPIRED = "expired", "Expired"
+        REVOKED = "revoked", "Revoked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_contracts")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="counseling_contracts")
+    parent = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="counseling_parent_contracts"
+    )
+    counselor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="counseling_contracts")
+    contract_type = models.CharField(max_length=20, choices=ContractType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    title = models.CharField(max_length=200)
+    content = models.TextField(help_text="Full contract/agreement text")
+    # Signatures
+    student_signed = models.BooleanField(default=False)
+    student_signed_date = models.DateField(null=True, blank=True)
+    parent_signed = models.BooleanField(default=False)
+    parent_signed_date = models.DateField(null=True, blank=True)
+    counselor_signed = models.BooleanField(default=False)
+    counselor_signed_date = models.DateField(null=True, blank=True)
+    # File
+    document_file = models.FileField(upload_to="counseling/contracts/", null=True, blank=True)
+    # Validity
+    effective_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counseling_contracts"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "contract_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_contract_type_display()} — {self.student.user.full_name}"
+
+    @property
+    def is_fully_signed(self):
+        return self.student_signed and self.counselor_signed
+
+    @property
+    def is_valid(self):
+        if self.status != self.Status.SIGNED:
+            return False
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
+            return False
+        return True
+
+
+# =============================================================================
+# NEW MODELS: Referral Network
+# =============================================================================
+
+
+class ExternalReferralProvider(models.Model):
+    """External referral providers and agencies."""
+
+    class ProviderType(models.TextChoices):
+        THERAPIST = "therapist", "Therapist / Psychologist"
+        PSYCHIATRIST = "psychiatrist", "Psychiatrist"
+        SOCIAL_WORKER = "social_worker", "Social Worker"
+        COMMUNITY = "community", "Community Agency"
+        HOSPITAL = "hospital", "Hospital / Medical"
+        EDUCATIONAL = "educational", "Educational Specialist"
+        LEGAL = "legal", "Legal Services"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="external_referral_providers")
+    name = models.CharField(max_length=200)
+    provider_type = models.CharField(max_length=20, choices=ProviderType.choices)
+    organization = models.CharField(max_length=200, blank=True)
+    contact_person = models.CharField(max_length=200, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    address = models.TextField(blank=True)
+    specialties = models.TextField(blank=True)
+    insurance_accepted = models.TextField(blank=True)
+    referral_process = models.TextField(blank=True, help_text="How to make a referral")
+    is_active = models.BooleanField(default=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "external_referral_providers"
+        verbose_name = "External Referral Provider"
+        verbose_name_plural = "External Referral Providers"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_provider_type_display()})"
+
+
+class ReferralTracking(models.Model):
+    """Track referrals made to external providers."""
+
+    class Status(models.TextChoices):
+        INITIATED = "initiated", "Referral Initiated"
+        CONFIRMED = "confirmed", "Appointment Confirmed"
+        ATTENDED = "attended", "Student Attended"
+        ONGOING = "ongoing", "Ongoing Treatment"
+        COMPLETED = "completed", "Treatment Completed"
+        LOST_TO_FOLLOWUP = "lost", "Lost to Follow-up"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="referral_tracking")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="referral_tracking")
+    provider = models.ForeignKey(ExternalReferralProvider, on_delete=models.CASCADE, related_name="referrals")
+    referred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.INITIATED)
+    referral_date = models.DateField()
+    reason = models.TextField()
+    urgency = models.CharField(
+        max_length=10, choices=StudentReferral.Priority.choices, default=StudentReferral.Priority.MEDIUM
+    )
+    # Follow-up
+    appointment_date = models.DateField(null=True, blank=True)
+    follow_up_date = models.DateField(null=True, blank=True)
+    outcome_notes = models.TextField(blank=True)
+    # Parent
+    parent_consent = models.BooleanField(default=False)
+    parent_contacted = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "referral_tracking"
+        ordering = ["-referral_date"]
+        indexes = [
+            models.Index(fields=["student", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student.user.full_name} → {self.provider.name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Bullying & Harassment
+# =============================================================================
+
+
+class BullyingReport(models.Model):
+    """Bullying and harassment incident reports."""
+
+    class ReportType(models.TextChoices):
+        PHYSICAL = "physical", "Physical Bullying"
+        VERBAL = "verbal", "Verbal Bullying"
+        SOCIAL = "social", "Social / Relational Bullying"
+        CYBERBULLYING = "cyber", "Cyberbullying"
+        SEXUAL = "sexual", "Sexual Harassment"
+        RACIAL = "racial", "Racial Harassment"
+        DISCRIMINATION = "discrimination", "Discrimination"
+        OTHER = "other", "Other"
+
+    class SeverityLevel(models.TextChoices):
+        LOW = "low", "Low"
+        MODERATE = "moderate", "Moderate"
+        HIGH = "high", "High"
+        SEVERE = "severe", "Severe"
+
+    class Status(models.TextChoices):
+        REPORTED = "reported", "Reported"
+        INVESTIGATING = "investigating", "Under Investigation"
+        CONFIRMED = "confirmed", "Confirmed"
+        UNFOUNDED = "unfounded", "Unfounded"
+        RESOLVED = "resolved", "Resolved"
+        ESCALATED = "escalated", "Escalated"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="bullying_reports")
+    reporter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="bullying_reports_filed")
+    victim = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="bullying_victim_reports")
+    alleged_perpetrator = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="bullying_alleged_reports"
+    )
+    report_type = models.CharField(max_length=15, choices=ReportType.choices)
+    severity = models.CharField(max_length=10, choices=SeverityLevel.choices, default=SeverityLevel.MODERATE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.REPORTED)
+    # Description
+    description = models.TextField(help_text="Description of bullying/harassment incident")
+    location = models.CharField(max_length=200, blank=True)
+    date_of_incident = models.DateField(null=True, blank=True)
+    witnesses = models.TextField(blank=True)
+    evidence = models.TextField(blank=True, help_text="Description of any evidence")
+    # Investigation
+    investigator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="bullying_investigations"
+    )
+    investigation_notes = models.TextField(blank=True)
+    investigation_date = models.DateField(null=True, blank=True)
+    # Resolution
+    resolution = models.TextField(blank=True)
+    actions_taken = models.TextField(blank=True)
+    # Support
+    victim_support_plan = models.TextField(blank=True)
+    counselor_assigned = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="bullying_counseling_assignments"
+    )
+    # Parent notification
+    victim_parent_notified = models.BooleanField(default=False)
+    perpetrator_parent_notified = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "bullying_reports"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["school", "status", "severity"]),
+            models.Index(fields=["victim", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_report_type_display()} — {self.victim.user.full_name} ({self.get_status_display()})"
+
+
+class BullyingFollowUp(models.Model):
+    """Follow-up actions for bullying reports."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(BullyingReport, on_delete=models.CASCADE, related_name="follow_ups")
+    conducted_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    follow_up_date = models.DateField()
+    participant = models.CharField(max_length=100, help_text="Who was involved in follow-up")
+    notes = models.TextField()
+    outcome = models.TextField(blank=True)
+    victim_status = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "bullying_follow_ups"
+        ordering = ["-follow_up_date"]
+
+    def __str__(self):
+        return f"Follow-up: {self.report} ({self.follow_up_date})"
+
+
+# =============================================================================
+# NEW MODELS: Social-Emotional Learning (SEL)
+# =============================================================================
+
+
+class SELAssessment(models.Model):
+    """Social-Emotional Learning assessment results."""
+
+    class SELDomain(models.TextChoices):
+        SELF_AWARENESS = "self_awareness", "Self-Awareness"
+        SELF_MANAGEMENT = "self_management", "Self-Management"
+        SOCIAL_AWARENESS = "social_awareness", "Social Awareness"
+        RELATIONSHIP_SKILLS = "relationship", "Relationship Skills"
+        RESPONSIBLE_DECISIONS = "decisions", "Responsible Decision-Making"
+        OVERALL = "overall", "Overall SEL"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sel_assessments")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="sel_assessments")
+    assessor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    domain = models.CharField(max_length=20, choices=SELDomain.choices)
+    assessment_date = models.DateField()
+    score = models.DecimalField(max_digits=5, decimal_places=2)
+    max_score = models.DecimalField(max_digits=5, decimal_places=2, default=100)
+    strength_areas = models.TextField(blank=True)
+    growth_areas = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    intervention_suggested = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sel_assessments"
+        ordering = ["-assessment_date"]
+        indexes = [
+            models.Index(fields=["student", "domain"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_domain_display()} — {self.student.user.full_name} ({self.score}/{self.max_score})"
+
+    @property
+    def percentage_score(self):
+        if self.max_score == 0:
+            return 0
+        return round((self.score / self.max_score) * 100, 2)
+
+
+class SELGoal(models.Model):
+    """SEL goals for students."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACHIEVED = "achieved", "Achieved"
+        DISCONTINUED = "discontinued", "Discontinued"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="sel_goals")
+    counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="sel_goals_guided")
+    domain = models.CharField(max_length=20, choices=SELAssessment.SELDomain.choices)
+    goal_description = models.TextField()
+    measurable_outcome = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    start_date = models.DateField()
+    target_date = models.DateField(null=True, blank=True)
+    achieved_date = models.DateField(null=True, blank=True)
+    strategies = models.TextField(blank=True)
+    progress_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sel_goals"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"SEL Goal — {self.student.user.full_name}: {self.goal_description[:50]}"
+
+
+# =============================================================================
+# NEW MODELS: Restorative Justice
+# =============================================================================
+
+
+class RestorativeJusticeSession(models.Model):
+    """Restorative justice circles and conferences."""
+
+    class SessionType(models.TextChoices):
+        CIRCLE = "circle", "Restorative Circle"
+        CONFERENCES = "conference", "Restorative Conference"
+        MEDIATION = "mediation", "Peer Mediation"
+        DIALOGUE = "dialogue", "Restorative Dialogue"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class OutcomeType(models.TextChoices):
+        RESOLUTION = "resolution", "Resolution Reached"
+        PARTIAL = "partial", "Partial Resolution"
+        NO_RESOLUTION = "no_resolution", "No Resolution"
+        REFERRED = "referred", "Referred"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="restorative_sessions")
+    facilitator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="restorative_facilitated_sessions"
+    )
+    session_type = models.CharField(max_length=15, choices=SessionType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_date = models.DateField()
+    scheduled_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    # Participants
+    participants = models.ManyToManyField(Student, related_name="restorative_sessions")
+    participant_count = models.PositiveIntegerField(default=0)
+    # Content
+    incident_description = models.TextField(blank=True)
+    harm_caused = models.TextField(blank=True)
+    needs_identified = models.TextField(blank=True)
+    agreements = models.TextField(blank=True)
+    # Outcome
+    outcome = models.CharField(max_length=20, choices=OutcomeType.choices, blank=True)
+    outcome_notes = models.TextField(blank=True)
+    agreements_met = models.BooleanField(null=True, blank=True)
+    # Follow-up
+    follow_up_date = models.DateField(null=True, blank=True)
+    follow_up_notes = models.TextField(blank=True)
+    # Metadata
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="restorative_sessions_created"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "restorative_justice_sessions"
+        ordering = ["-scheduled_date"]
+
+    def __str__(self):
+        return f"{self.get_session_type_display()} — {self.scheduled_date}"
+
+
+class RestorativeCommitment(models.Model):
+    """Commitments/agreements from restorative justice sessions."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        OVERDUE = "overdue", "Overdue"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(RestorativeJusticeSession, on_delete=models.CASCADE, related_name="commitments")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="restorative_commitments")
+    commitment = models.TextField(help_text="What the student committed to")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    due_date = models.DateField(null=True, blank=True)
+    completed_date = models.DateField(null=True, blank=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "restorative_commitments"
+        ordering = ["due_date"]
+
+    def __str__(self):
+        return f"{self.student.user.full_name}: {self.commitment[:50]}"
+
+
+# =============================================================================
+# NEW MODELS: Counseling Surveys
+# =============================================================================
+
+
+class CounselingSurvey(models.Model):
+    """Surveys for counseling program evaluation."""
+
+    class SurveyType(models.TextChoices):
+        SATISFACTION = "satisfaction", "Satisfaction Survey"
+        NEEDS_ASSESSMENT = "needs", "Needs Assessment"
+        PROGRAM_EVALUATION = "evaluation", "Program Evaluation"
+        ANONYMOUS_FEEDBACK = "anonymous", "Anonymous Feedback"
+        PRE_POST = "pre_post", "Pre/Post Assessment"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+        ANALYZED = "analyzed", "Analyzed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_surveys")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    survey_type = models.CharField(max_length=20, choices=SurveyType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    questions = models.JSONField(default=list, blank=True, help_text="List of survey questions")
+    target_audience = models.CharField(max_length=50, blank=True, help_text="Students, Parents, Staff")
+    is_anonymous = models.BooleanField(default=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    total_responses = models.PositiveIntegerField(default=0)
+    results_data = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counseling_surveys"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_survey_type_display()})"
+
+
+class CounselingSurveyResponse(models.Model):
+    """Individual survey responses."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    survey = models.ForeignKey(CounselingSurvey, on_delete=models.CASCADE, related_name="responses")
+    respondent_type = models.CharField(max_length=20, blank=True, help_text="student, parent, staff")
+    student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
+    parent = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="counseling_survey_responses"
+    )
+    answers = models.JSONField(default=dict, blank=True)
+    overall_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    comments = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "counseling_survey_responses"
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"Response to {self.survey} — {self.submitted_at}"
+
+
+# =============================================================================
+# NEW MODELS: Counseling Leave & Coverage
+# =============================================================================
+
+
+class CounselorCoverage(models.Model):
+    """Coverage assignments when counselors are absent."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counselor_coverages")
+    absent_counselor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="counselor_coverage_absences")
+    covering_counselor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="counselor_coverage_assignments"
+    )
+    absence = models.ForeignKey(CounselorAbsence, on_delete=models.CASCADE, related_name="coverages")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    coverage_date = models.DateField()
+    students_covered = models.ManyToManyField(Student, blank=True, related_name="coverage_sessions")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counselor_coverages"
+        ordering = ["coverage_date"]
+
+    def __str__(self):
+        return (
+            f"{self.covering_counselor.full_name} covering for {self.absent_counselor.full_name} ({self.coverage_date})"
+        )
+
+
+# =============================================================================
+# NEW MODELS: Special Education Referral
+# =============================================================================
+
+
+class SpecialEducationReferral(models.Model):
+    """Referrals for special education evaluation and IEP/504 plans."""
+
+    class ReferralType(models.TextChoices):
+        IEP = "iep", "IEP Evaluation"
+        PLAN_504 = "504", "504 Plan"
+        GIFTED = "gifted", "Gifted/Talented"
+        LEARNING_DISABILITY = "ld", "Learning Disability"
+        ADHD = "adhd", "ADHD Accommodation"
+        AUTISM = "autism", "Autism Spectrum"
+        EMOTIONAL = "emotional", "Emotional/Behavioral"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        INITIATED = "initiated", "Referral Initiated"
+        EVALUATION_SCHEDULED = "eval_scheduled", "Evaluation Scheduled"
+        UNDER_EVALUATION = "evaluating", "Under Evaluation"
+        ELIGIBLE = "eligible", "Found Eligible"
+        NOT_ELIGIBLE = "not_eligible", "Not Eligible"
+        IEP_CREATED = "iep_created", "IEP/504 Created"
+        IN_PROGRESS = "in_progress", "Active Plan"
+        REVIEW = "review", "Under Review"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="spec_ed_referrals")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="spec_ed_referrals")
+    referred_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="spec_ed_referrals_created"
+    )
+    referral_type = models.CharField(max_length=20, choices=ReferralType.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.INITIATED)
+    reason = models.TextField(help_text="Reason for referral")
+    supporting_data = models.TextField(blank=True)
+    # Evaluation
+    evaluator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    evaluation_date = models.DateField(null=True, blank=True)
+    evaluation_results = models.TextField(blank=True)
+    # Plan
+    plan_type = models.CharField(max_length=20, blank=True, help_text="IEP, 504, etc.")
+    plan_created_date = models.DateField(null=True, blank=True)
+    plan_review_date = models.DateField(null=True, blank=True)
+    # Parent
+    parent_consent = models.BooleanField(default=False)
+    parent_consent_date = models.DateField(null=True, blank=True)
+    parent_notified = models.BooleanField(default=False)
+    # Notes
+    notes = models.TextField(blank=True)
+    document = models.FileField(upload_to="counseling/spec_ed/", null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "special_education_referrals"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "referral_type"]),
+            models.Index(fields=["school", "status"]),
+        ]
+        verbose_name = "Special Education Referral"
+        verbose_name_plural = "Special Education Referrals"
+
+    def __str__(self):
+        return f"{self.get_referral_type_display()} — {self.student.user.full_name} ({self.get_status_display()})"
+
+
+class CounselingGoalTracking(models.Model):
+    """Long-term counseling goal tracking for students."""
+
+    class Domain(models.TextChoices):
+        ACADEMIC = "academic", "Academic"
+        SOCIAL = "social", "Social Skills"
+        EMOTIONAL = "emotional", "Emotional Regulation"
+        BEHAVIORAL = "behavioral", "Behavioral"
+        CAREER = "career", "Career Development"
+        COLLEGE = "college", "College Readiness"
+        WELLNESS = "wellness", "Overall Wellness"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACHIEVED = "achieved", "Achieved"
+        PARTIALLY = "partial", "Partially Achieved"
+        ONGOING = "ongoing", "Ongoing"
+        DISCONTINUED = "discontinued", "Discontinued"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_goal_tracking")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="counseling_goal_tracking")
+    counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    domain = models.CharField(max_length=15, choices=Domain.choices)
+    goal = models.TextField(help_text="Goal description")
+    measurable_criteria = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    priority = models.CharField(
+        max_length=10, choices=StudentReferral.Priority.choices, default=StudentReferral.Priority.MEDIUM
+    )
+    start_date = models.DateField()
+    target_date = models.DateField(null=True, blank=True)
+    achieved_date = models.DateField(null=True, blank=True)
+    progress_percentage = models.PositiveSmallIntegerField(default=0)
+    progress_notes = models.TextField(blank=True)
+    barriers = models.TextField(blank=True)
+    support_strategies = models.TextField(blank=True)
+    review_dates = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "counseling_goal_tracking"
+        ordering = ["-start_date"]
+        indexes = [
+            models.Index(fields=["student", "domain", "status"]),
+        ]
+        verbose_name = "Counseling Goal Tracking"
+        verbose_name_plural = "Counseling Goal Tracking"
+
+    def __str__(self):
+        return f"{self.get_domain_display()} — {self.student.user.full_name}: {self.goal[:50]}"
+
+
+class CounselingSessionLog(models.Model):
+    """Audit log for counseling session access and modifications."""
+
+    class ActionType(models.TextChoices):
+        VIEWED = "viewed", "Record Viewed"
+        CREATED = "created", "Record Created"
+        EDITED = "edited", "Record Edited"
+        SHARED = "shared", "Record Shared"
+        EXPORTED = "exported", "Record Exported"
+        DELETED = "deleted", "Record Deleted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="counseling_session_logs")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="counseling_audit_logs")
+    action = models.CharField(max_length=15, choices=ActionType.choices)
+    target_type = models.CharField(max_length=50, help_text="Model type affected")
+    target_id = models.CharField(max_length=100, help_text="ID of the affected record")
+    description = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "counseling_session_logs"
+        ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["user", "action"]),
+            models.Index(fields=["target_type", "target_id"]),
+        ]
+        verbose_name = "Counseling Session Log"
+        verbose_name_plural = "Counseling Session Logs"
+
+    def __str__(self):
+        return f"{self.user.full_name} — {self.get_action_display()} {self.target_type} ({self.timestamp})"

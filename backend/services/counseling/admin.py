@@ -5,18 +5,35 @@ Counseling Service — Django Admin registrations.
 from django.contrib import admin
 
 from .models import (
+    AcademicAdvising,
+    BullyingFollowUp,
+    BullyingReport,
+    CareerAssessment,
+    CareerGoal,
     CaseManagement,
     CaseNote,
+    CollegeApplication,
     CounselingAppointment,
+    CounselingContract,
     CounselingFeedback,
+    CounselingGoalTracking,
+    CounselingNotification,
     CounselingOutcome,
     CounselingReport,
     CounselingSession,
+    CounselingSessionLog,
+    CounselingSurvey,
+    CounselingSurveyResponse,
+    CounselingWaitlist,
+    CounselingWorkshop,
     CounselorAbsence,
     CounselorAvailability,
+    CounselorCoverage,
     CounselorProfile,
+    CourseRecommendation,
     CrisisFollowUp,
     CrisisIntervention,
+    ExternalReferralProvider,
     GroupSession,
     GroupSessionAttendance,
     GroupSessionMember,
@@ -24,11 +41,20 @@ from .models import (
     InterventionPlan,
     MentalHealthScreening,
     ParentConsent,
+    PeerMentor,
+    PeerMentoringSession,
     ProgressMilestone,
     ProgressTracking,
+    ReferralTracking,
+    RestorativeCommitment,
+    RestorativeJusticeSession,
     ScreeningResponse,
+    SELAssessment,
+    SELGoal,
     SessionAttachment,
+    SpecialEducationReferral,
     StudentReferral,
+    WorkshopRegistration,
 )
 
 
@@ -359,3 +385,256 @@ class CounselingFeedbackAdmin(admin.ModelAdmin):
     list_filter = ["feedback_type", "overall_satisfaction"]
     search_fields = ["student__user__first_name", "counselor__first_name"]
     date_hierarchy = "created_at"
+
+
+# =============================================================================
+# Career Counseling
+# =============================================================================
+
+
+@admin.register(CareerAssessment)
+class CareerAssessmentAdmin(admin.ModelAdmin):
+    list_display = ["student", "assessment_type", "administered_date", "administered_by"]
+    list_filter = ["assessment_type"]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    date_hierarchy = "administered_date"
+
+
+@admin.register(CareerGoal)
+class CareerGoalAdmin(admin.ModelAdmin):
+    list_display = ["student", "title", "target_field", "status"]
+    list_filter = ["status"]
+    search_fields = ["student__user__first_name", "title"]
+
+
+@admin.register(CollegeApplication)
+class CollegeApplicationAdmin(admin.ModelAdmin):
+    list_display = ["student", "university_name", "program_name", "status", "application_deadline"]
+    list_filter = ["status", "degree_type"]
+    search_fields = ["student__user__first_name", "university_name"]
+    date_hierarchy = "application_deadline"
+
+
+# =============================================================================
+# Workshop & Program Management
+# =============================================================================
+
+
+@admin.register(CounselingWorkshop)
+class CounselingWorkshopAdmin(admin.ModelAdmin):
+    list_display = ["title", "workshop_type", "status", "start_date", "current_participants", "max_participants"]
+    list_filter = ["workshop_type", "status"]
+    search_fields = ["title", "description"]
+    date_hierarchy = "start_date"
+
+
+@admin.register(WorkshopRegistration)
+class WorkshopRegistrationAdmin(admin.ModelAdmin):
+    list_display = ["workshop", "student", "status", "feedback_rating"]
+    list_filter = ["status"]
+    search_fields = ["student__user__first_name"]
+
+
+# =============================================================================
+# Academic Advising
+# =============================================================================
+
+
+@admin.register(AcademicAdvising)
+class AcademicAdvisingAdmin(admin.ModelAdmin):
+    list_display = ["student", "advisor", "advising_type", "status", "scheduled_date"]
+    list_filter = ["advising_type", "status"]
+    search_fields = ["student__user__first_name", "advisor__first_name"]
+    date_hierarchy = "scheduled_date"
+
+
+@admin.register(CourseRecommendation)
+class CourseRecommendationAdmin(admin.ModelAdmin):
+    list_display = ["advising", "course_code", "course_name", "priority"]
+    search_fields = ["course_code", "course_name"]
+
+
+# =============================================================================
+# Peer Mentoring
+# =============================================================================
+
+
+@admin.register(PeerMentor)
+class PeerMentorAdmin(admin.ModelAdmin):
+    list_display = ["student", "status", "training_completed", "current_mentees", "max_mentees"]
+    list_filter = ["status", "training_completed"]
+    search_fields = ["student__user__first_name"]
+
+
+@admin.register(PeerMentoringSession)
+class PeerMentoringSessionAdmin(admin.ModelAdmin):
+    list_display = ["mentor", "mentee", "session_date", "status", "rating"]
+    list_filter = ["status"]
+    date_hierarchy = "session_date"
+
+
+# =============================================================================
+# Scheduling & Waitlist
+# =============================================================================
+
+
+@admin.register(CounselingWaitlist)
+class CounselingWaitlistAdmin(admin.ModelAdmin):
+    list_display = ["student", "position", "priority", "status", "added_date"]
+    list_filter = ["status", "priority"]
+    search_fields = ["student__user__first_name"]
+    ordering = ["position"]
+
+
+@admin.register(CounselingNotification)
+class CounselingNotificationAdmin(admin.ModelAdmin):
+    list_display = ["recipient", "notification_type", "title", "is_read", "created_at"]
+    list_filter = ["notification_type", "is_read"]
+    search_fields = ["recipient__first_name", "title"]
+    date_hierarchy = "created_at"
+
+
+# =============================================================================
+# Contracts & Agreements
+# =============================================================================
+
+
+@admin.register(CounselingContract)
+class CounselingContractAdmin(admin.ModelAdmin):
+    list_display = ["student", "contract_type", "status", "effective_date", "expiry_date"]
+    list_filter = ["contract_type", "status"]
+    search_fields = ["student__user__first_name", "title"]
+
+
+# =============================================================================
+# External Referrals
+# =============================================================================
+
+
+@admin.register(ExternalReferralProvider)
+class ExternalReferralProviderAdmin(admin.ModelAdmin):
+    list_display = ["name", "provider_type", "organization", "phone", "is_active"]
+    list_filter = ["provider_type", "is_active"]
+    search_fields = ["name", "organization"]
+
+
+@admin.register(ReferralTracking)
+class ReferralTrackingAdmin(admin.ModelAdmin):
+    list_display = ["student", "provider", "status", "referral_date", "urgency"]
+    list_filter = ["status", "urgency"]
+    search_fields = ["student__user__first_name"]
+    date_hierarchy = "referral_date"
+
+
+# =============================================================================
+# Bullying & Harassment
+# =============================================================================
+
+
+@admin.register(BullyingReport)
+class BullyingReportAdmin(admin.ModelAdmin):
+    list_display = ["victim", "report_type", "severity", "status", "created_at"]
+    list_filter = ["report_type", "severity", "status"]
+    search_fields = ["victim__user__first_name", "description"]
+    date_hierarchy = "created_at"
+
+
+@admin.register(BullyingFollowUp)
+class BullyingFollowUpAdmin(admin.ModelAdmin):
+    list_display = ["report", "conducted_by", "follow_up_date"]
+    date_hierarchy = "follow_up_date"
+
+
+# =============================================================================
+# SEL
+# =============================================================================
+
+
+@admin.register(SELAssessment)
+class SELAssessmentAdmin(admin.ModelAdmin):
+    list_display = ["student", "domain", "score", "max_score", "assessment_date"]
+    list_filter = ["domain"]
+    search_fields = ["student__user__first_name"]
+    date_hierarchy = "assessment_date"
+
+
+@admin.register(SELGoal)
+class SELGoalAdmin(admin.ModelAdmin):
+    list_display = ["student", "domain", "status", "start_date", "target_date"]
+    list_filter = ["status", "domain"]
+    search_fields = ["student__user__first_name"]
+
+
+# =============================================================================
+# Restorative Justice
+# =============================================================================
+
+
+@admin.register(RestorativeJusticeSession)
+class RestorativeJusticeSessionAdmin(admin.ModelAdmin):
+    list_display = ["session_type", "status", "scheduled_date", "participant_count"]
+    list_filter = ["session_type", "status"]
+    date_hierarchy = "scheduled_date"
+
+
+@admin.register(RestorativeCommitment)
+class RestorativeCommitmentAdmin(admin.ModelAdmin):
+    list_display = ["student", "commitment", "status", "due_date"]
+    list_filter = ["status"]
+    search_fields = ["student__user__first_name"]
+
+
+# =============================================================================
+# Surveys
+# =============================================================================
+
+
+@admin.register(CounselingSurvey)
+class CounselingSurveyAdmin(admin.ModelAdmin):
+    list_display = ["title", "survey_type", "status", "total_responses", "start_date"]
+    list_filter = ["survey_type", "status"]
+    search_fields = ["title"]
+
+
+@admin.register(CounselingSurveyResponse)
+class CounselingSurveyResponseAdmin(admin.ModelAdmin):
+    list_display = ["survey", "respondent_type", "overall_rating", "submitted_at"]
+    list_filter = ["respondent_type"]
+    date_hierarchy = "submitted_at"
+
+
+# =============================================================================
+# Coverage & Special Ed
+# =============================================================================
+
+
+@admin.register(CounselorCoverage)
+class CounselorCoverageAdmin(admin.ModelAdmin):
+    list_display = ["absent_counselor", "covering_counselor", "coverage_date", "status"]
+    list_filter = ["status"]
+    date_hierarchy = "coverage_date"
+
+
+@admin.register(SpecialEducationReferral)
+class SpecialEducationReferralAdmin(admin.ModelAdmin):
+    list_display = ["student", "referral_type", "status", "parent_consent", "created_at"]
+    list_filter = ["referral_type", "status"]
+    search_fields = ["student__user__first_name"]
+    date_hierarchy = "created_at"
+
+
+@admin.register(CounselingGoalTracking)
+class CounselingGoalTrackingAdmin(admin.ModelAdmin):
+    list_display = ["student", "domain", "goal", "status", "progress_percentage"]
+    list_filter = ["domain", "status"]
+    search_fields = ["student__user__first_name", "goal"]
+
+
+@admin.register(CounselingSessionLog)
+class CounselingSessionLogAdmin(admin.ModelAdmin):
+    list_display = ["user", "action", "target_type", "target_id", "timestamp"]
+    list_filter = ["action"]
+    search_fields = ["user__first_name", "target_type"]
+    date_hierarchy = "timestamp"
+    readonly_fields = ["id", "user", "action", "target_type", "target_id", "description", "ip_address", "timestamp"]
+    ordering = ["-timestamp"]
