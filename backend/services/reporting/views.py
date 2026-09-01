@@ -7,17 +7,18 @@ import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from core.permissions import IsSchoolAdmin, IsSchoolStaff
+from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
 from django.core.cache import cache
 from django.db.models import Avg, Count, Q, Sum
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from rest_framework import viewsets
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -25,6 +26,31 @@ from services.attendance.models import AttendanceRecord
 from services.fees.models import FeeInvoice, Payment
 from services.gradebook.models import ReportCard
 from services.students.models import AcademicYear, Classroom, Enrollment, Student
+
+from .models import (
+    AcademicPerformanceReport,
+    ComplianceReport,
+    DepartmentReport,
+    GradeTrendReport,
+    ReportShare,
+    ReportTemplate,
+    ScheduledReport,
+    StudentProgressTracking,
+    TeacherPerformanceReport,
+    YearOverYearReport,
+)
+from .serializers import (
+    AcademicPerformanceReportSerializer,
+    ComplianceReportSerializer,
+    DepartmentReportSerializer,
+    GradeTrendReportSerializer,
+    ReportShareSerializer,
+    ReportTemplateSerializer,
+    ScheduledReportSerializer,
+    StudentProgressTrackingSerializer,
+    TeacherPerformanceReportSerializer,
+    YearOverYearReportSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -635,3 +661,165 @@ class ReportingViewSet(viewsets.ViewSet):
             )
 
         return response
+
+
+# ─── New Report ViewSets ─────────────────────────────────────────────────────
+
+
+class ReportTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = ReportTemplateSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["report_type", "is_public"]
+    search_fields = ["name"]
+
+    def get_queryset(self):
+        return ReportTemplate.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+
+class AcademicPerformanceReportViewSet(viewsets.ModelViewSet):
+    serializer_class = AcademicPerformanceReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["academic_year", "grade", "subject"]
+
+    def get_queryset(self):
+        return AcademicPerformanceReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class TeacherPerformanceReportViewSet(viewsets.ModelViewSet):
+    serializer_class = TeacherPerformanceReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["academic_year", "teacher"]
+
+    def get_queryset(self):
+        return TeacherPerformanceReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class GradeTrendReportViewSet(viewsets.ModelViewSet):
+    serializer_class = GradeTrendReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["trend_type", "academic_year"]
+
+    def get_queryset(self):
+        return GradeTrendReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class ScheduledReportViewSet(viewsets.ModelViewSet):
+    serializer_class = ScheduledReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["report_type", "frequency", "status"]
+
+    def get_queryset(self):
+        return ScheduledReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+
+class YearOverYearReportViewSet(viewsets.ModelViewSet):
+    serializer_class = YearOverYearReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+
+    def get_queryset(self):
+        return YearOverYearReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class DepartmentReportViewSet(viewsets.ModelViewSet):
+    serializer_class = DepartmentReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["department", "academic_year"]
+
+    def get_queryset(self):
+        return DepartmentReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class ComplianceReportViewSet(viewsets.ModelViewSet):
+    serializer_class = ComplianceReportSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["compliance_type", "status"]
+
+    def get_queryset(self):
+        return ComplianceReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class ReportShareViewSet(viewsets.ModelViewSet):
+    serializer_class = ReportShareSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["share_type", "access_level"]
+
+    def get_queryset(self):
+        return ReportShare.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            shared_by=self.request.user,
+        )
+
+
+class StudentProgressTrackingViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentProgressTrackingSerializer
+    permission_classes = [IsAuthenticated, IsSchoolMember]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "progress_type", "academic_year"]
+
+    def get_queryset(self):
+        return StudentProgressTracking.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
