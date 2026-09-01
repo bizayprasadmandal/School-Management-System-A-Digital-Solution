@@ -24,21 +24,26 @@ from .models import (
     CourseGradeCalculation,
     Exam,
     ExamSchedule,
+    ExamType,
     ExtraCredit,
     ExtraCreditSubmission,
     GPACalculation,
     Grade,
+    GradeChangeLog,
     GradeChangeProposal,
     GradeComment,
     GradeHistory,
     GradeNotification,
     GradingCategory,
+    GradingScale,
+    GradingScaleEntry,
     LatePenaltyRule,
     ReportCard,
     ReportCardComment,
     RubricAssessment,
     RubricCriterion,
     RubricLevel,
+    RubricScore,
     RubricTemplate,
     Standard,
     StandardMasteryScale,
@@ -54,21 +59,26 @@ from .serializers import (
     CourseGradeCalculationSerializer,
     ExamScheduleSerializer,
     ExamSerializer,
+    ExamTypeSerializer,
     ExtraCreditSerializer,
     ExtraCreditSubmissionSerializer,
     GPACalculationSerializer,
+    GradeChangeLogSerializer,
     GradeChangeProposalSerializer,
     GradeCommentSerializer,
     GradeHistorySerializer,
     GradeNotificationSerializer,
     GradeSerializer,
     GradingCategorySerializer,
+    GradingScaleEntrySerializer,
+    GradingScaleSerializer,
     LatePenaltyRuleSerializer,
     ReportCardCommentSerializer,
     ReportCardSerializer,
     RubricAssessmentSerializer,
     RubricCriterionSerializer,
     RubricLevelSerializer,
+    RubricScoreSerializer,
     RubricTemplateSerializer,
     StandardMasteryScaleSerializer,
     StandardSerializer,
@@ -1101,3 +1111,51 @@ class ReportCardCommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(added_by=self.request.user)
+
+
+class ExamScheduleViewSet(viewsets.ModelViewSet):
+    queryset = ExamSchedule.objects.all()
+    serializer_class = ExamScheduleSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class ExamTypeViewSet(viewsets.ModelViewSet):
+    queryset = ExamType.objects.all()
+    serializer_class = ExamTypeSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class GradeChangeLogViewSet(viewsets.ModelViewSet):
+    queryset = GradeChangeLog.objects.all()
+    serializer_class = GradeChangeLogSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class GradingScaleViewSet(viewsets.ModelViewSet):
+    queryset = GradingScale.objects.all()
+    serializer_class = GradingScaleSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class GradingScaleEntryViewSet(viewsets.ModelViewSet):
+    queryset = GradingScaleEntry.objects.all()
+    serializer_class = GradingScaleEntrySerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+
+class RubricScoreViewSet(viewsets.ModelViewSet):
+    queryset = RubricScore.objects.all()
+    serializer_class = RubricScoreSerializer
+    search_fields = ["id"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
