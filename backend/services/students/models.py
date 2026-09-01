@@ -868,3 +868,789 @@ class StudentWellness(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.get_wellness_type_display()} ({self.get_status_display()})"
+
+
+class StudentLearningStyle(models.Model):
+    """Learning style assessment for students."""
+
+    class StyleType(models.TextChoices):
+        VISUAL = "visual", "Visual"
+        AUDITORY = "auditory", "Auditory"
+        KINESTHETIC = "kinesthetic", "Kinesthetic"
+        READING = "reading", "Reading/Writing"
+        MULTIMODAL = "multimodal", "Multimodal"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="learning_styles")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_learning_styles")
+    primary_style = models.CharField(max_length=20, choices=StyleType.choices)
+    secondary_style = models.CharField(max_length=20, choices=StyleType.choices, blank=True)
+    assessment_tool = models.CharField(max_length=100, blank=True)
+    score_visual = models.PositiveSmallIntegerField(default=0)
+    score_auditory = models.PositiveSmallIntegerField(default=0)
+    score_kinesthetic = models.PositiveSmallIntegerField(default=0)
+    score_reading = models.PositiveSmallIntegerField(default=0)
+    recommendations = models.TextField(blank=True)
+    assessed_date = models.DateField()
+    assessed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_learning_styles"
+        ordering = ["-assessed_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_primary_style_display()}"
+
+
+class StudentAchievement(models.Model):
+    """Academic achievements and honors."""
+
+    class AchievementType(models.TextChoices):
+        ACADEMIC = "academic", "Academic Honor"
+        SPORTS = "sports", "Sports Achievement"
+        ARTS = "arts", "Arts Achievement"
+        LEADERSHIP = "leadership", "Leadership"
+        SERVICE = "service", "Community Service"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="achievements")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_achievements")
+    achievement_type = models.CharField(max_length=20, choices=AchievementType.choices)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    date_earned = models.DateField()
+    awarded_by = models.CharField(max_length=200, blank=True)
+    certificate_url = models.URLField(max_length=500, blank=True)
+    is_public = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_achievements"
+        ordering = ["-date_earned"]
+
+    def __str__(self):
+        return f"{self.student} - {self.title}"
+
+
+class StudentClub(models.Model):
+    """Student club membership."""
+
+    class Role(models.TextChoices):
+        MEMBER = "member", "Member"
+        PRESIDENT = "president", "President"
+        VICE_PRESIDENT = "vice_president", "Vice President"
+        SECRETARY = "secretary", "Secretary"
+        TREASURER = "treasurer", "Treasurer"
+        ADVISOR = "advisor", "Faculty Advisor"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="club_memberships")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_club_memberships")
+    club_name = models.CharField(max_length=200)
+    club_type = models.CharField(max_length=100, blank=True)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    join_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    advisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_club_memberships"
+        ordering = ["-join_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.club_name} ({self.get_role_display()})"
+
+
+class StudentActivity(models.Model):
+    """Extracurricular activities."""
+
+    class ActivityType(models.TextChoices):
+        SPORTS = "sports", "Sports"
+        ARTS = "arts", "Arts"
+        MUSIC = "music", "Music"
+        DRAMA = "drama", "Drama"
+        DEBATE = "debate", "Debate"
+        SCIENCE = "science", "Science Club"
+        CODING = "coding", "Coding Club"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="activities")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_activities")
+    activity_name = models.CharField(max_length=200)
+    activity_type = models.CharField(max_length=20, choices=ActivityType.choices)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    hours_per_week = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    instructor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_activities"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.activity_name}"
+
+
+class StudentAward(models.Model):
+    """Awards and honors."""
+
+    class AwardLevel(models.TextChoices):
+        CLASSROOM = "classroom", "Classroom"
+        SCHOOL = "school", "School"
+        DISTRICT = "district", "District"
+        STATE = "state", "State"
+        NATIONAL = "national", "National"
+        INTERNATIONAL = "international", "International"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="awards")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_awards")
+    award_name = models.CharField(max_length=200)
+    award_level = models.CharField(max_length=20, choices=AwardLevel.choices, default=AwardLevel.SCHOOL)
+    category = models.CharField(max_length=100, blank=True)
+    date_awarded = models.DateField()
+    awarded_by = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    certificate_url = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_awards"
+        ordering = ["-date_awarded"]
+
+    def __str__(self):
+        return f"{self.student} - {self.award_name}"
+
+
+class StudentDiscipline(models.Model):
+    """Discipline records."""
+
+    class ActionType(models.TextChoices):
+        WARNING = "warning", "Warning"
+        DETENTION = "detention", "Detention"
+        SUSPENSION = "suspension", "Suspension"
+        EXPULSION = "expulsion", "Expulsion"
+        COUNSELING = "counseling", "Counseling"
+        COMMUNITY_SERVICE = "community_service", "Community Service"
+        OTHER = "other", "Other"
+
+    class Severity(models.TextChoices):
+        MINOR = "minor", "Minor"
+        MODERATE = "moderate", "Moderate"
+        MAJOR = "major", "Major"
+        CRITICAL = "critical", "Critical"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="discipline_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_discipline")
+    action_type = models.CharField(max_length=20, choices=ActionType.choices)
+    severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.MINOR)
+    incident_date = models.DateField()
+    description = models.TextField()
+    location = models.CharField(max_length=200, blank=True)
+    witnesses = models.TextField(blank=True)
+    action_taken = models.TextField(blank=True)
+    follow_up_required = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    parent_notified = models.BooleanField(default=False)
+    parent_notified_date = models.DateField(null=True, blank=True)
+    reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    is_resolved = models.BooleanField(default=False)
+    resolved_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_discipline"
+        ordering = ["-incident_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_action_type_display()} ({self.incident_date})"
+
+
+class StudentTutoring(models.Model):
+    """Tutoring sessions."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="tutoring_sessions")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_tutoring")
+    subject = models.ForeignKey("academics.Subject", on_delete=models.SET_NULL, null=True, blank=True)
+    tutor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="tutoring_sessions")
+    session_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    topics_covered = models.TextField(blank=True)
+    homework_assigned = models.TextField(blank=True)
+    progress_notes = models.TextField(blank=True)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="1-5 rating")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_tutoring"
+        ordering = ["-session_date"]
+
+    def __str__(self):
+        return f"{self.student} - Tutoring ({self.session_date})"
+
+
+class StudentMentor(models.Model):
+    """Mentorship programs."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        PAUSED = "paused", "Paused"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="mentorships")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_mentorships")
+    mentor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    program_name = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    goals = models.TextField(blank=True)
+    meeting_frequency = models.CharField(max_length=50, blank=True)
+    progress_notes = models.TextField(blank=True)
+    outcome = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_mentorships"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.program_name}"
+
+
+class StudentCareerGuidance(models.Model):
+    """Career counseling records."""
+
+    class InterestType(models.TextChoices):
+        STEM = "stem", "STEM"
+        BUSINESS = "business", "Business"
+        ARTS = "arts", "Arts & Humanities"
+        HEALTHCARE = "healthcare", "Healthcare"
+        EDUCATION = "education", "Education"
+        LAW = "law", "Law"
+        ENGINEERING = "engineering", "Engineering"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="career_guidance")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_career_guidance")
+    career_interest = models.CharField(max_length=20, choices=InterestType.choices)
+    career_goals = models.TextField(blank=True)
+    strengths = models.TextField(blank=True)
+    areas_for_development = models.TextField(blank=True)
+    recommended_courses = models.TextField(blank=True)
+    recommended_activities = models.TextField(blank=True)
+    college_preferences = models.TextField(blank=True)
+    scholarship_eligibility = models.BooleanField(default=False)
+    guidance_date = models.DateField()
+    guided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_career_guidance"
+        ordering = ["-guidance_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_career_interest_display()}"
+
+
+class StudentParentCommunication(models.Model):
+    """Parent-teacher communication records."""
+
+    class CommType(models.TextChoices):
+        MEETING = "meeting", "Meeting"
+        PHONE_CALL = "phone_call", "Phone Call"
+        EMAIL = "email", "Email"
+        NOTE = "note", "Written Note"
+        CONFERENCE = "conference", "Conference"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="parent_communications")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_parent_communications")
+    communication_type = models.CharField(max_length=20, choices=CommType.choices)
+    subject = models.CharField(max_length=200)
+    description = models.TextField()
+    communication_date = models.DateField()
+    parent_name = models.CharField(max_length=200, blank=True)
+    parent_phone = models.CharField(max_length=20, blank=True)
+    parent_email = models.EmailField(blank=True)
+    teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    follow_up_required = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    is_confidential = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_parent_communications"
+        ordering = ["-communication_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_communication_type_display()} ({self.communication_date})"
+
+
+class StudentAcademicAdvisor(models.Model):
+    """Academic advising records."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        PENDING = "pending", "Pending"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="academic_advising")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_academic_advising")
+    advisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    advising_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    academic_goals = models.TextField(blank=True)
+    course_recommendations = models.TextField(blank=True)
+    academic_concerns = models.TextField(blank=True)
+    action_items = models.TextField(blank=True)
+    next_advising_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_academic_advising"
+        ordering = ["-advising_date"]
+
+    def __str__(self):
+        return f"{self.student} - Academic Advising ({self.advising_date})"
+
+
+class StudentTransfer(models.Model):
+    """Transfer records."""
+
+    class TransferType(models.TextChoices):
+        INCOMING = "incoming", "Incoming"
+        OUTGOING = "outgoing", "Outgoing"
+        INTERNAL = "internal", "Internal Transfer"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        COMPLETED = "completed", "Completed"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="student_transfers")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_transfers")
+    transfer_type = models.CharField(max_length=20, choices=TransferType.choices)
+    from_school = models.CharField(max_length=200, blank=True)
+    to_school = models.CharField(max_length=200, blank=True)
+    from_classroom = models.ForeignKey(
+        Classroom, on_delete=models.SET_NULL, null=True, blank=True, related_name="transfers_from"
+    )
+    to_classroom = models.ForeignKey(
+        Classroom, on_delete=models.SET_NULL, null=True, blank=True, related_name="transfers_to"
+    )
+    transfer_date = models.DateField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_date = models.DateField(null=True, blank=True)
+    documents = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_transfers"
+        ordering = ["-transfer_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_transfer_type_display()} ({self.transfer_date})"
+
+
+class StudentGraduation(models.Model):
+    """Graduation tracking."""
+
+    class Status(models.TextChoices):
+        ON_TRACK = "on_track", "On Track"
+        AT_RISK = "at_risk", "At Risk"
+        GRADUATED = "graduated", "Graduated"
+        NOT_GRADUATED = "not_graduated", "Not Graduated"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="graduation_records")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_graduation")
+    expected_graduation_year = models.PositiveSmallIntegerField()
+    actual_graduation_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ON_TRACK)
+    credits_earned = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    credits_required = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    gpa = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    class_rank = models.PositiveIntegerField(null=True, blank=True)
+    diploma_type = models.CharField(max_length=100, blank=True)
+    honors = models.CharField(max_length=100, blank=True)
+    college_acceptance = models.TextField(blank=True)
+    scholarship_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_graduation"
+        ordering = ["-expected_graduation_year"]
+
+    def __str__(self):
+        return f"{self.student} - Graduation {self.expected_graduation_year}"
+
+
+class StudentVolunteer(models.Model):
+    """Volunteer hours tracking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="volunteer_hours")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_volunteer")
+    organization = models.CharField(max_length=200)
+    activity = models.CharField(max_length=200)
+    hours = models.DecimalField(max_digits=6, decimal_places=2)
+    date_performed = models.DateField()
+    supervisor_name = models.CharField(max_length=200, blank=True)
+    supervisor_phone = models.CharField(max_length=20, blank=True)
+    supervisor_email = models.EmailField(blank=True)
+    certificate_url = models.URLField(max_length=500, blank=True)
+    verified = models.BooleanField(default=False)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_volunteer_hours"
+        ordering = ["-date_performed"]
+
+    def __str__(self):
+        return f"{self.student} - {self.organization} ({self.hours} hrs)"
+
+
+class StudentInternship(models.Model):
+    """Internship tracking."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="internships")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_internships")
+    company_name = models.CharField(max_length=200)
+    position = models.CharField(max_length=200)
+    department = models.CharField(max_length=100, blank=True)
+    supervisor_name = models.CharField(max_length=200, blank=True)
+    supervisor_email = models.EmailField(blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
+    hours_per_week = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    is_paid = models.BooleanField(default=False)
+    stipend_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    description = models.TextField(blank=True)
+    skills_gained = models.TextField(blank=True)
+    evaluation = models.TextField(blank=True)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="1-5 rating")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_internships"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.company_name} ({self.position})"
+
+
+class StudentScholarship(models.Model):
+    """Scholarship tracking."""
+
+    class Status(models.TextChoices):
+        APPLIED = "applied", "Applied"
+        PENDING = "pending", "Pending"
+        AWARDED = "awarded", "Awarded"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="student_scholarships")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_scholarships")
+    scholarship_name = models.CharField(max_length=200)
+    provider = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    scholarship_type = models.CharField(max_length=100, blank=True)
+    application_date = models.DateField()
+    deadline_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
+    award_date = models.DateField(null=True, blank=True)
+    renewal_required = models.BooleanField(default=False)
+    renewal_date = models.DateField(null=True, blank=True)
+    gpa_requirement = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    documents = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_scholarships"
+        ordering = ["-application_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.scholarship_name}"
+
+
+class StudentFinancialAid(models.Model):
+    """Financial aid records."""
+
+    class AidType(models.TextChoices):
+        GRANT = "grant", "Grant"
+        LOAN = "loan", "Loan"
+        WORK_STUDY = "work_study", "Work-Study"
+        WAIVER = "waiver", "Fee Waiver"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        APPLIED = "applied", "Applied"
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        DISBURSED = "disbursed", "Disbursed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="financial_aid")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_financial_aid")
+    aid_type = models.CharField(max_length=20, choices=AidType.choices)
+    aid_name = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    provider = models.CharField(max_length=200, blank=True)
+    application_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
+    disbursement_date = models.DateField(null=True, blank=True)
+    renewal_required = models.BooleanField(default=False)
+    academic_requirement = models.TextField(blank=True)
+    documents = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_financial_aid"
+        ordering = ["-application_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.aid_name} ({self.get_aid_type_display()})"
+
+
+class StudentTransportAssignment(models.Model):
+    """Student transportation assignment."""
+
+    class ServiceType(models.TextChoices):
+        PICKUP = "pickup", "Pickup Only"
+        DROPOFF = "dropoff", "Dropoff Only"
+        BOTH = "both", "Both"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="student_transport_assignments")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_transport")
+    route = models.ForeignKey("transportation.Route", on_delete=models.SET_NULL, null=True, blank=True)
+    vehicle = models.ForeignKey("transportation.Vehicle", on_delete=models.SET_NULL, null=True, blank=True)
+    service_type = models.CharField(max_length=20, choices=ServiceType.choices, default=ServiceType.BOTH)
+    pickup_address = models.TextField(blank=True)
+    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_transport_assignments"
+        ordering = ["-effective_from"]
+
+    def __str__(self):
+        return f"{self.student} - Transport ({self.get_service_type_display()})"
+
+
+class StudentMealPlan(models.Model):
+    """Meal plan tracking."""
+
+    class PlanType(models.TextChoices):
+        FULL = "full", "Full Board"
+        LUNCH = "lunch", "Lunch Only"
+        BREAKFAST = "breakfast", "Breakfast Only"
+        PARTIAL = "partial", "Partial"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        EXPIRED = "expired", "Expired"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="meal_plans")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_meal_plans")
+    plan_type = models.CharField(max_length=20, choices=PlanType.choices)
+    plan_name = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    meals_per_day = models.PositiveSmallIntegerField(default=3)
+    total_meals = models.PositiveIntegerField(default=0)
+    meals_consumed = models.PositiveIntegerField(default=0)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dietary_restrictions = models.TextField(blank=True)
+    allergies = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_meal_plans"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.plan_name}"
+
+
+class StudentParking(models.Model):
+    """Parking permit tracking."""
+
+    class PermitType(models.TextChoices):
+        STUDENT = "student", "Student"
+        STAFF = "staff", "Staff"
+        VISITOR = "visitor", "Visitor"
+        HANDICAP = "handicap", "Handicap"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        EXPIRED = "expired", "Expired"
+        SUSPENDED = "suspended", "Suspended"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="parking_permits")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_parking")
+    permit_number = models.CharField(max_length=50, unique=True)
+    permit_type = models.CharField(max_length=20, choices=PermitType.choices, default=PermitType.STUDENT)
+    vehicle_make = models.CharField(max_length=100, blank=True)
+    vehicle_model = models.CharField(max_length=100, blank=True)
+    vehicle_color = models.CharField(max_length=50, blank=True)
+    license_plate = models.CharField(max_length=20)
+    parking_zone = models.CharField(max_length=50, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    issued_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_parking_permits"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.permit_number} - {self.student}"
+
+
+class StudentIDActivity(models.Model):
+    """ID card usage tracking."""
+
+    class ActivityType(models.TextChoices):
+        ENTRY = "entry", "Building Entry"
+        EXIT = "exit", "Building Exit"
+        LIBRARY = "library", "Library"
+        CAFETERIA = "cafeteria", "Cafeteria"
+        LAB = "lab", "Lab Access"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="id_activities")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_id_activities")
+    id_card = models.ForeignKey("StudentIDCard", on_delete=models.SET_NULL, null=True, blank=True)
+    activity_type = models.CharField(max_length=20, choices=ActivityType.choices)
+    location = models.CharField(max_length=200, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    device = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "student_id_activities"
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_activity_type_display()} ({self.timestamp})"
+
+
+class StudentFeedback(models.Model):
+    """Student feedback surveys."""
+
+    class FeedbackType(models.TextChoices):
+        COURSE = "course", "Course Feedback"
+        TEACHER = "teacher", "Teacher Feedback"
+        FACILITY = "facility", "Facility Feedback"
+        SERVICE = "service", "Service Feedback"
+        GENERAL = "general", "General Feedback"
+
+    class Rating(models.IntegerChoices):
+        VERY_POOR = 1, "Very Poor"
+        POOR = 2, "Poor"
+        NEUTRAL = 3, "Neutral"
+        GOOD = 4, "Good"
+        EXCELLENT = 5, "Excellent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="feedback")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_feedback")
+    feedback_type = models.CharField(max_length=20, choices=FeedbackType.choices)
+    subject = models.CharField(max_length=200)
+    rating = models.IntegerField(choices=Rating.choices)
+    comments = models.TextField(blank=True)
+    suggestions = models.TextField(blank=True)
+    is_anonymous = models.BooleanField(default=False)
+    response = models.TextField(blank=True)
+    responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    feedback_date = models.DateField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_feedback"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.student} - {self.get_feedback_type_display()} ({self.get_rating_display()})"
