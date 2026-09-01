@@ -970,3 +970,689 @@ class RealTimeDashboard(models.Model):
         # For now, just update the timestamp
         self.last_refreshed = timezone.now()
         self.save(update_fields=["last_refreshed"])
+
+
+# =============================================================================
+# NEW MODELS: Attendance Incentives & Gamification
+# =============================================================================
+
+
+class AttendanceIncentive(models.Model):
+    """Reward system for good attendance."""
+
+    class IncentiveType(models.TextChoices):
+        POINTS = "points", "Attendance Points"
+        BADGE = "badge", "Achievement Badge"
+        CERTIFICATE = "certificate", "Certificate"
+        PRIZE = "prize", "Physical Prize"
+        RECOGNITION = "recognition", "Public Recognition"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_incentives")
+    name = models.CharField(max_length=200)
+    incentive_type = models.CharField(max_length=15, choices=IncentiveType.choices)
+    description = models.TextField(blank=True)
+    # Criteria
+    required_streak_days = models.PositiveIntegerField(default=30, help_text="Consecutive days required")
+    required_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=95, help_text="Min attendance %")
+    points_value = models.PositiveIntegerField(default=10)
+    # Validity
+    is_active = models.BooleanField(default=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    # Limits
+    total_available = models.PositiveIntegerField(null=True, blank=True, help_text="Total available awards")
+    total_awarded = models.PositiveIntegerField(default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_incentives"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_incentive_type_display()})"
+
+    @property
+    def is_available(self):
+        if self.total_available is None:
+            return True
+        return self.total_awarded < self.total_available
+
+
+class AttendanceIncentiveAward(models.Model):
+    """Awards granted to students for attendance."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    incentive = models.ForeignKey(AttendanceIncentive, on_delete=models.CASCADE, related_name="awards")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_awards")
+    awarded_date = models.DateField(auto_now_add=True)
+    awarded_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    streak_days = models.PositiveIntegerField(default=0)
+    attendance_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    # Points
+    points_earned = models.PositiveIntegerField(default=0)
+    total_points = models.PositiveIntegerField(default=0, help_text="Running total")
+
+    class Meta:
+        db_table = "attendance_incentive_awards"
+        ordering = ["-awarded_date"]
+        unique_together = [("incentive", "student")]
+
+    def __str__(self):
+        return f"{self.incentive.name} → {self.student} ({self.awarded_date})"
+
+
+# =============================================================================
+# NEW MODELS: Attendance Predictions
+# =============================================================================
+
+
+class AttendancePrediction(models.Model):
+    """Predictive attendance analytics."""
+
+    class PredictionType(models.TextChoices):
+        ABSENCE = "absence", "Absence Risk"
+        CHRONIC = "chronic", "Chronic Absence Risk"
+        LATE = "late", "Late Arrival Risk"
+        DROP = "drop", "Enrollment Drop Risk"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_predictions")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_predictions")
+    prediction_type = models.CharField(max_length=10, choices=PredictionType.choices)
+    risk_score = models.DecimalField(max_digits=5, decimal_places=2, help_text="0-100 risk score")
+    prediction_date = models.DateField()
+    predicted_period_start = models.DateField()
+    predicted_period_end = models.DateField()
+    # Factors
+    risk_factors = models.JSONField(default=list, blank=True, help_text="Contributing risk factors")
+    historical_pattern = models.TextField(blank=True)
+    # Recommendation
+    recommended_action = models.TextField(blank=True)
+    priority_level = models.CharField(max_length=10, choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")])
+    # Status
+    reviewed = models.BooleanField(default=False)
+    reviewed_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    action_taken = models.TextField(blank=True)
+    # Accuracy
+    actual_outcome = models.CharField(max_length=20, blank=True)
+    was_accurate = models.BooleanField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "attendance_predictions"
+        ordering = ["-risk_score"]
+        indexes = [
+            models.Index(fields=["student", "prediction_type"]),
+            models.Index(fields=["school", "risk_score"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_prediction_type_display()} — {self.student} (Risk: {self.risk_score})"
+
+
+# =============================================================================
+# NEW MODELS: Field Trip Attendance
+# =============================================================================
+
+
+class FieldTrip(models.Model):
+    """Field trip management and attendance."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        APPROVED = "approved", "Approved"
+        ACTIVE = "active", "In Progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="field_trips")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    destination = models.CharField(max_length=300)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PLANNED)
+    # Schedule
+    departure_date = models.DateField()
+    departure_time = models.TimeField()
+    return_date = models.DateField(null=True, blank=True)
+    return_time = models.TimeField(null=True, blank=True)
+    # Participants
+    organizer = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    chaperones = models.ManyToManyField("auth_service.User", blank=True, related_name="chaperoned_trips")
+    eligible_grades = models.CharField(max_length=100, blank=True)
+    max_participants = models.PositiveIntegerField(default=50)
+    # Cost
+    cost_per_student = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    transportation = models.CharField(max_length=200, blank=True)
+    # Consent
+    consent_required = models.BooleanField(default=True)
+    consent_deadline = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "field_trips"
+        ordering = ["-departure_date"]
+
+    def __str__(self):
+        return f"{self.title} — {self.destination} ({self.departure_date})"
+
+
+class FieldTripParticipant(models.Model):
+    """Students participating in field trips."""
+
+    class ConsentStatus(models.TextChoices):
+        PENDING = "pending", "Consent Pending"
+        GRANTED = "granted", "Consent Granted"
+        DENIED = "denied", "Consent Denied"
+
+    class AttendanceStatus(models.TextChoices):
+        ENROLLED = "enrolled", "Enrolled"
+        ATTENDED = "attended", "Attended"
+        ABSENT = "absent", "Absent"
+        EXCUSED = "excused", "Excused"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    field_trip = models.ForeignKey(FieldTrip, on_delete=models.CASCADE, related_name="participants")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="field_trip_participations")
+    consent_status = models.CharField(max_length=10, choices=ConsentStatus.choices, default=ConsentStatus.PENDING)
+    attendance_status = models.CharField(
+        max_length=10, choices=AttendanceStatus.choices, default=AttendanceStatus.ENROLLED
+    )
+    parent_contacted = models.BooleanField(default=False)
+    payment_status = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "field_trip_participants"
+        unique_together = [("field_trip", "student")]
+
+    def __str__(self):
+        return f"{self.student} — {self.field_trip}"
+
+
+# =============================================================================
+# NEW MODELS: Attendance Alerts & Escalation
+# =============================================================================
+
+
+class AttendanceEscalation(models.Model):
+    """Escalation rules and triggers for attendance issues."""
+
+    class EscalationLevel(models.TextChoices):
+        LEVEL_1 = "level_1", "Level 1 — Notification"
+        LEVEL_2 = "level_2", "Level 2 — Meeting"
+        LEVEL_3 = "level_3", "Level 3 — Intervention"
+        LEVEL_4 = "level_4", "Level 4 — Administrative Action"
+        LEVEL_5 = "level_5", "Level 5 — Legal/DCFS"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        TRIGGERED = "triggered", "Triggered"
+        RESOLVED = "resolved", "Resolved"
+        ESCALATED = "escalated", "Escalated Further"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_escalations")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_escalations")
+    escalation_level = models.CharField(max_length=10, choices=EscalationLevel.choices, default=EscalationLevel.LEVEL_1)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    # Trigger
+    trigger_reason = models.TextField(help_text="Why this escalation was triggered")
+    absences_count = models.PositiveIntegerField(default=0)
+    tardies_count = models.PositiveIntegerField(default=0)
+    # Actions
+    actions_taken = models.TextField(blank=True)
+    assigned_to = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    meeting_date = models.DateField(null=True, blank=True)
+    meeting_notes = models.TextField(blank=True)
+    # Parent
+    parent_contacted = models.BooleanField(default=False)
+    parent_meeting_date = models.DateField(null=True, blank=True)
+    # Outcome
+    outcome = models.TextField(blank=True)
+    resolved_date = models.DateField(null=True, blank=True)
+    # Next escalation
+    next_review_date = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_escalations"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "escalation_level"]),
+            models.Index(fields=["school", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_escalation_level_display()} — {self.student} ({self.get_status_display()})"
+
+
+class AttendanceAlertConfig(models.Model):
+    """Configuration for attendance alerts."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_alert_configs")
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    # Conditions
+    absence_threshold = models.PositiveIntegerField(default=3, help_text="Number of absences to trigger")
+    tardy_threshold = models.PositiveIntegerField(default=5, help_text="Number of tardies to trigger")
+    lookback_days = models.PositiveIntegerField(default=30, help_text="Look-back window in days")
+    consecutive_absences = models.BooleanField(default=False, help_text="Alert on consecutive absences")
+    consecutive_count = models.PositiveIntegerField(default=3)
+    # Actions
+    notify_parent = models.BooleanField(default=True)
+    notify_counselor = models.BooleanField(default=False)
+    notify_admin = models.BooleanField(default=False)
+    notify_teacher = models.BooleanField(default=False)
+    # Template
+    email_template = models.TextField(blank=True)
+    sms_template = models.TextField(blank=True)
+    # Frequency
+    max_alerts_per_student = models.PositiveIntegerField(default=3, help_text="Max alerts per student per period")
+    cooldown_days = models.PositiveIntegerField(default=7, help_text="Days between repeated alerts")
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_alert_configs"
+
+    def __str__(self):
+        return f"{self.name} (Threshold: {self.absence_threshold} absences)"
+
+
+# =============================================================================
+# NEW MODELS: Tardy Management
+# =============================================================================
+
+
+class TardyPolicy(models.Model):
+    """Tardy policies and consequences."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="tardy_policies")
+    name = models.CharField(max_length=200)
+    tardy_count = models.PositiveIntegerField(help_text="Number of tardies this policy applies to")
+    consequence = models.TextField(help_text="Consequence for this number of tardies")
+    notify_parent = models.BooleanField(default=True)
+    detention_minutes = models.PositiveIntegerField(default=0)
+    in_school_suspension = models.BooleanField(default=False)
+    warning_only = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "tardy_policies"
+        ordering = ["tardy_count"]
+
+    def __str__(self):
+        return f"{self.name} (Tardy #{self.tardy_count})"
+
+
+class TardyRecord(models.Model):
+    """Individual tardy records and actions taken."""
+
+    class Status(models.TextChoices):
+        RECORDED = "recorded", "Recorded"
+        PARENT_NOTIFIED = "notified", "Parent Notified"
+        CONSEQUENCE_APPLIED = "consequence", "Consequence Applied"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="tardy_records")
+    attendance_record = models.ForeignKey("AttendanceRecord", on_delete=models.SET_NULL, null=True, blank=True)
+    tardy_date = models.DateField()
+    arrival_time = models.TimeField(null=True, blank=True)
+    minutes_late = models.PositiveIntegerField(default=0)
+    reason = models.TextField(blank=True)
+    excuse = models.CharField(max_length=200, blank=True)
+    # Policy applied
+    policy_applied = models.ForeignKey(TardyPolicy, on_delete=models.SET_NULL, null=True, blank=True)
+    consequence = models.TextField(blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.RECORDED)
+    parent_notified = models.BooleanField(default=False)
+    detention_served = models.BooleanField(default=False)
+    # Running count
+    total_tardies = models.PositiveIntegerField(default=1, help_text="Running total for the year")
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "tardy_records"
+        ordering = ["-tardy_date"]
+        indexes = [
+            models.Index(fields=["student", "tardy_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} — Tardy ({self.tardy_date}, {self.minutes_late} min late)"
+
+
+# =============================================================================
+# NEW MODELS: Early Dismissal
+# =============================================================================
+
+
+class EarlyDismissal(models.Model):
+    """Early dismissal requests and approvals."""
+
+    class ReasonType(models.TextChoices):
+        MEDICAL = "medical", "Medical Appointment"
+        DENTAL = "dental", "Dental Appointment"
+        FAMILY = "family", "Family Event"
+        RELIGIOUS = "religious", "Religious Observance"
+        PERSONAL = "personal", "Personal Reason"
+        SCHOOL_BUS = "bus", "Early Bus"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Approval"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="early_dismissals")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="early_dismissals")
+    requested_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, related_name="early_dismissal_requests"
+    )
+    reason_type = models.CharField(max_length=10, choices=ReasonType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    # Details
+    dismissal_date = models.DateField()
+    requested_departure_time = models.TimeField()
+    actual_departure_time = models.TimeField(null=True, blank=True)
+    reason_detail = models.TextField(blank=True)
+    pickup_person = models.CharField(max_length=200, blank=True, help_text="Who is picking up the student")
+    pickup_id_verified = models.BooleanField(default=False)
+    # Approval
+    approved_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="early_dismissal_approvals"
+    )
+    approval_notes = models.TextField(blank=True)
+    # Parent
+    parent_notified = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "early_dismissals"
+        ordering = ["-dismissal_date"]
+        indexes = [
+            models.Index(fields=["student", "dismissal_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} — Early Dismissal ({self.dismissal_date})"
+
+
+class AttendanceMakeUp(models.Model):
+    """Make-up attendance for excused absences."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        EXCUSED = "excused", "Excused"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_makeups")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_makeups")
+    original_absence = models.ForeignKey("AttendanceRecord", on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    # Schedule
+    make_up_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    supervised_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    # Details
+    reason = models.TextField(blank=True)
+    hours_completed = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hours_required = models.DecimalField(max_digits=5, decimal_places=2, default=1)
+    # Verification
+    verified = models.BooleanField(default=False)
+    verified_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="makeup_verifications"
+    )
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_makeups"
+        ordering = ["-make_up_date"]
+
+    def __str__(self):
+        return f"Make-up: {self.student} ({self.make_up_date})"
+
+    @property
+    def is_fully_completed(self):
+        return self.hours_completed >= self.hours_required
+
+
+# =============================================================================
+# NEW MODELS: Attendance Audit Trail
+# =============================================================================
+
+
+class AttendanceAuditEntry(models.Model):
+    """Detailed audit trail for all attendance changes."""
+
+    class ChangeType(models.TextChoices):
+        CHECK_IN = "check_in", "Check In"
+        CHECK_OUT = "check_out", "Check Out"
+        STATUS_CHANGE = "status_change", "Status Change"
+        MANUAL_OVERRIDE = "manual_override", "Manual Override"
+        BULK_IMPORT = "bulk_import", "Bulk Import"
+        CORRECTION = "correction", "Correction"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_audit_entries")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_audit_entries")
+    change_type = models.CharField(max_length=20, choices=ChangeType.choices)
+    # Change details
+    old_status = models.CharField(max_length=15, blank=True)
+    new_status = models.CharField(max_length=15, blank=True)
+    old_time = models.TimeField(null=True, blank=True)
+    new_time = models.TimeField(null=True, blank=True)
+    # Who
+    changed_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    reason = models.TextField(blank=True)
+    # When
+    change_date = models.DateField()
+    change_timestamp = models.DateTimeField(auto_now_add=True)
+    # Source
+    source = models.CharField(max_length=50, blank=True, help_text="System, Manual, QR, Biometric, RFID, etc.")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "attendance_audit_entries"
+        ordering = ["-change_timestamp"]
+        indexes = [
+            models.Index(fields=["student", "change_date"]),
+            models.Index(fields=["school", "change_type"]),
+        ]
+        verbose_name = "Attendance Audit Entry"
+        verbose_name_plural = "Attendance Audit Entries"
+
+    def __str__(self):
+        return f"{self.student} — {self.get_change_type_display()} ({self.change_date})"
+
+
+class AttendanceConfiguration(models.Model):
+    """School-wide attendance configuration settings."""
+
+    class AttendanceMode(models.TextChoices):
+        CLASS_PERIOD = "class_period", "Class Period Attendance"
+        DAILY = "daily", "Daily Attendance"
+        BOTH = "both", "Both Period and Daily"
+
+    class CheckInMethod(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        QR_CODE = "qr", "QR Code"
+        BIOMETRIC = "biometric", "Biometric"
+        RFID = "rfid", "RFID"
+        GPS = "gps", "GPS/Geofence"
+        APP = "app", "Mobile App"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.OneToOneField("auth_service.School", on_delete=models.CASCADE, related_name="attendance_config")
+    # Mode
+    attendance_mode = models.CharField(max_length=15, choices=AttendanceMode.choices, default=AttendanceMode.BOTH)
+    check_in_method = models.CharField(max_length=15, choices=CheckInMethod.choices, default=CheckInMethod.MANUAL)
+    # Tardiness
+    grace_period_minutes = models.PositiveIntegerField(default=5, help_text="Minutes after period starts")
+    tardy_threshold_minutes = models.PositiveIntegerField(default=10, help_text="Minutes to mark as tardy")
+    absent_threshold_minutes = models.PositiveIntegerField(default=30, help_text="Minutes to mark as absent")
+    # Early departure
+    early_departure_threshold_minutes = models.PositiveIntegerField(
+        default=15, help_text="Minutes before end to count as early"
+    )
+    # Notifications
+    auto_notify_absent = models.BooleanField(default=True)
+    auto_notify_tardy = models.BooleanField(default=False)
+    notify_after_minutes = models.PositiveIntegerField(default=30)
+    # Parents
+    parent_portal_enabled = models.BooleanField(default=True)
+    parent_real_time_view = models.BooleanField(default=False)
+    # Holidays
+    auto_apply_holidays = models.BooleanField(default=True)
+    # Working hours
+    school_start_time = models.TimeField(default="08:00")
+    school_end_time = models.TimeField(default="15:00")
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_configurations"
+        verbose_name = "Attendance Configuration"
+        verbose_name_plural = "Attendance Configurations"
+
+    def __str__(self):
+        return f"Attendance Config — {self.school.name}"
+
+
+class StudentAttendanceSummary(models.Model):
+    """Aggregated attendance summary for a student per period/year."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="student_attendance_summaries"
+    )
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_summaries")
+    # Period
+    academic_year = models.CharField(max_length=10)
+    semester = models.CharField(max_length=10, blank=True)
+    # Counts
+    total_school_days = models.PositiveIntegerField(default=0)
+    days_present = models.PositiveIntegerField(default=0)
+    days_absent = models.PositiveIntegerField(default=0)
+    days_late = models.PositiveIntegerField(default=0)
+    days_excused = models.PositiveIntegerField(default=0)
+    days_early_departure = models.PositiveIntegerField(default=0)
+    # Rates
+    attendance_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    tardiness_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Streaks
+    longest_present_streak = models.PositiveIntegerField(default=0)
+    current_present_streak = models.PositiveIntegerField(default=0)
+    longest_absent_streak = models.PositiveIntegerField(default=0)
+    # Subject-wise
+    subject_attendance = models.JSONField(default=dict, blank=True)
+    # Flags
+    is_chronic_absentee = models.BooleanField(default=False)
+    is_honor_roll_eligible = models.BooleanField(default=True)
+    # Metadata
+    last_calculated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "student_attendance_summaries"
+        unique_together = [("student", "academic_year", "semester")]
+        ordering = ["-academic_year", "-semester"]
+
+    def __str__(self):
+        return f"{self.student} — {self.academic_year} ({self.attendance_percentage}% attendance)"
+
+
+class AttendanceLockout(models.Model):
+    """Period-based attendance lockout (no more edits after deadline)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_lockouts")
+    lock_date = models.DateField()
+    period = models.CharField(max_length=50, blank=True, help_text="Specific period or blank for all-day")
+    locked_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True)
+    lock_reason = models.TextField(blank=True)
+    is_locked = models.BooleanField(default=True)
+    locked_at = models.DateTimeField(auto_now_add=True)
+    unlocked_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_unlocks"
+    )
+    unlocked_at = models.DateTimeField(null=True, blank=True)
+    unlock_reason = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "attendance_lockouts"
+        ordering = ["-lock_date"]
+        unique_together = [("school", "lock_date", "period")]
+
+    def __str__(self):
+        return f"{'Locked' if self.is_locked else 'Unlocked'} — {self.lock_date} {self.period or 'All Day'}"
+
+
+class AttendanceComment(models.Model):
+    """Teacher/staff comments on student attendance patterns."""
+
+    class CommentType(models.TextChoices):
+        POSITIVE = "positive", "Positive Note"
+        CONCERN = "concern", "Concern"
+        INTERVENTION = "intervention", "Intervention Note"
+        PARENT_COMMUNICATION = "parent_comm", "Parent Communication"
+        GENERAL = "general", "General Note"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="attendance_comments")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="attendance_comments")
+    author = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="attendance_comments_written"
+    )
+    comment_type = models.CharField(max_length=20, choices=CommentType.choices, default=CommentType.GENERAL)
+    comment = models.TextField()
+    comment_date = models.DateField(auto_now_add=True)
+    # Related to a specific period
+    related_date = models.DateField(null=True, blank=True)
+    is_visible_to_parent = models.BooleanField(default=True)
+    is_visible_to_student = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_comments"
+        ordering = ["-comment_date"]
+        indexes = [
+            models.Index(fields=["student", "comment_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_comment_type_display()} — {self.student} ({self.comment_date})"
