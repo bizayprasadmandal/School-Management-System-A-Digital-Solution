@@ -6,7 +6,7 @@ import uuid
 
 from django.db import models
 from services.auth.models import School, User
-from services.students.models import AcademicYear, Grade, Student
+from services.students.models import AcademicYear, Grade, Student, StudentCategory
 
 
 class FeeCategory(models.Model):
@@ -851,3 +851,598 @@ class PaymentReconciliation(models.Model):
 
     def __str__(self):
         return f"Reconciliation: {self.period_start} - {self.period_end} ({self.get_status_display()})"
+
+
+class BudgetPlan(models.Model):
+    """Budget planning and forecasting."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        APPROVED = "approved", "Approved"
+        ACTIVE = "active", "Active"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="budget_plans")
+    academic_year = models.ForeignKey("students.AcademicYear", on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    total_budget = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    allocated = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    spent = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_budget_plans"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.academic_year})"
+
+
+class BudgetLineItem(models.Model):
+    """Individual budget line items."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    budget_plan = models.ForeignKey(BudgetPlan, on_delete=models.CASCADE, related_name="line_items")
+    category = models.ForeignKey(FeeCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    description = models.CharField(max_length=200)
+    budgeted_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    actual_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    variance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "fee_budget_line_items"
+        ordering = ["budget_plan", "description"]
+
+    def __str__(self):
+        return f"{self.description} - {self.budgeted_amount}"
+
+
+class ExpenseTracking(models.Model):
+    """Expense tracking."""
+
+    class ExpenseType(models.TextChoices):
+        SALARY = "salary", "Salary"
+        UTILITY = "utility", "Utility"
+        MAINTENANCE = "maintenance", "Maintenance"
+        SUPPLIES = "supplies", "Supplies"
+        TRANSPORT = "transport", "Transport"
+        EVENT = "event", "Event"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="expenses")
+    expense_type = models.CharField(max_length=20, choices=ExpenseType.choices)
+    description = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    vendor = models.CharField(max_length=200, blank=True)
+    invoice_number = models.CharField(max_length=50, blank=True)
+    expense_date = models.DateField()
+    category = models.ForeignKey(FeeCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=[("pending", "Pending"), ("approved", "Approved"), ("paid", "Paid")], default="pending"
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_expenses"
+        ordering = ["-expense_date"]
+
+    def __str__(self):
+        return f"{self.description} - {self.amount}"
+
+
+class RefundRecord(models.Model):
+    """Refund tracking."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        PROCESSED = "processed", "Processed"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="refunds")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="fee_refunds")
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
+    invoice = models.ForeignKey(FeeInvoice, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    processed_date = models.DateField(null=True, blank=True)
+    refund_method = models.CharField(max_length=50, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_refunds"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Refund: {self.student} - {self.amount}"
+
+
+class LateFeeRule(models.Model):
+    """Late fee automation rules."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="late_fee_rules")
+    name = models.CharField(max_length=100)
+    days_after_due = models.PositiveSmallIntegerField(help_text="Days after due date to apply late fee")
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    fee_type = models.CharField(
+        max_length=20, choices=[("fixed", "Fixed"), ("percentage", "Percentage")], default="fixed"
+    )
+    percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0, help_text="Percentage of invoice amount"
+    )
+    max_late_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    applies_to = models.CharField(
+        max_length=20, choices=[("all", "All Students"), ("specific", "Specific Categories")], default="all"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_late_fee_rules"
+        ordering = ["days_after_due"]
+
+    def __str__(self):
+        return f"{self.name} - {self.days_after_due} days"
+
+
+class FeeDiscount(models.Model):
+    """Fee discounts."""
+
+    class DiscountType(models.TextChoices):
+        PERCENTAGE = "percentage", "Percentage"
+        FIXED = "fixed", "Fixed Amount"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="fee_discounts")
+    name = models.CharField(max_length=200)
+    discount_type = models.CharField(max_length=20, choices=DiscountType.choices)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    applies_to = models.CharField(
+        max_length=20, choices=[("all", "All Students"), ("category", "Student Category"), ("grade", "Grade Level")]
+    )
+    grade = models.ForeignKey("students.Grade", on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(StudentCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_discounts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} - {self.value}"
+
+
+class FeeExemption(models.Model):
+    """Fee exemptions."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="fee_exemptions")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="fee_exemptions")
+    fee_structure = models.ForeignKey(FeeStructure, on_delete=models.SET_NULL, null=True, blank=True)
+    reason = models.TextField()
+    exemption_type = models.CharField(
+        max_length=20, choices=[("full", "Full Exemption"), ("partial", "Partial Exemption")], default="full"
+    )
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=100)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_date = models.DateField(null=True, blank=True)
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    documents = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_exemptions"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Exemption: {self.student} - {self.get_exemption_type_display()}"
+
+
+class InvoiceTemplate(models.Model):
+    """Reusable invoice templates."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="invoice_templates")
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    header_text = models.TextField(blank=True)
+    footer_text = models.TextField(blank=True)
+    terms_and_conditions = models.TextField(blank=True)
+    logo_url = models.URLField(max_length=500, blank=True)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_invoice_templates"
+        ordering = ["-is_default", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ReceiptTemplate(models.Model):
+    """Reusable receipt templates."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="receipt_templates")
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    header_text = models.TextField(blank=True)
+    footer_text = models.TextField(blank=True)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_receipt_templates"
+        ordering = ["-is_default", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class AccountingEntry(models.Model):
+    """Accounting entries."""
+
+    class EntryType(models.TextChoices):
+        DEBIT = "debit", "Debit"
+        CREDIT = "credit", "Credit"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="accounting_entries")
+    entry_type = models.CharField(max_length=20, choices=EntryType.choices)
+    account_code = models.CharField(max_length=50)
+    account_name = models.CharField(max_length=200)
+    description = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    reference_type = models.CharField(max_length=50, blank=True)
+    reference_id = models.CharField(max_length=255, blank=True)
+    entry_date = models.DateField()
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "fee_accounting_entries"
+        ordering = ["-entry_date"]
+
+    def __str__(self):
+        return f"{self.get_entry_type_display()}: {self.account_name} - {self.amount}"
+
+
+class FinancialAudit(models.Model):
+    """Financial audit trails."""
+
+    class AuditType(models.TextChoices):
+        INTERNAL = "internal", "Internal Audit"
+        EXTERNAL = "external", "External Audit"
+        TAX = "tax", "Tax Audit"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        FINDINGS = "findings", "Findings Reported"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="financial_audits")
+    audit_type = models.CharField(max_length=20, choices=AuditType.choices)
+    title = models.CharField(max_length=200)
+    audit_period_start = models.DateField()
+    audit_period_end = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    auditor_name = models.CharField(max_length=200, blank=True)
+    auditor_organization = models.CharField(max_length=200, blank=True)
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    total_revenue = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total_expenses = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    net_income = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    discrepancies = models.JSONField(default=list, blank=True)
+    report_url = models.URLField(max_length=500, blank=True)
+    completed_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_financial_audits"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_audit_type_display()})"
+
+
+class StudentFinancialAccount(models.Model):
+    """Student financial accounts."""
+
+    class AccountType(models.TextChoices):
+        REGULAR = "regular", "Regular"
+        SCHOLARSHIP = "scholarship", "Scholarship"
+        FINANCIAL_AID = "financial_aid", "Financial Aid"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="student_financial_accounts")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_financial_accounts")
+    account_type = models.CharField(max_length=20, choices=AccountType.choices, default=AccountType.REGULAR)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_outstanding = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    last_payment_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_student_accounts"
+        unique_together = [("student", "school")]
+
+    def __str__(self):
+        return f"{self.student} - Balance: {self.balance}"
+
+
+class ParentAccount(models.Model):
+    """Parent financial accounts."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    parent = models.ForeignKey("students.ParentProfile", on_delete=models.CASCADE, related_name="parent_accounts")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="parent_accounts")
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_outstanding = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    payment_method = models.CharField(max_length=50, blank=True)
+    auto_pay_enabled = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_parent_accounts"
+        unique_together = [("parent", "school")]
+
+    def __str__(self):
+        return f"Parent Account - Balance: {self.balance}"
+
+
+class BankReconciliation(models.Model):
+    """Bank reconciliation records."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        MATCHED = "matched", "Matched"
+        UNMATCHED = "unmatched", "Unmatched"
+        ADJUSTED = "adjusted", "Adjusted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="bank_reconciliations")
+    bank_statement_date = models.DateField()
+    statement_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    book_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    difference = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    matched_transactions = models.JSONField(default=list, blank=True)
+    unmatched_transactions = models.JSONField(default=list, blank=True)
+    adjustments = models.JSONField(default=list, blank=True)
+    reconciled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_bank_reconciliations"
+        ordering = ["-bank_statement_date"]
+
+    def __str__(self):
+        return f"Bank Reconciliation - {self.bank_statement_date}"
+
+
+class PaymentMethod(models.Model):
+    """Payment methods configuration."""
+
+    class MethodType(models.TextChoices):
+        CASH = "cash", "Cash"
+        CHEQUE = "cheque", "Cheque"
+        BANK_TRANSFER = "bank_transfer", "Bank Transfer"
+        ONLINE = "online", "Online Payment"
+        CARD = "card", "Card Payment"
+        MOBILE = "mobile", "Mobile Payment"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="payment_methods")
+    name = models.CharField(max_length=100)
+    method_type = models.CharField(max_length=20, choices=MethodType.choices)
+    description = models.TextField(blank=True)
+    processing_fee_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    processing_fee_fixed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_payment_methods"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_method_type_display()})"
+
+
+class TransactionLog(models.Model):
+    """Transaction logs."""
+
+    class TransactionType(models.TextChoices):
+        PAYMENT = "payment", "Payment"
+        REFUND = "refund", "Refund"
+        ADJUSTMENT = "adjustment", "Adjustment"
+        LATE_FEE = "late_fee", "Late Fee"
+        WAIVER = "waiver", "Waiver"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="transaction_logs")
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    transaction_id = models.CharField(max_length=100, unique=True)
+    student = models.ForeignKey("students.Student", on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_method = models.CharField(max_length=50, blank=True)
+    reference_number = models.CharField(max_length=100, blank=True)
+    status = models.CharField(
+        max_length=20, choices=[("success", "Success"), ("failed", "Failed"), ("pending", "Pending")], default="success"
+    )
+    description = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "fee_transaction_logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_id} - {self.get_transaction_type_display()} ({self.amount})"
+
+
+class CreditNote(models.Model):
+    """Credit notes."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ISSUED = "issued", "Issued"
+        APPLIED = "applied", "Applied"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="credit_notes")
+    note_number = models.CharField(max_length=50, unique=True)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="credit_notes")
+    invoice = models.ForeignKey(FeeInvoice, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    issued_date = models.DateField()
+    applied_date = models.DateField(null=True, blank=True)
+    issued_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_credit_notes"
+        ordering = ["-issued_date"]
+
+    def __str__(self):
+        return f"Credit Note {self.note_number} - {self.amount}"
+
+
+class DebitNote(models.Model):
+    """Debit notes."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ISSUED = "issued", "Issued"
+        APPLIED = "applied", "Applied"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="debit_notes")
+    note_number = models.CharField(max_length=50, unique=True)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="debit_notes")
+    invoice = models.ForeignKey(FeeInvoice, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    issued_date = models.DateField()
+    applied_date = models.DateField(null=True, blank=True)
+    issued_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_debit_notes"
+        ordering = ["-issued_date"]
+
+    def __str__(self):
+        return f"Debit Note {self.note_number} - {self.amount}"
+
+
+class FinancialYear(models.Model):
+    """Financial year settings."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="financial_years")
+    name = models.CharField(max_length=50)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_current = models.BooleanField(default=False)
+    is_closed = models.BooleanField(default=False)
+    closed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    closed_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_financial_years"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.name} ({self.start_date} to {self.end_date})"
+
+
+class FeeWaiverApproval(models.Model):
+    """Fee waiver approval workflow."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="fee_waiver_approvals")
+    waiver = models.ForeignKey(FeeWaiver, on_delete=models.CASCADE, related_name="approvals")
+    approver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="waiver_approvals")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    comments = models.TextField(blank=True)
+    approved_date = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "fee_waiver_approvals"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Waiver Approval - {self.approver} ({self.get_status_display()})"
