@@ -828,3 +828,678 @@ class InfrastructureReport(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_report_type_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Energy Management
+# =============================================================================
+
+
+class EnergyMeter(models.Model):
+    """Energy meters for buildings and rooms."""
+
+    class MeterType(models.TextChoices):
+        ELECTRIC = "electric", "Electric"
+        WATER = "water", "Water"
+        GAS = "gas", "Gas"
+        SOLAR = "solar", "Solar"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="energy_meters")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="energy_meters")
+    meter_number = models.CharField(max_length=50, unique=True)
+    meter_type = models.CharField(max_length=10, choices=MeterType.choices)
+    installation_date = models.DateField(null=True, blank=True)
+    last_reading_date = models.DateField(null=True, blank=True)
+    last_reading_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "energy_meters"
+
+    def __str__(self):
+        return f"{self.meter_number} ({self.get_meter_type_display()})"
+
+
+class EnergyReading(models.Model):
+    """Energy meter readings over time."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    meter = models.ForeignKey(EnergyMeter, on_delete=models.CASCADE, related_name="readings")
+    reading_date = models.DateField()
+    reading_value = models.DecimalField(max_digits=12, decimal_places=2)
+    units = models.CharField(max_length=20, blank=True)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "energy_readings"
+        ordering = ["-reading_date"]
+        unique_together = [("meter", "reading_date")]
+
+    def __str__(self):
+        return f"{self.meter} - {self.reading_value} {self.units} ({self.reading_date})"
+
+
+class EnergyAlert(models.Model):
+    """Alerts for unusual energy consumption."""
+
+    class AlertType(models.TextChoices):
+        HIGH_CONSUMPTION = "high", "High Consumption"
+        SPIKE = "spike", "Sudden Spike"
+        LEAK = "leak", "Suspected Leak"
+        METER_FAULT = "fault", "Meter Fault"
+
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="energy_alerts")
+    meter = models.ForeignKey(EnergyMeter, on_delete=models.SET_NULL, null=True, blank=True)
+    alert_type = models.CharField(max_length=10, choices=AlertType.choices)
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    description = models.TextField()
+    threshold_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    acknowledged_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "energy_alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_alert_type_display()} - {self.building.name} ({self.get_severity_display()})"
+
+
+# =============================================================================
+# NEW MODELS: CCTV / Access Control
+# =============================================================================
+
+
+class CCTVCamera(models.Model):
+    """CCTV cameras on campus."""
+
+    class Status(models.TextChoices):
+        ONLINE = "online", "Online"
+        OFFLINE = "offline", "Offline"
+        MAINTENANCE = "maintenance", "Under Maintenance"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="cctv_cameras")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="cctv_cameras")
+    camera_name = models.CharField(max_length=100)
+    camera_id = models.CharField(max_length=50, unique=True)
+    location_description = models.CharField(max_length=200, blank=True)
+    stream_url = models.URLField(blank=True)
+    recording_enabled = models.BooleanField(default=True)
+    storage_days = models.PositiveIntegerField(default=30)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ONLINE)
+    installation_date = models.DateField(null=True, blank=True)
+    last_maintenance = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cctv_cameras"
+
+    def __str__(self):
+        return f"{self.camera_name} ({self.get_status_display()})"
+
+
+class AccessControlPoint(models.Model):
+    """Electronic access control points."""
+
+    class AccessType(models.TextChoices):
+        CARD = "card", "Card Reader"
+        BIOMETRIC = "biometric", "Biometric"
+        PIN = "pin", "PIN Pad"
+        MANUAL = "manual", "Manual Lock"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        DISABLED = "disabled", "Disabled"
+        MAINTENANCE = "maintenance", "Under Maintenance"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="access_control_points")
+    room = models.ForeignKey(
+        Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="access_control_points"
+    )
+    point_name = models.CharField(max_length=100)
+    access_type = models.CharField(max_length=10, choices=AccessType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    access_start_time = models.TimeField(null=True, blank=True)
+    access_end_time = models.TimeField(null=True, blank=True)
+    restricted_access = models.BooleanField(default=False)
+    allowed_roles = models.JSONField(default=list, blank=True)
+    installation_date = models.DateField(null=True, blank=True)
+    last_maintenance = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "access_control_points"
+
+    def __str__(self):
+        return f"{self.point_name} ({self.get_access_type_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Pest Control
+# =============================================================================
+
+
+class PestControlInspection(models.Model):
+    """Pest control inspection records."""
+
+    class InspectionType(models.TextChoices):
+        ROUTINE = "routine", "Routine"
+        REQUESTED = "requested", "Requested"
+        FOLLOW_UP = "follow_up", "Follow-up"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="pest_inspections")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    inspection_type = models.CharField(max_length=15, choices=InspectionType.choices, default=InspectionType.ROUTINE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_date = models.DateField()
+    completed_date = models.DateField(null=True, blank=True)
+    inspector_name = models.CharField(max_length=200, blank=True)
+    pests_found = models.TextField(blank=True)
+    treatment_applied = models.TextField(blank=True)
+    follow_up_required = models.BooleanField(default=False)
+    treatment_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    report_file = models.FileField(upload_to="infrastructure/pest_control/", null=True, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "pest_control_inspections"
+
+    def __str__(self):
+        return f"Pest Inspection - {self.building.name} ({self.scheduled_date})"
+
+
+class PestTreatment(models.Model):
+    """Pest treatment records."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    inspection = models.ForeignKey(
+        PestControlInspection, on_delete=models.SET_NULL, null=True, blank=True, related_name="treatments"
+    )
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="pest_treatments")
+    treatment_date = models.DateField()
+    treatment_type = models.CharField(max_length=100, blank=True)
+    pest_target = models.CharField(max_length=100, blank=True)
+    chemical_name = models.CharField(max_length=200, blank=True)
+    safety_re_entry_hours = models.PositiveIntegerField(default=24)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "pest_treatments"
+
+    def __str__(self):
+        return f"{self.pest_target} Treatment - {self.building.name} ({self.treatment_date})"
+
+
+# =============================================================================
+# NEW MODELS: Waste Management
+# =============================================================================
+
+
+class WasteCollectionSchedule(models.Model):
+    """Waste collection schedules."""
+
+    class WasteType(models.TextChoices):
+        GENERAL = "general", "General Waste"
+        RECYCLABLE = "recyclable", "Recyclable"
+        ORGANIC = "organic", "Organic"
+        HAZARDOUS = "hazardous", "Hazardous"
+        E_WASTE = "e_waste", "Electronic Waste"
+
+    class Frequency(models.TextChoices):
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="waste_schedules")
+    waste_type = models.CharField(max_length=15, choices=WasteType.choices)
+    frequency = models.CharField(max_length=10, choices=Frequency.choices)
+    collection_day = models.CharField(max_length=10, blank=True)
+    collection_time = models.TimeField(null=True, blank=True)
+    vendor_name = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "waste_collection_schedules"
+
+    def __str__(self):
+        return f"{self.get_waste_type_display()} - {self.building.name}"
+
+
+class GreenInitiative(models.Model):
+    """Green/sustainability initiatives."""
+
+    class InitiativeType(models.TextChoices):
+        SOLAR = "solar", "Solar Energy"
+        RAINWATER = "rainwater", "Rainwater Harvesting"
+        WASTE_REDUCTION = "waste", "Waste Reduction"
+        TREE_PLANTATION = "tree", "Tree Plantation"
+        ENERGY_AUDIT = "audit", "Energy Audit"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        APPROVED = "approved", "Approved"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="green_initiatives")
+    building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    initiative_type = models.CharField(max_length=20, choices=InitiativeType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PROPOSED)
+    estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    estimated_savings = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    carbon_reduction_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    target_end_date = models.DateField(null=True, blank=True)
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "green_initiatives"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_initiative_type_display()})"
+
+
+class WaterUsageRecord(models.Model):
+    """Water usage tracking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="water_usage_records")
+    record_date = models.DateField()
+    usage_gallons = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    leak_detected = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "water_usage_records"
+        unique_together = [("building", "record_date")]
+
+    def __str__(self):
+        return f"Water - {self.building.name} ({self.usage_gallons} gal)"
+
+
+class VendorPerformance(models.Model):
+    """Vendor performance records."""
+
+    class ServiceType(models.TextChoices):
+        CLEANING = "cleaning", "Cleaning"
+        ELECTRICAL = "electrical", "Electrical"
+        PLUMBING = "plumbing", "Plumbing"
+        HVAC = "hvac", "HVAC"
+        PEST_CONTROL = "pest", "Pest Control"
+        OTHER = "other", "Other"
+
+    class Rating(models.IntegerChoices):
+        VERY_POOR = 1, "Very Poor"
+        POOR = 2, "Poor"
+        AVERAGE = 3, "Average"
+        GOOD = 4, "Good"
+        EXCELLENT = 5, "Excellent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vendor_contract = models.ForeignKey(VendorContract, on_delete=models.CASCADE, related_name="performance_records")
+    service_type = models.CharField(max_length=15, choices=ServiceType.choices)
+    evaluation_date = models.DateField()
+    evaluator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    quality_rating = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    timeliness_rating = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    communication_rating = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    value_rating = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    comments = models.TextField(blank=True)
+    would_rehire = models.BooleanField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vendor_performance_records"
+
+    def __str__(self):
+        return f"{self.vendor_contract.vendor_name} ({self.evaluation_date})"
+
+
+class BuildingInspection(models.Model):
+    """Building safety inspections."""
+
+    class InspectionType(models.TextChoices):
+        FIRE_SAFETY = "fire", "Fire Safety"
+        STRUCTURAL = "structural", "Structural"
+        ELECTRICAL = "electrical", "Electrical Safety"
+        PLUMBING = "plumbing", "Plumbing"
+        ACCESSIBILITY = "accessibility", "Accessibility"
+        GENERAL = "general", "General"
+
+    class Result(models.TextChoices):
+        PASS = "pass", "Pass"
+        CONDITIONAL = "conditional", "Conditional"
+        FAIL = "fail", "Fail"
+        PENDING = "pending", "Pending"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="building_inspections")
+    inspection_type = models.CharField(max_length=15, choices=InspectionType.choices)
+    inspection_date = models.DateField()
+    inspector_name = models.CharField(max_length=200, blank=True)
+    result = models.CharField(max_length=15, choices=Result.choices, default=Result.PENDING)
+    findings = models.TextField(blank=True)
+    violations = models.TextField(blank=True)
+    follow_up_required = models.BooleanField(default=False)
+    follow_up_date = models.DateField(null=True, blank=True)
+    corrective_actions = models.TextField(blank=True)
+    report_file = models.FileField(upload_to="infrastructure/building_inspections/", null=True, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "building_inspections"
+
+    def __str__(self):
+        return f"{self.get_inspection_type_display()} - {self.building.name} ({self.inspection_date})"
+
+
+class InfrastructureAlert(models.Model):
+    """Infrastructure alerts."""
+
+    class AlertType(models.TextChoices):
+        POWER_OUTAGE = "power", "Power Outage"
+        WATER_LEAK = "water", "Water Leak"
+        HVAC_FAILURE = "hvac", "HVAC Failure"
+        STRUCTURAL = "structural", "Structural Issue"
+        FLOODING = "flooding", "Flooding"
+        FIRE = "fire", "Fire"
+        GAS_LEAK = "gas", "Gas Leak"
+        OTHER = "other", "Other"
+
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        IN_PROGRESS = "in_progress", "In Progress"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="infrastructure_alerts")
+    building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    alert_type = models.CharField(max_length=15, choices=AlertType.choices)
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="infra_alert_assignments",
+    )
+    resolution_notes = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    actual_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "infrastructure_alerts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_severity_display()}] {self.title}"
+
+
+class FloorPlan(models.Model):
+    """Floor plans for buildings."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="floor_plans")
+    floor_number = models.IntegerField(default=0)
+    floor_name = models.CharField(max_length=100, blank=True)
+    plan_file = models.FileField(upload_to="infrastructure/floor_plans/")
+    total_rooms = models.PositiveIntegerField(default=0)
+    total_area_sqft = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    description = models.TextField(blank=True)
+    is_current = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "floor_plans"
+        unique_together = [("building", "floor_number")]
+
+    def __str__(self):
+        return f"Floor {self.floor_number} - {self.building.name}"
+
+
+class RoomEquipment(models.Model):
+    """Equipment installed in rooms."""
+
+    class EquipmentType(models.TextChoices):
+        PROJECTOR = "projector", "Projector"
+        WHITEBOARD = "whiteboard", "Whiteboard"
+        COMPUTER = "computer", "Computer"
+        AC = "ac", "Air Conditioning"
+        SMARTBOARD = "smartboard", "Smart Board"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        WORKING = "working", "Working"
+        MAINTENANCE = "maintenance", "Under Maintenance"
+        BROKEN = "broken", "Broken"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="equipment")
+    equipment_type = models.CharField(max_length=15, choices=EquipmentType.choices)
+    name = models.CharField(max_length=200)
+    asset_tag = models.CharField(max_length=50, blank=True)
+    brand = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.WORKING)
+    purchase_date = models.DateField(null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    last_maintenance = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "room_equipment"
+
+    def __str__(self):
+        return f"{self.name} - {self.room.room_number} ({self.get_status_display()})"
+
+
+class ParkingLot(models.Model):
+    """Parking lot management."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="parking_lots")
+    name = models.CharField(max_length=200)
+    total_spots = models.PositiveIntegerField(default=0)
+    available_spots = models.PositiveIntegerField(default=0)
+    is_covered = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "parking_lots"
+
+    def __str__(self):
+        return f"{self.name} ({self.available_spots}/{self.total_spots})"
+
+
+class ParkingAssignment(models.Model):
+    """Parking spot assignments."""
+
+    class SpotType(models.TextChoices):
+        REGULAR = "regular", "Regular"
+        RESERVED = "reserved", "Reserved"
+        HANDICAP = "handicap", "Handicap"
+        VISITOR = "visitor", "Visitor"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    parking_lot = models.ForeignKey(ParkingLot, on_delete=models.CASCADE, related_name="assignments")
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    spot_number = models.CharField(max_length=20)
+    spot_type = models.CharField(max_length=10, choices=SpotType.choices, default=SpotType.REGULAR)
+    vehicle_plate = models.CharField(max_length=20, blank=True)
+    is_active = models.BooleanField(default=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "parking_assignments"
+        unique_together = [("parking_lot", "spot_number")]
+
+    def __str__(self):
+        return f"Spot {self.spot_number} - {self.parking_lot.name}"
+
+
+class LightingSchedule(models.Model):
+    """Lighting schedules."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="lighting_schedules")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    zone_name = models.CharField(max_length=200, blank=True)
+    day_of_week = models.CharField(max_length=10, blank=True)
+    on_time = models.TimeField()
+    off_time = models.TimeField()
+    brightness_level = models.PositiveIntegerField(default=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "lighting_schedules"
+
+    def __str__(self):
+        return f"{self.zone_name or self.building.name} - {self.on_time} to {self.off_time}"
+
+
+class MaintenanceCostTracking(models.Model):
+    """Track maintenance costs."""
+
+    class CostCategory(models.TextChoices):
+        ELECTRICAL = "electrical", "Electrical"
+        PLUMBING = "plumbing", "Plumbing"
+        HVAC = "hvac", "HVAC"
+        ROOFING = "roofing", "Roofing"
+        PAINTING = "painting", "Painting"
+        LANDSCAPING = "landscaping", "Landscaping"
+        CLEANING = "cleaning", "Cleaning"
+        GENERAL = "general", "General"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="maintenance_cost_tracking")
+    building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
+    work_order = models.ForeignKey(
+        WorkOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name="cost_tracking"
+    )
+    cost_category = models.CharField(max_length=15, choices=CostCategory.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    vendor = models.CharField(max_length=200, blank=True)
+    cost_date = models.DateField()
+    is_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "maintenance_cost_tracking"
+
+    def __str__(self):
+        return f"{self.get_cost_category_display()} - {self.amount} ({self.cost_date})"
+
+
+class InfrastructureMaintenanceRequest(models.Model):
+    """Maintenance requests submitted by staff."""
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        EMERGENCY = "emergency", "Emergency"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="infra_maintenance_requests")
+    building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="infra_requests_created"
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.OPEN)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="infra_requests_assigned",
+    )
+    estimated_completion = models.DateField(null=True, blank=True)
+    actual_completion = models.DateField(null=True, blank=True)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    actual_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    satisfaction_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    feedback = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "infra_maintenance_requests"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_priority_display()})"
