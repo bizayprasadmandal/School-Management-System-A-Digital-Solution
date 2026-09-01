@@ -143,6 +143,12 @@ const ParentGrades = React.lazy(() => import("./pages/parent/GradesPage"));
 const ParentFees = React.lazy(() => import("./pages/parent/FeesPage"));
 const ParentMessages = React.lazy(() => import("./pages/parent/MessagesPage"));
 const ParentSettings = React.lazy(() => import("./pages/parent/SettingsPage"));
+const ParentHealth = React.lazy(() => import("./pages/parent/HealthPage"));
+const ParentLibrary = React.lazy(() => import("./pages/parent/LibraryPage"));
+const ParentCafeteria = React.lazy(() => import("./pages/parent/CafeteriaPage"));
+const ParentSports = React.lazy(() => import("./pages/parent/SportsPage"));
+const ParentBehavior = React.lazy(() => import("./pages/parent/BehaviorPage"));
+const ParentCounseling = React.lazy(() => import("./pages/parent/CounselingPage"));
 const ParentConferences = React.lazy(() => import("./pages/parent/ConferencesPage"));
 
 // ─── React Query client ───────────────────────────────────────────────────────
@@ -350,6 +356,12 @@ function App() {
                   <Route path="messages" element={<ParentMessages />} />
                   <Route path="conferences" element={<ParentConferences />} />
                   <Route path="settings" element={<ParentSettings />} />
+                  <Route path="health" element={<ParentHealth />} />
+                  <Route path="library" element={<ParentLibrary />} />
+                  <Route path="cafeteria" element={<ParentCafeteria />} />
+                  <Route path="sports" element={<ParentSports />} />
+                  <Route path="behavior" element={<ParentBehavior />} />
+                  <Route path="counseling" element={<ParentCounseling />} />
                 </Route>
               </Route>
 
