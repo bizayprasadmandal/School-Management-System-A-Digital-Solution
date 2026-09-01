@@ -1,17 +1,46 @@
+"""Django Admin registrations for conferences."""
+
 from django.contrib import admin
 
 from .models import (
+    ConferenceAccessibilityRequirement,
+    ConferenceAnalytics,
+    ConferenceApproval,
     ConferenceAvailability,
+    ConferenceBlockedSlot,
     ConferenceBooking,
+    ConferenceBookingRule,
+    ConferenceCalendarSync,
+    ConferenceConferenceType,
+    ConferenceExport,
     ConferenceFeedback,
+    ConferenceFeedbackTemplate,
+    ConferenceFollowUp,
     ConferenceHistory,
+    ConferenceHistoryDetail,
+    ConferenceLocation,
+    ConferenceNoShow,
     ConferenceNotes,
+    ConferenceNoteTemplate,
     ConferenceReminder,
+    ConferenceReminderSchedule,
     ConferenceReport,
+    ConferenceResource,
+    ConferenceRoomBooking,
+    ConferenceScheduleOverride,
+    ConferenceSettings,
     ConferenceSlot,
+    ConferenceSurvey,
+    ConferenceSurveyResponse,
+    ConferenceSystemNotification,
     ConferenceTemplate,
+    ConferenceTemplateSection,
+    ConferenceTimeSlot,
     ConferenceType,
+    ConferenceWaitingList,
     FollowUpTracking,
+    RecurringConference,
+    RecurringConferenceParticipant,
     VirtualConference,
     WaitlistManagement,
 )
@@ -19,157 +48,279 @@ from .models import (
 
 @admin.register(ConferenceSlot)
 class ConferenceSlotAdmin(admin.ModelAdmin):
-    list_display = ["teacher", "student", "date", "start_time", "end_time", "is_booked"]
-    list_filter = ["is_booked", "date"]
-    search_fields = ["teacher__full_name", "student__user__full_name"]
-
-
-# =============================================================================
-# Conference Types
-# =============================================================================
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceType)
 class ConferenceTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "default_duration_minutes", "allow_virtual", "is_active"]
-    list_filter = ["category", "allow_virtual", "is_active"]
-    search_fields = ["name", "description"]
-
-
-# =============================================================================
-# Conference Bookings
-# =============================================================================
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
 
 
 @admin.register(ConferenceBooking)
 class ConferenceBookingAdmin(admin.ModelAdmin):
-    list_display = ["parent", "student", "teacher", "status", "is_virtual", "booked_at"]
-    list_filter = ["status", "is_virtual"]
-    search_fields = ["parent__first_name", "parent__last_name", "student__user__first_name"]
-    date_hierarchy = "booked_at"
-
-
-# =============================================================================
-# Conference Reminders
-# =============================================================================
+    list_display = ["id", "status"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceReminder)
 class ConferenceReminderAdmin(admin.ModelAdmin):
-    list_display = ["booking", "reminder_type", "status", "send_before_minutes", "sent_at"]
-    list_filter = ["reminder_type", "status"]
-    date_hierarchy = "created_at"
-
-
-# =============================================================================
-# Conference Notes
-# =============================================================================
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceNotes)
 class ConferenceNotesAdmin(admin.ModelAdmin):
-    list_display = ["booking", "note_type", "title", "has_action_items", "follow_up_needed", "created_at"]
-    list_filter = ["note_type", "has_action_items", "follow_up_needed"]
-    search_fields = ["title", "content"]
-    date_hierarchy = "created_at"
-
-
-# =============================================================================
-# Follow-up Tracking
-# =============================================================================
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(FollowUpTracking)
 class FollowUpTrackingAdmin(admin.ModelAdmin):
-    list_display = ["title", "booking", "priority", "status", "due_date", "assigned_to"]
-    list_filter = ["priority", "status"]
-    search_fields = ["title", "description"]
-    date_hierarchy = "due_date"
-
-
-# =============================================================================
-# Conference Availability
-# =============================================================================
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceAvailability)
 class ConferenceAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ["teacher", "day_of_week", "start_time", "end_time", "availability_type", "is_active"]
-    list_filter = ["day_of_week", "availability_type", "is_active"]
-    search_fields = ["teacher__first_name", "location"]
-
-
-# =============================================================================
-# Conference Reports
-# =============================================================================
+    list_display = ["id", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceReport)
 class ConferenceReportAdmin(admin.ModelAdmin):
-    list_display = ["title", "report_type", "status", "period_start", "period_end", "total_conferences"]
-    list_filter = ["report_type", "status"]
-    search_fields = ["title", "summary"]
-    date_hierarchy = "created_at"
-
-
-# =============================================================================
-# Conference Feedback
-# =============================================================================
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceFeedback)
 class ConferenceFeedbackAdmin(admin.ModelAdmin):
-    list_display = ["submitted_by", "booking", "feedback_for", "overall_rating", "submitted_at"]
-    list_filter = ["feedback_for", "overall_rating"]
-    search_fields = ["submitted_by__first_name", "positive_feedback"]
-    date_hierarchy = "submitted_at"
-
-
-# =============================================================================
-# Conference History
-# =============================================================================
+    list_display = ["id"]
+    list_filter = []
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceHistory)
 class ConferenceHistoryAdmin(admin.ModelAdmin):
-    list_display = ["teacher", "parent", "student", "conference_date", "was_virtual", "was_attended"]
-    list_filter = ["was_virtual", "was_attended"]
-    search_fields = ["teacher__first_name", "parent__first_name", "student__user__first_name"]
-    date_hierarchy = "conference_date"
-
-
-# =============================================================================
-# Virtual Conference
-# =============================================================================
+    list_display = ["id", "school"]
+    list_filter = ["school"]
+    search_fields = ["id"]
 
 
 @admin.register(VirtualConference)
 class VirtualConferenceAdmin(admin.ModelAdmin):
-    list_display = ["booking", "platform", "status", "participants_joined", "has_recording"]
-    list_filter = ["platform", "status", "has_recording"]
-    search_fields = ["meeting_id", "meeting_url"]
-
-
-# =============================================================================
-# Conference Templates
-# =============================================================================
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
 
 
 @admin.register(ConferenceTemplate)
 class ConferenceTemplateAdmin(admin.ModelAdmin):
-    list_display = ["name", "conference_type", "default_duration_minutes", "require_notes", "is_active"]
-    list_filter = ["conference_type", "require_notes", "is_active"]
-    search_fields = ["name", "description"]
-
-
-# =============================================================================
-# Waitlist Management
-# =============================================================================
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
 
 
 @admin.register(WaitlistManagement)
 class WaitlistManagementAdmin(admin.ModelAdmin):
-    list_display = ["parent", "student", "slot", "position", "status", "joined_at"]
+    list_display = ["id", "status"]
     list_filter = ["status"]
-    search_fields = ["parent__first_name", "student__user__first_name"]
-    date_hierarchy = "joined_at"
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceWaitingList)
+class ConferenceWaitingListAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(RecurringConference)
+class RecurringConferenceAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(RecurringConferenceParticipant)
+class RecurringConferenceParticipantAdmin(admin.ModelAdmin):
+    list_display = ["id", "is_active", "created_at"]
+    list_filter = ["is_active"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceSettings)
+class ConferenceSettingsAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceAnalytics)
+class ConferenceAnalyticsAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceBookingRule)
+class ConferenceBookingRuleAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceSystemNotification)
+class ConferenceSystemNotificationAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceExport)
+class ConferenceExportAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceLocation)
+class ConferenceLocationAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceBlockedSlot)
+class ConferenceBlockedSlotAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceScheduleOverride)
+class ConferenceScheduleOverrideAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceReminderSchedule)
+class ConferenceReminderScheduleAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceAccessibilityRequirement)
+class ConferenceAccessibilityRequirementAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceNoteTemplate)
+class ConferenceNoteTemplateAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceApproval)
+class ConferenceApprovalAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceResource)
+class ConferenceResourceAdmin(admin.ModelAdmin):
+    list_display = ["name", "created_at"]
+    list_filter = []
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceSurvey)
+class ConferenceSurveyAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceSurveyResponse)
+class ConferenceSurveyResponseAdmin(admin.ModelAdmin):
+    list_display = ["id"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceCalendarSync)
+class ConferenceCalendarSyncAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceHistoryDetail)
+class ConferenceHistoryDetailAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "created_at"]
+    list_filter = ["school"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceTimeSlot)
+class ConferenceTimeSlotAdmin(admin.ModelAdmin):
+    list_display = ["id", "school", "status", "created_at"]
+    list_filter = ["school", "status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceFeedbackTemplate)
+class ConferenceFeedbackTemplateAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "is_active", "created_at"]
+    list_filter = ["school", "is_active"]
+    search_fields = ["name"]
+
+
+@admin.register(ConferenceFollowUp)
+class ConferenceFollowUpAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceRoomBooking)
+class ConferenceRoomBookingAdmin(admin.ModelAdmin):
+    list_display = ["id", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceTemplateSection)
+class ConferenceTemplateSectionAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceNoShow)
+class ConferenceNoShowAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]
+
+
+@admin.register(ConferenceConferenceType)
+class ConferenceConferenceTypeAdmin(admin.ModelAdmin):
+    list_display = ["id", "created_at"]
+    list_filter = []
+    search_fields = ["id"]

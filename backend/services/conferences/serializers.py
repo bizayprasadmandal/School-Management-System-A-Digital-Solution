@@ -1,127 +1,73 @@
+"""Serializers for conferences."""
+
 from rest_framework import serializers
 
 from .models import (
+    ConferenceAccessibilityRequirement,
+    ConferenceAnalytics,
+    ConferenceApproval,
     ConferenceAvailability,
+    ConferenceBlockedSlot,
     ConferenceBooking,
+    ConferenceBookingRule,
+    ConferenceCalendarSync,
+    ConferenceConferenceType,
+    ConferenceExport,
     ConferenceFeedback,
+    ConferenceFeedbackTemplate,
+    ConferenceFollowUp,
     ConferenceHistory,
+    ConferenceHistoryDetail,
+    ConferenceLocation,
+    ConferenceNoShow,
     ConferenceNotes,
+    ConferenceNoteTemplate,
     ConferenceReminder,
+    ConferenceReminderSchedule,
     ConferenceReport,
+    ConferenceResource,
+    ConferenceRoomBooking,
+    ConferenceScheduleOverride,
+    ConferenceSettings,
     ConferenceSlot,
+    ConferenceSurvey,
+    ConferenceSurveyResponse,
+    ConferenceSystemNotification,
     ConferenceTemplate,
+    ConferenceTemplateSection,
+    ConferenceTimeSlot,
     ConferenceType,
+    ConferenceWaitingList,
     FollowUpTracking,
+    RecurringConference,
+    RecurringConferenceParticipant,
     VirtualConference,
     WaitlistManagement,
 )
 
 
 class ConferenceSlotSerializer(serializers.ModelSerializer):
-    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True, allow_null=True)
-
-    class Meta:
-        model = ConferenceSlot
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
-
-
-class ConferenceSlotCreateUpdateSerializer(serializers.ModelSerializer):
-    create_zoom_meeting = serializers.BooleanField(
-        default=False, write_only=True, help_text="Auto-create a Zoom meeting for this slot"
-    )
-
     class Meta:
         model = ConferenceSlot
         fields = [
+            "id",
+            "school",
+            "on_delete",
             "teacher",
+            "on_delete",
             "student",
+            "on_delete",
             "date",
             "start_time",
             "end_time",
+            "is_booked",
+            "booked_by",
+            "on_delete",
             "notes",
-            "create_zoom_meeting",
+            "zoom_meeting_id",
+            "zoom_join_url",
         ]
-        extra_kwargs = {
-            "teacher": {
-                "required": False,
-                "help_text": "Defaults to the requesting user for teachers.",
-            }
-        }
-        # The model's unique_together(teacher, date, start_time) auto-generates a
-        # UniqueTogetherValidator that forces every tuple field to be required
-        # (even with required=False). We disable it and re-implement the check
-        # in validate() so teacher can default to the requesting user.
-        validators = []
-
-    def validate(self, attrs):
-        teacher = attrs.get("teacher")
-        if teacher is None:
-            request = self.context.get("request")
-            teacher = getattr(request, "user", None)
-            if teacher is None or not teacher.is_authenticated:
-                raise serializers.ValidationError({"teacher": "Teacher is required."})
-            attrs["teacher"] = teacher
-
-        qs = ConferenceSlot.objects.filter(
-            teacher=teacher,
-            date=attrs["date"],
-            start_time=attrs["start_time"],
-        )
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
-        if qs.exists():
-            raise serializers.ValidationError("A slot for this teacher, date, and start time already exists.")
-        return attrs
-
-    def create(self, validated_data):
-        validated_data.pop("create_zoom_meeting", None)
-        return super().create(validated_data)
-
-
-class ZoomSettingsSerializer(serializers.Serializer):
-    """Validate Zoom OAuth credentials."""
-
-    account_id = serializers.CharField(required=True, min_length=2)
-    client_id = serializers.CharField(required=True, min_length=2)
-    client_secret = serializers.CharField(required=True, min_length=2)
-
-
-class ZoomConnectionStatusSerializer(serializers.Serializer):
-    """Zoom connection status response."""
-
-    status = serializers.CharField()
-    detail = serializers.CharField()
-    user = serializers.DictField(required=False, allow_null=True)
-
-
-class CreateZoomMeetingSerializer(serializers.Serializer):
-    """Create a Zoom meeting for a conference slot."""
-
-    slot_id = serializers.UUIDField(required=True)
-    topic = serializers.CharField(required=False, help_text="Meeting topic (defaults to conference slot label)")
-    duration_minutes = serializers.IntegerField(default=30, min_value=5, max_value=240)
-    password = serializers.CharField(
-        required=False, min_length=4, max_length=10, help_text="Optional 4-10 char meeting passcode"
-    )
-
-
-class ZoomMeetingSerializer(serializers.Serializer):
-    """Serialized Zoom meeting response."""
-
-    id = serializers.CharField()
-    topic = serializers.CharField()
-    join_url = serializers.URLField()
-    start_url = serializers.URLField()
-    password = serializers.CharField(required=False, allow_blank=True)
-    duration = serializers.IntegerField()
-    start_time = serializers.DateTimeField()
-
-
-# =============================================================================
-# Conference Types Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceTypeSerializer(serializers.ModelSerializer):
@@ -129,6 +75,9 @@ class ConferenceTypeSerializer(serializers.ModelSerializer):
         model = ConferenceType
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "category",
             "description",
@@ -139,56 +88,33 @@ class ConferenceTypeSerializer(serializers.ModelSerializer):
             "require_student",
             "is_active",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Conference Bookings Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceBookingSerializer(serializers.ModelSerializer):
-    parent_name = serializers.CharField(source="parent.full_name", read_only=True)
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
-    slot_date = serializers.DateField(source="slot.date", read_only=True)
-    slot_start = serializers.TimeField(source="slot.start_time", read_only=True)
-    slot_end = serializers.TimeField(source="slot.end_time", read_only=True)
-
     class Meta:
         model = ConferenceBooking
         fields = [
             "id",
+            "id",
             "slot",
+            "on_delete",
             "booking_type",
+            "on_delete",
             "parent",
-            "parent_name",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "teacher",
-            "teacher_name",
-            "slot_date",
-            "slot_start",
-            "slot_end",
+            "on_delete",
             "status",
             "is_virtual",
             "meeting_link",
             "meeting_id",
-            "meeting_password",
-            "reason",
-            "notes",
-            "confirmed_at",
-            "cancelled_at",
-            "cancellation_reason",
-            "booked_at",
         ]
-        read_only_fields = ["id", "booked_at", "confirmed_at", "cancelled_at"]
-
-
-# =============================================================================
-# Conference Reminders Serializers
-# =============================================================================
+        read_only_fields = ["id", "updated_at"]
 
 
 class ConferenceReminderSerializer(serializers.ModelSerializer):
@@ -196,7 +122,9 @@ class ConferenceReminderSerializer(serializers.ModelSerializer):
         model = ConferenceReminder
         fields = [
             "id",
+            "id",
             "booking",
+            "on_delete",
             "reminder_type",
             "status",
             "subject",
@@ -205,22 +133,17 @@ class ConferenceReminderSerializer(serializers.ModelSerializer):
             "sent_at",
             "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "created_at"]
-
-
-# =============================================================================
-# Conference Notes Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class ConferenceNotesSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = ConferenceNotes
         fields = [
             "id",
+            "id",
             "booking",
+            "on_delete",
             "note_type",
             "title",
             "content",
@@ -231,55 +154,45 @@ class ConferenceNotesSerializer(serializers.ModelSerializer):
             "follow_up_date",
             "follow_up_notes",
             "created_by",
-            "created_by_name",
+            "on_delete",
             "shared_with_parent",
-            "shared_with_student",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Follow-up Tracking Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class FollowUpTrackingSerializer(serializers.ModelSerializer):
-    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
-
     class Meta:
         model = FollowUpTracking
         fields = [
             "id",
+            "id",
             "booking",
+            "on_delete",
             "title",
             "description",
             "priority",
             "status",
             "assigned_to",
-            "assigned_to_name",
+            "on_delete",
             "due_date",
             "completed_date",
             "notes",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Conference Availability Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceAvailabilitySerializer(serializers.ModelSerializer):
-    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
-
     class Meta:
         model = ConferenceAvailability
         fields = [
             "id",
+            "school",
+            "id",
             "teacher",
-            "teacher_name",
+            "on_delete",
+            "on_delete",
             "day_of_week",
             "start_time",
             "end_time",
@@ -290,24 +203,18 @@ class ConferenceAvailabilitySerializer(serializers.ModelSerializer):
             "effective_until",
             "is_recurring",
             "is_active",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Conference Reports Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = ConferenceReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "title",
             "report_type",
             "status",
@@ -320,31 +227,20 @@ class ConferenceReportSerializer(serializers.ModelSerializer):
             "total_attended",
             "total_no_show",
             "attendance_rate",
-            "by_teacher",
-            "by_grade",
-            "by_type",
-            "generated_by",
-            "generated_by_name",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
-# =============================================================================
-# Conference Feedback Serializers
-# =============================================================================
-
-
 class ConferenceFeedbackSerializer(serializers.ModelSerializer):
-    submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True)
-
     class Meta:
         model = ConferenceFeedback
         fields = [
             "id",
+            "id",
             "booking",
+            "on_delete",
             "submitted_by",
-            "submitted_by_name",
+            "on_delete",
             "feedback_for",
             "overall_rating",
             "communication_rating",
@@ -355,62 +251,41 @@ class ConferenceFeedbackSerializer(serializers.ModelSerializer):
             "additional_comments",
             "submitted_at",
         ]
-        read_only_fields = ["id", "submitted_at"]
-
-
-# =============================================================================
-# Conference History Serializers
-# =============================================================================
+        read_only_fields = ["id"]
 
 
 class ConferenceHistorySerializer(serializers.ModelSerializer):
-    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
-    parent_name = serializers.CharField(source="parent.full_name", read_only=True)
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    conference_type_name = serializers.CharField(source="conference_type.name", read_only=True, default=None)
-
     class Meta:
         model = ConferenceHistory
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "booking",
+            "on_delete",
             "teacher",
-            "teacher_name",
+            "on_delete",
             "parent",
-            "parent_name",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "conference_date",
             "conference_type",
-            "conference_type_name",
+            "on_delete",
             "was_virtual",
-            "duration_minutes",
-            "was_attended",
-            "had_notes",
-            "had_action_items",
-            "had_follow_up",
-            "summary",
-            "archived_at",
         ]
-        read_only_fields = ["id", "archived_at"]
-
-
-# =============================================================================
-# Virtual Conference Serializers
-# =============================================================================
+        read_only_fields = ["id"]
 
 
 class VirtualConferenceSerializer(serializers.ModelSerializer):
-    parent_name = serializers.CharField(source="booking.parent.full_name", read_only=True)
-    teacher_name = serializers.CharField(source="booking.teacher.full_name", read_only=True)
-
     class Meta:
         model = VirtualConference
         fields = [
             "id",
+            "id",
             "booking",
-            "parent_name",
-            "teacher_name",
+            "on_delete",
             "platform",
             "status",
             "meeting_id",
@@ -423,29 +298,22 @@ class VirtualConferenceSerializer(serializers.ModelSerializer):
             "scheduled_duration",
             "actual_duration",
             "had_technical_issues",
-            "technical_notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Conference Templates Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConferenceTemplateSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-    conference_type_name = serializers.CharField(source="conference_type.name", read_only=True, default=None)
-
     class Meta:
         model = ConferenceTemplate
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "description",
             "conference_type",
-            "conference_type_name",
+            "on_delete",
             "default_duration_minutes",
             "agenda_items",
             "discussion_topics",
@@ -454,39 +322,552 @@ class ConferenceTemplateSerializer(serializers.ModelSerializer):
             "require_feedback",
             "is_active",
             "created_by",
-            "created_by_name",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Waitlist Management Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class WaitlistManagementSerializer(serializers.ModelSerializer):
-    parent_name = serializers.CharField(source="parent.full_name", read_only=True)
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    slot_date = serializers.DateField(source="slot.date", read_only=True)
-    slot_teacher = serializers.CharField(source="slot.teacher.full_name", read_only=True)
-
     class Meta:
         model = WaitlistManagement
         fields = [
             "id",
+            "id",
             "slot",
-            "slot_date",
-            "slot_teacher",
+            "on_delete",
             "parent",
-            "parent_name",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "position",
             "status",
             "offered_at",
             "offer_expires_at",
             "notes",
             "joined_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "joined_at"]
+        read_only_fields = ["id", "updated_at"]
+
+
+class ConferenceWaitingListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceWaitingList
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "parent",
+            "on_delete",
+            "student",
+            "on_delete",
+            "status",
+            "position",
+            "preferred_dates",
+            "preferred_times",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RecurringConferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecurringConference
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "frequency",
+            "status",
+            "day_of_week",
+            "time_of_day",
+            "duration_minutes",
+            "teacher",
+            "on_delete",
+            "start_date",
+            "end_date",
+            "last_occurrence",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class RecurringConferenceParticipantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecurringConferenceParticipant
+        fields = [
+            "id",
+            "id",
+            "recurring_conference",
+            "on_delete",
+            "user",
+            "on_delete",
+            "role",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceSettings
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "booking_window_days",
+            "cancellation_window_hours",
+            "buffer_between_minutes",
+            "max_conferences_per_day",
+            "send_confirmation_email",
+            "send_reminder_email",
+            "reminder_hours_before",
+            "collect_feedback",
+            "feedback_deadline_days",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ConferenceAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceAnalytics
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "total_scheduled",
+            "total_completed",
+            "total_no_show",
+            "total_cancelled",
+            "total_parents",
+            "total_teachers",
+            "parent_participation_rate",
+            "avg_duration_minutes",
+            "avg_satisfaction_rating",
+            "by_type_breakdown",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceBookingRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceBookingRule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "rule_type",
+            "description",
+            "parameters",
+            "is_active",
+            "priority",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceSystemNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceSystemNotification
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "recipient",
+            "on_delete",
+            "notification_type",
+            "status",
+            "subject",
+            "message",
+            "channel",
+            "sent_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceExportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceExport
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "export_type",
+            "format",
+            "status",
+            "date_from",
+            "date_to",
+            "file",
+            "record_count",
+            "requested_by",
+            "on_delete",
+            "requested_at",
+            "completed_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class ConferenceLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceLocation
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "location_type",
+            "building",
+            "room",
+            "capacity",
+            "virtual_link",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceBlockedSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceBlockedSlot
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "teacher",
+            "on_delete",
+            "title",
+            "date",
+            "start_time",
+            "end_time",
+            "reason",
+            "is_recurring",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceScheduleOverrideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceScheduleOverride
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "override_type",
+            "start_time",
+            "end_time",
+            "reason",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceReminderScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceReminderSchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "hours_before",
+            "channel",
+            "message_template",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceAccessibilityRequirementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceAccessibilityRequirement
+        fields = [
+            "id",
+            "id",
+            "booking",
+            "on_delete",
+            "requirement_type",
+            "details",
+            "language",
+            "is_confirmed",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceNoteTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceNoteTemplate
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "sections",
+            "is_active",
+            "is_default",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceApprovalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceApproval
+        fields = [
+            "id",
+            "id",
+            "booking",
+            "on_delete",
+            "approver",
+            "on_delete",
+            "status",
+            "comments",
+            "decided_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceResource
+        fields = [
+            "id",
+            "id",
+            "booking",
+            "on_delete",
+            "resource_type",
+            "name",
+            "quantity",
+            "is_reserved",
+            "cost",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceSurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceSurvey
+        fields = ["id", "school", "id", "on_delete", "title", "questions", "status", "total_responses", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceSurveyResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceSurveyResponse
+        fields = [
+            "id",
+            "id",
+            "survey",
+            "on_delete",
+            "respondent",
+            "on_delete",
+            "answers",
+            "overall_rating",
+            "comments",
+            "submitted_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class ConferenceCalendarSyncSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceCalendarSync
+        fields = [
+            "id",
+            "id",
+            "user",
+            "on_delete",
+            "calendar_type",
+            "status",
+            "calendar_id",
+            "ical_url",
+            "auto_sync",
+            "last_synced_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ConferenceHistoryDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceHistoryDetail
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "booking",
+            "on_delete",
+            "student",
+            "on_delete",
+            "conference_date",
+            "conference_type",
+            "topics_discussed",
+            "outcome",
+            "follow_up_needed",
+            "recommendations",
+            "recorded_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceTimeSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceTimeSlot
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "teacher",
+            "on_delete",
+            "date",
+            "start_time",
+            "end_time",
+            "status",
+            "booking",
+            "on_delete",
+            "location",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceFeedbackTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceFeedbackTemplate
+        fields = ["id", "school", "id", "on_delete", "name", "questions", "target_audience", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceFollowUpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceFollowUp
+        fields = [
+            "id",
+            "id",
+            "booking",
+            "on_delete",
+            "assigned_to",
+            "on_delete",
+            "action_required",
+            "due_date",
+            "status",
+            "notes",
+            "completed_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ConferenceRoomBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceRoomBooking
+        fields = [
+            "id",
+            "id",
+            "location",
+            "on_delete",
+            "booking",
+            "on_delete",
+            "date",
+            "start_time",
+            "end_time",
+            "status",
+            "booked_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceTemplateSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceTemplateSection
+        fields = [
+            "id",
+            "id",
+            "template",
+            "on_delete",
+            "title",
+            "description",
+            "sort_order",
+            "is_required",
+            "suggested_questions",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceNoShowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceNoShow
+        fields = [
+            "id",
+            "id",
+            "booking",
+            "on_delete",
+            "user",
+            "on_delete",
+            "rescheduled",
+            "rescheduled_to",
+            "on_delete",
+            "reason",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConferenceConferenceTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConferenceConferenceType
+        fields = [
+            "id",
+            "id",
+            "conference_type",
+            "on_delete",
+            "requires_parent_consent",
+            "requires_student_consent",
+            "auto_generate_notes",
+            "default_location",
+            "on_delete",
+            "max_duration_minutes",
+            "allow_virtual",
+            "allow_walk_in",
+            "fee",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
