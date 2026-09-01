@@ -593,3 +593,792 @@ class SchoolClosure(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.date})"
+
+
+# =============================================================================
+# NEW MODELS: Bell Schedule
+# =============================================================================
+
+
+class BellSchedule(models.Model):
+    """School bell/period timing configuration."""
+
+    class DayType(models.TextChoices):
+        REGULAR = "regular", "Regular Day"
+        EARLY = "early", "Early Dismissal"
+        LATE = "late", "Late Start"
+        SPECIAL = "special", "Special Schedule"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="bell_schedules")
+    name = models.CharField(max_length=200)
+    day_type = models.CharField(max_length=10, choices=DayType.choices, default=DayType.REGULAR)
+    is_active = models.BooleanField(default=True)
+    effective_from = models.DateField(null=True, blank=True)
+    effective_until = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "bell_schedules"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_day_type_display()})"
+
+
+class BellScheduleEntry(models.Model):
+    """Individual bell schedule entries."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bell_schedule = models.ForeignKey(BellSchedule, on_delete=models.CASCADE, related_name="entries")
+    period = models.ForeignKey("Period", on_delete=models.CASCADE, related_name="bell_entries")
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_break = models.BooleanField(default=False, help_text="Is this a break/lunch period?")
+    break_name = models.CharField(max_length=50, blank=True, help_text="e.g., Morning Break, Lunch")
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "bell_schedule_entries"
+        ordering = ["sort_order"]
+        unique_together = [("bell_schedule", "period")]
+
+    def __str__(self):
+        return f"{self.period} - {self.start_time} to {self.end_time}"
+
+    @property
+    def duration_minutes(self):
+        from datetime import datetime
+
+        start = datetime.combine(datetime.today(), self.start_time)
+        end = datetime.combine(datetime.today(), self.end_time)
+        return int((end - start).total_seconds() / 60)
+
+
+# =============================================================================
+# NEW MODELS: Class Group / Section Management
+# =============================================================================
+
+
+class ClassGroup(models.Model):
+    """Class groups / sections within a grade."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="class_groups")
+    grade_level = models.CharField(max_length=50)
+    section_name = models.CharField(max_length=50, help_text="e.g., A, B, Science, Arts")
+    academic_year = models.CharField(max_length=10)
+    # Capacity
+    max_students = models.PositiveIntegerField(default=40)
+    current_students = models.PositiveIntegerField(default=0)
+    # Class teacher
+    class_teacher = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="class_groups_managed"
+    )
+    # Room
+    homeroom = models.ForeignKey(
+        "infrastructure.Room", on_delete=models.SET_NULL, null=True, blank=True, related_name="class_groups"
+    )
+    # Subjects
+    subjects = models.JSONField(default=list, blank=True, help_text="List of subject codes")
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "class_groups"
+        unique_together = [("school", "grade_level", "section_name", "academic_year")]
+        ordering = ["grade_level", "section_name"]
+
+    def __str__(self):
+        return f"Grade {self.grade_level} - Section {self.section_name} ({self.academic_year})"
+
+
+class ClassGroupEnrollment(models.Model):
+    """Student enrollment in class groups."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.CASCADE, related_name="enrollments")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="class_group_enrollments")
+    enrolled_date = models.DateField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "class_group_enrollments"
+        unique_together = [("class_group", "student")]
+
+    def __str__(self):
+        return f"{self.student} in {self.class_group}"
+
+
+# =============================================================================
+# NEW MODELS: Subject-Teacher Assignment
+# =============================================================================
+
+
+class SubjectTeacherAssignment(models.Model):
+    """Assign teachers to subjects for specific classes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="subject_teacher_assignments"
+    )
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="subject_assignments")
+    subject = models.CharField(max_length=100)
+    subject_code = models.CharField(max_length=20, blank=True)
+    # Class assignment
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.CASCADE, related_name="subject_assignments")
+    # Schedule
+    periods_per_week = models.PositiveIntegerField(default=3)
+    academic_year = models.CharField(max_length=10)
+    semester = models.CharField(max_length=10, blank=True)
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "subject_teacher_assignments"
+        unique_together = [("teacher", "subject", "class_group", "academic_year")]
+
+    def __str__(self):
+        return f"{self.teacher} - {self.subject} ({self.class_group})"
+
+
+# =============================================================================
+# NEW MODELS: Lesson Plans
+# =============================================================================
+
+
+class LessonPlan(models.Model):
+    """Teacher lesson plans linked to timetable slots."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        APPROVED = "approved", "Approved"
+        DELIVERED = "delivered", "Delivered"
+        REVISION = "revision", "Needs Revision"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="lesson_plans")
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="lesson_plans")
+    # Class
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.CharField(max_length=100)
+    # Schedule
+    plan_date = models.DateField()
+    period = models.ForeignKey("Period", on_delete=models.SET_NULL, null=True, blank=True)
+    timetable_slot = models.ForeignKey("TimetableSlot", on_delete=models.SET_NULL, null=True, blank=True)
+    # Content
+    topic = models.CharField(max_length=200)
+    learning_objectives = models.TextField(blank=True)
+    content_outline = models.TextField(blank=True)
+    teaching_methods = models.TextField(blank=True)
+    resources_needed = models.TextField(blank=True)
+    materials = models.TextField(blank=True)
+    # Assessment
+    formative_assessment = models.TextField(blank=True)
+    homework = models.TextField(blank=True)
+    # Differentiation
+    differentiation_strategies = models.TextField(blank=True)
+    special_needs_accommodations = models.TextField(blank=True)
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    approved_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_lesson_plans"
+    )
+    # Reflection
+    post_lesson_notes = models.TextField(blank=True)
+    what_worked_well = models.TextField(blank=True)
+    areas_for_improvement = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "timetable_lesson_plans"
+        ordering = ["-plan_date"]
+
+    def __str__(self):
+        return f"{self.topic} - {self.class_group or self.subject} ({self.plan_date})"
+
+
+# =============================================================================
+# NEW MODELS: Exam Room Allocation
+# =============================================================================
+
+
+class ExamRoomAllocation(models.Model):
+    """Room allocation for examinations."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="exam_room_allocations")
+    exam_schedule = models.ForeignKey("ExamSchedule", on_delete=models.CASCADE, related_name="room_allocations")
+    room = models.ForeignKey("infrastructure.Room", on_delete=models.CASCADE, related_name="exam_allocations")
+    # Capacity
+    seating_capacity = models.PositiveIntegerField(default=30)
+    students_allocated = models.PositiveIntegerField(default=0)
+    # Staff
+    invigilator = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    co_invigilator = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="co_invigilated_exams"
+    )
+    # Setup
+    seating_arrangement = models.CharField(max_length=50, blank=True, help_text="Rows, Clusters, Individual, etc.")
+    equipment_needed = models.TextField(blank=True)
+    special_instructions = models.TextField(blank=True)
+    # Status
+    is_ready = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "exam_room_allocations"
+        unique_together = [("exam_schedule", "room")]
+
+    def __str__(self):
+        return f"Room {self.room} - {self.exam_schedule} ({self.students_allocated}/{self.seating_capacity})"
+
+
+# =============================================================================
+# NEW MODELS: Seating Arrangement
+# =============================================================================
+
+
+class SeatingArrangement(models.Model):
+    """Seating arrangements for exams."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room_allocation = models.ForeignKey(
+        ExamRoomAllocation, on_delete=models.CASCADE, related_name="seating_arrangements"
+    )
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="exam_seatings")
+    seat_number = models.CharField(max_length=10)
+    row = models.PositiveIntegerField(default=0)
+    column = models.PositiveIntegerField(default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "seating_arrangements"
+        unique_together = [("room_allocation", "seat_number")]
+
+    def __str__(self):
+        return f"Seat {self.seat_number} - {self.student}"
+
+
+# =============================================================================
+# NEW MODELS: Exam Attendance
+# =============================================================================
+
+
+class ExamAttendance(models.Model):
+    """Track student attendance for exams."""
+
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        ABSENT = "absent", "Absent"
+        LATE = "late", "Late"
+        EXCUSED = "excused", "Excused"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam_entry = models.ForeignKey("ExamScheduleEntry", on_delete=models.CASCADE, related_name="attendances")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="exam_attendances")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PRESENT)
+    # Timing
+    arrival_time = models.TimeField(null=True, blank=True)
+    departure_time = models.TimeField(null=True, blank=True)
+    minutes_late = models.PositiveIntegerField(default=0)
+    # Seating
+    seating = models.ForeignKey(SeatingArrangement, on_delete=models.SET_NULL, null=True, blank=True)
+    # Notes
+    invigilator_notes = models.TextField(blank=True)
+    # Metadata
+    recorded_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "exam_attendances"
+        unique_together = [("exam_entry", "student")]
+
+    def __str__(self):
+        return f"{self.student} - {self.exam_entry} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Academic Session Planning
+# =============================================================================
+
+
+class AcademicSession(models.Model):
+    """Academic sessions/semesters."""
+
+    class Status(models.TextChoices):
+        UPCOMING = "upcoming", "Upcoming"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="academic_sessions")
+    name = models.CharField(max_length=200, help_text="e.g., Fall 2026, Spring 2027")
+    academic_year = models.CharField(max_length=10)
+    semester = models.PositiveIntegerField(help_text="1, 2, 3, etc.")
+    # Dates
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Enrollment
+    enrollment_start = models.DateField(null=True, blank=True)
+    enrollment_end = models.DateField(null=True, blank=True)
+    # Exams
+    exam_start_date = models.DateField(null=True, blank=True)
+    exam_end_date = models.DateField(null=True, blank=True)
+    results_date = models.DateField(null=True, blank=True)
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.UPCOMING)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_sessions"
+        ordering = ["-academic_year", "-semester"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Substitute Schedule
+# =============================================================================
+
+
+class SubstituteSchedule(models.Model):
+    """Detailed substitute teacher scheduling."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        CONFIRMED = "confirmed", "Confirmed"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="substitute_schedules")
+    substitute_teacher = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="substitute_schedules"
+    )
+    original_teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="substituted_for")
+    # Schedule
+    date = models.DateField()
+    timetable_slot = models.ForeignKey("TimetableSlot", on_delete=models.SET_NULL, null=True, blank=True)
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.CharField(max_length=100, blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    # Lesson plan
+    lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.SET_NULL, null=True, blank=True)
+    instructions = models.TextField(blank=True)
+    # Attendance
+    class_covered = models.BooleanField(default=True)
+    # Metadata
+    assigned_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "substitute_schedules"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.substitute_teacher} for {self.original_teacher} ({self.date})"
+
+
+# =============================================================================
+# NEW MODELS: Room Utilization
+# =============================================================================
+
+
+class RoomUtilization(models.Model):
+    """Track room usage and utilization."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey("infrastructure.Room", on_delete=models.CASCADE, related_name="utilization_records")
+    date = models.DateField()
+    # Usage stats
+    total_hours_available = models.DecimalField(max_digits=5, decimal_places=2, default=8)
+    total_hours_used = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    utilization_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Breakdown
+    teaching_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    exam_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    meeting_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    event_hours = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Conflicts
+    conflicts_detected = models.PositiveIntegerField(default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "room_utilization"
+        unique_together = [("room", "date")]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.room} - {self.utilization_percentage}% ({self.date})"
+
+
+# =============================================================================
+# NEW MODELS: Timetable Validation
+# =============================================================================
+
+
+class TimetableValidationRule(models.Model):
+    """Rules for validating timetable generation."""
+
+    class RuleType(models.TextChoices):
+        TEACHER_LOAD = "teacher_load", "Teacher Load Limit"
+        ROOM_CAPACITY = "room_capacity", "Room Capacity"
+        SUBJECT_SPACING = "spacing", "Subject Spacing"
+        CONSECUTIVE = "consecutive", "Consecutive Period Limit"
+        BREAK_REQUIRED = "break", "Break Required"
+        GRADE_CONFLICT = "grade_conflict", "Grade Conflict"
+        TEACHER_CONFLICT = "teacher_conflict", "Teacher Conflict"
+        CUSTOM = "custom", "Custom Rule"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="timetable_validation_rules"
+    )
+    name = models.CharField(max_length=200)
+    rule_type = models.CharField(max_length=20, choices=RuleType.choices)
+    description = models.TextField(blank=True)
+    # Rule parameters
+    max_value = models.PositiveIntegerField(null=True, blank=True, help_text="Maximum allowed value")
+    min_value = models.PositiveIntegerField(null=True, blank=True, help_text="Minimum required value")
+    parameters = models.JSONField(default=dict, blank=True)
+    # Severity
+    is_hard_constraint = models.BooleanField(default=True, help_text="Hard = cannot violate, Soft = warning only")
+    priority = models.PositiveIntegerField(default=0)
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "timetable_validation_rules"
+        ordering = ["-priority"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_rule_type_display()})"
+
+
+class TimetableValidationError(models.Model):
+    """Validation errors in generated timetables."""
+
+    class Severity(models.TextChoices):
+        ERROR = "error", "Error (Must Fix)"
+        WARNING = "warning", "Warning"
+        INFO = "info", "Info"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rule = models.ForeignKey(TimetableValidationRule, on_delete=models.CASCADE, related_name="errors")
+    timetable_slot = models.ForeignKey(
+        "TimetableSlot", on_delete=models.SET_NULL, null=True, blank=True, related_name="validation_errors"
+    )
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.ERROR)
+    message = models.TextField()
+    details = models.JSONField(default=dict, blank=True)
+    resolved = models.BooleanField(default=False)
+    resolved_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "timetable_validation_errors"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_severity_display()}: {self.message[:80]}"
+
+
+# =============================================================================
+# NEW MODELS: Resource Booking
+# =============================================================================
+
+
+class TimetableResource(models.Model):
+    """Resources that can be booked (projectors, labs, etc.)."""
+
+    class ResourceType(models.TextChoices):
+        PROJECTOR = "projector", "Projector"
+        LAB = "lab", "Laboratory"
+        COMPUTER = "computer", "Computer Lab"
+        LIBRARY = "library", "Library Room"
+        AUDITORIUM = "auditorium", "Auditorium"
+        SPORTS = "sports", "Sports Facility"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="timetable_resources")
+    name = models.CharField(max_length=200)
+    resource_type = models.CharField(max_length=15, choices=ResourceType.choices)
+    room = models.ForeignKey(
+        "infrastructure.Room", on_delete=models.SET_NULL, null=True, blank=True, related_name="timetable_resources"
+    )
+    # Capacity
+    capacity = models.PositiveIntegerField(default=1)
+    # Availability
+    is_available = models.BooleanField(default=True)
+    # Cost
+    hourly_cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    # Metadata
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "timetable_resources"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_resource_type_display()})"
+
+
+class TimetableResourceBooking(models.Model):
+    """Resource booking records."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        CANCELLED = "cancelled", "Cancelled"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    resource = models.ForeignKey(TimetableResource, on_delete=models.CASCADE, related_name="bookings")
+    booked_by = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="resource_bookings")
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.SET_NULL, null=True, blank=True)
+    # Schedule
+    booking_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    # Purpose
+    purpose = models.CharField(max_length=200, blank=True)
+    event = models.ForeignKey(
+        "SchoolEvent", on_delete=models.SET_NULL, null=True, blank=True, related_name="resource_bookings"
+    )
+    # Status
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    # Cost
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "timetable_resource_bookings"
+        ordering = ["-booking_date", "-start_time"]
+
+    def __str__(self):
+        return f"{self.resource} - {self.booked_by} ({self.booking_date})"
+
+
+# =============================================================================
+# NEW MODELS: Timetable Analytics
+# =============================================================================
+
+
+class TimetableAnalytics(models.Model):
+    """Timetable generation analytics and metrics."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="timetable_analytics")
+    academic_year = models.CharField(max_length=10)
+    semester = models.CharField(max_length=10, blank=True)
+    generation_date = models.DateField()
+    total_classes = models.PositiveIntegerField(default=0)
+    total_slots = models.PositiveIntegerField(default=0)
+    total_teachers = models.PositiveIntegerField(default=0)
+    total_rooms = models.PositiveIntegerField(default=0)
+    conflicts_found = models.PositiveIntegerField(default=0)
+    conflicts_resolved = models.PositiveIntegerField(default=0)
+    validation_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    avg_teacher_load = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    max_teacher_load = models.PositiveIntegerField(default=0)
+    avg_room_utilization = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    generation_time_seconds = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    generated_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "timetable_analytics"
+
+    def __str__(self):
+        return f"Analytics - {self.academic_year} ({self.generation_date})"
+
+
+class TimetableChangeRequest(models.Model):
+    """Requests for timetable changes."""
+
+    class RequestType(models.TextChoices):
+        SWAP = "swap", "Period Swap"
+        ROOM_CHANGE = "room", "Room Change"
+        TIME_CHANGE = "time", "Time Change"
+        TEACHER_CHANGE = "teacher", "Teacher Change"
+        CANCELLATION = "cancel", "Class Cancellation"
+        EXTRA_CLASS = "extra", "Extra Class"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        IMPLEMENTED = "implemented", "Implemented"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(
+        "auth_service.School", on_delete=models.CASCADE, related_name="timetable_change_requests"
+    )
+    requested_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.CASCADE, related_name="timetable_change_requests"
+    )
+    request_type = models.CharField(max_length=10, choices=RequestType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
+    description = models.TextField()
+    original_slot = models.ForeignKey(
+        "TimetableSlot", on_delete=models.SET_NULL, null=True, blank=True, related_name="change_requests_from"
+    )
+    requested_slot = models.ForeignKey(
+        "TimetableSlot", on_delete=models.SET_NULL, null=True, blank=True, related_name="change_requests_to"
+    )
+    approved_by = models.ForeignKey(
+        "auth_service.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="timetable_change_approvals"
+    )
+    approval_notes = models.TextField(blank=True)
+    implemented_at = models.DateTimeField(null=True, blank=True)
+    is_urgent = models.BooleanField(default=False)
+    effective_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "timetable_change_requests"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_request_type_display()} - {self.get_status_display()}"
+
+
+class DailySchedule(models.Model):
+    """Daily schedule view for quick reference."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="daily_schedules")
+    date = models.DateField()
+    day_of_week = models.CharField(max_length=10)
+    total_classes_scheduled = models.PositiveIntegerField(default=0)
+    total_classes_conducted = models.PositiveIntegerField(default=0)
+    total_classes_cancelled = models.PositiveIntegerField(default=0)
+    total_substitutes = models.PositiveIntegerField(default=0)
+    is_holiday = models.BooleanField(default=False)
+    holiday_name = models.CharField(max_length=200, blank=True)
+    is_special_schedule = models.BooleanField(default=False)
+    special_schedule_name = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "daily_schedules"
+        unique_together = [("school", "date")]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Schedule - {self.date} ({self.day_of_week})"
+
+
+class TeacherWorkload(models.Model):
+    """Teacher workload tracking per week/semester."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="teacher_workloads")
+    teacher = models.ForeignKey("auth_service.User", on_delete=models.CASCADE, related_name="teacher_workloads")
+    academic_year = models.CharField(max_length=10)
+    semester = models.CharField(max_length=10, blank=True)
+    total_periods_per_week = models.PositiveIntegerField(default=0)
+    total_classes = models.PositiveIntegerField(default=0)
+    total_students = models.PositiveIntegerField(default=0)
+    subjects_taught = models.JSONField(default=list, blank=True)
+    classes_taught = models.JSONField(default=list, blank=True)
+    max_periods_per_week = models.PositiveIntegerField(default=30)
+    workload_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    duty_hours_per_week = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    calculated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "teacher_workloads"
+        unique_together = [("teacher", "academic_year", "semester")]
+
+    def __str__(self):
+        return f"{self.teacher} - {self.total_periods_per_week} periods ({self.workload_percentage}%)"
+
+
+class ClassSchedule(models.Model):
+    """Weekly class schedule for a specific class group."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    class_group = models.ForeignKey(ClassGroup, on_delete=models.CASCADE, related_name="class_schedules")
+    academic_year = models.CharField(max_length=10)
+    total_weekly_periods = models.PositiveIntegerField(default=0)
+    subjects_scheduled = models.JSONField(default=list, blank=True)
+    is_finalized = models.BooleanField(default=False)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+    finalized_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "class_schedules"
+        unique_together = [("class_group", "academic_year")]
+
+    def __str__(self):
+        return f"Schedule - {self.class_group} ({self.academic_year})"
+
+
+class TimetableVersion(models.Model):
+    """Version control for timetables."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey("auth_service.School", on_delete=models.CASCADE, related_name="timetable_versions")
+    academic_year = models.CharField(max_length=10)
+    semester = models.CharField(max_length=10, blank=True)
+    version_number = models.PositiveIntegerField(default=1)
+    name = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    # Snapshot
+    timetable_data = models.JSONField(default=dict, help_text="Full timetable snapshot as JSON")
+    # Status
+    is_current = models.BooleanField(default=False)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    # Changes
+    changes_from_previous = models.TextField(blank=True)
+    # Metadata
+    created_by = models.ForeignKey("auth_service.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "timetable_versions"
+        ordering = ["-version_number"]
+
+    def __str__(self):
+        return f"{self.academic_year} v{self.version_number} ({'Current' if self.is_current else 'Draft'})"
