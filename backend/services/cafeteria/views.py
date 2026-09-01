@@ -1,27 +1,50 @@
-"""Cafeteria — School-scoped viewsets."""
+"""Viewsets for cafeteria."""
+
+import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
-from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from .models import (
     AllergenManagement,
+    CafeteriaAlert,
+    CafeteriaAnalytics,
+    CafeteriaCapacity,
+    CafeteriaEquipment,
+    CafeteriaFeedback,
+    CafeteriaHolidaySchedule,
     CafeteriaInventory,
+    CafeteriaInventoryAlert,
+    CafeteriaMonthlyReport,
+    CafeteriaReservation,
+    CafeteriaStaff,
+    CashRegister,
+    DailySalesSummary,
     DietaryRestriction,
+    FoodSafetyCheck,
+    FoodSafetyIncident,
     FreeReducedLunch,
     MealBooking,
+    MealDelivery,
     MealMenu,
     MealPlan,
+    MealPreOrder,
+    MealSubscription,
     MenuItemAllergen,
+    MenuItemRating,
+    NutritionAnalysis,
     NutritionTracking,
+    OnlineOrder,
+    OnlineOrderItem,
     PaymentTransaction,
     PointOfSale,
     PreOrderSystem,
     ProductionPlanning,
     StudentAccount,
+    SubscriptionUsage,
     USDAComplianceReport,
     VendorManagement,
     VendorOrder,
@@ -29,35 +52,59 @@ from .models import (
 )
 from .serializers import (
     AllergenManagementSerializer,
+    CafeteriaAlertSerializer,
+    CafeteriaAnalyticsSerializer,
+    CafeteriaCapacitySerializer,
+    CafeteriaEquipmentSerializer,
+    CafeteriaFeedbackSerializer,
+    CafeteriaHolidayScheduleSerializer,
+    CafeteriaInventoryAlertSerializer,
     CafeteriaInventorySerializer,
+    CafeteriaMonthlyReportSerializer,
+    CafeteriaReservationSerializer,
+    CafeteriaStaffSerializer,
+    CashRegisterSerializer,
+    DailySalesSummarySerializer,
     DietaryRestrictionSerializer,
+    FoodSafetyCheckSerializer,
+    FoodSafetyIncidentSerializer,
     FreeReducedLunchSerializer,
     MealBookingSerializer,
+    MealDeliverySerializer,
     MealMenuSerializer,
     MealPlanSerializer,
+    MealPreOrderSerializer,
+    MealSubscriptionSerializer,
     MenuItemAllergenSerializer,
+    MenuItemRatingSerializer,
+    NutritionAnalysisSerializer,
     NutritionTrackingSerializer,
+    OnlineOrderItemSerializer,
+    OnlineOrderSerializer,
     PaymentTransactionSerializer,
     PointOfSaleSerializer,
     PreOrderSystemSerializer,
     ProductionPlanningSerializer,
     StudentAccountSerializer,
+    SubscriptionUsageSerializer,
     USDAComplianceReportSerializer,
     VendorManagementSerializer,
     VendorOrderSerializer,
     WasteTrackingSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class MealMenuViewSet(viewsets.ModelViewSet):
     serializer_class = MealMenuSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name", "items", "description"]
-    filterset_fields = ["meal_type", "date", "is_active"]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return MealMenu.objects.filter(school=self.request.user.school).annotate(booking_count=Count("bookings"))
+        return MealMenu.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -72,8 +119,8 @@ class MealPlanViewSet(viewsets.ModelViewSet):
     serializer_class = MealPlanSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name", "description"]
-    filterset_fields = ["is_active"]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
         return MealPlan.objects.filter(school=self.request.user.school)
@@ -91,13 +138,15 @@ class MealBookingViewSet(viewsets.ModelViewSet):
     serializer_class = MealBookingSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["user__first_name", "user__last_name", "menu__name"]
-    filterset_fields = ["meal_type", "status", "menu", "booking_date"]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return MealBooking.objects.filter(school=self.request.user.school).select_related("user", "menu", "meal_plan")
+        return MealBooking.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -107,11 +156,11 @@ class MealBookingViewSet(viewsets.ModelViewSet):
 class DietaryRestrictionViewSet(viewsets.ModelViewSet):
     serializer_class = DietaryRestrictionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "restriction_type"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
 
     def get_queryset(self):
-        return DietaryRestriction.objects.filter(user__school=self.request.user.school).select_related("user")
+        return DietaryRestriction.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -119,19 +168,22 @@ class DietaryRestrictionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school)
 
 
 class PointOfSaleViewSet(viewsets.ModelViewSet):
     serializer_class = PointOfSaleSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "transaction_type", "payment_method", "benefit_type"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return PointOfSale.objects.filter(school=self.request.user.school).select_related("user", "menu")
+        return PointOfSale.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -141,15 +193,16 @@ class PointOfSaleViewSet(viewsets.ModelViewSet):
 class PaymentTransactionViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentTransactionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "transaction_type", "payment_method", "status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return PaymentTransaction.objects.filter(school=self.request.user.school).select_related(
-            "user", "meal_plan", "booking"
-        )
+        return PaymentTransaction.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -159,16 +212,17 @@ class PaymentTransactionViewSet(viewsets.ModelViewSet):
 class FreeReducedLunchViewSet(viewsets.ModelViewSet):
     serializer_class = FreeReducedLunchSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["student", "eligibility_type", "status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return FreeReducedLunch.objects.filter(school=self.request.user.school).select_related(
-            "student__user", "reviewed_by"
-        )
+        return FreeReducedLunch.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -177,14 +231,17 @@ class FreeReducedLunchViewSet(viewsets.ModelViewSet):
 class CafeteriaInventoryViewSet(viewsets.ModelViewSet):
     serializer_class = CafeteriaInventorySerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["category", "is_perishable", "is_active"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
         return CafeteriaInventory.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -193,16 +250,17 @@ class CafeteriaInventoryViewSet(viewsets.ModelViewSet):
 class USDAComplianceReportViewSet(viewsets.ModelViewSet):
     serializer_class = USDAComplianceReportSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["report_type", "status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return USDAComplianceReport.objects.filter(school=self.request.user.school).select_related(
-            "submitted_by", "approved_by"
-        )
+        return USDAComplianceReport.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -211,13 +269,16 @@ class USDAComplianceReportViewSet(viewsets.ModelViewSet):
 class PreOrderSystemViewSet(viewsets.ModelViewSet):
     serializer_class = PreOrderSystemSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "menu", "status", "payment_status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return PreOrderSystem.objects.filter(school=self.request.user.school).select_related("user", "menu")
+        return PreOrderSystem.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -227,13 +288,16 @@ class PreOrderSystemViewSet(viewsets.ModelViewSet):
 class StudentAccountViewSet(viewsets.ModelViewSet):
     serializer_class = StudentAccountSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "status", "auto_replenish_enabled"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return StudentAccount.objects.filter(school=self.request.user.school).select_related("user")
+        return StudentAccount.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -243,14 +307,17 @@ class StudentAccountViewSet(viewsets.ModelViewSet):
 class AllergenManagementViewSet(viewsets.ModelViewSet):
     serializer_class = AllergenManagementSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["severity", "is_active"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
         return AllergenManagement.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -259,29 +326,34 @@ class AllergenManagementViewSet(viewsets.ModelViewSet):
 class MenuItemAllergenViewSet(viewsets.ModelViewSet):
     serializer_class = MenuItemAllergenSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["menu", "allergen"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
 
     def get_queryset(self):
-        return MenuItemAllergen.objects.filter(menu__school=self.request.user.school).select_related("menu", "allergen")
+        return MenuItemAllergen.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school)
 
 
 class NutritionTrackingViewSet(viewsets.ModelViewSet):
     serializer_class = NutritionTrackingSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["user", "date"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return NutritionTracking.objects.filter(school=self.request.user.school).select_related("user")
+        return NutritionTracking.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
@@ -291,14 +363,17 @@ class NutritionTrackingViewSet(viewsets.ModelViewSet):
 class VendorManagementViewSet(viewsets.ModelViewSet):
     serializer_class = VendorManagementSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
         return VendorManagement.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -307,30 +382,36 @@ class VendorManagementViewSet(viewsets.ModelViewSet):
 class VendorOrderViewSet(viewsets.ModelViewSet):
     serializer_class = VendorOrderSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["vendor", "status", "payment_status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return VendorOrder.objects.filter(school=self.request.user.school).select_related("vendor", "created_by")
+        return VendorOrder.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school, created_by=self.request.user)
+        serializer.save(school=self.request.user.school)
 
 
 class ProductionPlanningViewSet(viewsets.ModelViewSet):
     serializer_class = ProductionPlanningSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["menu", "status"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return ProductionPlanning.objects.filter(school=self.request.user.school).select_related("menu", "assigned_to")
+        return ProductionPlanning.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
@@ -339,14 +420,431 @@ class ProductionPlanningViewSet(viewsets.ModelViewSet):
 class WasteTrackingViewSet(viewsets.ModelViewSet):
     serializer_class = WasteTrackingSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["waste_type", "date"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
 
     def get_queryset(self):
-        return WasteTracking.objects.filter(school=self.request.user.school).select_related("menu", "recorded_by")
+        return WasteTracking.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school, recorded_by=self.request.user)
+        serializer.save(school=self.request.user.school)
+
+
+class OnlineOrderViewSet(viewsets.ModelViewSet):
+    serializer_class = OnlineOrderSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return OnlineOrder.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class OnlineOrderItemViewSet(viewsets.ModelViewSet):
+    serializer_class = OnlineOrderItemSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+
+    def get_queryset(self):
+        return OnlineOrderItem.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class MealDeliveryViewSet(viewsets.ModelViewSet):
+    serializer_class = MealDeliverySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return MealDelivery.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CashRegisterViewSet(viewsets.ModelViewSet):
+    serializer_class = CashRegisterSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CashRegister.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class DailySalesSummaryViewSet(viewsets.ModelViewSet):
+    serializer_class = DailySalesSummarySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return DailySalesSummary.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class FoodSafetyCheckViewSet(viewsets.ModelViewSet):
+    serializer_class = FoodSafetyCheckSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return FoodSafetyCheck.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class FoodSafetyIncidentViewSet(viewsets.ModelViewSet):
+    serializer_class = FoodSafetyIncidentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return FoodSafetyIncident.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaStaffViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaStaffSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaStaff.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaFeedbackViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaFeedbackSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaFeedback.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class MealPreOrderViewSet(viewsets.ModelViewSet):
+    serializer_class = MealPreOrderSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return MealPreOrder.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class NutritionAnalysisViewSet(viewsets.ModelViewSet):
+    serializer_class = NutritionAnalysisSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+
+    def get_queryset(self):
+        return NutritionAnalysis.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaEquipmentViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaEquipmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaEquipment.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaReservationViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaReservationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaReservation.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaAlertViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaAlertSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaAlert.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class MealSubscriptionViewSet(viewsets.ModelViewSet):
+    serializer_class = MealSubscriptionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return MealSubscription.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class SubscriptionUsageViewSet(viewsets.ModelViewSet):
+    serializer_class = SubscriptionUsageSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+
+    def get_queryset(self):
+        return SubscriptionUsage.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaAnalyticsViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaAnalyticsSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaAnalytics.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaCapacityViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaCapacitySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaCapacity.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class MenuItemRatingViewSet(viewsets.ModelViewSet):
+    serializer_class = MenuItemRatingSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+
+    def get_queryset(self):
+        return MenuItemRating.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaHolidayScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaHolidayScheduleSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaHolidaySchedule.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaMonthlyReportViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaMonthlyReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaMonthlyReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class CafeteriaInventoryAlertViewSet(viewsets.ModelViewSet):
+    serializer_class = CafeteriaInventoryAlertSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["id"]
+    filterset_fields = ["school"]
+
+    def get_queryset(self):
+        return CafeteriaInventoryAlert.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)

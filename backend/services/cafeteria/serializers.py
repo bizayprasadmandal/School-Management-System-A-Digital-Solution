@@ -1,22 +1,44 @@
-"""Cafeteria serializers."""
+"""Serializers for cafeteria."""
 
 from rest_framework import serializers
 
 from .models import (
     AllergenManagement,
+    CafeteriaAlert,
+    CafeteriaAnalytics,
+    CafeteriaCapacity,
+    CafeteriaEquipment,
+    CafeteriaFeedback,
+    CafeteriaHolidaySchedule,
     CafeteriaInventory,
+    CafeteriaInventoryAlert,
+    CafeteriaMonthlyReport,
+    CafeteriaReservation,
+    CafeteriaStaff,
+    CashRegister,
+    DailySalesSummary,
     DietaryRestriction,
+    FoodSafetyCheck,
+    FoodSafetyIncident,
     FreeReducedLunch,
     MealBooking,
+    MealDelivery,
     MealMenu,
     MealPlan,
+    MealPreOrder,
+    MealSubscription,
     MenuItemAllergen,
+    MenuItemRating,
+    NutritionAnalysis,
     NutritionTracking,
+    OnlineOrder,
+    OnlineOrderItem,
     PaymentTransaction,
     PointOfSale,
     PreOrderSystem,
     ProductionPlanning,
     StudentAccount,
+    SubscriptionUsage,
     USDAComplianceReport,
     VendorManagement,
     VendorOrder,
@@ -25,15 +47,14 @@ from .models import (
 
 
 class MealMenuSerializer(serializers.ModelSerializer):
-    meal_type_display = serializers.CharField(source="get_meal_type_display", read_only=True)
-    booking_count = serializers.SerializerMethodField()
-
     class Meta:
         model = MealMenu
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "meal_type",
-            "meal_type_display",
             "name",
             "date",
             "items",
@@ -44,14 +65,9 @@ class MealMenuSerializer(serializers.ModelSerializer):
             "is_gluten_free",
             "price",
             "is_active",
-            "booking_count",
             "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
-
-    def get_booking_count(self, obj):
-        return getattr(obj, "booking_count", obj.bookings.count())
 
 
 class MealPlanSerializer(serializers.ModelSerializer):
@@ -59,6 +75,9 @@ class MealPlanSerializer(serializers.ModelSerializer):
         model = MealPlan
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "description",
             "meals_included",
@@ -71,184 +90,141 @@ class MealPlanSerializer(serializers.ModelSerializer):
 
 
 class MealBookingSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    menu_name = serializers.CharField(source="menu.name", read_only=True)
-    meal_type_display = serializers.CharField(source="get_meal_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = MealBooking
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "menu",
-            "menu_name",
+            "on_delete",
             "meal_plan",
+            "on_delete",
             "booking_date",
             "meal_type",
-            "meal_type_display",
             "status",
-            "status_display",
             "notes",
             "cancelled_at",
             "created_at",
         ]
-        read_only_fields = ["id", "booking_date", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class DietaryRestrictionSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
     class Meta:
         model = DietaryRestriction
-        fields = ["id", "user", "user_name", "restriction_type", "severity", "notes", "created_at"]
+        fields = ["id", "id", "user", "on_delete", "restriction_type", "severity", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class PointOfSaleSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    transaction_type_display = serializers.CharField(source="get_transaction_type_display", read_only=True)
-    payment_method_display = serializers.CharField(source="get_payment_method_display", read_only=True)
-
     class Meta:
         model = PointOfSale
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "transaction_type",
-            "transaction_type_display",
             "amount",
             "payment_method",
-            "payment_method_display",
             "menu",
+            "on_delete",
             "balance_before",
             "balance_after",
             "is_successful",
             "meal_benefit_applied",
             "benefit_type",
-            "notes",
-            "transaction_time",
         ]
-        read_only_fields = ["id", "transaction_time"]
+        read_only_fields = ["id"]
 
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    transaction_type_display = serializers.CharField(source="get_transaction_type_display", read_only=True)
-    payment_method_display = serializers.CharField(source="get_payment_method_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = PaymentTransaction
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "transaction_type",
-            "transaction_type_display",
             "amount",
             "payment_method",
-            "payment_method_display",
             "status",
-            "status_display",
             "transaction_id",
             "receipt_number",
             "account_balance_before",
             "account_balance_after",
             "meal_plan",
-            "booking",
-            "auto_replenish",
-            "replenish_threshold",
-            "replenish_amount",
-            "notes",
-            "processed_at",
-            "created_at",
+            "on_delete",
         ]
-        read_only_fields = ["id", "processed_at", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class FreeReducedLunchSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-    eligibility_type_display = serializers.CharField(source="get_eligibility_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True, default=None)
-    is_valid = serializers.ReadOnlyField()
-
     class Meta:
         model = FreeReducedLunch
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "eligibility_type",
-            "eligibility_type_display",
             "status",
-            "status_display",
             "application_date",
             "approval_date",
             "expiry_date",
-            "is_valid",
             "application_number",
             "document_url",
             "household_size",
             "household_income",
             "reviewed_by",
-            "reviewed_by_name",
-            "reviewed_at",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "reviewed_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class CafeteriaInventorySerializer(serializers.ModelSerializer):
-    unit_display = serializers.CharField(source="get_unit_display", read_only=True)
-    category_display = serializers.CharField(source="get_category_display", read_only=True)
-    is_low_stock = serializers.ReadOnlyField()
-
     class Meta:
         model = CafeteriaInventory
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "category",
-            "category_display",
             "description",
             "quantity",
             "unit",
-            "unit_display",
             "minimum_stock",
-            "is_low_stock",
             "unit_cost",
             "total_value",
+            "supplier",
+            "on_delete",
             "storage_location",
             "temperature_requirement",
-            "expiry_date",
-            "is_perishable",
-            "is_active",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class USDAComplianceReportSerializer(serializers.ModelSerializer):
-    report_type_display = serializers.CharField(source="get_report_type_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True, default=None)
-    approved_by_name = serializers.CharField(source="approved_by.full_name", read_only=True, default=None)
-    reimbursement_per_day = serializers.ReadOnlyField()
-
     class Meta:
         model = USDAComplianceReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "report_type",
-            "report_type_display",
             "title",
             "start_date",
             "end_date",
@@ -258,94 +234,71 @@ class USDAComplianceReportSerializer(serializers.ModelSerializer):
             "paid_meals",
             "total_reimbursement",
             "per_meal_rate",
-            "reimbursement_per_day",
             "status",
-            "status_display",
             "submitted_by",
-            "submitted_by_name",
-            "submitted_at",
-            "approved_by",
-            "approved_by_name",
-            "approved_at",
-            "rejection_reason",
-            "report_url",
-            "supporting_docs",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "submitted_at", "approved_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class PreOrderSystemSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    menu_name = serializers.CharField(source="menu.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = PreOrderSystem
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "menu",
-            "menu_name",
+            "on_delete",
             "quantity",
             "unit_price",
             "total_price",
             "special_requests",
             "status",
-            "status_display",
             "payment_status",
             "transaction",
-            "order_deadline",
-            "notes",
-            "ordered_at",
-            "updated_at",
+            "on_delete",
         ]
-        read_only_fields = ["id", "ordered_at", "updated_at"]
+        read_only_fields = ["id", "updated_at"]
 
 
 class StudentAccountSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    is_low_balance = serializers.ReadOnlyField()
-
     class Meta:
         model = StudentAccount
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "balance",
-            "is_low_balance",
             "low_balance_threshold",
             "auto_replenish_enabled",
             "replenish_threshold",
             "replenish_amount",
             "status",
-            "status_display",
             "daily_spending_limit",
             "total_spent",
             "total_deposited",
             "notes",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "total_spent", "total_deposited", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class AllergenManagementSerializer(serializers.ModelSerializer):
-    severity_display = serializers.CharField(source="get_severity_display", read_only=True)
-
     class Meta:
         model = AllergenManagement
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "description",
             "severity",
-            "severity_display",
             "symptoms",
             "treatment_notes",
             "is_active",
@@ -356,17 +309,15 @@ class AllergenManagementSerializer(serializers.ModelSerializer):
 
 
 class MenuItemAllergenSerializer(serializers.ModelSerializer):
-    menu_name = serializers.CharField(source="menu.name", read_only=True)
-    allergen_name = serializers.CharField(source="allergen.name", read_only=True)
-
     class Meta:
         model = MenuItemAllergen
         fields = [
             "id",
+            "id",
             "menu",
-            "menu_name",
+            "on_delete",
             "allergen",
-            "allergen_name",
+            "on_delete",
             "contains",
             "may_contain",
             "notes",
@@ -376,14 +327,15 @@ class MenuItemAllergenSerializer(serializers.ModelSerializer):
 
 
 class NutritionTrackingSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.full_name", read_only=True)
-
     class Meta:
         model = NutritionTracking
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "user",
-            "user_name",
+            "on_delete",
             "date",
             "calories",
             "protein",
@@ -394,18 +346,18 @@ class NutritionTrackingSerializer(serializers.ModelSerializer):
             "minerals",
             "meals",
             "notes",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class VendorManagementSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-
     class Meta:
         model = VendorManagement
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "contact_name",
             "email",
@@ -416,90 +368,72 @@ class VendorManagementSerializer(serializers.ModelSerializer):
             "delivery_schedule",
             "minimum_order",
             "status",
-            "status_display",
             "rating",
             "total_orders",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "total_orders", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):
-    vendor_name = serializers.CharField(source="vendor.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = VendorOrder
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "vendor",
-            "vendor_name",
+            "on_delete",
             "order_number",
             "items",
             "total_amount",
             "status",
-            "status_display",
             "order_date",
             "expected_delivery",
             "actual_delivery",
             "payment_status",
             "created_by",
-            "created_by_name",
-            "notes",
-            "created_at",
-            "updated_at",
+            "on_delete",
         ]
-        read_only_fields = ["id", "order_date", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ProductionPlanningSerializer(serializers.ModelSerializer):
-    menu_name = serializers.CharField(source="menu.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
-    variance = serializers.ReadOnlyField()
-
     class Meta:
         model = ProductionPlanning
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "menu",
-            "menu_name",
+            "on_delete",
             "planned_quantity",
             "actual_quantity",
-            "variance",
             "pre_order_count",
             "expected_walk_in",
             "status",
-            "status_display",
             "assigned_to",
-            "assigned_to_name",
+            "on_delete",
             "prep_start_time",
             "prep_end_time",
             "serve_time",
-            "notes",
-            "created_at",
-            "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class WasteTrackingSerializer(serializers.ModelSerializer):
-    menu_name = serializers.CharField(source="menu.name", read_only=True, default=None)
-    waste_type_display = serializers.CharField(source="get_waste_type_display", read_only=True)
-    recorded_by_name = serializers.CharField(source="recorded_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = WasteTracking
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "menu",
-            "menu_name",
+            "on_delete",
             "date",
             "waste_type",
-            "waste_type_display",
             "item_name",
             "quantity_wasted",
             "unit",
@@ -507,8 +441,514 @@ class WasteTrackingSerializer(serializers.ModelSerializer):
             "reason",
             "prevention_notes",
             "recorded_by",
-            "recorded_by_name",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class OnlineOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OnlineOrder
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "status",
+            "items",
+            "total_amount",
+            "pickup_time",
+            "delivery_location",
+            "delivery_required",
+            "paid",
+            "payment_method",
+            "special_instructions",
+            "ordered_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OnlineOrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OnlineOrderItem
+        fields = [
+            "id",
+            "id",
+            "order",
+            "on_delete",
+            "menu_item",
+            "on_delete",
+            "item_name",
+            "quantity",
+            "unit_price",
+            "total_price",
+            "special_requests",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class MealDeliverySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MealDelivery
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "status",
+            "delivery_date",
+            "delivery_time",
+            "delivery_location",
+            "class_group",
+            "meals_ordered",
+            "meals_delivered",
+            "meals_returned",
+            "delivered_by",
+            "on_delete",
+            "created_at",
+            "completed_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CashRegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashRegister
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "register_name",
+            "location",
+            "is_active",
+            "is_open",
+            "opening_amount",
+            "opened_by",
+            "on_delete",
+            "opened_at",
+            "closing_amount",
+            "expected_amount",
+            "variance",
+            "closed_by",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DailySalesSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailySalesSummary
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "total_sales",
+            "total_transactions",
+            "total_items_sold",
+            "avg_transaction_value",
+            "cash_sales",
+            "card_sales",
+            "account_sales",
+            "free_meal_sales",
+            "breakfast_sales",
+            "lunch_sales",
+            "snack_sales",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class FoodSafetyCheckSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FoodSafetyCheck
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "check_type",
+            "check_date",
+            "status",
+            "checked_by",
+            "on_delete",
+            "temperature_reading",
+            "location",
+            "findings",
+            "corrective_actions",
+            "compliance_notes",
+            "photo",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class FoodSafetyIncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FoodSafetyIncident
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "severity",
+            "status",
+            "reported_by",
+            "on_delete",
+            "people_affected",
+            "root_cause",
+            "investigation_notes",
+            "corrective_actions",
+            "preventive_measures",
+            "resolved_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CafeteriaStaffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaStaff
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "user",
+            "on_delete",
+            "role",
+            "shift_start",
+            "shift_end",
+            "days_of_week",
+            "is_active",
+            "is_certified",
+            "certification_expiry",
+            "performance_rating",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CafeteriaFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaFeedback
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "staff_member",
+            "on_delete",
+            "feedback_type",
+            "rating",
+            "comment",
+            "meal_rated",
+            "on_delete",
+            "date_of_experience",
+            "response",
+            "responded_by",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class MealPreOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MealPreOrder
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "meal_date",
+            "meal_type",
+            "menu_items",
+            "total_amount",
+            "status",
+            "paid",
+            "paid_via",
+            "pickup_time",
+            "pickup_location",
+            "collected_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class NutritionAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NutritionAnalysis
+        fields = [
+            "id",
+            "id",
+            "menu_item",
+            "on_delete",
+            "calories",
+            "protein_g",
+            "carbohydrates_g",
+            "fat_g",
+            "fiber_g",
+            "sugar_g",
+            "sodium_mg",
+            "vitamin_a",
+            "vitamin_c",
+            "calcium",
+            "iron",
+            "health_score",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CafeteriaEquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaEquipment
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "equipment_type",
+            "asset_tag",
+            "brand",
+            "model_number",
+            "status",
+            "purchase_date",
+            "purchase_cost",
+            "warranty_expiry",
+            "last_maintenance",
+            "next_maintenance",
             "notes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CafeteriaReservationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaReservation
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "requested_by",
+            "on_delete",
+            "reservation_type",
+            "title",
+            "description",
+            "reservation_date",
+            "start_time",
+            "end_time",
+            "expected_guests",
+            "status",
+            "approved_by",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CafeteriaAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaAlert
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "alert_type",
+            "severity",
+            "status",
+            "title",
+            "description",
+            "acknowledged_by",
+            "on_delete",
+            "resolved_by",
+            "on_delete",
+            "resolution_notes",
+            "resolved_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class MealSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MealSubscription
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "student",
+            "on_delete",
+            "plan_type",
+            "status",
+            "meals_included",
+            "meals_per_week",
+            "price_per_meal",
+            "total_price",
+            "discount_percentage",
+            "start_date",
+            "end_date",
+            "next_billing_date",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SubscriptionUsageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionUsage
+        fields = [
+            "id",
+            "id",
+            "subscription",
+            "on_delete",
+            "meal_date",
+            "meal_type",
+            "menu_item",
+            "on_delete",
+            "used",
+            "skipped",
+            "recorded_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class CafeteriaAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaAnalytics
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "total_visitors",
+            "unique_visitors",
+            "avg_wait_time_minutes",
+            "peak_hour",
+            "total_meals_served",
+            "meals_by_type",
+            "top_items",
+            "least_popular",
+            "total_waste_kg",
+            "waste_percentage",
+            "total_revenue",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CafeteriaCapacitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaCapacity
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "seating_area",
+            "total_seats",
+            "available_seats",
+            "meal_type",
+            "time_slot_start",
+            "time_slot_end",
+            "is_full",
+            "reservation_required",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class MenuItemRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuItemRating
+        fields = [
+            "id",
+            "id",
+            "menu_item",
+            "on_delete",
+            "student",
+            "on_delete",
+            "rating",
+            "review",
+            "would_order_again",
+            "date_rated",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CafeteriaHolidayScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaHolidaySchedule
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "date",
+            "is_closed",
+            "special_hours",
+            "opening_time",
+            "closing_time",
+            "reason",
+            "special_menu",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CafeteriaMonthlyReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaMonthlyReport
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "month",
+            "year",
+            "total_revenue",
+            "total_cost",
+            "net_profit",
+            "total_meals_served",
+            "total_operational_days",
+            "avg_daily_revenue",
+            "avg_food_rating",
+            "avg_service_rating",
+            "total_complaints",
+            "complaints_resolved",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CafeteriaInventoryAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CafeteriaInventoryAlert
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "item",
+            "on_delete",
+            "alert_type",
+            "status",
+            "message",
+            "current_quantity",
+            "reorder_quantity",
+            "acknowledged_by",
+            "on_delete",
+            "resolved_at",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
