@@ -11,13 +11,47 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Hostel, HostelAllocation, HostelFee, HostelRoom, HostelVisitor
+from .models import (
+    CheckoutProcess,
+    ComplaintManagement,
+    EmergencyContact,
+    Hostel,
+    HostelAllocation,
+    HostelAttendance,
+    HostelFee,
+    HostelFeedback,
+    HostelNotification,
+    HostelReport,
+    HostelRoom,
+    HostelVisitor,
+    InventoryManagement,
+    LeaveManagement,
+    MessAttendance,
+    MessManagement,
+    RoomInspection,
+    RoomMaintenance,
+    RoomTransfer,
+)
 from .serializers import (
+    CheckoutProcessSerializer,
+    ComplaintManagementSerializer,
+    EmergencyContactSerializer,
     HostelAllocationSerializer,
+    HostelAttendanceSerializer,
+    HostelFeedbackSerializer,
     HostelFeeSerializer,
+    HostelNotificationSerializer,
+    HostelReportSerializer,
     HostelRoomSerializer,
     HostelSerializer,
     HostelVisitorSerializer,
+    InventoryManagementSerializer,
+    LeaveManagementSerializer,
+    MessAttendanceSerializer,
+    MessManagementSerializer,
+    RoomInspectionSerializer,
+    RoomMaintenanceSerializer,
+    RoomTransferSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,3 +178,413 @@ class HostelVisitorViewSet(viewsets.ModelViewSet):
         visitor.notes = request.data.get("notes", visitor.notes)
         visitor.save()
         return Response(HostelVisitorSerializer(visitor).data)
+
+
+# =============================================================================
+# Room Maintenance ViewSets
+# =============================================================================
+
+
+class RoomMaintenanceViewSet(viewsets.ModelViewSet):
+    serializer_class = RoomMaintenanceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["room__room_number", "description"]
+    filterset_fields = ["room", "maintenance_type", "status", "priority"]
+    ordering_fields = ["reported_date", "scheduled_date"]
+    ordering = ["-reported_date"]
+
+    def get_queryset(self):
+        return RoomMaintenance.objects.filter(room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Hostel Attendance ViewSets
+# =============================================================================
+
+
+class HostelAttendanceViewSet(viewsets.ModelViewSet):
+    serializer_class = HostelAttendanceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["allocation__student__user__first_name", "allocation__student__user__last_name"]
+    filterset_fields = ["allocation", "status", "date", "is_in_campus"]
+    ordering_fields = ["date"]
+    ordering = ["-date"]
+
+    def get_queryset(self):
+        return HostelAttendance.objects.filter(allocation__room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(recorded_by=self.request.user)
+
+
+# =============================================================================
+# Leave Management ViewSets
+# =============================================================================
+
+
+class LeaveManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = LeaveManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["allocation__student__user__first_name", "allocation__student__user__last_name", "reason"]
+    filterset_fields = ["allocation", "leave_type", "status"]
+    ordering_fields = ["from_date", "created_at"]
+    ordering = ["-from_date"]
+
+    def get_queryset(self):
+        return LeaveManagement.objects.filter(allocation__room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Approve a leave request."""
+        from django.utils import timezone as dj_timezone
+
+        leave = self.get_object()
+        if leave.status != LeaveManagement.Status.PENDING:
+            return Response({"detail": "Only pending leave requests can be approved."}, status=400)
+        leave.status = LeaveManagement.Status.APPROVED
+        leave.approved_by = request.user
+        leave.approved_at = dj_timezone.now()
+        leave.save(update_fields=["status", "approved_by", "approved_at"])
+        return Response(LeaveManagementSerializer(leave).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Reject a leave request."""
+        leave = self.get_object()
+        if leave.status != LeaveManagement.Status.PENDING:
+            return Response({"detail": "Only pending leave requests can be rejected."}, status=400)
+        leave.status = LeaveManagement.Status.REJECTED
+        leave.rejection_reason = request.data.get("reason", "")
+        leave.save(update_fields=["status", "rejection_reason"])
+        return Response(LeaveManagementSerializer(leave).data)
+
+
+# =============================================================================
+# Mess Management ViewSets
+# =============================================================================
+
+
+class MessAttendanceViewSet(viewsets.ModelViewSet):
+    serializer_class = MessAttendanceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["mess_menu", "allocation", "status"]
+
+    def get_queryset(self):
+        return MessAttendance.objects.filter(mess_menu__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class MessManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = MessManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["description"]
+    filterset_fields = ["hostel", "meal_type", "is_vegetarian", "date"]
+    ordering_fields = ["date"]
+    ordering = ["-date"]
+
+    def get_queryset(self):
+        return MessManagement.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+# =============================================================================
+# Complaint Management ViewSets
+# =============================================================================
+
+
+class ComplaintManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = ComplaintManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "description"]
+    filterset_fields = ["hostel", "complaint_type", "status", "priority"]
+    ordering_fields = ["created_at", "priority"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ComplaintManagement.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Room Inspection ViewSets
+# =============================================================================
+
+
+class RoomInspectionViewSet(viewsets.ModelViewSet):
+    serializer_class = RoomInspectionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["room__room_number"]
+    filterset_fields = ["room", "inspection_type", "status", "has_issues"]
+    ordering_fields = ["scheduled_date"]
+    ordering = ["-scheduled_date"]
+
+    def get_queryset(self):
+        return RoomInspection.objects.filter(room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(inspected_by=self.request.user)
+
+
+# =============================================================================
+# Inventory Management ViewSets
+# =============================================================================
+
+
+class InventoryManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["item_name", "asset_tag"]
+    filterset_fields = ["hostel", "item_category", "status"]
+    ordering_fields = ["item_name", "created_at"]
+    ordering = ["item_name"]
+
+    def get_queryset(self):
+        return InventoryManagement.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Hostel Reports ViewSets
+# =============================================================================
+
+
+class HostelReportViewSet(viewsets.ModelViewSet):
+    serializer_class = HostelReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "summary"]
+    filterset_fields = ["hostel", "report_type", "status"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return HostelReport.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(generated_by=self.request.user)
+
+
+# =============================================================================
+# Emergency Contacts ViewSets
+# =============================================================================
+
+
+class EmergencyContactViewSet(viewsets.ModelViewSet):
+    serializer_class = EmergencyContactSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "phone_primary"]
+    filterset_fields = ["hostel", "contact_type", "is_active"]
+    ordering_fields = ["contact_type", "name"]
+    ordering = ["contact_type", "name"]
+
+    def get_queryset(self):
+        return EmergencyContact.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Room Transfer ViewSets
+# =============================================================================
+
+
+class RoomTransferViewSet(viewsets.ModelViewSet):
+    serializer_class = RoomTransferSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["allocation__student__user__first_name", "allocation__student__user__last_name", "reason"]
+    filterset_fields = ["allocation", "status", "from_room", "to_room"]
+    ordering_fields = ["created_at", "transfer_date"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return RoomTransfer.objects.filter(allocation__room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Approve a room transfer."""
+        from django.utils import timezone as dj_timezone
+
+        transfer = self.get_object()
+        if transfer.status != RoomTransfer.Status.PENDING:
+            return Response({"detail": "Only pending transfers can be approved."}, status=400)
+        transfer.status = RoomTransfer.Status.APPROVED
+        transfer.approved_by = request.user
+        transfer.approved_at = dj_timezone.now()
+        transfer.save(update_fields=["status", "approved_by", "approved_at"])
+        return Response(RoomTransferSerializer(transfer).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Reject a room transfer."""
+        transfer = self.get_object()
+        if transfer.status != RoomTransfer.Status.PENDING:
+            return Response({"detail": "Only pending transfers can be rejected."}, status=400)
+        transfer.status = RoomTransfer.Status.REJECTED
+        transfer.rejection_reason = request.data.get("reason", "")
+        transfer.save(update_fields=["status", "rejection_reason"])
+        return Response(RoomTransferSerializer(transfer).data)
+
+
+# =============================================================================
+# Checkout Process ViewSets
+# =============================================================================
+
+
+class CheckoutProcessViewSet(viewsets.ModelViewSet):
+    serializer_class = CheckoutProcessSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["allocation__student__user__first_name", "allocation__student__user__last_name"]
+    filterset_fields = ["allocation", "status", "room_inspected", "keys_returned"]
+    ordering_fields = ["checkout_date", "created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CheckoutProcess.objects.filter(allocation__room__hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Hostel Notifications ViewSets
+# =============================================================================
+
+
+class HostelNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = HostelNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "message"]
+    filterset_fields = ["hostel", "notification_type", "status", "is_priority"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return HostelNotification.objects.filter(hostel__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+# =============================================================================
+# Hostel Feedback ViewSets
+# =============================================================================
+
+
+class HostelFeedbackViewSet(viewsets.ModelViewSet):
+    serializer_class = HostelFeedbackSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["comment", "suggestion"]
+    filterset_fields = ["hostel", "feedback_type", "rating", "is_anonymous"]
+    ordering_fields = ["created_at", "rating"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            return HostelFeedback.objects.filter(hostel__school=user.school)
+        # Students see their own feedback
+        return HostelFeedback.objects.filter(hostel__school=user.school, allocation__student__user=user)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
