@@ -1,12 +1,24 @@
-"""Admissions serializers."""
+"""Serializers for admissions."""
 
 from rest_framework import serializers
 
 from .models import (
+    AdmissionAgreement,
+    AdmissionCommunicationLog,
+    AdmissionDecision,
+    AdmissionDocumentChecklist,
+    AdmissionDocumentVerification,
+    AdmissionFunnelSnapshot,
+    AdmissionMarketingSource,
+    AdmissionPolicy,
+    AdmissionPredictionModel,
+    AdmissionReminder,
     AdmissionsEmailNotification,
     AdmissionsPipeline,
     AdmissionsReport,
     AdmissionsSMSNotification,
+    AdmissionTrendAnalysis,
+    AgreementSignature,
     Application,
     ApplicationDocument,
     ApplicationFee,
@@ -14,58 +26,76 @@ from .models import (
     ApplicationTemplate,
     ApplicationTimelineEvent,
     BulkApplicationImport,
+    CampusVisit,
     EnrollmentConfirmation,
     EnrollmentIntake,
+    EntranceAssessment,
+    GradeLevelCapacity,
     InterviewSchedule,
     MeritList,
     MeritListEntry,
+    OpenHouseEvent,
+    OpenHouseRegistration,
     ReEnrollment,
+    Scholarship,
+    ScholarshipApplication,
+    SiblingGroup,
+    SiblingRecord,
+    TransferStudent,
     WaitlistManagement,
 )
 
 
-class ApplicationTimelineSerializer(serializers.ModelSerializer):
-    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default="")
-
-    class Meta:
-        model = ApplicationTimelineEvent
-        fields = [
-            "id",
-            "stage",
-            "stage_display",
-            "note",
-            "created_by",
-            "created_by_name",
-            "created_at",
-        ]
-        read_only_fields = fields
-
-
 class EnrollmentIntakeSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    application_count = serializers.SerializerMethodField()
-
     class Meta:
         model = EnrollmentIntake
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "academic_year",
             "application_start",
             "application_end",
             "enrollment_date",
             "status",
-            "status_display",
             "max_applications",
             "description",
-            "application_count",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
 
-    def get_application_count(self, obj):
-        return getattr(obj, "application_count", obj.applications.count())
+
+class ApplicationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Application
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "intake",
+            "on_delete",
+            "application_number",
+            "status",
+            "first_name",
+            "last_name",
+            "middle_name",
+            "date_of_birth",
+            "gender",
+            "nationality",
+            "email",
+            "phone",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ApplicationTimelineEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ApplicationTimelineEvent
+        fields = ["id", "id", "application", "on_delete", "stage", "note", "created_by", "on_delete", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class ApplicationDocumentSerializer(serializers.ModelSerializer):
@@ -73,7 +103,9 @@ class ApplicationDocumentSerializer(serializers.ModelSerializer):
         model = ApplicationDocument
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "document_type",
             "file_url",
             "file_name",
@@ -81,19 +113,41 @@ class ApplicationDocumentSerializer(serializers.ModelSerializer):
             "is_verified",
             "notes",
         ]
-        read_only_fields = ["id", "uploaded_at"]
+        read_only_fields = ["id"]
+
+
+class EntranceAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EntranceAssessment
+        fields = [
+            "id",
+            "id",
+            "application",
+            "on_delete",
+            "assessment_type",
+            "scheduled_date",
+            "completed_date",
+            "status",
+            "score",
+            "max_score",
+            "notes",
+            "assessor_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ApplicationReviewSerializer(serializers.ModelSerializer):
-    reviewer_name = serializers.CharField(source="reviewer.full_name", read_only=True)
-
     class Meta:
         model = ApplicationReview
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "reviewer",
-            "reviewer_name",
+            "on_delete",
             "score",
             "strengths",
             "weaknesses",
@@ -101,104 +155,7 @@ class ApplicationReviewSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "reviewer", "created_at"]
-
-
-class ApplicationSerializer(serializers.ModelSerializer):
-    intake_name = serializers.CharField(source="intake.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    full_name = serializers.SerializerMethodField()
-    documents = ApplicationDocumentSerializer(many=True, read_only=True)
-    reviews = ApplicationReviewSerializer(many=True, read_only=True)
-    timeline = ApplicationTimelineSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Application
-        fields = [
-            "id",
-            "intake",
-            "intake_name",
-            "application_number",
-            "status",
-            "status_display",
-            "first_name",
-            "last_name",
-            "middle_name",
-            "full_name",
-            "date_of_birth",
-            "gender",
-            "nationality",
-            "email",
-            "phone",
-            "address",
-            "city",
-            "state",
-            "postal_code",
-            "previous_school",
-            "previous_grade",
-            "applying_for_grade",
-            "gpa",
-            "guardian_name",
-            "guardian_phone",
-            "guardian_email",
-            "guardian_relation",
-            "source",
-            "submitted_at",
-            "reviewed_by",
-            "review_notes",
-            "tour_date",
-            "toured_at",
-            "offer_sent_at",
-            "offer_deadline",
-            "offer_accepted_at",
-            "linked_student",
-            "documents",
-            "reviews",
-            "timeline",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "application_number", "created_at", "updated_at"]
-
-    def get_full_name(self, obj):
-        parts = [obj.first_name, obj.middle_name, obj.last_name]
-        return " ".join(p for p in parts if p)
-
-
-class ApplicationListSerializer(serializers.ModelSerializer):
-    """Lightweight list serializer without nested docs/reviews."""
-
-    intake_name = serializers.CharField(source="intake.name", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    full_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Application
-        fields = [
-            "id",
-            "intake",
-            "intake_name",
-            "application_number",
-            "status",
-            "status_display",
-            "full_name",
-            "email",
-            "phone",
-            "applying_for_grade",
-            "previous_school",
-            "submitted_at",
-            "created_at",
-        ]
-        read_only_fields = ["id", "application_number", "created_at"]
-
-    def get_full_name(self, obj):
-        parts = [obj.first_name, obj.middle_name, obj.last_name]
-        return " ".join(p for p in parts if p)
-
-
-# =============================================================================
-# Application Fees Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class ApplicationFeeSerializer(serializers.ModelSerializer):
@@ -206,7 +163,9 @@ class ApplicationFeeSerializer(serializers.ModelSerializer):
         model = ApplicationFee
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "amount",
             "currency",
             "status",
@@ -216,26 +175,21 @@ class ApplicationFeeSerializer(serializers.ModelSerializer):
             "receipt_number",
             "waiver_reason",
             "waived_by",
+            "on_delete",
             "gateway_response",
             "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Interview Schedule Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class InterviewScheduleSerializer(serializers.ModelSerializer):
-    interviewer_name = serializers.CharField(source="interviewer.full_name", read_only=True, default=None)
-
     class Meta:
         model = InterviewSchedule
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "interview_type",
             "status",
             "scheduled_date",
@@ -245,60 +199,23 @@ class InterviewScheduleSerializer(serializers.ModelSerializer):
             "meeting_link",
             "meeting_id",
             "interviewer",
-            "interviewer_name",
+            "on_delete",
             "panel_members",
             "feedback",
-            "rating",
-            "recommendation",
-            "notes",
-            "completed_at",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at", "completed_at"]
-
-
-# =============================================================================
-# Merit List Serializers
-# =============================================================================
-
-
-class MeritListEntrySerializer(serializers.ModelSerializer):
-    application_number = serializers.CharField(source="application.application_number", read_only=True)
-    student_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MeritListEntry
-        fields = [
-            "id",
-            "merit_list",
-            "application",
-            "application_number",
-            "student_name",
-            "rank",
-            "total_score",
-            "status",
-            "academic_score",
-            "assessment_score",
-            "interview_score",
-            "extracurricular_score",
-            "notes",
-            "created_at",
-        ]
-        read_only_fields = ["id", "created_at"]
-
-    def get_student_name(self, obj):
-        app = obj.application
-        return f"{app.first_name} {app.last_name}"
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class MeritListSerializer(serializers.ModelSerializer):
-    entries = MeritListEntrySerializer(many=True, read_only=True)
-    published_by_name = serializers.CharField(source="published_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = MeritList
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
+            "intake",
+            "on_delete",
             "name",
             "description",
             "grade",
@@ -308,29 +225,43 @@ class MeritListSerializer(serializers.ModelSerializer):
             "total_waitlisted",
             "published_at",
             "published_by",
-            "published_by_name",
-            "entries",
-            "created_at",
+            "on_delete",
         ]
-        read_only_fields = ["id", "created_at", "published_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
-# =============================================================================
-# Waitlist Management Serializers
-# =============================================================================
+class MeritListEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MeritListEntry
+        fields = [
+            "id",
+            "id",
+            "merit_list",
+            "on_delete",
+            "application",
+            "on_delete",
+            "rank",
+            "total_score",
+            "status",
+            "academic_score",
+            "assessment_score",
+            "interview_score",
+            "extracurricular_score",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class WaitlistManagementSerializer(serializers.ModelSerializer):
-    application_number = serializers.CharField(source="application.application_number", read_only=True)
-    student_name = serializers.SerializerMethodField()
-
     class Meta:
         model = WaitlistManagement
         fields = [
             "id",
+            "id",
             "application",
-            "application_number",
-            "student_name",
+            "on_delete",
             "position",
             "status",
             "offer_extended_at",
@@ -342,28 +273,19 @@ class WaitlistManagementSerializer(serializers.ModelSerializer):
             "notification_count",
             "notes",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-    def get_student_name(self, obj):
-        app = obj.application
-        return f"{app.first_name} {app.last_name}"
-
-
-# =============================================================================
-# Enrollment Confirmation Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class EnrollmentConfirmationSerializer(serializers.ModelSerializer):
-    application_number = serializers.CharField(source="application.application_number", read_only=True)
-
     class Meta:
         model = EnrollmentConfirmation
         fields = [
             "id",
+            "id",
             "application",
-            "application_number",
+            "on_delete",
             "status",
             "confirmation_sent_at",
             "confirmation_deadline",
@@ -376,24 +298,20 @@ class EnrollmentConfirmationSerializer(serializers.ModelSerializer):
             "decline_reason",
             "enrollment_documents",
             "documents_completed",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Admissions Reports Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class AdmissionsReportSerializer(serializers.ModelSerializer):
-    generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = AdmissionsReport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
+            "intake",
+            "on_delete",
             "title",
             "report_type",
             "status",
@@ -404,22 +322,8 @@ class AdmissionsReportSerializer(serializers.ModelSerializer):
             "recommendations",
             "total_applications",
             "total_enrolled",
-            "total_rejected",
-            "conversion_rate",
-            "by_status",
-            "by_grade",
-            "by_source",
-            "by_demographic",
-            "generated_by",
-            "generated_by_name",
-            "created_at",
         ]
         read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Email Notifications Serializers
-# =============================================================================
 
 
 class AdmissionsEmailNotificationSerializer(serializers.ModelSerializer):
@@ -427,7 +331,9 @@ class AdmissionsEmailNotificationSerializer(serializers.ModelSerializer):
         model = AdmissionsEmailNotification
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "notification_type",
             "status",
             "subject",
@@ -438,12 +344,7 @@ class AdmissionsEmailNotificationSerializer(serializers.ModelSerializer):
             "opened_at",
             "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "opened_at", "created_at"]
-
-
-# =============================================================================
-# SMS Notifications Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class AdmissionsSMSNotificationSerializer(serializers.ModelSerializer):
@@ -451,7 +352,9 @@ class AdmissionsSMSNotificationSerializer(serializers.ModelSerializer):
         model = AdmissionsSMSNotification
         fields = [
             "id",
+            "id",
             "application",
+            "on_delete",
             "notification_type",
             "status",
             "message",
@@ -460,24 +363,21 @@ class AdmissionsSMSNotificationSerializer(serializers.ModelSerializer):
             "delivered_at",
             "created_at",
         ]
-        read_only_fields = ["id", "sent_at", "delivered_at", "created_at"]
-
-
-# =============================================================================
-# Re-enrollment Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at"]
 
 
 class ReEnrollmentSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
-
     class Meta:
         model = ReEnrollment
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "student",
-            "student_name",
+            "on_delete",
             "intake",
+            "on_delete",
             "status",
             "current_grade",
             "next_grade",
@@ -486,28 +386,20 @@ class ReEnrollmentSerializer(serializers.ModelSerializer):
             "started_at",
             "completed_at",
             "decline_reason",
-            "re_enrollment_fee",
-            "fee_paid",
-            "notes",
         ]
-        read_only_fields = ["id", "invited_at"]
-
-
-# =============================================================================
-# Admissions Pipeline Serializers
-# =============================================================================
+        read_only_fields = ["id", "updated_at"]
 
 
 class AdmissionsPipelineSerializer(serializers.ModelSerializer):
-    application_number = serializers.CharField(source="application.application_number", read_only=True)
-    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default=None)
-
     class Meta:
         model = AdmissionsPipeline
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "application",
-            "application_number",
+            "on_delete",
             "current_stage",
             "inquiry_date",
             "application_date",
@@ -518,32 +410,22 @@ class AdmissionsPipelineSerializer(serializers.ModelSerializer):
             "decision_date",
             "enrollment_date",
             "onboarded_date",
-            "assigned_to",
-            "assigned_to_name",
-            "is_priority",
-            "is_hot_lead",
-            "lead_source",
-            "notes",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Application Templates Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ApplicationTemplateSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = ApplicationTemplate
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "name",
             "description",
             "intake",
+            "on_delete",
             "required_fields",
             "optional_fields",
             "required_documents",
@@ -552,26 +434,18 @@ class ApplicationTemplateSerializer(serializers.ModelSerializer):
             "allow_late_applications",
             "late_fee_deadline_days",
             "max_applications_per_student",
-            "is_active",
-            "created_by",
-            "created_by_name",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
-
-
-# =============================================================================
-# Bulk Application Import Serializers
-# =============================================================================
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class BulkApplicationImportSerializer(serializers.ModelSerializer):
-    initiated_by_name = serializers.CharField(source="initiated_by.full_name", read_only=True, default=None)
-
     class Meta:
         model = BulkApplicationImport
         fields = [
             "id",
+            "school",
+            "id",
+            "on_delete",
             "batch_name",
             "description",
             "status",
@@ -581,9 +455,491 @@ class BulkApplicationImportSerializer(serializers.ModelSerializer):
             "errors",
             "error_file_url",
             "initiated_by",
-            "initiated_by_name",
+            "on_delete",
             "initiated_at",
             "completed_at",
-            "notes",
         ]
-        read_only_fields = ["id", "initiated_at", "completed_at"]
+        read_only_fields = ["id"]
+
+
+class CampusVisitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CampusVisit
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "visitor_name",
+            "visitor_email",
+            "visitor_phone",
+            "prospective_student",
+            "on_delete",
+            "visit_type",
+            "status",
+            "scheduled_date",
+            "scheduled_time",
+            "duration_minutes",
+            "tour_guide",
+            "on_delete",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OpenHouseEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OpenHouseEvent
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "title",
+            "description",
+            "status",
+            "event_date",
+            "start_time",
+            "end_time",
+            "location",
+            "max_attendees",
+            "current_attendees",
+            "registration_required",
+            "registration_deadline",
+            "registration_url",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OpenHouseRegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OpenHouseRegistration
+        fields = [
+            "id",
+            "id",
+            "event",
+            "on_delete",
+            "registrant_name",
+            "registrant_email",
+            "registrant_phone",
+            "child_name",
+            "child_dob",
+            "current_grade",
+            "current_school",
+            "status",
+            "num_attendees",
+            "application_created",
+            "notes",
+            "registered_at",
+        ]
+        read_only_fields = ["id"]
+
+
+class ScholarshipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Scholarship
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "scholarship_type",
+            "status",
+            "amount_type",
+            "amount_fixed",
+            "amount_percentage",
+            "max_recipients",
+            "current_recipients",
+            "min_gpa",
+            "eligible_grades",
+            "eligible_intakes",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ScholarshipApplicationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScholarshipApplication
+        fields = [
+            "id",
+            "id",
+            "scholarship",
+            "on_delete",
+            "application",
+            "on_delete",
+            "status",
+            "essay",
+            "recommendation_letter",
+            "transcript",
+            "family_income",
+            "financial_need_score",
+            "merit_score",
+            "gpa_at_application",
+            "decision_notes",
+            "amount_awarded",
+        ]
+        read_only_fields = ["id", "updated_at"]
+
+
+class AdmissionPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionPolicy
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "policy_type",
+            "description",
+            "min_age_years",
+            "max_age_years",
+            "priority_weight",
+            "max_students_per_grade",
+            "effective_date",
+            "expiry_date",
+            "is_active",
+            "policy_document",
+            "created_by",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AdmissionAgreementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionAgreement
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "description",
+            "content",
+            "status",
+            "version",
+            "effective_date",
+            "expiry_date",
+            "requires_parent_signature",
+            "requires_student_signature",
+            "created_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AgreementSignatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgreementSignature
+        fields = [
+            "id",
+            "id",
+            "agreement",
+            "on_delete",
+            "application",
+            "on_delete",
+            "signer_type",
+            "signer_name",
+            "signature",
+            "signed_at",
+            "ip_address",
+        ]
+        read_only_fields = ["id"]
+
+
+class AdmissionCommunicationLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionCommunicationLog
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "application",
+            "on_delete",
+            "channel",
+            "direction",
+            "subject",
+            "content",
+            "sent_by",
+            "on_delete",
+            "sent_to_name",
+            "sent_to_email",
+            "delivered",
+            "opened",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class AdmissionReminderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionReminder
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "application",
+            "on_delete",
+            "reminder_type",
+            "status",
+            "subject",
+            "message",
+            "scheduled_date",
+            "sent_date",
+            "channel",
+            "created_by",
+            "on_delete",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class GradeLevelCapacitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeLevelCapacity
+        fields = [
+            "id",
+            "id",
+            "intake",
+            "on_delete",
+            "grade_level",
+            "max_capacity",
+            "current_enrollment",
+            "waitlist_count",
+            "boys_count",
+            "girls_count",
+            "tuition_fee",
+            "registration_fee",
+            "is_accepting",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AdmissionDecisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionDecision
+        fields = [
+            "id",
+            "id",
+            "application",
+            "on_delete",
+            "decision",
+            "decision_reason",
+            "rationale",
+            "conditions",
+            "recommended_grade",
+            "recommended_class",
+            "scholarship_amount",
+            "financial_aid_amount",
+            "decided_by",
+            "on_delete",
+            "decided_at",
+            "parent_notified",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransferStudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransferStudent
+        fields = [
+            "id",
+            "school",
+            "id",
+            "application",
+            "on_delete",
+            "on_delete",
+            "previous_school_name",
+            "previous_school_address",
+            "previous_school_phone",
+            "previous_school_email",
+            "previous_school_type",
+            "years_attended",
+            "last_grade_completed",
+            "graduation_date",
+            "previous_gpa",
+            "class_rank",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SiblingGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiblingGroup
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "family_name",
+            "parent_name",
+            "parent_email",
+            "parent_phone",
+            "total_siblings",
+            "currently_enrolled",
+            "sibling_priority",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class SiblingRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiblingRecord
+        fields = [
+            "id",
+            "id",
+            "sibling_group",
+            "on_delete",
+            "student",
+            "on_delete",
+            "application",
+            "on_delete",
+            "is_currently_enrolled",
+            "grade_level",
+            "enrollment_date",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class AdmissionFunnelSnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionFunnelSnapshot
+        fields = [
+            "id",
+            "id",
+            "intake",
+            "on_delete",
+            "snapshot_date",
+            "inquiries",
+            "campus_visits",
+            "applications_started",
+            "applications_submitted",
+            "documents_complete",
+            "under_review",
+            "interviews_scheduled",
+            "interviews_completed",
+            "decisions_made",
+            "admitted",
+            "enrolled",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class AdmissionDocumentChecklistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionDocumentChecklist
+        fields = [
+            "id",
+            "id",
+            "intake",
+            "on_delete",
+            "grade_level",
+            "document_name",
+            "description",
+            "is_mandatory",
+            "accepted_formats",
+            "max_file_size_mb",
+            "sort_order",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class AdmissionDocumentVerificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionDocumentVerification
+        fields = [
+            "id",
+            "id",
+            "application",
+            "on_delete",
+            "checklist_item",
+            "on_delete",
+            "status",
+            "file",
+            "original_filename",
+            "file_size",
+            "verified_by",
+            "on_delete",
+            "verified_at",
+            "rejection_reason",
+            "uploaded_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "updated_at"]
+
+
+class AdmissionPredictionModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionPredictionModel
+        fields = [
+            "id",
+            "id",
+            "intake",
+            "on_delete",
+            "prediction_type",
+            "prediction_date",
+            "predicted_value",
+            "confidence_score",
+            "factors",
+            "model_version",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class AdmissionMarketingSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionMarketingSource
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "name",
+            "source_type",
+            "total_inquiries",
+            "total_applications",
+            "total_enrolled",
+            "conversion_rate",
+            "cost",
+            "cost_per_enrollment",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class AdmissionTrendAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdmissionTrendAnalysis
+        fields = [
+            "id",
+            "school",
+            "id",
+            "on_delete",
+            "academic_year",
+            "intake",
+            "on_delete",
+            "total_applications",
+            "applications_male",
+            "applications_female",
+            "total_enrolled",
+            "enrollment_male",
+            "enrollment_female",
+            "yield_rate",
+            "total_tuition_revenue",
+            "total_scholarships_awarded",
+        ]
+        read_only_fields = ["id", "created_at"]
