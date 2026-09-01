@@ -73,6 +73,11 @@ const TeacherMessages = React.lazy(() => import("./pages/teacher/MessagesPage"))
 const TeacherLessonPlans = React.lazy(() => import("./pages/teacher/LessonPlansPage"));
 const TeacherConferences = React.lazy(() => import("./pages/teacher/ConferencesPage"));
 const TeacherSettings = React.lazy(() => import("./pages/teacher/SettingsPage"));
+const TeacherHealth = React.lazy(() => import("./pages/teacher/HealthPage"));
+const TeacherLibrary = React.lazy(() => import("./pages/teacher/LibraryPage"));
+const TeacherSports = React.lazy(() => import("./pages/teacher/SportsPage"));
+const TeacherBehavior = React.lazy(() => import("./pages/teacher/BehaviorPage"));
+const TeacherCounseling = React.lazy(() => import("./pages/teacher/CounselingPage"));
 
 // Shared pages
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
@@ -299,6 +304,11 @@ function App() {
                   <Route path="lesson-plans" element={<TeacherLessonPlans />} />
                   <Route path="conferences" element={<TeacherConferences />} />
                   <Route path="settings" element={<TeacherSettings />} />
+                  <Route path="health" element={<TeacherHealth />} />
+                  <Route path="library" element={<TeacherLibrary />} />
+                  <Route path="sports" element={<TeacherSports />} />
+                  <Route path="behavior" element={<TeacherBehavior />} />
+                  <Route path="counseling" element={<TeacherCounseling />} />
                 </Route>
               </Route>
 

@@ -19,6 +19,10 @@ import {
   SunIcon,
   MoonIcon,
   Cog6ToothIcon,
+  HeartIcon,
+  TrophyIcon,
+  ExclamationTriangleIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -44,6 +48,11 @@ const NAV_SECTIONS = [
       { label: "Timetable", to: "/teacher/timetable", icon: CalendarDaysIcon },
       { label: "Lesson Plans", to: "/teacher/lesson-plans", icon: DocumentTextIcon },
       { label: "Conferences", to: "/teacher/conferences", icon: UsersIcon },
+      { label: "Student Health", to: "/teacher/health", icon: HeartIcon },
+      { label: "Library", to: "/teacher/library", icon: BookOpenIcon },
+      { label: "Sports", to: "/teacher/sports", icon: TrophyIcon },
+      { label: "Behavior", to: "/teacher/behavior", icon: ExclamationTriangleIcon },
+      { label: "Counseling", to: "/teacher/counseling", icon: UserGroupIcon },
     ],
   },
   { label: "Messages", to: "/teacher/messages", icon: ChatBubbleLeftRightIcon },
