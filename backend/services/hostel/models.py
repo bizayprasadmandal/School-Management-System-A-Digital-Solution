@@ -951,3 +951,881 @@ class HostelFeedback(models.Model):
 
     def __str__(self):
         return f"{self.get_feedback_type_display()} - {self.get_rating_display()}"
+
+
+# =============================================================================
+# NEW MODELS: Roommate Matching
+# =============================================================================
+
+
+class RoommatePreference(models.Model):
+    """Student preferences for roommate matching."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.OneToOneField("students.Student", on_delete=models.CASCADE, related_name="roommate_preferences")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="roommate_preferences")
+    # Sleep
+    sleep_time = models.TimeField(null=True, blank=True)
+    wake_time = models.TimeField(null=True, blank=True)
+    is_light_sleeper = models.BooleanField(default=False)
+    # Study
+    study_habits = models.CharField(max_length=50, blank=True, help_text="e.g., Quiet, Background noise")
+    prefers_study_at = models.CharField(max_length=50, blank=True)
+    # Social
+    visitor_frequency = models.CharField(max_length=50, blank=True, help_text="Never, Rarely, Sometimes, Often")
+    is_social = models.BooleanField(default=True)
+    # Habits
+    smoking = models.BooleanField(default=False)
+    snoring = models.BooleanField(default=False)
+    neatness_level = models.CharField(max_length=20, blank=True, help_text="Very Neat, Average, Relaxed")
+    temperature_preference = models.CharField(max_length=20, blank=True)
+    # Requests
+    roommate_request = models.ForeignKey(
+        "students.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="requested_by_roommate"
+    )
+    avoid_requests = models.ManyToManyField("students.Student", blank=True, related_name="avoided_by_roommate")
+    # Notes
+    additional_notes = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "roommate_preferences"
+
+    def __str__(self):
+        return f"Roommate Preferences — {self.student}"
+
+
+class RoommateAssignment(models.Model):
+    """Roommate assignments within a room."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(HostelRoom, on_delete=models.CASCADE, related_name="roommate_assignments")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="roommate_assignments")
+    allocation = models.ForeignKey(HostelAllocation, on_delete=models.SET_NULL, null=True, blank=True)
+    match_score = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Compatibility score 0-100")
+    assigned_date = models.DateField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "roommate_assignments"
+        unique_together = [("room", "student")]
+
+    def __str__(self):
+        return f"{self.student} — Room {self.room.room_number} (Score: {self.match_score})"
+
+
+# =============================================================================
+# NEW MODELS: Key Management
+# =============================================================================
+
+
+class RoomKey(models.Model):
+    """Key tracking for hostel rooms."""
+
+    class Status(models.TextChoices):
+        ASSIGNED = "assigned", "Assigned"
+        RETURNED = "returned", "Returned"
+        LOST = "lost", "Lost"
+        REPLACED = "replaced", "Replaced"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(HostelRoom, on_delete=models.CASCADE, related_name="keys")
+    key_number = models.CharField(max_length=50, unique=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ASSIGNED)
+    # Assignment
+    allocated_to = models.ForeignKey(
+        "students.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="hostel_keys"
+    )
+    issued_date = models.DateField(null=True, blank=True)
+    return_date = models.DateField(null=True, blank=True)
+    # Replacement
+    replacement_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reported_lost_date = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "room_keys"
+        ordering = ["key_number"]
+
+    def __str__(self):
+        return f"Key {self.key_number} — Room {self.room.room_number} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Laundry Service
+# =============================================================================
+
+
+class LaundryService(models.Model):
+    """Laundry service requests and tracking."""
+
+    class Status(models.TextChoices):
+        PICKUP_SCHEDULED = "pickup", "Pickup Scheduled"
+        PICKED_UP = "picked_up", "Picked Up"
+        IN_PROCESS = "in_process", "In Process"
+        READY = "ready", "Ready for Delivery"
+        DELIVERED = "delivered", "Delivered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class GarmentType(models.TextChoices):
+        UNIFORM = "uniform", "Uniform"
+        BEDDING = "bedding", "Bedding"
+        PERSONAL = "personal", "Personal Clothes"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="laundry_services")
+    allocation = models.ForeignKey(HostelAllocation, on_delete=models.CASCADE, related_name="laundry_requests")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PICKUP_SCHEDULED)
+    # Garment details
+    garment_type = models.CharField(max_length=15, choices=GarmentType.choices, default=GarmentType.PERSONAL)
+    quantity = models.PositiveIntegerField(default=1)
+    description = models.TextField(blank=True)
+    # Schedule
+    pickup_date = models.DateField()
+    pickup_time = models.TimeField(null=True, blank=True)
+    delivery_date = models.DateField(null=True, blank=True)
+    delivery_time = models.TimeField(null=True, blank=True)
+    # Cost
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    paid = models.BooleanField(default=False)
+    # Special instructions
+    special_instructions = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "laundry_services"
+        ordering = ["-pickup_date"]
+
+    def __str__(self):
+        return f"Laundry — {self.allocation.student} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Common Area Booking
+# =============================================================================
+
+
+class CommonAreaBooking(models.Model):
+    """Booking for common areas (study room, gym, TV room, etc.)."""
+
+    class AreaType(models.TextChoices):
+        STUDY_ROOM = "study", "Study Room"
+        GYM = "gym", "Gym / Fitness"
+        TV_ROOM = "tv", "TV Room"
+        GAME_ROOM = "game", "Game Room"
+        LIBRARY = "library", "Hostel Library"
+        TERRACE = "terrace", "Terrace / Garden"
+        MEETING_ROOM = "meeting", "Meeting Room"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        BOOKED = "booked", "Booked"
+        ACTIVE = "active", "In Use"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+        NO_SHOW = "no_show", "No Show"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="common_area_bookings")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="common_area_bookings")
+    area_type = models.CharField(max_length=10, choices=AreaType.choices)
+    area_name = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.BOOKED)
+    # Schedule
+    booking_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    # Capacity
+    group_size = models.PositiveIntegerField(default=1)
+    additional_members = models.ManyToManyField(
+        "students.Student", blank=True, related_name="common_area_bookings_guest"
+    )
+    # Purpose
+    purpose = models.TextField(blank=True)
+    # Rules
+    rules_acknowledged = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "common_area_bookings"
+        ordering = ["-booking_date", "-start_time"]
+
+    def __str__(self):
+        return f"{self.get_area_type_display()} — {self.student} ({self.booking_date})"
+
+
+# =============================================================================
+# NEW MODELS: Wellness Checks
+# =============================================================================
+
+
+class WellnessCheck(models.Model):
+    """Resident wellness checks by hostel staff."""
+
+    class CheckType(models.TextChoices):
+        ROUTINE = "routine", "Routine Check"
+        FOLLOW_UP = "follow_up", "Follow-up Check"
+        WELFARE = "welfare", "Welfare Check"
+        MEDICAL = "medical", "Medical Check"
+        MENTAL = "mental", "Mental Health Check"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        ISSUE_FOUND = "issue", "Issue Found"
+        ESCALATED = "escalated", "Escalated"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="wellness_checks")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="wellness_checks")
+    allocation = models.ForeignKey(HostelAllocation, on_delete=models.SET_NULL, null=True, blank=True)
+    checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    check_type = models.CharField(max_length=10, choices=CheckType.choices, default=CheckType.ROUTINE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    check_date = models.DateField()
+    # Findings
+    physical_wellbeing = models.CharField(max_length=20, blank=True, help_text="Good, Fair, Concern")
+    emotional_state = models.CharField(max_length=20, blank=True, help_text="Stable, Anxious, Distressed")
+    room_condition = models.CharField(max_length=20, blank=True)
+    concerns_noted = models.TextField(blank=True)
+    # Actions
+    action_taken = models.TextField(blank=True)
+    referred_to = models.CharField(max_length=200, blank=True)
+    follow_up_date = models.DateField(null=True, blank=True)
+    # Parent notification
+    parent_notified = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "wellness_checks"
+        ordering = ["-check_date"]
+        indexes = [
+            models.Index(fields=["student", "check_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_check_type_display()} — {self.student} ({self.check_date})"
+
+
+# =============================================================================
+# NEW MODELS: Visitor Management
+# =============================================================================
+
+
+class VisitorPass(models.Model):
+    """Visitor passes for hostel guests."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        CHECKED_IN = "checked_in", "Checked In"
+        CHECKED_OUT = "checked_out", "Checked Out"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="visitor_passes")
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="visitor_passes")
+    resident = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="visitor_passes")
+    # Visitor info
+    visitor_name = models.CharField(max_length=200)
+    visitor_phone = models.CharField(max_length=30, blank=True)
+    visitor_id_number = models.CharField(max_length=50, blank=True)
+    relationship = models.CharField(max_length=50, blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.REQUESTED)
+    # Schedule
+    visit_date = models.DateField()
+    expected_arrival = models.TimeField()
+    expected_departure = models.TimeField()
+    actual_arrival = models.TimeField(null=True, blank=True)
+    actual_departure = models.TimeField(null=True, blank=True)
+    # Purpose
+    purpose = models.CharField(max_length=200, blank=True)
+    # Approval
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="visitor_pass_approvals"
+    )
+    approval_notes = models.TextField(blank=True)
+    # Room access
+    room_visited = models.ForeignKey(HostelRoom, on_delete=models.SET_NULL, null=True, blank=True)
+    # ID verification
+    id_verified = models.BooleanField(default=False)
+    id_verified_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="visitor_id_verifications"
+    )
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "visitor_passes"
+        ordering = ["-visit_date"]
+
+    def __str__(self):
+        return f"Visitor: {self.visitor_name} → {self.resident} ({self.visit_date})"
+
+
+# =============================================================================
+# NEW MODELS: Roommate Matching (Extended)
+# =============================================================================
+
+
+class RoommateMatchRequest(models.Model):
+    """Explicit roommate match requests between students."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    requester = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="roommate_match_requests_sent"
+    )
+    requested = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="roommate_match_requests_received"
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    message = models.TextField(blank=True)
+    response_message = models.TextField(blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "roommate_match_requests"
+        unique_together = [("requester", "requested")]
+
+    def __str__(self):
+        return f"{self.requester} → {self.requested} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Mess Menu & Diet
+# =============================================================================
+
+
+class MessMenuPlan(models.Model):
+    """Weekly/monthly mess menu planning."""
+
+    class MealType(models.TextChoices):
+        BREAKFAST = "breakfast", "Breakfast"
+        LUNCH = "lunch", "Lunch"
+        SNACK = "snack", "Snack"
+        DINNER = "dinner", "Dinner"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="mess_menu_plans")
+    meal_type = models.CharField(max_length=10, choices=MealType.choices)
+    day_of_week = models.CharField(
+        max_length=10,
+        choices=[
+            ("monday", "Monday"),
+            ("tuesday", "Tuesday"),
+            ("wednesday", "Wednesday"),
+            ("thursday", "Thursday"),
+            ("friday", "Friday"),
+            ("saturday", "Saturday"),
+            ("sunday", "Sunday"),
+        ],
+    )
+    week_number = models.PositiveIntegerField(default=1, help_text="Week number for rotation")
+    # Menu items
+    main_course = models.TextField(blank=True)
+    side_dish = models.TextField(blank=True)
+    bread_rice = models.TextField(blank=True)
+    dessert = models.TextField(blank=True)
+    beverage = models.TextField(blank=True)
+    # Dietary
+    is_vegetarian = models.BooleanField(default=False)
+    is_vegan = models.BooleanField(default=False)
+    is_gluten_free = models.BooleanField(default=False)
+    calories = models.PositiveIntegerField(null=True, blank=True)
+    # Cost
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Rating
+    avg_student_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "mess_menu_plans"
+        ordering = ["week_number", "day_of_week", "meal_type"]
+
+    def __str__(self):
+        return f"{self.get_meal_type_display()} — {self.day_of_week.title()} (Week {self.week_number})"
+
+
+class MessDietaryRequest(models.Model):
+    """Student dietary requirement requests."""
+
+    class DietType(models.TextChoices):
+        VEGETARIAN = "vegetarian", "Vegetarian"
+        VEGAN = "vegan", "Vegan"
+        GLUTEN_FREE = "gluten_free", "Gluten Free"
+        DIABETIC = "diabetic", "Diabetic Friendly"
+        LOW_SODIUM = "low_sodium", "Low Sodium"
+        HALAL = "halal", "Halal"
+        KOSHER = "kosher", "Kosher"
+        ALLERGY = "allergy", "Allergy Specific"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="mess_dietary_requests")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="mess_dietary_requests")
+    allocation = models.ForeignKey(HostelAllocation, on_delete=models.SET_NULL, null=True, blank=True)
+    diet_type = models.CharField(max_length=15, choices=DietType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    medical_reason = models.TextField(blank=True)
+    doctor_note = models.FileField(upload_to="hostel/dietary_notes/", null=True, blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "mess_dietary_requests"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_diet_type_display()} — {self.student} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Hostel Inventory Tracking
+# =============================================================================
+
+
+class HostelAsset(models.Model):
+    """Fixed assets in hostel rooms and common areas."""
+
+    class AssetCondition(models.TextChoices):
+        NEW = "new", "New"
+        GOOD = "good", "Good"
+        FAIR = "fair", "Fair"
+        POOR = "poor", "Poor"
+        DAMAGED = "damaged", "Damaged"
+        RETIRED = "retired", "Retired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(HostelRoom, on_delete=models.SET_NULL, null=True, blank=True, related_name="assets")
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="assets")
+    asset_name = models.CharField(max_length=200)
+    asset_tag = models.CharField(max_length=50, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    condition = models.CharField(max_length=10, choices=AssetCondition.choices, default=AssetCondition.GOOD)
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    last_inspected = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_assets"
+        ordering = ["asset_name"]
+
+    def __str__(self):
+        return f"{self.asset_name} — Room {self.room.room_number if self.room else 'N/A'}"
+
+
+class HostelAssetTransfer(models.Model):
+    """Asset transfers between rooms."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    asset = models.ForeignKey(HostelAsset, on_delete=models.CASCADE, related_name="transfers")
+    from_room = models.ForeignKey(
+        HostelRoom, on_delete=models.SET_NULL, null=True, blank=True, related_name="assets_sent"
+    )
+    to_room = models.ForeignKey(
+        HostelRoom, on_delete=models.SET_NULL, null=True, blank=True, related_name="assets_received"
+    )
+    transferred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    transfer_date = models.DateField(auto_now_add=True)
+    reason = models.TextField(blank=True)
+    condition_at_transfer = models.CharField(max_length=10, choices=HostelAsset.AssetCondition.choices)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "hostel_asset_transfers"
+        ordering = ["-transfer_date"]
+
+    def __str__(self):
+        return f"Transfer: {self.asset} ({self.from_room} → {self.to_room})"
+
+
+# =============================================================================
+# NEW MODELS: Hostel Events & Activities
+# =============================================================================
+
+
+class HostelEvent(models.Model):
+    """Events and activities organized within the hostel."""
+
+    class EventType(models.TextChoices):
+        ORIENTATION = "orientation", "Resident Orientation"
+        SOCIAL = "social", "Social Event"
+        CLEANLINESS = "cleanliness", "Cleanliness Drive"
+        SAFETY = "safety", "Safety Drill"
+        CULTURAL = "cultural", "Cultural Event"
+        SPORTS = "sports", "Sports Event"
+        WORKSHOP = "workshop", "Workshop"
+        CELEBRATION = "celebration", "Celebration"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="events")
+    organizer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    event_type = models.CharField(max_length=15, choices=EventType.choices, default=EventType.SOCIAL)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PLANNED)
+    event_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    max_participants = models.PositiveIntegerField(default=50)
+    current_participants = models.PositiveIntegerField(default=0)
+    # Feedback
+    avg_rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    total_feedback = models.PositiveIntegerField(default=0)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_events"
+        ordering = ["-event_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_event_type_display()}) — {self.event_date}"
+
+
+class HostelEventParticipant(models.Model):
+    """Participants in hostel events."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(HostelEvent, on_delete=models.CASCADE, related_name="participants")
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="hostel_event_participations"
+    )
+    registered_at = models.DateTimeField(auto_now_add=True)
+    attended = models.BooleanField(default=False)
+    feedback_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    feedback_comment = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "hostel_event_participants"
+        unique_together = [("event", "student")]
+
+    def __str__(self):
+        return f"{self.student} — {self.event}"
+
+
+# =============================================================================
+# NEW MODELS: Emergency Protocol
+# =============================================================================
+
+
+class HostelEmergencyProtocol(models.Model):
+    """Emergency protocols and procedures for the hostel."""
+
+    class EmergencyType(models.TextChoices):
+        FIRE = "fire", "Fire Emergency"
+        MEDICAL = "medical", "Medical Emergency"
+        NATURAL_DISASTER = "natural", "Natural Disaster"
+        LOCKDOWN = "lockdown", "Lockdown"
+        EVACUATION = "evacuation", "Evacuation"
+        POWER_OUTAGE = "power", "Power Outage"
+        OTHER = "other", "Other Emergency"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="emergency_protocols")
+    emergency_type = models.CharField(max_length=15, choices=EmergencyType.choices)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    procedures = models.TextField(help_text="Step-by-step emergency procedures")
+    contacts = models.TextField(help_text="Emergency contacts and numbers")
+    assembly_point = models.CharField(max_length=200, blank=True)
+    last_drill_date = models.DateField(null=True, blank=True)
+    next_drill_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    document = models.FileField(upload_to="hostel/emergency_docs/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_emergency_protocols"
+        ordering = ["emergency_type"]
+
+    def __str__(self):
+        return f"{self.get_emergency_type_display()} — {self.title}"
+
+
+class HostelEmergencyDrill(models.Model):
+    """Emergency drill records."""
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class EvaluationResult(models.TextChoices):
+        EXCELLENT = "excellent", "Excellent"
+        GOOD = "good", "Good"
+        SATISFACTORY = "satisfactory", "Satisfactory"
+        NEEDS_IMPROVEMENT = "needs_improvement", "Needs Improvement"
+        POOR = "poor", "Poor"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="emergency_drills")
+    protocol = models.ForeignKey(HostelEmergencyProtocol, on_delete=models.SET_NULL, null=True, blank=True)
+    conducted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    drill_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    # Results
+    participants_count = models.PositiveIntegerField(default=0)
+    evaluation = models.CharField(max_length=20, choices=EvaluationResult.choices, blank=True)
+    evacuation_time_minutes = models.PositiveIntegerField(null=True, blank=True)
+    issues_identified = models.TextField(blank=True)
+    improvements_needed = models.TextField(blank=True)
+    # Metadata
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_emergency_drills"
+        ordering = ["-drill_date"]
+
+    def __str__(self):
+        return f"Drill — {self.hostel.name} ({self.drill_date})"
+
+
+# =============================================================================
+# NEW MODELS: Hostel Fee Tracking
+# =============================================================================
+
+
+class HostelFeePayment(models.Model):
+    """Individual fee payment records for hostel residents."""
+
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Cash"
+        BANK_TRANSFER = "bank", "Bank Transfer"
+        ONLINE = "online", "Online Payment"
+        CHEQUE = "cheque", "Cheque"
+        SCHOLARSHIP = "scholarship", "Scholarship/Discount"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PAID = "paid", "Paid"
+        PARTIAL = "partial", "Partially Paid"
+        OVERDUE = "overdue", "Overdue"
+        WAIVED = "waived", "Waived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="hostel_fee_payments")
+    allocation = models.ForeignKey(HostelAllocation, on_delete=models.CASCADE, related_name="fee_payments")
+    hostel_fee = models.ForeignKey(HostelFee, on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    # Amount
+    amount_due = models.DecimalField(max_digits=12, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    late_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Payment details
+    payment_method = models.CharField(max_length=15, choices=PaymentMethod.choices, blank=True)
+    transaction_id = models.CharField(max_length=100, blank=True)
+    payment_date = models.DateField(null=True, blank=True)
+    receipt_number = models.CharField(max_length=50, blank=True)
+    # Period
+    billing_period = models.CharField(max_length=50, blank=True, help_text="e.g., Jan 2026")
+    due_date = models.DateField()
+    # Notes
+    notes = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_fee_payments"
+        ordering = ["-due_date"]
+        indexes = [
+            models.Index(fields=["allocation", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.allocation.student} — {self.billing_period} ({self.get_status_display()})"
+
+    @property
+    def balance(self):
+        return self.amount_due - self.amount_paid + self.late_fee - self.discount
+
+    @property
+    def is_fully_paid(self):
+        return self.balance <= 0
+
+
+class HostelInspectionSchedule(models.Model):
+    """Scheduled room inspection rotations."""
+
+    class Frequency(models.TextChoices):
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        BIWEEKLY = "biweekly", "Bi-weekly"
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="inspection_schedules")
+    inspector = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    frequency = models.CharField(max_length=15, choices=Frequency.choices, default=Frequency.WEEKLY)
+    day_of_week = models.CharField(max_length=10, blank=True)
+    time_of_day = models.TimeField(null=True, blank=True)
+    rooms_to_inspect = models.CharField(max_length=200, blank=True, help_text="All, Floor 1, Specific rooms, etc.")
+    checklist_items = models.JSONField(default=list, blank=True, help_text="Checklist items for inspection")
+    is_active = models.BooleanField(default=True)
+    last_inspection_date = models.DateField(null=True, blank=True)
+    next_inspection_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hostel_inspection_schedules"
+
+    def __str__(self):
+        return f"{self.hostel.name} — {self.get_frequency_display()} Inspection"
+
+
+class MessFeedback(models.Model):
+    """Feedback on mess food quality."""
+
+    class MealType(models.TextChoices):
+        BREAKFAST = "breakfast", "Breakfast"
+        LUNCH = "lunch", "Lunch"
+        DINNER = "dinner", "Dinner"
+        SNACK = "snack", "Snack"
+
+    class Rating(models.IntegerChoices):
+        VERY_POOR = 1, "Very Poor"
+        POOR = 2, "Poor"
+        AVERAGE = 3, "Average"
+        GOOD = 4, "Good"
+        EXCELLENT = 5, "Excellent"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="mess_feedbacks")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="mess_feedbacks")
+    meal_type = models.CharField(max_length=10, choices=MealType.choices)
+    rating = models.IntegerField(choices=Rating.choices)
+    food_quality = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    portion_size = models.CharField(max_length=20, blank=True, help_text="Too Small, Just Right, Too Large")
+    hygiene_rating = models.IntegerField(choices=Rating.choices, default=Rating.AVERAGE)
+    # Comments
+    liked_items = models.TextField(blank=True, help_text="What did you like?")
+    disliked_items = models.TextField(blank=True, help_text="What could be improved?")
+    suggestions = models.TextField(blank=True)
+    # Date
+    meal_date = models.DateField()
+    # Metadata
+    is_anonymous = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mess_feedbacks"
+        ordering = ["-meal_date"]
+
+    def __str__(self):
+        return f"{self.student} — {self.get_meal_type_display()} ({self.get_rating_display()})"
+
+
+class HostelAttendanceAlert(models.Model):
+    """Auto-generated alerts for attendance anomalies."""
+
+    class AlertType(models.TextChoices):
+        MISSING = "missing", "Missing Check-in"
+        NO_SHOW = "no_show", "No-show for Roll Call"
+        LATE = "late", "Late Return"
+        UNAUTHORIZED_ABSENCE = "unauthorized", "Unauthorized Absence"
+        LEAVE_VIOLATION = "leave_violation", "Leave Policy Violation"
+
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RESOLVED = "resolved", "Resolved"
+        ESCALATED = "escalated", "Escalated"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="hostel_attendance_alerts")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="hostel_attendance_alerts")
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name="attendance_alerts")
+    alert_type = models.CharField(max_length=20, choices=AlertType.choices)
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.MEDIUM)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    # Details
+    alert_date = models.DateField()
+    description = models.TextField()
+    related_attendance = models.ForeignKey(HostelAttendance, on_delete=models.SET_NULL, null=True, blank=True)
+    # Actions
+    acknowledged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="hostel_alert_resolutions"
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    # Parent
+    parent_notified = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hostel_attendance_alerts"
+        ordering = ["-alert_date"]
+        indexes = [
+            models.Index(fields=["student", "alert_type"]),
+            models.Index(fields=["school", "status", "severity"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_alert_type_display()} — {self.student} ({self.get_severity_display()})"
