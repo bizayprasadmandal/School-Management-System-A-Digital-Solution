@@ -386,3 +386,10 @@ class GradeCommentAdmin(admin.ModelAdmin):
 class ReportCardCommentAdmin(admin.ModelAdmin):
     list_display = ["report_card", "comment", "added_by", "added_at"]
     search_fields = ["report_card__student__admission_number", "comment__comment_text"]
+
+
+@admin.register(GradingScaleEntry)
+class GradingScaleEntryAdmin(admin.ModelAdmin):
+    list_display = ["grading_scale", "grade_label", "min_percentage", "max_percentage", "gpa_value"]
+    list_filter = ["grading_scale"]
+    search_fields = ["grade_label"]

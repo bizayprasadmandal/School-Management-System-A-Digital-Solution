@@ -5,18 +5,35 @@ Counseling Service — Serializers.
 from rest_framework import serializers
 
 from .models import (
+    AcademicAdvising,
+    BullyingFollowUp,
+    BullyingReport,
+    CareerAssessment,
+    CareerGoal,
     CaseManagement,
     CaseNote,
+    CollegeApplication,
     CounselingAppointment,
+    CounselingContract,
     CounselingFeedback,
+    CounselingGoalTracking,
+    CounselingNotification,
     CounselingOutcome,
     CounselingReport,
     CounselingSession,
+    CounselingSessionLog,
+    CounselingSurvey,
+    CounselingSurveyResponse,
+    CounselingWaitlist,
+    CounselingWorkshop,
     CounselorAbsence,
     CounselorAvailability,
+    CounselorCoverage,
     CounselorProfile,
+    CourseRecommendation,
     CrisisFollowUp,
     CrisisIntervention,
+    ExternalReferralProvider,
     GroupSession,
     GroupSessionAttendance,
     GroupSessionMember,
@@ -24,11 +41,20 @@ from .models import (
     InterventionPlan,
     MentalHealthScreening,
     ParentConsent,
+    PeerMentor,
+    PeerMentoringSession,
     ProgressMilestone,
     ProgressTracking,
+    ReferralTracking,
+    RestorativeCommitment,
+    RestorativeJusticeSession,
     ScreeningResponse,
+    SELAssessment,
+    SELGoal,
     SessionAttachment,
+    SpecialEducationReferral,
     StudentReferral,
+    WorkshopRegistration,
 )
 
 
@@ -772,4 +798,293 @@ class CounselingFeedbackSerializer(serializers.ModelSerializer):
             "average_rating",
             "created_at",
         ]
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Academic Advising Serializers
+# =============================================================================
+
+
+class CourseRecommendationSerializer(serializers.ModelSerializer):
+    advising_student = serializers.CharField(source="advising.student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CourseRecommendation
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class AcademicAdvisingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    advisor_name = serializers.CharField(source="advisor.full_name", read_only=True)
+
+    class Meta:
+        model = AcademicAdvising
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Career Counseling Serializers
+# =============================================================================
+
+
+class CareerGoalSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CareerGoal
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CareerAssessmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CareerAssessment
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CollegeApplicationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CollegeApplication
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Peer Mentoring Serializers
+# =============================================================================
+
+
+class PeerMentorSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = PeerMentor
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class PeerMentoringSessionSerializer(serializers.ModelSerializer):
+    mentor_name = serializers.CharField(source="mentor.student.user.full_name", read_only=True)
+    mentee_name = serializers.CharField(source="mentee.user.full_name", read_only=True)
+
+    class Meta:
+        model = PeerMentoringSession
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Workshop & Program Serializers
+# =============================================================================
+
+
+class WorkshopRegistrationSerializer(serializers.ModelSerializer):
+    workshop_title = serializers.CharField(source="workshop.title", read_only=True)
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = WorkshopRegistration
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CounselingWorkshopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CounselingWorkshop
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Scheduling & Waitlist Serializers
+# =============================================================================
+
+
+class CounselingWaitlistSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CounselingWaitlist
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CounselingNotificationSerializer(serializers.ModelSerializer):
+    recipient_name = serializers.CharField(source="recipient.full_name", read_only=True)
+
+    class Meta:
+        model = CounselingNotification
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Contracts & Agreements Serializers
+# =============================================================================
+
+
+class CounselingContractSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CounselingContract
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# External Referral Serializers
+# =============================================================================
+
+
+class ExternalReferralProviderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExternalReferralProvider
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class ReferralTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    provider_name = serializers.CharField(source="provider.name", read_only=True)
+
+    class Meta:
+        model = ReferralTracking
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Bullying & Harassment Serializers
+# =============================================================================
+
+
+class BullyingFollowUpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BullyingFollowUp
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class BullyingReportSerializer(serializers.ModelSerializer):
+    victim_name = serializers.CharField(source="victim.user.full_name", read_only=True)
+
+    class Meta:
+        model = BullyingReport
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# SEL Serializers
+# =============================================================================
+
+
+class SELAssessmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = SELAssessment
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class SELGoalSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = SELGoal
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Restorative Justice Serializers
+# =============================================================================
+
+
+class RestorativeCommitmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = RestorativeCommitment
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class RestorativeJusticeSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestorativeJusticeSession
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Surveys Serializers
+# =============================================================================
+
+
+class CounselingSurveyResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CounselingSurveyResponse
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CounselingSurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CounselingSurvey
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Coverage & Special Ed Serializers
+# =============================================================================
+
+
+class CounselorCoverageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CounselorCoverage
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class SpecialEducationReferralSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = SpecialEducationReferral
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+# =============================================================================
+# Goal Tracking & Session Log Serializers
+# =============================================================================
+
+
+class CounselingGoalTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+
+    class Meta:
+        model = CounselingGoalTracking
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class CounselingSessionLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = CounselingSessionLog
+        fields = "__all__"
         read_only_fields = ["id", "created_at"]

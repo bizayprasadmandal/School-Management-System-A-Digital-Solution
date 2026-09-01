@@ -374,6 +374,13 @@ class CounselorAbsenceAdmin(admin.ModelAdmin):
     date_hierarchy = "start_date"
 
 
+@admin.register(SessionAttachment)
+class SessionAttachmentAdmin(admin.ModelAdmin):
+    list_display = ["session", "file_name", "uploaded_by", "created_at"]
+    search_fields = ["file_name", "description"]
+    date_hierarchy = "created_at"
+
+
 # =============================================================================
 # Counseling Feedback
 # =============================================================================

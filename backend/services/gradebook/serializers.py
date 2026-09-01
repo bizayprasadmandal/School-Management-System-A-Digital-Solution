@@ -14,10 +14,12 @@ from .models import (
     CourseGradeCalculation,
     Exam,
     ExamSchedule,
+    ExamType,
     ExtraCredit,
     ExtraCreditSubmission,
     GPACalculation,
     Grade,
+    GradeChangeLog,
     GradeChangeProposal,
     GradeComment,
     GradeHistory,
@@ -780,3 +782,19 @@ class ReportCardCommentSerializer(serializers.ModelSerializer):
         model = ReportCardComment
         fields = ["id", "report_card", "comment", "comment_text", "custom_text", "added_at"]
         read_only_fields = ["id", "added_at"]
+
+
+class ExamTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamType
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class GradeChangeLogSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.CharField(source="changed_by.full_name", read_only=True)
+
+    class Meta:
+        model = GradeChangeLog
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
