@@ -916,3 +916,862 @@ class BulkApplicationImport(models.Model):
 
     def __str__(self):
         return f"{self.batch_name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Campus Visit Management
+# =============================================================================
+
+
+class CampusVisit(models.Model):
+    """Campus tours and visit scheduling."""
+
+    class VisitType(models.TextChoices):
+        INDIVIDUAL = "individual", "Individual Tour"
+        GROUP = "group", "Group Tour"
+        OPEN_HOUSE = "open_house", "Open House"
+        SHADOW_DAY = "shadow", "Shadow Day"
+        VIRTUAL = "virtual", "Virtual Tour"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+        NO_SHOW = "no_show", "No Show"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="campus_visits")
+    visitor_name = models.CharField(max_length=200)
+    visitor_email = models.EmailField(blank=True)
+    visitor_phone = models.CharField(max_length=30, blank=True)
+    # Student
+    prospective_student = models.ForeignKey(
+        "students.Student", on_delete=models.SET_NULL, null=True, blank=True, related_name="campus_visits"
+    )
+    # Visit details
+    visit_type = models.CharField(max_length=15, choices=VisitType.choices, default=VisitType.INDIVIDUAL)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    scheduled_date = models.DateField()
+    scheduled_time = models.TimeField()
+    duration_minutes = models.PositiveIntegerField(default=60)
+    # Tour
+    tour_guide = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="campus_tours")
+    group_size = models.PositiveIntegerField(default=1)
+    # Follow-up
+    interested_in_enrolling = models.BooleanField(null=True, blank=True)
+    follow_up_date = models.DateField(null=True, blank=True)
+    follow_up_notes = models.TextField(blank=True)
+    feedback = models.TextField(blank=True)
+    satisfaction_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "campus_visits"
+        ordering = ["-scheduled_date"]
+
+    def __str__(self):
+        return f"{self.visitor_name} - {self.get_visit_type_display()} ({self.scheduled_date})"
+
+
+class OpenHouseEvent(models.Model):
+    """Open house events for admissions."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="open_house_events")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PLANNED)
+    # Schedule
+    event_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    location = models.CharField(max_length=200, blank=True)
+    # Capacity
+    max_attendees = models.PositiveIntegerField(default=100)
+    current_attendees = models.PositiveIntegerField(default=0)
+    # Registration
+    registration_required = models.BooleanField(default=True)
+    registration_deadline = models.DateField(null=True, blank=True)
+    registration_url = models.URLField(blank=True)
+    # Staff
+    coordinator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    presenters = models.ManyToManyField(User, blank=True, related_name="open_house_presentations")
+    # Content
+    agenda = models.TextField(blank=True)
+    materials = models.TextField(blank=True)
+    # Post-event
+    total_attended = models.PositiveIntegerField(default=0)
+    applications_generated = models.PositiveIntegerField(default=0)
+    avg_satisfaction = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "open_house_events"
+        ordering = ["-event_date"]
+
+    def __str__(self):
+        return f"{self.title} ({self.event_date})"
+
+
+class OpenHouseRegistration(models.Model):
+    """Registration for open house events."""
+
+    class Status(models.TextChoices):
+        REGISTERED = "registered", "Registered"
+        CONFIRMED = "confirmed", "Confirmed"
+        ATTENDED = "attended", "Attended"
+        CANCELLED = "cancelled", "Cancelled"
+        NO_SHOW = "no_show", "No Show"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(OpenHouseEvent, on_delete=models.CASCADE, related_name="registrations")
+    registrant_name = models.CharField(max_length=200)
+    registrant_email = models.EmailField(blank=True)
+    registrant_phone = models.CharField(max_length=30, blank=True)
+    # Student info
+    child_name = models.CharField(max_length=200, blank=True)
+    child_dob = models.DateField(null=True, blank=True)
+    current_grade = models.CharField(max_length=20, blank=True)
+    current_school = models.CharField(max_length=200, blank=True)
+    # Status
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.REGISTERED)
+    num_attendees = models.PositiveIntegerField(default=1)
+    # Follow-up
+    application_created = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    # Metadata
+    registered_at = models.DateTimeField(auto_now_add=True)
+    attended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "open_house_registrations"
+        unique_together = [("event", "registrant_email")]
+
+    def __str__(self):
+        return f"{self.registrant_name} - {self.event.title}"
+
+
+# =============================================================================
+# NEW MODELS: Scholarship Management
+# =============================================================================
+
+
+class Scholarship(models.Model):
+    """Scholarships offered during admissions."""
+
+    class ScholarshipType(models.TextChoices):
+        MERIT = "merit", "Merit-Based"
+        NEED = "need", "Need-Based"
+        ATHLETIC = "athletic", "Athletic"
+        ARTS = "arts", "Arts & Culture"
+        SIBLING = "sibling", "Sibling Discount"
+        EMPLOYEE = "employee", "Employee"
+        CUSTOM = "custom", "Custom"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_scholarships")
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    scholarship_type = models.CharField(max_length=15, choices=ScholarshipType.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    # Amount
+    amount_type = models.CharField(max_length=20, blank=True, help_text="Fixed or Percentage")
+    amount_fixed = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    amount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    max_recipients = models.PositiveIntegerField(null=True, blank=True)
+    current_recipients = models.PositiveIntegerField(default=0)
+    # Eligibility
+    min_gpa = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    eligible_grades = models.CharField(max_length=100, blank=True)
+    eligible_intakes = models.ManyToManyField("EnrollmentIntake", blank=True)
+    renewal_eligible = models.BooleanField(default=False)
+    renewal_criteria = models.TextField(blank=True)
+    # Application
+    application_required = models.BooleanField(default=True)
+    deadline = models.DateField(null=True, blank=True)
+    # Dates
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admissions_scholarships"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_scholarship_type_display()})"
+
+
+class ScholarshipApplication(models.Model):
+    """Applications for scholarships."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "review", "Under Review"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        WAITLISTED = "waitlisted", "Waitlisted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    scholarship = models.ForeignKey(Scholarship, on_delete=models.CASCADE, related_name="applications")
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="scholarship_applications")
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SUBMITTED)
+    # Supporting docs
+    essay = models.TextField(blank=True)
+    recommendation_letter = models.FileField(upload_to="admissions/scholarships/letters/", null=True, blank=True)
+    transcript = models.FileField(upload_to="admissions/scholarships/transcripts/", null=True, blank=True)
+    # Financial info
+    family_income = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    financial_need_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # Merit info
+    merit_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    gpa_at_application = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Decision
+    decision_notes = models.TextField(blank=True)
+    amount_awarded = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    # Metadata
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "scholarship_applications"
+        unique_together = [("scholarship", "application")]
+
+    def __str__(self):
+        return f"{self.scholarship.name} - {self.application}"
+
+
+# =============================================================================
+# NEW MODELS: Admission Agreement & Policies
+# =============================================================================
+
+
+class AdmissionPolicy(models.Model):
+    """School admission policies and criteria."""
+
+    class PolicyType(models.TextChoices):
+        AGE = "age", "Age Requirements"
+        CAPACITY = "capacity", "Capacity Limits"
+        PRIORITY = "priority", "Priority Criteria"
+        RESIDENCE = "residence", "Residence Requirements"
+        SIBLING = "sibling", "Sibling Priority"
+        EMPLOYEE = "employee", "Employee Children"
+        DISABILITY = "disability", "Disability Accommodation"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_policies")
+    name = models.CharField(max_length=200)
+    policy_type = models.CharField(max_length=15, choices=PolicyType.choices)
+    description = models.TextField()
+    # Rules
+    min_age_years = models.PositiveIntegerField(null=True, blank=True)
+    max_age_years = models.PositiveIntegerField(null=True, blank=True)
+    priority_weight = models.PositiveIntegerField(default=0, help_text="Higher = higher priority")
+    # Capacity
+    max_students_per_grade = models.PositiveIntegerField(null=True, blank=True)
+    # Dates
+    effective_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Document
+    policy_document = models.FileField(upload_to="admissions/policies/", null=True, blank=True)
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admission_policies"
+        ordering = ["-priority_weight"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_policy_type_display()})"
+
+
+class AdmissionAgreement(models.Model):
+    """Enrollment agreements and contracts."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ACTIVE = "active", "Active"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_agreements")
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    content = models.TextField(help_text="Full agreement text")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    version = models.CharField(max_length=20, blank=True)
+    effective_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    requires_parent_signature = models.BooleanField(default=True)
+    requires_student_signature = models.BooleanField(default=False)
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admission_agreements"
+
+    def __str__(self):
+        return f"{self.name} (v{self.version})"
+
+
+class AgreementSignature(models.Model):
+    """Signatures on admission agreements."""
+
+    class SignerType(models.TextChoices):
+        PARENT = "parent", "Parent/Guardian"
+        STUDENT = "student", "Student"
+        ADMIN = "admin", "Administrator"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agreement = models.ForeignKey(AdmissionAgreement, on_delete=models.CASCADE, related_name="signatures")
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="agreement_signatures")
+    signer_type = models.CharField(max_length=10, choices=SignerType.choices)
+    signer_name = models.CharField(max_length=200)
+    signature = models.ImageField(upload_to="admissions/signatures/", null=True, blank=True)
+    signed_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "agreement_signatures"
+        unique_together = [("agreement", "application", "signer_type")]
+
+    def __str__(self):
+        return f"{self.signer_name} - {self.agreement.name}"
+
+
+# =============================================================================
+# NEW MODELS: Admission Communication
+# =============================================================================
+
+
+class AdmissionCommunicationLog(models.Model):
+    """Log of all communications during admissions."""
+
+    class Channel(models.TextChoices):
+        EMAIL = "email", "Email"
+        SMS = "sms", "SMS"
+        PHONE = "phone", "Phone Call"
+        IN_PERSON = "in_person", "In Person"
+        MAIL = "mail", "Postal Mail"
+        OTHER = "other", "Other"
+
+    class Direction(models.TextChoices):
+        INBOUND = "inbound", "Incoming"
+        OUTBOUND = "outbound", "Outgoing"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_comm_logs")
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="communication_logs")
+    # Communication details
+    channel = models.CharField(max_length=10, choices=Channel.choices)
+    direction = models.CharField(max_length=10, choices=Direction.choices, default=Direction.OUTBOUND)
+    subject = models.CharField(max_length=255, blank=True)
+    content = models.TextField()
+    # Participants
+    sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    sent_to_name = models.CharField(max_length=200, blank=True)
+    sent_to_email = models.EmailField(blank=True)
+    # Tracking
+    delivered = models.BooleanField(default=True)
+    opened = models.BooleanField(default=False)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_communication_logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_channel_display()} - {self.application} ({self.get_direction_display()})"
+
+
+class AdmissionReminder(models.Model):
+    """Automated reminders for admissions deadlines."""
+
+    class ReminderType(models.TextChoices):
+        DOCUMENT = "document", "Missing Documents"
+        DEADLINE = "deadline", "Upcoming Deadline"
+        PAYMENT = "payment", "Fee Payment"
+        INTERVIEW = "interview", "Interview Scheduled"
+        FOLLOW_UP = "follow_up", "Follow-up"
+        CUSTOM = "custom", "Custom"
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        SENT = "sent", "Sent"
+        CANCELLED = "cancelled", "Cancelled"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_reminders")
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="reminders")
+    reminder_type = models.CharField(max_length=15, choices=ReminderType.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.SCHEDULED)
+    # Content
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    # Schedule
+    scheduled_date = models.DateTimeField()
+    sent_date = models.DateTimeField(null=True, blank=True)
+    # Channel
+    channel = models.CharField(
+        max_length=10,
+        choices=AdmissionCommunicationLog.Channel.choices,
+        default=AdmissionCommunicationLog.Channel.EMAIL,
+    )
+    # Metadata
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_reminders"
+        ordering = ["-scheduled_date"]
+
+    def __str__(self):
+        return f"{self.get_reminder_type_display()} - {self.application}"
+
+
+# =============================================================================
+# NEW MODELS: Grade/Class Availability
+# =============================================================================
+
+
+class GradeLevelCapacity(models.Model):
+    """Track capacity per grade level per intake."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    intake = models.ForeignKey("EnrollmentIntake", on_delete=models.CASCADE, related_name="grade_capacities")
+    grade_level = models.CharField(max_length=50)
+    max_capacity = models.PositiveIntegerField()
+    current_enrollment = models.PositiveIntegerField(default=0)
+    waitlist_count = models.PositiveIntegerField(default=0)
+    # Breakdown
+    boys_count = models.PositiveIntegerField(default=0)
+    girls_count = models.PositiveIntegerField(default=0)
+    # Fees
+    tuition_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    registration_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Status
+    is_accepting = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "grade_level_capacities"
+        unique_together = [("intake", "grade_level")]
+
+    def __str__(self):
+        return f"{self.grade_level} - {self.intake} ({self.current_enrollment}/{self.max_capacity})"
+
+    @property
+    def available_spots(self):
+        return max(0, self.max_capacity - self.current_enrollment)
+
+    @property
+    def capacity_percentage(self):
+        if self.max_capacity == 0:
+            return 0
+        return round((self.current_enrollment / self.max_capacity) * 100, 2)
+
+
+class AdmissionDecision(models.Model):
+    """Formal admission decisions."""
+
+    class Decision(models.TextChoices):
+        ADMITTED = "admitted", "Admitted"
+        REJECTED = "rejected", "Rejected"
+        WAITLISTED = "waitlisted", "Waitlisted"
+        DEFERRED = "deferred", "Deferred to Next Intake"
+        CONDITIONAL = "conditional", "Conditional Admission"
+
+    class DecisionReason(models.TextChoices):
+        CAPACITY = "capacity", "Capacity Constraints"
+        ACADEMIC = "academic", "Academic Performance"
+        BEHAVIOR = "behavior", "Behavioral Concern"
+        DOCUMENTS = "documents", "Incomplete Documents"
+        ELIGIBILITY = "eligibility", "Not Eligible"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="decisions")
+    decision = models.CharField(max_length=15, choices=Decision.choices)
+    decision_reason = models.CharField(max_length=15, choices=DecisionReason.choices, blank=True)
+    # Details
+    rationale = models.TextField(blank=True)
+    conditions = models.TextField(blank=True, help_text="For conditional admission")
+    # Grade placement
+    recommended_grade = models.CharField(max_length=50, blank=True)
+    recommended_class = models.CharField(max_length=50, blank=True)
+    # Financial
+    scholarship_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    financial_aid_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Decision maker
+    decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    decided_at = models.DateTimeField(auto_now_add=True)
+    # Notification
+    parent_notified = models.BooleanField(default=False)
+    parent_notified_at = models.DateTimeField(null=True, blank=True)
+    # Appeal
+    appeal_deadline = models.DateField(null=True, blank=True)
+    appeal_submitted = models.BooleanField(default=False)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admission_decisions"
+        ordering = ["-decided_at"]
+
+    def __str__(self):
+        return f"{self.application} - {self.get_decision_display()}"
+
+
+# =============================================================================
+# NEW MODELS: Transfer Student
+# =============================================================================
+
+
+class TransferStudent(models.Model):
+    """Transfer student specific information."""
+
+    class TransferStatus(models.TextChoices):
+        REQUESTED = "requested", "Transfer Requested"
+        DOCUMENTS_PENDING = "docs_pending", "Documents Pending"
+        UNDER_REVIEW = "review", "Under Review"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        ENROLLED = "enrolled", "Enrolled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.OneToOneField("Application", on_delete=models.CASCADE, related_name="transfer_details")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="transfer_students")
+    # Previous school
+    previous_school_name = models.CharField(max_length=200)
+    previous_school_address = models.TextField(blank=True)
+    previous_school_phone = models.CharField(max_length=30, blank=True)
+    previous_school_email = models.EmailField(blank=True)
+    previous_school_type = models.CharField(max_length=50, blank=True)
+    # Duration
+    years_attended = models.PositiveIntegerField(null=True, blank=True)
+    last_grade_completed = models.CharField(max_length=50, blank=True)
+    graduation_date = models.DateField(null=True, blank=True)
+    # Academic
+    previous_gpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    class_rank = models.CharField(max_length=50, blank=True)
+    class_size = models.PositiveIntegerField(null=True, blank=True)
+    # Credits
+    credits_earned = models.PositiveIntegerField(null=True, blank=True)
+    credits_required = models.PositiveIntegerField(null=True, blank=True)
+    transferable_credits = models.PositiveIntegerField(null=True, blank=True)
+    # Documents
+    transcript_received = models.BooleanField(default=False)
+    withdrawal_form_received = models.BooleanField(default=False)
+    recommendation_letters_received = models.BooleanField(default=False)
+    # Behavioral
+    behavioral_issues = models.BooleanField(default=False)
+    behavioral_notes = models.TextField(blank=True)
+    # Status
+    status = models.CharField(max_length=20, choices=TransferStatus.choices, default=TransferStatus.REQUESTED)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "transfer_students"
+
+    def __str__(self):
+        return f"Transfer: {self.previous_school_name} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Sibling Registration
+# =============================================================================
+
+
+class SiblingGroup(models.Model):
+    """Track sibling groups for admissions priority."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="sibling_groups")
+    family_name = models.CharField(max_length=200)
+    # Parent/Guardian
+    parent_name = models.CharField(max_length=200)
+    parent_email = models.EmailField(blank=True)
+    parent_phone = models.CharField(max_length=30, blank=True)
+    # Siblings
+    total_siblings = models.PositiveIntegerField(default=1)
+    currently_enrolled = models.PositiveIntegerField(default=0)
+    # Priority
+    sibling_priority = models.BooleanField(default=True, help_text="Gets sibling priority in admissions")
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sibling_groups"
+
+    def __str__(self):
+        return f"{self.family_name} ({self.total_siblings} siblings)"
+
+
+class SiblingRecord(models.Model):
+    """Individual sibling records."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    sibling_group = models.ForeignKey(SiblingGroup, on_delete=models.CASCADE, related_name="members")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="sibling_records")
+    application = models.ForeignKey(
+        "Application", on_delete=models.SET_NULL, null=True, blank=True, related_name="sibling_records"
+    )
+    is_currently_enrolled = models.BooleanField(default=True)
+    grade_level = models.CharField(max_length=50, blank=True)
+    enrollment_date = models.DateField(null=True, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sibling_records"
+        unique_together = [("sibling_group", "student")]
+
+    def __str__(self):
+        return f"{self.student} - {self.sibling_group.family_name}"
+
+
+# =============================================================================
+# NEW MODELS: Admission Analytics
+# =============================================================================
+
+
+class AdmissionFunnelSnapshot(models.Model):
+    """Daily/weekly snapshots of the admissions funnel."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    intake = models.ForeignKey("EnrollmentIntake", on_delete=models.CASCADE, related_name="funnel_snapshots")
+    snapshot_date = models.DateField()
+    # Funnel stages
+    inquiries = models.PositiveIntegerField(default=0)
+    campus_visits = models.PositiveIntegerField(default=0)
+    applications_started = models.PositiveIntegerField(default=0)
+    applications_submitted = models.PositiveIntegerField(default=0)
+    documents_complete = models.PositiveIntegerField(default=0)
+    under_review = models.PositiveIntegerField(default=0)
+    interviews_scheduled = models.PositiveIntegerField(default=0)
+    interviews_completed = models.PositiveIntegerField(default=0)
+    decisions_made = models.PositiveIntegerField(default=0)
+    admitted = models.PositiveIntegerField(default=0)
+    enrolled = models.PositiveIntegerField(default=0)
+    # Conversion rates
+    application_to_enrollment_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    inquiry_to_application_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Demographics
+    male_count = models.PositiveIntegerField(default=0)
+    female_count = models.PositiveIntegerField(default=0)
+    # Source
+    source_breakdown = models.JSONField(default=dict, blank=True, help_text="Applications by source")
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_funnel_snapshots"
+        ordering = ["-snapshot_date"]
+        unique_together = [("intake", "snapshot_date")]
+
+    def __str__(self):
+        return f"Funnel - {self.intake} ({self.snapshot_date})"
+
+
+# =============================================================================
+# NEW MODELS: Admission Document Checklist
+# =============================================================================
+
+
+class AdmissionDocumentChecklist(models.Model):
+    """Required documents per intake/grade level."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    intake = models.ForeignKey("EnrollmentIntake", on_delete=models.CASCADE, related_name="document_checklists")
+    grade_level = models.CharField(max_length=50, blank=True)
+    document_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_mandatory = models.BooleanField(default=True)
+    accepted_formats = models.CharField(max_length=100, blank=True, help_text="PDF, JPG, PNG, etc.")
+    max_file_size_mb = models.PositiveIntegerField(default=5)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_document_checklists"
+        ordering = ["sort_order"]
+
+    def __str__(self):
+        return f"{self.document_name} ({'Required' if self.is_mandatory else 'Optional'})"
+
+
+class AdmissionDocumentVerification(models.Model):
+    """Verification status for each submitted document."""
+
+    class VerificationStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        VERIFIED = "verified", "Verified"
+        REJECTED = "rejected", "Rejected"
+        EXPIRED = "expired", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey("Application", on_delete=models.CASCADE, related_name="document_verifications")
+    checklist_item = models.ForeignKey(
+        AdmissionDocumentChecklist, on_delete=models.CASCADE, related_name="verifications"
+    )
+    status = models.CharField(max_length=15, choices=VerificationStatus.choices, default=VerificationStatus.PENDING)
+    # Document
+    file = models.FileField(upload_to="admissions/verification/")
+    original_filename = models.CharField(max_length=255)
+    file_size = models.PositiveIntegerField(default=0)
+    # Verification
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    # Metadata
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admission_document_verifications"
+        unique_together = [("application", "checklist_item")]
+
+    def __str__(self):
+        return f"{self.checklist_item.document_name} - {self.application} ({self.get_status_display()})"
+
+
+# =============================================================================
+# NEW MODELS: Admission Analytics (Additional)
+# =============================================================================
+
+
+class AdmissionPredictionModel(models.Model):
+    """Predictive analytics for admissions."""
+
+    class PredictionType(models.TextChoices):
+        ENROLLMENT = "enrollment", "Enrollment Prediction"
+        YIELD = "yield", "Yield Rate"
+        DEPOSIT = "deposit", "Deposit Prediction"
+        RETENTION = "retention", "Retention Risk"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    intake = models.ForeignKey("EnrollmentIntake", on_delete=models.CASCADE, related_name="predictions")
+    prediction_type = models.CharField(max_length=15, choices=PredictionType.choices)
+    prediction_date = models.DateField()
+    # Results
+    predicted_value = models.DecimalField(max_digits=10, decimal_places=2)
+    confidence_score = models.DecimalField(max_digits=5, decimal_places=2)
+    factors = models.JSONField(default=dict, blank=True)
+    # Metadata
+    model_version = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_prediction_models"
+
+    def __str__(self):
+        return f"{self.get_prediction_type_display()} - {self.intake} ({self.predicted_value})"
+
+
+class AdmissionMarketingSource(models.Model):
+    """Track marketing sources for admissions."""
+
+    class SourceType(models.TextChoices):
+        WEBSITE = "website", "Website"
+        SOCIAL_MEDIA = "social", "Social Media"
+        REFERRAL = "referral", "Referral"
+        ADVERTISEMENT = "ad", "Advertisement"
+        EVENT = "event", "Event"
+        AGENT = "agent", "Agent/Broker"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_marketing_sources")
+    name = models.CharField(max_length=200)
+    source_type = models.CharField(max_length=15, choices=SourceType.choices)
+    # Tracking
+    total_inquiries = models.PositiveIntegerField(default=0)
+    total_applications = models.PositiveIntegerField(default=0)
+    total_enrolled = models.PositiveIntegerField(default=0)
+    conversion_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Cost
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cost_per_enrollment = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Status
+    is_active = models.BooleanField(default=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admission_marketing_sources"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_source_type_display()})"
+
+
+class AdmissionTrendAnalysis(models.Model):
+    """Historical admission trend data."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admission_trends")
+    academic_year = models.CharField(max_length=10)
+    intake = models.ForeignKey("EnrollmentIntake", on_delete=models.SET_NULL, null=True, blank=True)
+    # Applications
+    total_applications = models.PositiveIntegerField(default=0)
+    applications_male = models.PositiveIntegerField(default=0)
+    applications_female = models.PositiveIntegerField(default=0)
+    # Enrollment
+    total_enrolled = models.PositiveIntegerField(default=0)
+    enrollment_male = models.PositiveIntegerField(default=0)
+    enrollment_female = models.PositiveIntegerField(default=0)
+    # Yield
+    yield_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # Financial
+    total_tuition_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_scholarships_awarded = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    # By grade
+    grade_breakdown = models.JSONField(default=dict, blank=True)
+    # By source
+    source_breakdown = models.JSONField(default=dict, blank=True)
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admission_trend_analysis"
+        unique_together = [("school", "academic_year", "intake")]
+
+    def __str__(self):
+        return f"Admission Trends - {self.academic_year}"
