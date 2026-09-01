@@ -794,3 +794,390 @@ class LibraryNotification(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.get_notification_type_display()}"
+
+
+class BookCopy(models.Model):
+    """Individual book copies."""
+
+    class Condition(models.TextChoices):
+        NEW = "new", "New"
+        GOOD = "good", "Good"
+        FAIR = "fair", "Fair"
+        POOR = "poor", "Poor"
+        DAMAGED = "damaged", "Damaged"
+        LOST = "lost", "Lost"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="copies")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="book_copies")
+    copy_number = models.CharField(max_length=50)
+    barcode = models.CharField(max_length=100, unique=True)
+    condition = models.CharField(max_length=20, choices=Condition.choices, default=Condition.GOOD)
+    location = models.CharField(max_length=100, blank=True)
+    shelf_number = models.CharField(max_length=20, blank=True)
+    is_available = models.BooleanField(default=True)
+    is_reference_only = models.BooleanField(default=False)
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_book_copies"
+        unique_together = [("book", "copy_number")]
+        ordering = ["copy_number"]
+
+    def __str__(self):
+        return f"{self.book.title} - Copy {self.copy_number}"
+
+
+class BookConditionLog(models.Model):
+    """Book condition tracking."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book_copy = models.ForeignKey(BookCopy, on_delete=models.CASCADE, related_name="condition_logs")
+    previous_condition = models.CharField(max_length=20, choices=BookCopy.Condition.choices)
+    new_condition = models.CharField(max_length=20, choices=BookCopy.Condition.choices)
+    reason = models.TextField(blank=True)
+    reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "library_book_condition_logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.book_copy} - {self.previous_condition} to {self.new_condition}"
+
+
+class BookRepair(models.Model):
+    """Book repair records."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book_copy = models.ForeignKey(BookCopy, on_delete=models.CASCADE, related_name="repairs")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="book_repairs")
+    issue = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vendor = models.CharField(max_length=200, blank=True)
+    scheduled_date = models.DateField(null=True, blank=True)
+    completed_date = models.DateField(null=True, blank=True)
+    reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_book_repairs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Repair: {self.book_copy} - {self.issue}"
+
+
+class BookDonation(models.Model):
+    """Book donations."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RECEIVED = "received", "Received"
+        CATALOGED = "cataloged", "Cataloged"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="book_donations")
+    donor_name = models.CharField(max_length=200)
+    donor_email = models.EmailField(blank=True)
+    donor_phone = models.CharField(max_length=20, blank=True)
+    book_title = models.CharField(max_length=200)
+    author = models.CharField(max_length=200, blank=True)
+    isbn = models.CharField(max_length=20, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    condition = models.CharField(max_length=20, choices=BookCopy.Condition.choices, default=BookCopy.Condition.GOOD)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    received_date = models.DateField(null=True, blank=True)
+    received_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "library_book_donations"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Donation: {self.book_title} by {self.donor_name}"
+
+
+class BookPurchase(models.Model):
+    """Book purchases."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ORDERED = "ordered", "Ordered"
+        RECEIVED = "received", "Received"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="book_purchases")
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True)
+    title = models.CharField(max_length=200)
+    author = models.CharField(max_length=200, blank=True)
+    isbn = models.CharField(max_length=20, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vendor = models.CharField(max_length=200, blank=True)
+    order_date = models.DateField(null=True, blank=True)
+    expected_date = models.DateField(null=True, blank=True)
+    received_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="book_purchase_approvals"
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_book_purchases"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Purchase: {self.title} (Qty: {self.quantity})"
+
+
+class LibraryCard(models.Model):
+    """Library card management."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        EXPIRED = "expired", "Expired"
+        LOST = "lost", "Lost"
+        BLOCKED = "blocked", "Blocked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="library_cards")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="library_cards")
+    card_number = models.CharField(max_length=50, unique=True)
+    issue_date = models.DateField()
+    expiry_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    max_checkouts = models.PositiveIntegerField(default=5)
+    current_checkouts = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_cards"
+        ordering = ["-issue_date"]
+
+    def __str__(self):
+        return f"Card {self.card_number} - {self.student}"
+
+
+class AcquisitionRequest(models.Model):
+    """Book acquisition requests."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        ORDERED = "ordered", "Ordered"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="acquisition_requests")
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="acquisition_requests")
+    title = models.CharField(max_length=200)
+    author = models.CharField(max_length=200, blank=True)
+    isbn = models.CharField(max_length=20, blank=True)
+    publisher = models.CharField(max_length=200, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reason = models.TextField()
+    priority = models.CharField(
+        max_length=20, choices=[("low", "Low"), ("medium", "Medium"), ("high", "High")], default="medium"
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    approved_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_acquisition_requests"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Request: {self.title} by {self.requested_by.full_name}"
+
+
+class BookClub(models.Model):
+    """Book club management."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="book_clubs")
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    advisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    meeting_day = models.CharField(max_length=20, blank=True)
+    meeting_time = models.TimeField(null=True, blank=True)
+    meeting_location = models.CharField(max_length=200, blank=True)
+    max_members = models.PositiveIntegerField(default=20)
+    current_book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_book_clubs"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class BookClubMembership(models.Model):
+    """Book club membership."""
+
+    class Role(models.TextChoices):
+        MEMBER = "member", "Member"
+        PRESIDENT = "president", "President"
+        SECRETARY = "secretary", "Secretary"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book_club = models.ForeignKey(BookClub, on_delete=models.CASCADE, related_name="members")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="book_club_memberships")
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    join_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "library_book_club_memberships"
+        unique_together = [("book_club", "student")]
+        ordering = ["-join_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.book_club.name}"
+
+
+class StudentReadingLog(models.Model):
+    """Student reading logs."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="reading_logs")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="student_reading_logs")
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True)
+    book_title = models.CharField(max_length=200)
+    author = models.CharField(max_length=200, blank=True)
+    pages_read = models.PositiveIntegerField(default=0)
+    total_pages = models.PositiveIntegerField(default=0)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="1-5 rating")
+    review = models.TextField(blank=True)
+    is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_student_reading_logs"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.student} - {self.book_title}"
+
+
+class ReadingChallenge(models.Model):
+    """Reading challenges."""
+
+    class Status(models.TextChoices):
+        UPCOMING = "upcoming", "Upcoming"
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="reading_challenges")
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    goal_books = models.PositiveIntegerField(default=5)
+    goal_pages = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPCOMING)
+    prize = models.CharField(max_length=200, blank=True)
+    participants_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_reading_challenges"
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return self.name
+
+
+class ReadingChallengeProgress(models.Model):
+    """Reading challenge progress."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    challenge = models.ForeignKey(ReadingChallenge, on_delete=models.CASCADE, related_name="progress")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="reading_challenge_progress")
+    books_read = models.PositiveIntegerField(default=0)
+    pages_read = models.PositiveIntegerField(default=0)
+    is_completed = models.BooleanField(default=False)
+    completed_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "library_reading_challenge_progress"
+        unique_together = [("challenge", "student")]
+        ordering = ["-books_read"]
+
+    def __str__(self):
+        return f"{self.student} - {self.challenge.name} ({self.books_read} books)"
+
+
+class LibraryFeedback(models.Model):
+    """Library feedback surveys."""
+
+    class FeedbackType(models.TextChoices):
+        SERVICE = "service", "Service"
+        COLLECTION = "collection", "Collection"
+        FACILITY = "facility", "Facility"
+        STAFF = "staff", "Staff"
+        GENERAL = "general", "General"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="library_feedback")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="library_feedback")
+    feedback_type = models.CharField(max_length=20, choices=FeedbackType.choices)
+    rating = models.PositiveSmallIntegerField(help_text="1-5 rating")
+    comments = models.TextField(blank=True)
+    suggestions = models.TextField(blank=True)
+    is_anonymous = models.BooleanField(default=False)
+    response = models.TextField(blank=True)
+    responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "library_feedback"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Feedback: {self.student} - {self.get_feedback_type_display()}"
