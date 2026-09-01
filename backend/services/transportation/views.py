@@ -9,12 +9,39 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import Driver, Route, RouteStop, StudentRoute, Vehicle, VehicleMaintenance
+from .models import (
+    DailyTransportAttendance,
+    Driver,
+    FuelLog,
+    Route,
+    RouteStop,
+    StudentRoute,
+    TransportFee,
+    TransportIncidentReport,
+    TransportNotification,
+    TransportReport,
+    TripSchedule,
+    Vehicle,
+    VehicleDocument,
+    VehicleInspection,
+    VehicleInsurance,
+    VehicleMaintenance,
+)
 from .serializers import (
+    DailyTransportAttendanceSerializer,
     DriverSerializer,
+    FuelLogSerializer,
     RouteSerializer,
     RouteStopDetailSerializer,
     StudentRouteSerializer,
+    TransportFeeSerializer,
+    TransportIncidentReportSerializer,
+    TransportNotificationSerializer,
+    TransportReportSerializer,
+    TripScheduleSerializer,
+    VehicleDocumentSerializer,
+    VehicleInspectionSerializer,
+    VehicleInsuranceSerializer,
     VehicleMaintenanceSerializer,
     VehicleSerializer,
 )
@@ -144,3 +171,205 @@ class VehicleMaintenanceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(performed_by=self.request.user)
+
+
+class TransportFeeViewSet(viewsets.ModelViewSet):
+    serializer_class = TransportFeeSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "route", "fee_type", "status"]
+
+    def get_queryset(self):
+        return TransportFee.objects.filter(school=self.request.user.school).select_related("student__user", "route")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class VehicleInsuranceViewSet(viewsets.ModelViewSet):
+    serializer_class = VehicleInsuranceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["vehicle", "insurance_type", "status"]
+
+    def get_queryset(self):
+        return VehicleInsurance.objects.filter(vehicle__school=self.request.user.school).select_related("vehicle")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class DailyTransportAttendanceViewSet(viewsets.ModelViewSet):
+    serializer_class = DailyTransportAttendanceSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["student", "route", "date", "status"]
+
+    def get_queryset(self):
+        return DailyTransportAttendance.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "route", "vehicle"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            recorded_by=self.request.user,
+        )
+
+
+class TransportIncidentReportViewSet(viewsets.ModelViewSet):
+    serializer_class = TransportIncidentReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["description", "location"]
+    filterset_fields = ["incident_type", "severity", "status"]
+
+    def get_queryset(self):
+        return TransportIncidentReport.objects.filter(school=self.request.user.school).select_related(
+            "vehicle", "route", "driver"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            reported_by=self.request.user,
+        )
+
+
+class VehicleInspectionViewSet(viewsets.ModelViewSet):
+    serializer_class = VehicleInspectionSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["vehicle", "inspection_type", "result"]
+
+    def get_queryset(self):
+        return VehicleInspection.objects.filter(vehicle__school=self.request.user.school).select_related("vehicle")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class TripScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = TripScheduleSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "destination"]
+    filterset_fields = ["trip_type", "status"]
+
+    def get_queryset(self):
+        return TripSchedule.objects.filter(school=self.request.user.school).select_related("vehicle", "driver", "route")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            created_by=self.request.user,
+        )
+
+
+class FuelLogViewSet(viewsets.ModelViewSet):
+    serializer_class = FuelLogSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["vehicle", "fuel_type"]
+
+    def get_queryset(self):
+        return FuelLog.objects.filter(vehicle__school=self.request.user.school).select_related("vehicle")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(filled_by=self.request.user)
+
+
+class TransportNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = TransportNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["notification_type", "status"]
+
+    def get_queryset(self):
+        return TransportNotification.objects.filter(school=self.request.user.school).select_related("route", "vehicle")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            sent_by=self.request.user,
+        )
+
+
+class TransportReportViewSet(viewsets.ModelViewSet):
+    serializer_class = TransportReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["report_type"]
+
+    def get_queryset(self):
+        return TransportReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            school=self.request.user.school,
+            generated_by=self.request.user,
+        )
+
+
+class VehicleDocumentViewSet(viewsets.ModelViewSet):
+    serializer_class = VehicleDocumentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["vehicle", "document_type", "is_valid"]
+
+    def get_queryset(self):
+        return VehicleDocument.objects.filter(vehicle__school=self.request.user.school).select_related("vehicle")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()

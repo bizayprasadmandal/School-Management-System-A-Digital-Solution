@@ -1,7 +1,25 @@
 """Transportation Management — Django Admin registrations."""
 
 from django.contrib import admin
-from .models import Vehicle, Driver, Route, RouteStop, StudentRoute, VehicleMaintenance
+
+from .models import (
+    DailyTransportAttendance,
+    Driver,
+    FuelLog,
+    Route,
+    RouteStop,
+    StudentRoute,
+    TransportFee,
+    TransportIncidentReport,
+    TransportNotification,
+    TransportReport,
+    TripSchedule,
+    Vehicle,
+    VehicleDocument,
+    VehicleInspection,
+    VehicleInsurance,
+    VehicleMaintenance,
+)
 
 
 @admin.register(Vehicle)
@@ -56,4 +74,84 @@ class VehicleMaintenanceAdmin(admin.ModelAdmin):
     list_display = ["vehicle", "maintenance_type", "status", "scheduled_date", "cost"]
     list_filter = ["maintenance_type", "status"]
     search_fields = ["vehicle__plate_number", "vendor_name", "invoice_number"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+
+@admin.register(TransportFee)
+class TransportFeeAdmin(admin.ModelAdmin):
+    list_display = ["student", "fee_type", "amount", "status", "due_date"]
+    list_filter = ["fee_type", "status"]
+    search_fields = ["student__user__full_name"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+
+@admin.register(VehicleInsurance)
+class VehicleInsuranceAdmin(admin.ModelAdmin):
+    list_display = ["vehicle", "provider", "policy_number", "end_date", "status"]
+    list_filter = ["insurance_type", "status"]
+    search_fields = ["vehicle__plate_number", "policy_number"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+
+@admin.register(DailyTransportAttendance)
+class DailyTransportAttendanceAdmin(admin.ModelAdmin):
+    list_display = ["student", "route", "date", "status", "pickup_time"]
+    list_filter = ["status", "attendance_type"]
+    search_fields = ["student__user__full_name"]
+    readonly_fields = ["id", "created_at"]
+
+
+@admin.register(TransportIncidentReport)
+class TransportIncidentReportAdmin(admin.ModelAdmin):
+    list_display = ["incident_type", "severity", "status", "incident_date", "vehicle"]
+    list_filter = ["incident_type", "severity", "status"]
+    search_fields = ["description"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+
+@admin.register(VehicleInspection)
+class VehicleInspectionAdmin(admin.ModelAdmin):
+    list_display = ["vehicle", "inspection_type", "result", "inspection_date"]
+    list_filter = ["inspection_type", "result"]
+    search_fields = ["vehicle__plate_number"]
+    readonly_fields = ["id", "created_at"]
+
+
+@admin.register(TripSchedule)
+class TripScheduleAdmin(admin.ModelAdmin):
+    list_display = ["title", "trip_type", "trip_date", "destination", "status"]
+    list_filter = ["trip_type", "status"]
+    search_fields = ["title", "destination"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+
+@admin.register(FuelLog)
+class FuelLogAdmin(admin.ModelAdmin):
+    list_display = ["vehicle", "fuel_type", "liters", "total_cost", "fill_date"]
+    list_filter = ["fuel_type"]
+    search_fields = ["vehicle__plate_number"]
+    readonly_fields = ["id", "created_at"]
+
+
+@admin.register(TransportNotification)
+class TransportNotificationAdmin(admin.ModelAdmin):
+    list_display = ["title", "notification_type", "status", "sent_at"]
+    list_filter = ["notification_type", "status"]
+    search_fields = ["title", "message"]
+    readonly_fields = ["id", "created_at"]
+
+
+@admin.register(TransportReport)
+class TransportReportAdmin(admin.ModelAdmin):
+    list_display = ["title", "report_type", "date_from", "date_to", "created_at"]
+    list_filter = ["report_type"]
+    search_fields = ["title"]
+    readonly_fields = ["id", "created_at"]
+
+
+@admin.register(VehicleDocument)
+class VehicleDocumentAdmin(admin.ModelAdmin):
+    list_display = ["vehicle", "document_type", "document_name", "expiry_date", "is_valid"]
+    list_filter = ["document_type", "is_valid"]
+    search_fields = ["vehicle__plate_number", "document_name"]
     readonly_fields = ["id", "created_at", "updated_at"]

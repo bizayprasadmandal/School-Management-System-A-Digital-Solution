@@ -2,7 +2,24 @@
 
 from rest_framework import serializers
 
-from .models import Driver, Route, RouteStop, StudentRoute, Vehicle, VehicleMaintenance
+from .models import (
+    DailyTransportAttendance,
+    Driver,
+    FuelLog,
+    Route,
+    RouteStop,
+    StudentRoute,
+    TransportFee,
+    TransportIncidentReport,
+    TransportNotification,
+    TransportReport,
+    TripSchedule,
+    Vehicle,
+    VehicleDocument,
+    VehicleInspection,
+    VehicleInsurance,
+    VehicleMaintenance,
+)
 
 
 class VehicleSerializer(serializers.ModelSerializer):
@@ -211,4 +228,112 @@ class VehicleMaintenanceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class TransportFeeSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    fee_type_display = serializers.CharField(source="get_fee_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TransportFee
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VehicleInsuranceSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
+    insurance_type_display = serializers.CharField(source="get_insurance_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = VehicleInsurance
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class DailyTransportAttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.full_name", read_only=True)
+    route_name = serializers.CharField(source="route.name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = DailyTransportAttendance
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportIncidentReportSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True, default=None)
+    driver_name = serializers.CharField(source="driver.full_name", read_only=True, default=None)
+    incident_type_display = serializers.CharField(source="get_incident_type_display", read_only=True)
+    severity_display = serializers.CharField(source="get_severity_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TransportIncidentReport
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class VehicleInspectionSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
+    inspection_type_display = serializers.CharField(source="get_inspection_type_display", read_only=True)
+    result_display = serializers.CharField(source="get_result_display", read_only=True)
+
+    class Meta:
+        model = VehicleInspection
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class TripScheduleSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True, default=None)
+    driver_name = serializers.CharField(source="driver.full_name", read_only=True, default=None)
+    trip_type_display = serializers.CharField(source="get_trip_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TripSchedule
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class FuelLogSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
+    fuel_type_display = serializers.CharField(source="get_fuel_type_display", read_only=True)
+
+    class Meta:
+        model = FuelLog
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportNotificationSerializer(serializers.ModelSerializer):
+    notification_type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TransportNotification
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class TransportReportSerializer(serializers.ModelSerializer):
+    report_type_display = serializers.CharField(source="get_report_type_display", read_only=True)
+
+    class Meta:
+        model = TransportReport
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class VehicleDocumentSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+
+    class Meta:
+        model = VehicleDocument
+        fields = "__all__"
         read_only_fields = ["id", "created_at", "updated_at"]
