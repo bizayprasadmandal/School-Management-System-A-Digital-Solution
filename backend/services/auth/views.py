@@ -29,13 +29,35 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from services.communication.services import send_in_app_notification
 
-from .models import AuditLog, PasswordResetToken, School, TwoFactorBackupCode, User
+from .models import (
+    APIKey,
+    AuditLog,
+    DeviceManagement,
+    IPWhitelist,
+    LoginHistory,
+    OAuthProvider,
+    PasswordPolicy,
+    PasswordResetToken,
+    School,
+    SessionPolicy,
+    TwoFactorBackupCode,
+    User,
+    UserActivity,
+)
 from .serializers import (
+    APIKeySerializer,
     AuditLogSerializer,
     CustomTokenObtainPairSerializer,
+    DeviceManagementSerializer,
+    IPWhitelistSerializer,
+    LoginHistorySerializer,
+    OAuthProviderSerializer,
+    PasswordPolicySerializer,
     PlatformDashboardSerializer,
     SchoolAdminSerializer,
     SchoolSerializer,
+    SessionPolicySerializer,
+    UserActivitySerializer,
     UserProfileSerializer,
     serialize_login_user,
 )
@@ -960,3 +982,119 @@ class PlatformDashboardView(APIView):
         result = serializer.data
         cache.set(cache_key, result, 300)  # 5 minute TTL
         return Response(result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Auth Module ViewSets
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class LoginHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = LoginHistorySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["login_type", "status"]
+    search_fields = ["email", "ip_address"]
+
+    def get_queryset(self):
+        return LoginHistory.objects.filter(user__school=self.request.user.school)
+
+
+class APIKeyViewSet(viewsets.ModelViewSet):
+    serializer_class = APIKeySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status"]
+
+    def get_queryset(self):
+        return APIKey.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        import hashlib
+        import secrets
+
+        key = secrets.token_urlsafe(32)
+        key_prefix = key[:8]
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        api_key = serializer.save(
+            school=self.request.user.school,
+            user=self.request.user,
+            key_prefix=key_prefix,
+            key_hash=key_hash,
+        )
+        api_key._raw_key = key
+        return api_key
+
+
+class DeviceManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = DeviceManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status", "is_active"]
+
+    def get_queryset(self):
+        return DeviceManagement.objects.filter(user=self.request.user)
+
+
+class PasswordPolicyViewSet(viewsets.ModelViewSet):
+    serializer_class = PasswordPolicySerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return PasswordPolicy.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class IPWhitelistViewSet(viewsets.ModelViewSet):
+    serializer_class = IPWhitelistSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["access_level", "is_active"]
+
+    def get_queryset(self):
+        return IPWhitelist.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class OAuthProviderViewSet(viewsets.ModelViewSet):
+    serializer_class = OAuthProviderSerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["provider_type", "is_active"]
+
+    def get_queryset(self):
+        return OAuthProvider.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+
+class UserActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = UserActivitySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["activity_type"]
+    search_fields = ["description", "resource_type"]
+
+    def get_queryset(self):
+        return UserActivity.objects.filter(user=self.request.user)
+
+
+class SessionPolicyViewSet(viewsets.ModelViewSet):
+    serializer_class = SessionPolicySerializer
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        return SessionPolicy.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)

@@ -2,7 +2,19 @@ from django.db import models
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AuditLog, School, User
+from .models import (
+    APIKey,
+    AuditLog,
+    DeviceManagement,
+    IPWhitelist,
+    LoginHistory,
+    OAuthProvider,
+    PasswordPolicy,
+    School,
+    SessionPolicy,
+    User,
+    UserActivity,
+)
 from .utils import generate_secure_password
 
 
@@ -239,3 +251,73 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if not obj.two_factor_enabled:
             return None
         return obj.backup_codes.filter(used=False).count()
+
+
+class LoginHistorySerializer(serializers.ModelSerializer):
+    login_type_display = serializers.CharField(source="get_login_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = LoginHistory
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class APIKeySerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = APIKey
+        fields = "__all__"
+        read_only_fields = ["id", "key_hash", "last_used_at", "last_used_ip", "usage_count", "created_at"]
+
+
+class DeviceManagementSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = DeviceManagement
+        fields = "__all__"
+        read_only_fields = ["id", "last_seen", "created_at"]
+
+
+class PasswordPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PasswordPolicy
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class IPWhitelistSerializer(serializers.ModelSerializer):
+    access_level_display = serializers.CharField(source="get_access_level_display", read_only=True)
+
+    class Meta:
+        model = IPWhitelist
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class OAuthProviderSerializer(serializers.ModelSerializer):
+    provider_type_display = serializers.CharField(source="get_provider_type_display", read_only=True)
+
+    class Meta:
+        model = OAuthProvider
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class UserActivitySerializer(serializers.ModelSerializer):
+    activity_type_display = serializers.CharField(source="get_activity_type_display", read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = UserActivity
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
+
+
+class SessionPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SessionPolicy
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
