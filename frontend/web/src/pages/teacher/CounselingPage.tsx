@@ -5,8 +5,23 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState } from "../../components/common";
-import { ChatBubbleLeftRightIcon, PlusIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import {
+  ChatBubbleLeftRightIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  ClockIcon,
+} from "@heroicons/react/24/outline";
+
+interface Referral {
+  id: string;
+  student_name: string;
+  reason: string;
+  notes: string;
+  status: string;
+  created_at: string;
+}
 
 function CounselingSkeleton() {
   return (
@@ -21,21 +36,41 @@ function CounselingSkeleton() {
 export default function CounselingPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Referral | null>(null);
 
   const { data: referrals = [], isLoading } = useQuery({
     queryKey: ["teacher-counseling"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/counseling/referrals/");
+      const r = await api.get<{ results: Referral[] }>("/counseling/referrals/");
       return r.results ?? [];
     },
   });
 
   const createReferral = useMutation({
-    mutationFn: (data: any) => api.post("/counseling/referrals/", data),
+    mutationFn: (data: Partial<Referral>) => api.post("/counseling/referrals/", data),
     onSuccess: () => {
       toast.success("Referral created");
       qc.invalidateQueries({ queryKey: ["teacher-counseling"] });
       setShowForm(false);
+    },
+  });
+
+  const updateReferral = useMutation({
+    mutationFn: (data: Partial<Referral>) =>
+      api.patch(`/counseling/referrals/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Referral updated");
+      qc.invalidateQueries({ queryKey: ["teacher-counseling"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteReferral = useMutation({
+    mutationFn: (id: string) => api.delete(`/counseling/referrals/${id}/`),
+    onSuccess: () => {
+      toast.success("Referral deleted");
+      qc.invalidateQueries({ queryKey: ["teacher-counseling"] });
     },
   });
 
@@ -50,56 +85,16 @@ export default function CounselingPage() {
             Create referrals and track student counseling
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Create Referral
         </Button>
       </div>
-
-      {showForm && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">New Referral</h3>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              createReferral.mutate({
-                student: fd.get("student"),
-                reason: fd.get("reason"),
-                notes: fd.get("notes"),
-              });
-            }}
-            className="space-y-3"
-          >
-            <input
-              name="student"
-              placeholder="Student ID"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-              required
-            />
-            <input
-              name="reason"
-              placeholder="Reason for referral"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-              required
-            />
-            <textarea
-              name="notes"
-              placeholder="Additional notes"
-              rows={2}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setShowForm(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={createReferral.isPending}>
-                Submit
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {isLoading ? (
         <CounselingSkeleton />
@@ -111,7 +106,7 @@ export default function CounselingPage() {
         />
       ) : (
         <div className="space-y-3">
-          {referrals.map((ref: any) => (
+          {referrals.map((ref) => (
             <div
               key={ref.id}
               className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -119,30 +114,139 @@ export default function CounselingPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-white">
-                    {ref.student_name ?? "Student"}
+                    {ref.student_name}
                   </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{ref.reason ?? "—"}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{ref.reason || "—"}</p>
                   <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
                     <ClockIcon className="h-3.5 w-3.5" />
-                    {ref.created_at ?? "—"}
+                    {ref.created_at || "—"}
                   </div>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    ref.status === "resolved"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : ref.status === "in_progress"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                  }`}
-                >
-                  {ref.status ?? "pending"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      ref.status === "resolved"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : ref.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    }`}
+                  >
+                    {ref.status || "pending"}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditing(ref);
+                        setShowForm(true);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this referral?")) deleteReferral.mutate(ref.id);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Referral" : "Create Referral"}
+      >
+        <ReferralForm
+          referral={editing}
+          saving={createReferral.isPending || updateReferral.isPending}
+          onSave={(data) => {
+            if (editing) updateReferral.mutate(data);
+            else createReferral.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function ReferralForm({
+  referral,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  referral: Referral | null;
+  saving: boolean;
+  onSave: (data: Partial<Referral>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    student_name: referral?.student_name ?? "",
+    reason: referral?.reason ?? "",
+    notes: referral?.notes ?? "",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.student_name.trim()) return toast.error("Student required");
+        if (!f.reason.trim()) return toast.error("Reason required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="mb-1 block text-sm font-medium">Student *</label>
+        <input
+          value={f.student_name}
+          onChange={(e) => setF((p) => ({ ...p, student_name: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          required
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Reason *</label>
+        <input
+          value={f.reason}
+          onChange={(e) => setF((p) => ({ ...p, reason: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          required
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Notes</label>
+        <textarea
+          value={f.notes}
+          onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+          rows={3}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {editing ? "Update" : "Submit"}
+        </Button>
+      </div>
+    </form>
   );
 }
