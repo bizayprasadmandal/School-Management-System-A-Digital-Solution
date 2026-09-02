@@ -7,6 +7,7 @@ import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
