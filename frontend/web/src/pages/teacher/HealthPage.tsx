@@ -1,70 +1,41 @@
 /**
- * Teacher Health Page — View student health records and log nurse visits.
+ * Teacher Health Page — log student health visits and view records
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import dayjs from "dayjs";
-import { HeartIcon, ClockIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Modal, EmptyState } from "../../components/common";
-import { useTitle } from "../../hooks";
+import { Button, EmptyState } from "../../components/common";
+import { HeartIcon, PlusIcon, ClockIcon } from "@heroicons/react/24/outline";
 
-interface HealthRecord {
-  id: string;
-  student_name: string;
-  blood_type: string;
-  allergies: string;
-  chronic_conditions: string;
-}
-interface NurseVisit {
-  id: string;
-  student_name: string;
-  visit_type_display: string;
-  visit_date: string;
-  symptoms: string;
-  diagnosis: string;
-}
-interface Student {
-  id: string;
-  user_name: string;
+function HealthSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      ))}
+    </div>
+  );
 }
 
-type Tab = "records" | "visits";
-
-export default function TeacherHealthPage() {
-  useTitle("Student Health");
+export default function HealthPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("records");
-  const [showVisitForm, setShowVisitForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  const { data: records = [], isLoading: rLoading } = useQuery({
-    queryKey: ["teacher-health-records"],
-    queryFn: async () => {
-      const r = await api.get<{ results: HealthRecord[] }>("/health/records/");
-      return r.results ?? [];
-    },
-  });
-  const { data: visits = [], isLoading: vLoading } = useQuery({
+  const { data: visits = [], isLoading } = useQuery({
     queryKey: ["teacher-health-visits"],
     queryFn: async () => {
-      const r = await api.get<{ results: NurseVisit[] }>("/health/visits/");
-      return r.results ?? [];
-    },
-  });
-  const { data: students = [] } = useQuery({
-    queryKey: ["students-short"],
-    queryFn: async () => {
-      const r = await api.get<{ results: Student[] }>("/students/");
+      const r = await api.get<{ results: any[] }>("/health-clinic/visits/");
       return r.results ?? [];
     },
   });
 
-  const delVisit = useMutation({
-    mutationFn: (id: string) => api.delete(`/health/visits/${id}/`),
+  const createVisit = useMutation({
+    mutationFn: (data: any) => api.post("/health-clinic/visits/", data),
     onSuccess: () => {
+      toast.success("Health visit logged");
       qc.invalidateQueries({ queryKey: ["teacher-health-visits"] });
-      toast.success("Deleted");
+      setShowForm(false);
     },
   });
 
@@ -73,214 +44,99 @@ export default function TeacherHealthPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Student Health</h1>
-          <p className="text-sm text-slate-500 mt-1">View student health records and log visits</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Log health visits and view student records
+          </p>
         </div>
-        {tab === "visits" && (
-          <Button onClick={() => setShowVisitForm(true)}>
-            <PlusIcon className="h-4 w-4 mr-1.5" />
-            Log Visit
-          </Button>
-        )}
-      </div>
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab("records")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "records" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <HeartIcon className="h-4 w-4 inline mr-1.5" />
-          Records
-        </button>
-        <button
-          onClick={() => setTab("visits")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "visits" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <ClockIcon className="h-4 w-4 inline mr-1.5" />
-          Visits
-        </button>
+        <Button onClick={() => setShowForm(!showForm)}>
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Log Visit
+        </Button>
       </div>
 
-      {tab === "records" &&
-        (rLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !records.length ? (
-          <EmptyState icon={HeartIcon} title="No records" description="No student health records" />
-        ) : (
-          <div className="space-y-2">
-            {records.map((r) => (
-              <div
-                key={r.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
-              >
-                <p className="font-semibold text-slate-900 dark:text-white">{r.student_name}</p>
-                <p className="text-xs text-slate-400">
-                  Blood: {r.blood_type}
-                  {r.allergies ? ` · Allergies: ${r.allergies}` : ""}
-                </p>
-                {r.chronic_conditions && (
-                  <p className="text-xs text-amber-600 mt-1">⚠️ {r.chronic_conditions}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-
-      {tab === "visits" &&
-        (vLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !visits.length ? (
-          <EmptyState icon={ClockIcon} title="No visits" description="No nurse visits logged" />
-        ) : (
-          <div className="space-y-2">
-            {visits.map((v) => (
-              <div
-                key={v.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{v.student_name}</p>
-                    <p className="text-xs text-slate-400">
-                      {v.visit_type_display} · {dayjs(v.visit_date).format("MMM D, YYYY h:mm A")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete?")) delVisit.mutate(v.id);
-                    }}
-                    className="text-xs text-red-500 font-medium"
-                  >
-                    Delete
-                  </button>
-                </div>
-                {v.diagnosis && (
-                  <p className="text-sm text-slate-500 mt-1">Diagnosis: {v.diagnosis}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-
-      <VisitFormModal
-        open={showVisitForm}
-        onClose={() => setShowVisitForm(false)}
-        students={students}
-        onSaved={() => {
-          setShowVisitForm(false);
-          qc.invalidateQueries({ queryKey: ["teacher-health-visits"] });
-        }}
-      />
-    </div>
-  );
-}
-
-function VisitFormModal({
-  open,
-  onClose,
-  students,
-  onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  students: Student[];
-  onSaved: () => void;
-}) {
-  const [f, setF] = useState({
-    student: "",
-    visit_type: "sick",
-    symptoms: "",
-    diagnosis: "",
-    treatment: "",
-  });
-  const create = useMutation({
-    mutationFn: (d: typeof f) => api.post("/health/visits/", d),
-    onSuccess: () => {
-      toast.success("Visit logged");
-      onSaved();
-    },
-  });
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!f.student) return toast.error("Select student");
-    create.mutate(f);
-  };
-  return (
-    <Modal open={open} onClose={onClose} title="Log Nurse Visit">
-      <form onSubmit={submit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Student *</label>
-          <select
-            value={f.student}
-            onChange={(e) => setF((p) => ({ ...p, student: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-            required
+      {showForm && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">Log Health Visit</h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              createVisit.mutate({
+                student: fd.get("student"),
+                reason: fd.get("reason"),
+                notes: fd.get("notes"),
+              });
+            }}
+            className="space-y-3"
           >
-            <option value="">Select...</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.user_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Type</label>
-            <select
-              value={f.visit_type}
-              onChange={(e) => setF((p) => ({ ...p, visit_type: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-            >
-              <option value="sick">Sick</option>
-              <option value="injury">Injury</option>
-              <option value="medication">Medication</option>
-              <option value="checkup">Checkup</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Diagnosis</label>
             <input
-              value={f.diagnosis}
-              onChange={(e) => setF((p) => ({ ...p, diagnosis: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+              name="student"
+              placeholder="Student ID"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+              required
             />
-          </div>
+            <input
+              name="reason"
+              placeholder="Reason for visit"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+              required
+            />
+            <textarea
+              name="notes"
+              placeholder="Notes"
+              rows={2}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={createVisit.isPending}>
+                Save
+              </Button>
+            </div>
+          </form>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Symptoms</label>
-          <textarea
-            value={f.symptoms}
-            onChange={(e) => setF((p) => ({ ...p, symptoms: e.target.value }))}
-            rows={2}
-            className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-          />
+      )}
+
+      {isLoading ? (
+        <HealthSkeleton />
+      ) : visits.length === 0 ? (
+        <EmptyState
+          icon={HeartIcon}
+          title="No health visits"
+          description="Log health visits for students here."
+        />
+      ) : (
+        <div className="space-y-3">
+          {visits.map((visit: any) => (
+            <div
+              key={visit.id}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+            >
+              <div>
+                <p className="font-medium text-slate-900 dark:text-white">
+                  {visit.student_name ?? "Student"}
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{visit.reason ?? "—"}</p>
+                <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                  <ClockIcon className="h-3.5 w-3.5" />
+                  {visit.date ?? "—"}
+                </div>
+              </div>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  visit.status === "resolved"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                }`}
+              >
+                {visit.status ?? "pending"}
+              </span>
+            </div>
+          ))}
         </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" loading={create.isPending}>
-            Log Visit
-          </Button>
-        </div>
-      </form>
-    </Modal>
+      )}
+    </div>
   );
 }

@@ -1,90 +1,73 @@
-import { useEffect, useState } from "react";
-import { useAuthStore } from "../../store/authStore";
+/**
+ * Counselor Peer Mentoring Page — manage mentor-mentee pairs
+ */
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { EmptyState } from "../../components/common";
 import { UserGroupIcon } from "@heroicons/react/24/outline";
-
-interface MentoringPair {
-  id: string;
-  mentor_name: string;
-  mentee_name: string;
-  status: "active" | "completed" | "pending";
-  sessions_completed: number;
-  goals: string;
-}
 
 function MentoringSkeleton() {
   return (
-    <div className="animate-pulse space-y-4">
+    <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-24 rounded-xl bg-white/5" />
+        <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
       ))}
     </div>
   );
 }
 
 export default function PeerMentoringPage() {
-  const token = useAuthStore((s) => s.tokens?.access);
-  const [pairs, setPairs] = useState<MentoringPair[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPairs = async () => {
-      try {
-        const res = await fetch("/api/counseling/peer-mentoring/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setPairs(data.results ?? data);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPairs();
-  }, [token]);
+  const { data: pairs = [], isLoading } = useQuery({
+    queryKey: ["counselor-peer-mentoring"],
+    queryFn: async () => {
+      const r = await api.get<{ results: any[] }>("/counseling/peer-mentoring/");
+      return r.results ?? [];
+    },
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Peer Mentoring</h1>
-        <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-          Create Pair
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Peer Mentoring</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Manage mentor-mentee pairs for student support
+          </p>
+        </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <MentoringSkeleton />
       ) : pairs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 py-16 text-center">
-          <UserGroupIcon className="mb-4 h-12 w-12 text-gray-500" />
-          <h3 className="text-lg font-semibold text-white">No mentoring pairs</h3>
-          <p className="mt-1 text-sm text-gray-400">Pair students for peer mentoring support.</p>
-        </div>
+        <EmptyState
+          icon={UserGroupIcon}
+          title="No mentoring pairs"
+          description="Pair students for peer mentoring support."
+        />
       ) : (
         <div className="space-y-3">
-          {pairs.map((pair) => (
+          {pairs.map((pair: any) => (
             <div
               key={pair.id}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4"
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
             >
               <div>
-                <h3 className="font-semibold text-white">
-                  {pair.mentor_name} &rarr; {pair.mentee_name}
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  {pair.mentor_name ?? "Mentor"} → {pair.mentee_name ?? "Mentee"}
                 </h3>
-                <p className="text-sm text-gray-400">{pair.goals}</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {pair.sessions_completed} sessions completed
+                <p className="text-sm text-slate-500 dark:text-slate-400">{pair.goals ?? "—"}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {pair.sessions_completed ?? 0} sessions completed
                 </p>
               </div>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                   pair.status === "active"
-                    ? "bg-green-500/20 text-green-400"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                     : pair.status === "pending"
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : "bg-gray-500/20 text-gray-400"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
                 }`}
               >
                 {pair.status}

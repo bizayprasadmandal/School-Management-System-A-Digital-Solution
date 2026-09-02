@@ -1,202 +1,112 @@
 /**
- * Teacher Sports Page — Manage sports teams and view events.
+ * Teacher Sports Page — manage sports, teams, events
  */
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
-import { TrophyIcon, UsersIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState, Badge } from "../../components/common";
-import { useTitle } from "../../hooks";
+import { Button, EmptyState } from "../../components/common";
+import { TrophyIcon, UsersIcon, PlusIcon } from "@heroicons/react/24/outline";
 
-interface Sport {
-  id: string;
-  name: string;
-  category_display: string;
-  is_active: boolean;
-}
-interface Team {
-  id: string;
-  sport_name: string;
-  name: string;
-  coach_name: string | null;
-  member_count: number;
-  is_active: boolean;
-}
-interface SportEvent {
-  id: string;
-  sport_name: string;
-  title: string;
-  event_date: string;
-  status_display: string;
-  location: string;
+function SportsSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      ))}
+    </div>
+  );
 }
 
-export default function TeacherSportsPage() {
-  useTitle("Sports");
-  const [tab, setTab] = useState<"sports" | "teams" | "events">("sports");
+export default function SportsPage() {
+  const qc = useQueryClient();
 
-  const { data: sports = [], isLoading: sLoading } = useQuery({
+  const { data: sports = [], isLoading } = useQuery({
     queryKey: ["teacher-sports"],
     queryFn: async () => {
-      const r = await api.get<{ results: Sport[] }>("/sports/sports/");
+      const r = await api.get<{ results: any[] }>("/sports/sports/");
       return r.results ?? [];
     },
   });
-  const { data: teams = [], isLoading: tLoading } = useQuery({
-    queryKey: ["teacher-teams"],
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teacher-sports-teams"],
     queryFn: async () => {
-      const r = await api.get<{ results: Team[] }>("/sports/teams/");
-      return r.results ?? [];
-    },
-  });
-  const { data: events = [], isLoading: eLoading } = useQuery({
-    queryKey: ["teacher-sport-events"],
-    queryFn: async () => {
-      const r = await api.get<{ results: SportEvent[] }>("/sports/events/");
+      const r = await api.get<{ results: any[] }>("/sports/teams/");
       return r.results ?? [];
     },
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sports & Activities</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage teams and view events</p>
-      </div>
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab("sports")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "sports" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <TrophyIcon className="h-4 w-4 inline mr-1.5" />
-          Sports
-        </button>
-        <button
-          onClick={() => setTab("teams")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "teams" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <UsersIcon className="h-4 w-4 inline mr-1.5" />
-          Teams
-        </button>
-        <button
-          onClick={() => setTab("events")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "events" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <CalendarDaysIcon className="h-4 w-4 inline mr-1.5" />
-          Events
-        </button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sports & Activities</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Manage sports, teams, and extracurricular activities
+          </p>
+        </div>
       </div>
 
-      {tab === "sports" &&
-        (sLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
+      {isLoading ? (
+        <SportsSkeleton />
+      ) : sports.length === 0 ? (
+        <EmptyState
+          icon={TrophyIcon}
+          title="No sports"
+          description="Add sports and activities for students."
+        />
+      ) : (
+        <>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Sports ({sports.length})
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sports.map((sport: any) => (
               <div
-                key={i}
-                className="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !sports.length ? (
-          <EmptyState icon={TrophyIcon} title="No sports" />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sports.map((s) => (
-              <div
-                key={s.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
+                key={sport.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
               >
-                <p className="font-semibold text-slate-900 dark:text-white">{s.name}</p>
-                <Badge color="indigo">{s.category_display}</Badge>
-                <Badge color={s.is_active ? "green" : "slate"}>
-                  {s.is_active ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        ))}
-
-      {tab === "teams" &&
-        (tLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !teams.length ? (
-          <EmptyState icon={UsersIcon} title="No teams" />
-        ) : (
-          <div className="space-y-2">
-            {teams.map((t) => (
-              <div
-                key={t.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{t.name}</p>
-                    <p className="text-xs text-slate-400">
-                      {t.sport_name}
-                      {t.coach_name ? ` · Coach: ${t.coach_name}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <p className="text-xs text-slate-400">{t.member_count} members</p>
-                    <Badge color={t.is_active ? "green" : "slate"}>
-                      {t.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
+                <div className="mb-2 flex items-center gap-2">
+                  <TrophyIcon className="h-5 w-5 text-amber-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{sport.name}</h3>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {sport.description ?? "No description"}
+                </p>
+                <div className="mt-3 flex items-center gap-1 text-xs text-slate-400">
+                  <UsersIcon className="h-3.5 w-3.5" />
+                  {sport.team_count ?? 0} teams
                 </div>
               </div>
             ))}
           </div>
-        ))}
 
-      {tab === "events" &&
-        (eLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !events.length ? (
-          <EmptyState icon={CalendarDaysIcon} title="No events" />
-        ) : (
-          <div className="space-y-2">
-            {events.map((e) => (
-              <div
-                key={e.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{e.title}</p>
-                    <p className="text-xs text-slate-400">
-                      {e.sport_name} · {dayjs(e.event_date).format("MMM D, YYYY")}
+          {teams.length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Teams ({teams.length})
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {teams.map((team: any) => (
+                  <div
+                    key={team.id}
+                    className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{team.name}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {team.sport_name} · {team.member_count ?? 0} members
                     </p>
-                    {e.location && <p className="text-xs text-slate-400">📍 {e.location}</p>}
+                    {team.coach_name && (
+                      <p className="mt-1 text-xs text-slate-400">Coach: {team.coach_name}</p>
+                    )}
                   </div>
-                  <Badge color={e.status_display === "Completed" ? "green" : "blue"}>
-                    {e.status_display}
-                  </Badge>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ))}
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

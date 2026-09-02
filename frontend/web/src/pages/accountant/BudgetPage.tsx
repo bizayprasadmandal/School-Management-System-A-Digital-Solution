@@ -1,117 +1,106 @@
-import { useEffect, useState } from "react";
-import { useAuthStore } from "../../store/authStore";
+/**
+ * Accountant Budget Page — manage department budgets with progress tracking
+ */
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { EmptyState } from "../../components/common";
 import { ChartBarIcon } from "@heroicons/react/24/outline";
-
-interface BudgetItem {
-  id: string;
-  category: string;
-  allocated: number;
-  spent: number;
-  remaining: number;
-  fiscal_year: string;
-  department: string;
-}
 
 function BudgetSkeleton() {
   return (
-    <div className="animate-pulse space-y-4">
+    <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-24 rounded-xl bg-white/5" />
+        <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
       ))}
     </div>
   );
 }
 
 export default function BudgetPage() {
-  const token = useAuthStore((s) => s.tokens?.access);
-  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: budgets = [], isLoading } = useQuery({
+    queryKey: ["accountant-budgets"],
+    queryFn: async () => {
+      const r = await api.get<{ results: any[] }>("/fees/budgets/");
+      return r.results ?? [];
+    },
+  });
 
-  useEffect(() => {
-    const fetchBudgets = async () => {
-      try {
-        const res = await fetch("/api/fees/budgets/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setBudgets(data.results ?? data);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBudgets();
-  }, [token]);
-
-  const totalAllocated = budgets.reduce((sum, b) => sum + b.allocated, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
+  const totalAllocated = budgets.reduce((sum: number, b: any) => sum + (b.allocated ?? 0), 0);
+  const totalSpent = budgets.reduce((sum: number, b: any) => sum + (b.spent ?? 0), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Budget Management</h1>
-        <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-          Add Budget
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Budget Management</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Track department budgets and spending
+          </p>
+        </div>
       </div>
 
-      {!loading && budgets.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-sm text-gray-400">Total Allocated</p>
-            <p className="text-2xl font-bold text-white">${totalAllocated.toLocaleString()}</p>
+      {!isLoading && budgets.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Total Allocated</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              ${totalAllocated.toLocaleString()}
+            </p>
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-sm text-gray-400">Total Spent</p>
-            <p className="text-2xl font-bold text-red-400">${totalSpent.toLocaleString()}</p>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Total Spent</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+              ${totalSpent.toLocaleString()}
+            </p>
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-sm text-gray-400">Remaining</p>
-            <p className="text-2xl font-bold text-green-400">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Remaining</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               ${(totalAllocated - totalSpent).toLocaleString()}
             </p>
           </div>
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <BudgetSkeleton />
       ) : budgets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 py-16 text-center">
-          <ChartBarIcon className="mb-4 h-12 w-12 text-gray-500" />
-          <h3 className="text-lg font-semibold text-white">No budget data</h3>
-          <p className="mt-1 text-sm text-gray-400">
-            Set up budgets for different departments and categories.
-          </p>
-        </div>
+        <EmptyState
+          icon={ChartBarIcon}
+          title="No budget data"
+          description="Set up budgets for different departments and categories."
+        />
       ) : (
         <div className="space-y-3">
-          {budgets.map((b) => {
+          {budgets.map((b: any) => {
             const pct = b.allocated > 0 ? (b.spent / b.allocated) * 100 : 0;
             return (
-              <div key={b.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div
+                key={b.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+              >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-white">{b.category}</h3>
-                    <p className="text-sm text-gray-400">{b.department}</p>
-                    <p className="text-xs text-gray-500">{b.fiscal_year}</p>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{b.category}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {b.department ?? "—"}
+                    </p>
+                    <p className="text-xs text-slate-400">{b.fiscal_year ?? "—"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-white">
-                      ${b.spent.toLocaleString()} / ${b.allocated.toLocaleString()}
+                    <p className="text-sm text-slate-900 dark:text-white">
+                      ${(b.spent ?? 0).toLocaleString()} / ${(b.allocated ?? 0).toLocaleString()}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      ${b.remaining.toLocaleString()} remaining
+                    <p className="text-xs text-slate-400">
+                      ${(b.remaining ?? 0).toLocaleString()} remaining
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                   <div
                     className={`h-full rounded-full ${
-                      pct > 90 ? "bg-red-500" : pct > 70 ? "bg-yellow-500" : "bg-green-500"
+                      pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-green-500"
                     }`}
                     style={{ width: `${Math.min(pct, 100)}%` }}
                   />

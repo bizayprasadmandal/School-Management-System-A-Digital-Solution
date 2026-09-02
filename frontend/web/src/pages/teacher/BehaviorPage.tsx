@@ -1,71 +1,46 @@
 /**
- * Teacher Behavior Page — View and manage student behavior incidents and points.
+ * Teacher Behavior Page — view and award behavior points
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import dayjs from "dayjs";
-import { ExclamationTriangleIcon, StarIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { Button, Modal, EmptyState, Badge } from "../../components/common";
-import { useTitle } from "../../hooks";
+import { Button, EmptyState } from "../../components/common";
+import {
+  ExclamationTriangleIcon,
+  PlusIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 
-interface BehaviorIncident {
-  id: string;
-  student_name: string;
-  incident_type_display: string;
-  description: string;
-  severity: string;
-  status_display: string;
-  points_deducted: number;
-  incident_date: string;
-}
-interface BehaviorPoint {
-  id: string;
-  student_name: string;
-  points: number;
-  reason: string;
-  category: string;
-  awarded_date: string;
-}
-interface Student {
-  id: string;
-  user_name: string;
+function BehaviorSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      ))}
+    </div>
+  );
 }
 
-export default function TeacherBehaviorPage() {
-  useTitle("Student Behavior");
+export default function BehaviorPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"incidents" | "points">("incidents");
-  const [showPointForm, setShowPointForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  const { data: incidents = [], isLoading: iLoading } = useQuery({
-    queryKey: ["teacher-incidents"],
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["teacher-behavior"],
     queryFn: async () => {
-      const r = await api.get<{ results: BehaviorIncident[] }>("/behavior/incidents/");
-      return r.results ?? [];
-    },
-  });
-  const { data: points = [], isLoading: pLoading } = useQuery({
-    queryKey: ["teacher-points"],
-    queryFn: async () => {
-      const r = await api.get<{ results: BehaviorPoint[] }>("/behavior/points/");
-      return r.results ?? [];
-    },
-  });
-  const { data: students = [] } = useQuery({
-    queryKey: ["students-short"],
-    queryFn: async () => {
-      const r = await api.get<{ results: Student[] }>("/students/");
+      const r = await api.get<{ results: any[] }>("/behavior/behavior-records/");
       return r.results ?? [];
     },
   });
 
-  const delIncident = useMutation({
-    mutationFn: (id: string) => api.delete(`/behavior/incidents/${id}/`),
+  const createRecord = useMutation({
+    mutationFn: (data: any) => api.post("/behavior/behavior-records/", data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["teacher-incidents"] });
-      toast.success("Deleted");
+      toast.success("Behavior record created");
+      qc.invalidateQueries({ queryKey: ["teacher-behavior"] });
+      setShowForm(false);
     },
   });
 
@@ -73,236 +48,118 @@ export default function TeacherBehaviorPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Student Behavior</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage behavior incidents and award points</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Behavior Points</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Award and manage student behavior points
+          </p>
         </div>
-        <Button onClick={() => setShowPointForm(true)}>
-          <PlusIcon className="h-4 w-4 mr-1.5" />
+        <Button onClick={() => setShowForm(!showForm)}>
+          <PlusIcon className="mr-1.5 h-4 w-4" />
           Award Points
         </Button>
       </div>
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab("incidents")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "incidents" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <ExclamationTriangleIcon className="h-4 w-4 inline mr-1.5" />
-          Incidents
-        </button>
-        <button
-          onClick={() => setTab("points")}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            tab === "points" ? "bg-white dark:bg-slate-700 shadow-sm" : "text-slate-600"
-          }`}
-        >
-          <StarIcon className="h-4 w-4 inline mr-1.5" />
-          Points
-        </button>
-      </div>
 
-      {tab === "incidents" &&
-        (iLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !incidents.length ? (
-          <EmptyState icon={ExclamationTriangleIcon} title="No incidents" />
-        ) : (
-          <div className="space-y-2">
-            {incidents.map((inc) => (
-              <div
-                key={inc.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">
-                      {inc.student_name}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {inc.incident_type_display}: {inc.description}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {dayjs(inc.incident_date).format("MMM D, YYYY")}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <Badge
-                      color={
-                        inc.severity === "high"
-                          ? "red"
-                          : inc.severity === "medium"
-                            ? "amber"
-                            : "blue"
-                      }
-                    >
-                      {inc.severity}
-                    </Badge>
-                    {inc.points_deducted > 0 && (
-                      <span className="text-xs text-red-500">-{inc.points_deducted}</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (confirm("Delete?")) delIncident.mutate(inc.id);
-                      }}
-                      className="text-xs text-red-500 font-medium"
-                    >
-                      Del
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
-
-      {tab === "points" &&
-        (pLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-12 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg"
-              />
-            ))}
-          </div>
-        ) : !points.length ? (
-          <EmptyState icon={StarIcon} title="No points" />
-        ) : (
-          <div className="space-y-2">
-            {points.map((p) => (
-              <div
-                key={p.id}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    {p.student_name}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {p.reason} · {dayjs(p.awarded_date).format("MMM D")}
-                  </p>
-                </div>
-                <p
-                  className={`text-lg font-bold ${
-                    p.points > 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {p.points > 0 ? "+" : ""}
-                  {p.points}
-                </p>
-              </div>
-            ))}
-          </div>
-        ))}
-
-      <PointFormModal
-        open={showPointForm}
-        onClose={() => setShowPointForm(false)}
-        students={students}
-        onSaved={() => {
-          setShowPointForm(false);
-          qc.invalidateQueries({ queryKey: ["teacher-points"] });
-        }}
-      />
-    </div>
-  );
-}
-
-function PointFormModal({
-  open,
-  onClose,
-  students,
-  onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  students: Student[];
-  onSaved: () => void;
-}) {
-  const [f, setF] = useState({ student: "", points: 1, reason: "", category: "academic" });
-  const create = useMutation({
-    mutationFn: (d: typeof f) => api.post("/behavior/points/", d),
-    onSuccess: () => {
-      toast.success("Points awarded");
-      onSaved();
-    },
-  });
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!f.student || !f.reason) return toast.error("Student and reason required");
-    create.mutate(f);
-  };
-  return (
-    <Modal open={open} onClose={onClose} title="Award Behavior Points">
-      <form onSubmit={submit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Student *</label>
-          <select
-            value={f.student}
-            onChange={(e) => setF((p) => ({ ...p, student: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-            required
+      {showForm && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">
+            Award Behavior Points
+          </h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              createRecord.mutate({
+                student: fd.get("student"),
+                points: Number(fd.get("points")),
+                title: fd.get("title"),
+                description: fd.get("description"),
+              });
+            }}
+            className="space-y-3"
           >
-            <option value="">Select...</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.user_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Points *</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                name="student"
+                placeholder="Student ID"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                required
+              />
+              <input
+                name="points"
+                type="number"
+                placeholder="Points (+/-)"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                required
+              />
+            </div>
             <input
-              type="number"
-              value={f.points}
-              onChange={(e) => setF((p) => ({ ...p, points: Number(e.target.value) }))}
-              className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+              name="title"
+              placeholder="Title"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
               required
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Category</label>
-            <select
-              value={f.category}
-              onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+            <textarea
+              name="description"
+              placeholder="Description"
+              rows={2}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={createRecord.isPending}>
+                Save
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {isLoading ? (
+        <BehaviorSkeleton />
+      ) : records.length === 0 ? (
+        <EmptyState
+          icon={ExclamationTriangleIcon}
+          title="No behavior records"
+          description="Award behavior points to students here."
+        />
+      ) : (
+        <div className="space-y-3">
+          {records.map((record: any) => (
+            <div
+              key={record.id}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
             >
-              <option value="academic">Academic</option>
-              <option value="behavior">Behavior</option>
-              <option value="participation">Participation</option>
-              <option value="leadership">Leadership</option>
-            </select>
-          </div>
+              <div className="flex items-center gap-3">
+                {record.points > 0 ? (
+                  <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircleIcon className="h-5 w-5 text-red-500" />
+                )}
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-white">
+                    {record.student_name ?? "Student"}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {record.title ?? "—"}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`text-sm font-semibold ${
+                  record.points > 0
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {record.points > 0 ? "+" : ""}
+                {record.points}
+              </span>
+            </div>
+          ))}
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Reason *</label>
-          <textarea
-            value={f.reason}
-            onChange={(e) => setF((p) => ({ ...p, reason: e.target.value }))}
-            rows={2}
-            className="w-full rounded-lg border border-slate-300 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-            required
-          />
-        </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" loading={create.isPending}>
-            Award Points
-          </Button>
-        </div>
-      </form>
-    </Modal>
+      )}
+    </div>
   );
 }

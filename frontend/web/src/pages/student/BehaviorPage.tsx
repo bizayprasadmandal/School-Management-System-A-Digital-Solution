@@ -1,145 +1,109 @@
 /**
- * Student Behavior Page — View own behavior records and points.
+ * Student Behavior Page — view behavior points and records
  */
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
-import { ExclamationTriangleIcon, StarIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { EmptyState, Badge } from "../../components/common";
-import { useTitle } from "../../hooks";
+import { EmptyState } from "../../components/common";
+import { ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 
-interface BehaviorIncident {
-  id: string;
-  incident_type: string;
-  incident_type_display: string;
-  description: string;
-  severity: string;
-  status_display: string;
-  points_deducted: number;
-  incident_date: string;
-}
-interface BehaviorPoint {
-  id: string;
-  points: number;
-  reason: string;
-  category: string;
-  awarded_date: string;
+function BehaviorSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      ))}
+    </div>
+  );
 }
 
-export default function StudentBehaviorPage() {
-  useTitle("Behavior");
-  const { data: incidents = [], isLoading: iLoading } = useQuery({
-    queryKey: ["student-incidents"],
+export default function BehaviorPage() {
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["student-behavior"],
     queryFn: async () => {
-      const r = await api.get<{ results: BehaviorIncident[] }>("/behavior/incidents/my/");
-      return r.results ?? [];
-    },
-  });
-  const { data: points = [], isLoading: pLoading } = useQuery({
-    queryKey: ["student-points"],
-    queryFn: async () => {
-      const r = await api.get<{ results: BehaviorPoint[] }>("/behavior/points/my/");
+      const r = await api.get<{ results: any[] }>("/behavior/behavior-records/");
       return r.results ?? [];
     },
   });
 
-  const totalPoints = points.reduce((s, p) => s + p.points, 0);
+  const totalPoints = records.reduce((sum: number, r: any) => sum + (r.points ?? 0), 0);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Behavior</h1>
-        <p className="text-sm text-slate-500 mt-1">View your behavior records and points</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Behavior Points</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Track your behavior records and points
+        </p>
       </div>
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/30">
-            <StarIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 uppercase">Total Points</p>
-            <p className="text-3xl font-bold text-slate-900 dark:text-white">{totalPoints}</p>
-          </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Total Points</p>
+          <p
+            className={`text-2xl font-bold ${
+              totalPoints >= 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {totalPoints}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Positive Records</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {records.filter((r: any) => r.points > 0).length}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Negative Records</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            {records.filter((r: any) => r.points < 0).length}
+          </p>
         </div>
       </div>
 
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Incidents</h2>
-      {iLoading ? (
-        <div className="space-y-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-16 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg" />
-          ))}
-        </div>
-      ) : !incidents.length ? (
+      {isLoading ? (
+        <BehaviorSkeleton />
+      ) : records.length === 0 ? (
         <EmptyState
           icon={ExclamationTriangleIcon}
-          title="No incidents"
-          description="No behavior incidents recorded"
+          title="No behavior records"
+          description="Your behavior records will appear here."
         />
       ) : (
-        <div className="space-y-2">
-          {incidents.map((inc) => (
+        <div className="space-y-3">
+          {records.map((record: any) => (
             <div
-              key={inc.id}
-              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4"
+              key={record.id}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                {record.points > 0 ? (
+                  <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircleIcon className="h-5 w-5 text-red-500" />
+                )}
                 <div>
-                  <p className="font-semibold text-slate-900 dark:text-white">
-                    {inc.incident_type_display}
+                  <p className="font-medium text-slate-900 dark:text-white">
+                    {record.title ?? "Behavior Record"}
                   </p>
-                  <p className="text-sm text-slate-500 mt-0.5">{inc.description}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {dayjs(inc.incident_date).format("MMM D, YYYY")}
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {record.description ?? "—"}
                   </p>
                 </div>
-                <div className="text-right">
-                  <Badge
-                    color={
-                      inc.severity === "high" ? "red" : inc.severity === "medium" ? "amber" : "blue"
-                    }
-                  >
-                    {inc.severity}
-                  </Badge>
-                  {inc.points_deducted > 0 && (
-                    <p className="text-xs text-red-500 mt-1">-{inc.points_deducted} pts</p>
-                  )}
-                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Points History</h2>
-      {pLoading ? (
-        <div className="space-y-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-12 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg" />
-          ))}
-        </div>
-      ) : !points.length ? (
-        <EmptyState icon={StarIcon} title="No points" description="No behavior points awarded" />
-      ) : (
-        <div className="space-y-2">
-          {points.map((p) => (
-            <div
-              key={p.id}
-              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 flex items-center justify-between"
-            >
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-white">{p.reason}</p>
-                <p className="text-xs text-slate-400">
-                  {p.category} · {dayjs(p.awarded_date).format("MMM D")}
-                </p>
-              </div>
-              <p
-                className={`text-lg font-bold ${p.points > 0 ? "text-green-600" : "text-red-600"}`}
+              <span
+                className={`text-sm font-semibold ${
+                  record.points > 0
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
               >
-                {p.points > 0 ? "+" : ""}
-                {p.points}
-              </p>
+                {record.points > 0 ? "+" : ""}
+                {record.points}
+              </span>
             </div>
           ))}
         </div>

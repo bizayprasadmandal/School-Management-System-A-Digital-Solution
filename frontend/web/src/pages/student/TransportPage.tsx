@@ -1,100 +1,120 @@
 /**
- * Student Transport Page — View bus route, schedule, and tracking.
+ * Student Transport Page — view route assignment and bus info
  */
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
-import { TruckIcon, MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
-import { EmptyState, Badge } from "../../components/common";
-import { useTitle } from "../../hooks";
+import { EmptyState } from "../../components/common";
+import { TruckIcon, MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
 
-interface RouteAssignment {
-  id: string;
-  route_name: string;
-  pickup_point: string;
-  dropoff_point: string;
-  pickup_time: string;
-  dropoff_time: string;
-  bus_number: string;
-  driver_name: string;
-  is_active: boolean;
+function TransportSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {[1, 2].map((i) => (
+        <div key={i} className="h-40 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      ))}
+    </div>
+  );
 }
 
-export default function StudentTransportPage() {
-  useTitle("Transport");
+export default function TransportPage() {
   const { data: assignment, isLoading } = useQuery({
     queryKey: ["student-transport"],
     queryFn: async () => {
-      const r = await api.get<{ results: RouteAssignment[] }>("/transportation/assignments/my/");
-      return r.results?.[0] ?? null;
+      const r = await api.get<{ results: any[] }>("/transportation/route-assignments/");
+      const results = r.results ?? [];
+      return results[0] ?? null;
     },
   });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transport</h1>
-        <p className="text-sm text-slate-500 mt-1">Your bus route and schedule</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transportation</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          View your bus route and transport details
+        </p>
       </div>
 
       {isLoading ? (
-        <div className="h-48 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-lg" />
+        <TransportSkeleton />
       ) : !assignment ? (
         <EmptyState
           icon={TruckIcon}
-          title="No transport assigned"
-          description="You don't have a bus route assigned yet"
+          title="No transport assignment"
+          description="You haven't been assigned a transport route yet."
         />
       ) : (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {assignment.route_name}
-              </h2>
-              <p className="text-sm text-slate-500">Bus: {assignment.bus_number}</p>
-            </div>
-            <Badge color={assignment.is_active ? "green" : "slate"}>
-              {assignment.is_active ? "Active" : "Inactive"}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPinIcon className="h-5 w-5 text-green-600" />
-                <p className="font-semibold text-green-800 dark:text-green-300">Pickup</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                <TruckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
-                {assignment.pickup_point}
-              </p>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
-                {assignment.pickup_time}
-              </p>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPinIcon className="h-5 w-5 text-blue-600" />
-                <p className="font-semibold text-blue-800 dark:text-blue-300">Drop-off</p>
-              </div>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
-                {assignment.dropoff_point}
-              </p>
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {assignment.dropoff_time}
-              </p>
-            </div>
-          </div>
-          {assignment.driver_name && (
-            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-              <div className="flex items-center gap-2">
-                <ClockIcon className="h-4 w-4 text-slate-400" />
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Driver: <span className="font-semibold">{assignment.driver_name}</span>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  {assignment.route_name ?? "Route"}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {assignment.bus_number ?? "Bus"}
                 </p>
               </div>
             </div>
-          )}
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Driver</span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  {assignment.driver_name ?? "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Pickup Time</span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  {assignment.pickup_time ?? "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Drop-off Time</span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  {assignment.dropoff_time ?? "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
+                <MapPinIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Stops</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {assignment.stop_name ?? "Your stop"}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Status</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    assignment.status === "active"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  }`}
+                >
+                  {assignment.status ?? "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Capacity</span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  {assignment.capacity ?? "—"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

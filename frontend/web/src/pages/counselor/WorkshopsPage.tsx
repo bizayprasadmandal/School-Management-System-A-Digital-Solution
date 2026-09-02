@@ -1,82 +1,73 @@
-import { useEffect, useState } from "react";
-import { useAuthStore } from "../../store/authStore";
-import { AcademicCapIcon } from "@heroicons/react/24/outline";
-
-interface Workshop {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  facilitator: string;
-  attendees: number;
-  max_attendees: number;
-}
+/**
+ * Counselor Workshops Page — schedule and manage workshops
+ */
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { EmptyState } from "../../components/common";
+import { AcademicCapIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
 
 function WorkshopSkeleton() {
   return (
-    <div className="animate-pulse space-y-4">
+    <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-24 rounded-xl bg-white/5" />
+        <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
       ))}
     </div>
   );
 }
 
 export default function WorkshopsPage() {
-  const token = useAuthStore((s) => s.tokens?.access);
-  const [workshops, setWorkshops] = useState<Workshop[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchWorkshops = async () => {
-      try {
-        const res = await fetch("/api/counseling/workshops/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setWorkshops(data.results ?? data);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchWorkshops();
-  }, [token]);
+  const { data: workshops = [], isLoading } = useQuery({
+    queryKey: ["counselor-workshops"],
+    queryFn: async () => {
+      const r = await api.get<{ results: any[] }>("/counseling/workshops/");
+      return r.results ?? [];
+    },
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Workshops</h1>
-        <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-          Schedule Workshop
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Workshops</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Schedule and manage student development workshops
+          </p>
+        </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <WorkshopSkeleton />
       ) : workshops.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 py-16 text-center">
-          <AcademicCapIcon className="mb-4 h-12 w-12 text-gray-500" />
-          <h3 className="text-lg font-semibold text-white">No workshops</h3>
-          <p className="mt-1 text-sm text-gray-400">Schedule workshops for student development.</p>
-        </div>
+        <EmptyState
+          icon={AcademicCapIcon}
+          title="No workshops"
+          description="Schedule workshops for student development."
+        />
       ) : (
         <div className="space-y-3">
-          {workshops.map((ws) => (
-            <div key={ws.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+          {workshops.map((ws: any) => (
+            <div
+              key={ws.id}
+              className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+            >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-white">{ws.title}</h3>
-                  <p className="text-sm text-gray-400">{ws.description}</p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {ws.facilitator} &middot; {new Date(ws.date).toLocaleDateString()}
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{ws.title}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {ws.description ?? "—"}
                   </p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
+                      <CalendarDaysIcon className="h-3.5 w-3.5" />
+                      {ws.date ? new Date(ws.date).toLocaleDateString() : "—"}
+                    </span>
+                    <span className="text-xs text-slate-400">{ws.facilitator ?? "—"}</span>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-400">
-                  {ws.attendees}/{ws.max_attendees}
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  {ws.attendees ?? 0}/{ws.max_attendees ?? "∞"}
                 </span>
               </div>
             </div>
