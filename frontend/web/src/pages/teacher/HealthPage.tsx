@@ -66,6 +66,8 @@ export default function HealthPage() {
       const r = await api.get<{ results: HealthVisit[] }>("/health-clinic/visits/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const createVisit = useMutation({

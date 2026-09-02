@@ -66,6 +66,8 @@ export default function HealthPage() {
       const r = await api.get<{ results: HealthRecord[] }>("/health-clinic/health-records/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const records = React.useMemo(() => {

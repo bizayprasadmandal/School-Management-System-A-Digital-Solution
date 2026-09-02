@@ -67,6 +67,8 @@ export default function PeerMentoringPage() {
       const r = await api.get<{ results: MentoringPair[] }>("/counseling/peer-mentoring/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const createPair = useMutation({

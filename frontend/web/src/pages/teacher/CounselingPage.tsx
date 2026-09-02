@@ -67,6 +67,8 @@ export default function CounselingPage() {
       const r = await api.get<{ results: Referral[] }>("/counseling/referrals/");
       return r.results ?? [];
     },
+
+    refetchInterval: 30000,
   });
 
   const referrals = React.useMemo(() => {

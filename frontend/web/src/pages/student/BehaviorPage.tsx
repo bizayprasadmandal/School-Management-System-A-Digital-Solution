@@ -92,6 +92,8 @@ export default function BehaviorPage() {
       const r = await api.get<{ results: BehaviorRecord[] }>("/behavior/behavior-records/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const createRecord = useMutation({

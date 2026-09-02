@@ -70,6 +70,8 @@ export default function PurchaseOrdersPage() {
       const r = await api.get<{ results: PurchaseOrder[] }>("/fees/purchase-orders/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const createPO = useMutation({

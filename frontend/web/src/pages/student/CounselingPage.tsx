@@ -68,6 +68,8 @@ export default function CounselingPage() {
       const r = await api.get<{ results: Session[] }>("/counseling/sessions/");
       return r.results ?? [];
     },
+
+    refetchInterval: 30000,
   });
 
   const sessions = React.useMemo(() => {

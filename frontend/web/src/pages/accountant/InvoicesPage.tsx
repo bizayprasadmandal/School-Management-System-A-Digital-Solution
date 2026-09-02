@@ -69,6 +69,8 @@ export default function InvoicesPage() {
       const r = await api.get<{ results: Invoice[] }>("/fees/invoices/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const invoices = React.useMemo(() => {

@@ -66,6 +66,8 @@ export default function SurveysPage() {
       const r = await api.get<{ results: Survey[] }>("/counseling/surveys/");
       return r.results ?? [];
     },
+
+    refetchInterval: 60000,
   });
 
   const surveys = React.useMemo(() => {
