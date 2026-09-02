@@ -33,7 +33,15 @@ function HostelSkeleton() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {[1, 2].map((i) => (
-        <div key={i} className="h-40 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+        <div
+          key={i}
+          className="h-40 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800"
+        >
+          <div
+            className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-slate-200/50 to-transparent dark:via-slate-600/30"
+            style={{ backgroundSize: "200% 100%" }}
+          />
+        </div>
       ))}
     </div>
   );

@@ -15,6 +15,7 @@ module.exports = {
         "fade-in": "fadeIn 0.3s ease-out",
         "slide-up": "slideUp 0.3s ease-out",
         "slide-in-right": "slideInRight 0.3s ease-out",
+        shimmer: "shimmer 1.5s infinite",
       },
       keyframes: {
         fadeIn: {
@@ -28,6 +29,10 @@ module.exports = {
         slideInRight: {
           "0%": { opacity: "0", transform: "translateX(20px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
         },
       },
     },

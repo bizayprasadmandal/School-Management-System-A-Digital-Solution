@@ -41,7 +41,11 @@ export const Button = React.memo(function Button({
     danger: "bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800",
     ghost: "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
   };
-  const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2.5 text-sm", lg: "px-6 py-3 text-base" };
+  const sizes = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-4 py-2.5 text-sm",
+    lg: "px-6 py-3 text-base",
+  };
   return (
     <button
       type={type}
@@ -214,7 +218,12 @@ interface ModalProps {
   disableEscape?: boolean;
 }
 
-const MODAL_SIZES = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-2xl" };
+const MODAL_SIZES = {
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-2xl",
+};
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -332,7 +341,11 @@ export function Spinner({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const sizes = { sm: "h-4 w-4 border-2", md: "h-7 w-7 border-4", lg: "h-10 w-10 border-4" };
+  const sizes = {
+    sm: "h-4 w-4 border-2",
+    md: "h-7 w-7 border-4",
+    lg: "h-10 w-10 border-4",
+  };
   return (
     <div
       className={clsx(
@@ -346,10 +359,20 @@ export function Spinner({
 
 // ─── Skeleton Loaders ─────────────────────────────────────────────────────────
 
-/** Base skeleton pulse block */
+/** Base skeleton shimmer block */
 function Skeleton({ className }: { className?: string }) {
   return (
-    <div className={clsx("animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700", className)} />
+    <div
+      className={clsx(
+        "relative overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-700",
+        className,
+      )}
+    >
+      <div
+        className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/5"
+        style={{ backgroundSize: "200% 100%" }}
+      />
+    </div>
   );
 }
 
@@ -796,7 +819,11 @@ export const Avatar = React.memo(function Avatar({
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const sizes = { sm: "h-7 w-7 text-xs", md: "h-9 w-9 text-sm", lg: "h-12 w-12 text-base" };
+  const sizes = {
+    sm: "h-7 w-7 text-xs",
+    md: "h-9 w-9 text-sm",
+    lg: "h-12 w-12 text-base",
+  };
   const initials = (name ?? "?")
     .split(" ")
     .map((n) => n[0])

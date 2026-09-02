@@ -31,7 +31,15 @@ function BehaviorSkeleton() {
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+        <div
+          key={i}
+          className="h-20 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800"
+        >
+          <div
+            className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-slate-200/50 to-transparent dark:via-slate-600/30"
+            style={{ backgroundSize: "200% 100%" }}
+          />
+        </div>
       ))}
     </div>
   );
