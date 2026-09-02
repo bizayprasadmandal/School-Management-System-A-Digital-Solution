@@ -30,6 +30,7 @@ import {
   TrophyIcon,
   TruckIcon,
   CakeIcon,
+  ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -362,6 +363,10 @@ const COUNSELOR_NAV: NavItem[] = [
   { label: "Appointments", to: "/counselor/appointments", icon: CalendarDaysIcon },
   { label: "Referrals", to: "/counselor/referrals", icon: UserGroupIcon },
   { label: "Behavior", to: "/counselor/behavior", icon: ExclamationTriangleIcon },
+  { label: "Surveys", to: "/counselor/surveys", icon: ClipboardDocumentListIcon },
+  { label: "Workshops", to: "/counselor/workshops", icon: AcademicCapIcon },
+  { label: "SEL Programs", to: "/counselor/sel", icon: HeartIcon },
+  { label: "Peer Mentoring", to: "/counselor/peer-mentoring", icon: UserGroupIcon },
   { label: "Announcements", to: "/counselor/announcements", icon: MegaphoneIcon },
   { label: "Settings", to: "/counselor/settings", icon: Cog6ToothIcon },
 ];

@@ -133,6 +133,10 @@ const CounselorAppointmentsPage = React.lazy(
   () => import("./pages/counselor/CounselorAppointmentsPage"),
 );
 const CounselorReferralsPage = React.lazy(() => import("./pages/counselor/CounselorReferralsPage"));
+const CounselorSurveysPage = React.lazy(() => import("./pages/counselor/SurveysPage"));
+const CounselorWorkshopsPage = React.lazy(() => import("./pages/counselor/WorkshopsPage"));
+const CounselorSELPage = React.lazy(() => import("./pages/counselor/SELPage"));
+const CounselorPeerMentoringPage = React.lazy(() => import("./pages/counselor/PeerMentoringPage"));
 const CounselorSettings = React.lazy(() => import("./pages/counselor/SettingsPage"));
 
 // Parent pages
@@ -401,6 +405,10 @@ function App() {
                   <Route index element={<CounselorDashboard />} />
                   <Route path="appointments" element={<CounselorAppointmentsPage />} />
                   <Route path="referrals" element={<CounselorReferralsPage />} />
+                  <Route path="surveys" element={<CounselorSurveysPage />} />
+                  <Route path="workshops" element={<CounselorWorkshopsPage />} />
+                  <Route path="sel" element={<CounselorSELPage />} />
+                  <Route path="peer-mentoring" element={<CounselorPeerMentoringPage />} />
                   <Route path="behavior" element={<BehaviorPage />} />
                   <Route path="announcements" element={<AnnouncementsPage />} />
                   <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
