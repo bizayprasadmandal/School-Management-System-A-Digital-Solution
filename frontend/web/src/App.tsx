@@ -126,6 +126,9 @@ const LibrarianBooks = React.lazy(() => import("./pages/librarian/BookManagement
 const LibrarianCheckouts = React.lazy(() => import("./pages/librarian/BookCheckoutPage"));
 const LibrarianFines = React.lazy(() => import("./pages/librarian/FinesPage"));
 const LibrarianSettings = React.lazy(() => import("./pages/librarian/SettingsPage"));
+const LibrarianBookClubs = React.lazy(() => import("./pages/librarian/BookClubsPage"));
+const LibrarianAcquisitions = React.lazy(() => import("./pages/librarian/AcquisitionsPage"));
+const LibrarianReadingLists = React.lazy(() => import("./pages/librarian/ReadingListsPage"));
 
 // Counselor pages
 const CounselorDashboard = React.lazy(() => import("./pages/counselor/Dashboard"));
@@ -395,6 +398,9 @@ function App() {
                   <Route path="announcements" element={<AnnouncementsPage />} />
                   <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                   <Route path="setup-2fa" element={<Setup2FAPage />} />
+                  <Route path="book-clubs" element={<LibrarianBookClubs />} />
+                  <Route path="reading-lists" element={<LibrarianReadingLists />} />
+                  <Route path="acquisitions" element={<LibrarianAcquisitions />} />
                   <Route path="settings" element={<LibrarianSettings />} />
                 </Route>
               </Route>

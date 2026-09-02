@@ -31,6 +31,8 @@ import {
   TruckIcon,
   CakeIcon,
   ClipboardDocumentListIcon,
+  ShoppingCartIcon,
+  ListBulletIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import clsx from "clsx";
@@ -328,6 +330,9 @@ const LIBRARIAN_NAV: NavItem[] = [
   { label: "Dashboard", to: "/librarian", icon: HomeIcon },
   { label: "Book Catalog", to: "/librarian/books", icon: BookOpenIcon },
   { label: "Checkouts", to: "/librarian/checkouts", icon: ClipboardDocumentCheckIcon },
+  { label: "Book Clubs", to: "/librarian/book-clubs", icon: UserGroupIcon },
+  { label: "Reading Lists", to: "/librarian/reading-lists", icon: ListBulletIcon },
+  { label: "Acquisitions", to: "/librarian/acquisitions", icon: ShoppingCartIcon },
   { label: "Fines", to: "/librarian/fines", icon: BanknotesIcon },
   { label: "Announcements", to: "/librarian/announcements", icon: MegaphoneIcon },
   { label: "Settings", to: "/librarian/settings", icon: Cog6ToothIcon },
