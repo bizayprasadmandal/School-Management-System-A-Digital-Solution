@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   ChatBubbleLeftRightIcon,
@@ -13,6 +15,7 @@ import {
   TrashIcon,
   ClockIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Referral {
@@ -102,6 +105,21 @@ export default function CounselingPage() {
   }, [referrals, page]);
 
   const totalPages = Math.ceil(referrals.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "student_name", label: "Student" },
+      { key: "reason", label: "Reason" },
+      { key: "status", label: "Status" },
+    ];
+    const rows = referrals.map((row) => ({
+      student_name: row.student_name ?? "",
+      reason: row.reason ?? "",
+      status: row.status ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "counseling-referrals-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,6 +131,13 @@ export default function CounselingPage() {
             Create referrals and track student counseling
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

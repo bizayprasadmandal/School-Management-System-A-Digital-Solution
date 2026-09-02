@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   BookOpenIcon,
@@ -13,6 +15,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Book {
@@ -94,6 +97,19 @@ export default function LibraryPage() {
   }, [allBooks, page]);
 
   const totalPages = Math.ceil(allBooks.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "title", label: "Title" },
+      { key: "author", label: "Author" },
+    ];
+    const rows = allBooks.map((row) => ({
+      title: row.title ?? "",
+      author: row.author ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "library-books-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -103,6 +119,13 @@ export default function LibraryPage() {
             Browse the library catalog
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

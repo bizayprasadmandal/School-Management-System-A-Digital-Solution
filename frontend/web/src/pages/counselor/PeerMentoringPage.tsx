@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   UserGroupIcon,
@@ -12,6 +14,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface MentoringPair {
@@ -82,6 +85,19 @@ export default function PeerMentoringPage() {
   }, [pairs, page]);
 
   const totalPages = Math.ceil(pairs.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "mentor_name", label: "Mentor" },
+      { key: "mentee_name", label: "Mentee" },
+    ];
+    const rows = pairs.map((row) => ({
+      mentor_name: row.mentor_name ?? "",
+      mentee_name: row.mentee_name ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "mentoring-pairs-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -91,6 +107,13 @@ export default function PeerMentoringPage() {
             Manage mentor-mentee pairs for student support
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

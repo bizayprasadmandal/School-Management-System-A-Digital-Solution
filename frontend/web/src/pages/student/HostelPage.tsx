@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   HomeIcon,
@@ -13,6 +15,7 @@ import {
   TrashIcon,
   UsersIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface RoomAssignment {
@@ -87,6 +90,19 @@ export default function HostelPage() {
   }, [assignments, page]);
 
   const totalPages = Math.ceil(assignments.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "room_number", label: "Room" },
+      { key: "block", label: "Block" },
+    ];
+    const rows = assignments.map((row) => ({
+      room_number: row.room_number ?? "",
+      block: row.floor ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "hostel-assignments-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -96,6 +112,13 @@ export default function HostelPage() {
             View your room assignment and hostel details
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

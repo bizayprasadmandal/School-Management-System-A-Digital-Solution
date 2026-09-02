@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   DocumentTextIcon,
@@ -12,6 +14,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Invoice {
@@ -101,6 +104,23 @@ export default function InvoicesPage() {
   }, [invoices, page]);
 
   const totalPages = Math.ceil(invoices.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "invoice_number", label: "Invoice #" },
+      { key: "client", label: "Client" },
+      { key: "total_amount", label: "Amount" },
+      { key: "status", label: "Status" },
+    ];
+    const rows = invoices.map((row) => ({
+      invoice_number: row.invoice_number ?? "",
+      client: row.description ?? "",
+      total_amount: row.amount ?? "",
+      status: row.status ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "invoices-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -110,6 +130,13 @@ export default function InvoicesPage() {
             Generate and manage student invoices
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

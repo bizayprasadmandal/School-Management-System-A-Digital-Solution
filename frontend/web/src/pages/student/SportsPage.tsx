@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   TrophyIcon,
@@ -13,6 +15,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Sport {
@@ -104,6 +107,19 @@ export default function SportsPage() {
   }, [filteredSports, page]);
 
   const totalPages = Math.ceil(filteredSports.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "name", label: "Name" },
+      { key: "description", label: "Description" },
+    ];
+    const rows = filteredSports.map((row) => ({
+      name: row.name ?? "",
+      description: row.description ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "sports-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,6 +129,13 @@ export default function SportsPage() {
             Explore sports, teams, events, and achievements
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

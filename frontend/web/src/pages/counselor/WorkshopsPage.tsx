@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   AcademicCapIcon,
@@ -13,6 +15,7 @@ import {
   TrashIcon,
   CalendarDaysIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Workshop {
@@ -95,6 +98,19 @@ export default function WorkshopsPage() {
   }, [allWorkshops, page]);
 
   const totalPages = Math.ceil(allWorkshops.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "title", label: "Title" },
+      { key: "facilitator", label: "Facilitator" },
+    ];
+    const rows = allWorkshops.map((row) => ({
+      title: row.title ?? "",
+      facilitator: row.facilitator ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "workshops-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -104,6 +120,13 @@ export default function WorkshopsPage() {
             Schedule and manage student development workshops
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

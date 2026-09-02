@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   HeartIcon,
@@ -12,6 +14,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface SELProgram {
@@ -93,6 +96,19 @@ export default function SELPage() {
   }, [allPrograms, page]);
 
   const totalPages = Math.ceil(allPrograms.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "title", label: "Title" },
+      { key: "description", label: "Description" },
+    ];
+    const rows = allPrograms.map((row) => ({
+      title: row.title ?? "",
+      description: row.title ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "sel-programs-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -104,6 +120,13 @@ export default function SELPage() {
             Manage SEL programs for students
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

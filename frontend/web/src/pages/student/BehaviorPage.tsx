@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   ExclamationTriangleIcon,
@@ -14,6 +16,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface BehaviorRecord {
@@ -86,6 +89,21 @@ export default function BehaviorPage() {
   }, [records, page]);
 
   const totalPages = Math.ceil(records.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "record_type", label: "Type" },
+      { key: "description", label: "Description" },
+      { key: "points", label: "Points" },
+    ];
+    const rows = records.map((row) => ({
+      record_type: row.title ?? "",
+      description: row.description ?? "",
+      points: row.points ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "behavior-records-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -95,6 +113,13 @@ export default function BehaviorPage() {
             Track your behavior records and points
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

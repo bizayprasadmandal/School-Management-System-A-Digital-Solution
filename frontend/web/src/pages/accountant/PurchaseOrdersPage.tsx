@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   ClipboardDocumentListIcon,
@@ -12,6 +14,7 @@ import {
   PencilIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface PurchaseOrder {
@@ -101,6 +104,23 @@ export default function PurchaseOrdersPage() {
   }, [orders, page]);
 
   const totalPages = Math.ceil(orders.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "po_number", label: "PO Number" },
+      { key: "vendor", label: "Vendor" },
+      { key: "total_amount", label: "Amount" },
+      { key: "status", label: "Status" },
+    ];
+    const rows = orders.map((row) => ({
+      po_number: row.po_number ?? "",
+      vendor: row.vendor ?? "",
+      total_amount: row.total_amount ?? "",
+      status: row.status ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "purchase-orders-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -110,6 +130,13 @@ export default function PurchaseOrdersPage() {
             Manage purchase orders for school supplies
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   TruckIcon,
@@ -13,6 +15,7 @@ import {
   TrashIcon,
   MapPinIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface RouteAssignment {
@@ -89,6 +92,21 @@ export default function TransportPage() {
   }, [assignments, page]);
 
   const totalPages = Math.ceil(assignments.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "route_name", label: "Route" },
+      { key: "driver_name", label: "Driver" },
+      { key: "bus_number", label: "Bus" },
+    ];
+    const rows = assignments.map((row) => ({
+      route_name: row.route_name ?? "",
+      driver_name: row.driver_name ?? "",
+      bus_number: row.bus_number ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "transport-assignments-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -98,6 +116,13 @@ export default function TransportPage() {
             View your bus route and transport details
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);

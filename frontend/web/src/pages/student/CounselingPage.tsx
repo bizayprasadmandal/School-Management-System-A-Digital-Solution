@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import dayjs from "dayjs";
+import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   ChatBubbleLeftRightIcon,
@@ -14,6 +16,7 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface Session {
@@ -102,6 +105,19 @@ export default function CounselingPage() {
   }, [sessions, page]);
 
   const totalPages = Math.ceil(sessions.length / 12);
+
+  const handleExport = () => {
+    const cols = [
+      { key: "counselor_name", label: "Counselor" },
+      { key: "status", label: "Status" },
+    ];
+    const rows = sessions.map((row) => ({
+      counselor_name: row.counselor_name ?? "",
+      status: row.status ?? "",
+    }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "counseling-sessions-" + dayjs().format("YYYY-MM-DD") + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -111,6 +127,13 @@ export default function CounselingPage() {
             View your counseling sessions and referrals
           </p>
         </div>
+        <Button
+          variant="secondary"
+          leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          onClick={handleExport}
+        >
+          Export CSV
+        </Button>
         <Button
           onClick={() => {
             setEditing(null);
