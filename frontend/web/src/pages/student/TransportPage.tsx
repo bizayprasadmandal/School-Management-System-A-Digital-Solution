@@ -1,11 +1,30 @@
 /**
  * Student Transport Page — view route assignment and bus info
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { TruckIcon, MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import {
+  TruckIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  MapPinIcon,
+} from "@heroicons/react/24/outline";
+
+interface RouteAssignment {
+  id: string;
+  route_name: string;
+  bus_number: string;
+  driver_name: string;
+  pickup_time: string;
+  dropoff_time: string;
+  stop_name: string;
+  status: string;
+  capacity: number;
+}
 
 function TransportSkeleton() {
   return (
@@ -18,22 +37,67 @@ function TransportSkeleton() {
 }
 
 export default function TransportPage() {
-  const { data: assignment, isLoading } = useQuery({
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<RouteAssignment | null>(null);
+
+  const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["student-transport"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/transportation/route-assignments/");
-      const results = r.results ?? [];
-      return results[0] ?? null;
+      const r = await api.get<{ results: RouteAssignment[] }>("/transportation/route-assignments/");
+      return r.results ?? [];
+    },
+  });
+
+  const assignment = assignments[0] ?? null;
+
+  const createAssignment = useMutation({
+    mutationFn: (data: Partial<RouteAssignment>) =>
+      api.post("/transportation/route-assignments/", data),
+    onSuccess: () => {
+      toast.success("Assignment created");
+      qc.invalidateQueries({ queryKey: ["student-transport"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateAssignment = useMutation({
+    mutationFn: (data: Partial<RouteAssignment>) =>
+      api.patch(`/transportation/route-assignments/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Assignment updated");
+      qc.invalidateQueries({ queryKey: ["student-transport"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteAssignment = useMutation({
+    mutationFn: (id: string) => api.delete(`/transportation/route-assignments/${id}/`),
+    onSuccess: () => {
+      toast.success("Assignment deleted");
+      qc.invalidateQueries({ queryKey: ["student-transport"] });
     },
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transportation</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          View your bus route and transport details
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transportation</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            View your bus route and transport details
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          {assignment ? "Edit" : "Add"} Assignment
+        </Button>
       </div>
 
       {isLoading ? (
@@ -53,10 +117,10 @@ export default function TransportPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {assignment.route_name ?? "Route"}
+                  {assignment.route_name}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {assignment.bus_number ?? "Bus"}
+                  {assignment.bus_number}
                 </p>
               </div>
             </div>
@@ -64,21 +128,40 @@ export default function TransportPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Driver</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.driver_name ?? "—"}
+                  {assignment.driver_name || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Pickup Time</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.pickup_time ?? "—"}
+                  {assignment.pickup_time || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Drop-off Time</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.dropoff_time ?? "—"}
+                  {assignment.dropoff_time || "—"}
                 </span>
               </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  setEditing(assignment);
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-1 text-xs text-indigo-600"
+              >
+                <PencilIcon className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Delete this assignment?")) deleteAssignment.mutate(assignment.id);
+                }}
+                className="flex items-center gap-1 text-xs text-red-500"
+              >
+                <TrashIcon className="h-3.5 w-3.5" /> Delete
+              </button>
             </div>
           </div>
 
@@ -88,9 +171,9 @@ export default function TransportPage() {
                 <MapPinIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">Stops</h3>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Stop Details</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {assignment.stop_name ?? "Your stop"}
+                  {assignment.stop_name || "Your stop"}
                 </p>
               </div>
             </div>
@@ -104,19 +187,151 @@ export default function TransportPage() {
                       : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
-                  {assignment.status ?? "—"}
+                  {assignment.status || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Capacity</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.capacity ?? "—"}
+                  {assignment.capacity || "—"}
                 </span>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Assignment" : "Add Assignment"}
+      >
+        <TransportForm
+          assignment={editing}
+          saving={createAssignment.isPending || updateAssignment.isPending}
+          onSave={(data) => {
+            if (editing) updateAssignment.mutate(data);
+            else createAssignment.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function TransportForm({
+  assignment,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  assignment: RouteAssignment | null;
+  saving: boolean;
+  onSave: (data: Partial<RouteAssignment>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    route_name: assignment?.route_name ?? "",
+    bus_number: assignment?.bus_number ?? "",
+    driver_name: assignment?.driver_name ?? "",
+    pickup_time: assignment?.pickup_time ?? "",
+    dropoff_time: assignment?.dropoff_time ?? "",
+    stop_name: assignment?.stop_name ?? "",
+    capacity: assignment?.capacity ?? 40,
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.route_name.trim()) return toast.error("Route name required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Route Name *</label>
+          <input
+            value={f.route_name}
+            onChange={(e) => setF((p) => ({ ...p, route_name: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Bus Number *</label>
+          <input
+            value={f.bus_number}
+            onChange={(e) => setF((p) => ({ ...p, bus_number: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Driver</label>
+        <input
+          value={f.driver_name}
+          onChange={(e) => setF((p) => ({ ...p, driver_name: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Pickup Time</label>
+          <input
+            type="time"
+            value={f.pickup_time}
+            onChange={(e) => setF((p) => ({ ...p, pickup_time: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Drop-off Time</label>
+          <input
+            type="time"
+            value={f.dropoff_time}
+            onChange={(e) => setF((p) => ({ ...p, dropoff_time: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Stop Name</label>
+          <input
+            value={f.stop_name}
+            onChange={(e) => setF((p) => ({ ...p, stop_name: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Capacity</label>
+          <input
+            type="number"
+            min={1}
+            value={f.capacity}
+            onChange={(e) => setF((p) => ({ ...p, capacity: Number(e.target.value) }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {editing ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

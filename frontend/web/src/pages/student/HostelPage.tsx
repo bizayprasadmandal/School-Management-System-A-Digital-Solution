@@ -1,11 +1,23 @@
 /**
  * Student Hostel Page — view room assignment and hostel info
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { HomeIcon, BuildingOffice2Icon, UsersIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import { HomeIcon, PlusIcon, PencilIcon, TrashIcon, UsersIcon } from "@heroicons/react/24/outline";
+
+interface RoomAssignment {
+  id: string;
+  room_number: string;
+  hostel_name: string;
+  floor: string;
+  room_type: string;
+  bed_number: string;
+  warden_name: string;
+  status: string;
+}
 
 function HostelSkeleton() {
   return (
@@ -18,22 +30,66 @@ function HostelSkeleton() {
 }
 
 export default function HostelPage() {
-  const { data: assignment, isLoading } = useQuery({
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<RoomAssignment | null>(null);
+
+  const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["student-hostel"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/hostel/room-assignments/");
-      const results = r.results ?? [];
-      return results[0] ?? null;
+      const r = await api.get<{ results: RoomAssignment[] }>("/hostel/room-assignments/");
+      return r.results ?? [];
+    },
+  });
+
+  const assignment = assignments[0] ?? null;
+
+  const createAssignment = useMutation({
+    mutationFn: (data: Partial<RoomAssignment>) => api.post("/hostel/room-assignments/", data),
+    onSuccess: () => {
+      toast.success("Assignment created");
+      qc.invalidateQueries({ queryKey: ["student-hostel"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateAssignment = useMutation({
+    mutationFn: (data: Partial<RoomAssignment>) =>
+      api.patch(`/hostel/room-assignments/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Assignment updated");
+      qc.invalidateQueries({ queryKey: ["student-hostel"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteAssignment = useMutation({
+    mutationFn: (id: string) => api.delete(`/hostel/room-assignments/${id}/`),
+    onSuccess: () => {
+      toast.success("Assignment deleted");
+      qc.invalidateQueries({ queryKey: ["student-hostel"] });
     },
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Hostel</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          View your room assignment and hostel details
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Hostel</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            View your room assignment and hostel details
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          {assignment ? "Edit" : "Add"} Assignment
+        </Button>
       </div>
 
       {isLoading ? (
@@ -53,10 +109,10 @@ export default function HostelPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {assignment.room_number ?? "Room"}
+                  {assignment.room_number}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {assignment.hostel_name ?? "Hostel"}
+                  {assignment.hostel_name}
                 </p>
               </div>
             </div>
@@ -64,21 +120,40 @@ export default function HostelPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Floor</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.floor ?? "—"}
+                  {assignment.floor || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Room Type</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.room_type ?? "—"}
+                  {assignment.room_type || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Bed</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.bed_number ?? "—"}
+                  {assignment.bed_number || "—"}
                 </span>
               </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  setEditing(assignment);
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-1 text-xs text-indigo-600"
+              >
+                <PencilIcon className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Delete this assignment?")) deleteAssignment.mutate(assignment.id);
+                }}
+                className="flex items-center gap-1 text-xs text-red-500"
+              >
+                <TrashIcon className="h-3.5 w-3.5" /> Delete
+              </button>
             </div>
           </div>
 
@@ -88,17 +163,15 @@ export default function HostelPage() {
                 <UsersIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">Roommates</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {assignment.roommate_count ?? 0} other students
-                </p>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Room Info</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Hostel details</p>
               </div>
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Warden</span>
                 <span className="font-medium text-slate-900 dark:text-white">
-                  {assignment.warden_name ?? "—"}
+                  {assignment.warden_name || "—"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -110,13 +183,125 @@ export default function HostelPage() {
                       : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
-                  {assignment.status ?? "—"}
+                  {assignment.status || "—"}
                 </span>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Assignment" : "Add Assignment"}
+      >
+        <AssignmentForm
+          assignment={editing}
+          saving={createAssignment.isPending || updateAssignment.isPending}
+          onSave={(data) => {
+            if (editing) updateAssignment.mutate(data);
+            else createAssignment.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function AssignmentForm({
+  assignment,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  assignment: RoomAssignment | null;
+  saving: boolean;
+  onSave: (data: Partial<RoomAssignment>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    room_number: assignment?.room_number ?? "",
+    hostel_name: assignment?.hostel_name ?? "",
+    floor: assignment?.floor ?? "",
+    room_type: assignment?.room_type ?? "single",
+    bed_number: assignment?.bed_number ?? "",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.room_number.trim()) return toast.error("Room number required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Room Number *</label>
+          <input
+            value={f.room_number}
+            onChange={(e) => setF((p) => ({ ...p, room_number: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Hostel *</label>
+          <input
+            value={f.hostel_name}
+            onChange={(e) => setF((p) => ({ ...p, hostel_name: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Floor</label>
+          <input
+            value={f.floor}
+            onChange={(e) => setF((p) => ({ ...p, floor: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Room Type</label>
+          <select
+            value={f.room_type}
+            onChange={(e) => setF((p) => ({ ...p, room_type: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="single">Single</option>
+            <option value="double">Double</option>
+            <option value="shared">Shared</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Bed Number</label>
+          <input
+            value={f.bed_number}
+            onChange={(e) => setF((p) => ({ ...p, bed_number: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {editing ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }
