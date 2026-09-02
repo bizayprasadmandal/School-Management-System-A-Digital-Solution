@@ -119,6 +119,9 @@ const AccountantRefundManagement = React.lazy(
   () => import("./pages/accountant/RefundManagementPage"),
 );
 const AccountantSettings = React.lazy(() => import("./pages/accountant/SettingsPage"));
+const AccountantBudget = React.lazy(() => import("./pages/accountant/BudgetPage"));
+const AccountantPurchaseOrders = React.lazy(() => import("./pages/accountant/PurchaseOrdersPage"));
+const AccountantInvoices = React.lazy(() => import("./pages/accountant/InvoicesPage"));
 
 // Librarian pages
 const LibrarianDashboard = React.lazy(() => import("./pages/librarian/Dashboard"));
@@ -383,6 +386,9 @@ function App() {
                   <Route path="conferences" element={<AdminConferences />} />
                   <Route path="verify-email" element={<VerifyEmailSettingsPage />} />
                   <Route path="setup-2fa" element={<Setup2FAPage />} />
+                  <Route path="budget" element={<AccountantBudget />} />
+                  <Route path="purchase-orders" element={<AccountantPurchaseOrders />} />
+                  <Route path="invoices" element={<AccountantInvoices />} />
                   <Route path="settings" element={<AccountantSettings />} />
                 </Route>
               </Route>
