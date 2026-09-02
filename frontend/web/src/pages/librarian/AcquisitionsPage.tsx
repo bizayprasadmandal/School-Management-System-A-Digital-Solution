@@ -11,6 +11,10 @@ import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
+import {
+  KeyboardShortcutHelp,
+  useShortcutHelp,
+} from "../../components/common/KeyboardShortcutHelp";
 import { BulkActionBar } from "../../components/common/BulkActionBar";
 import {
   ShoppingCartIcon,
