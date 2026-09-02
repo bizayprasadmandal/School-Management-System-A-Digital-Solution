@@ -26,21 +26,46 @@ interface BudgetItem {
   department: string;
 }
 
-function BudgetSkeleton() {
+function BudgetStatSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="grid gap-4 sm:grid-cols-3">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-24 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800"
+          className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
         >
           <div
-            className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-slate-200/50 to-transparent dark:via-slate-600/30"
+            className="mb-2 h-4 w-24 animate-shimmer rounded bg-slate-200 dark:bg-slate-700"
+            style={{ backgroundSize: "200% 100%" }}
+          />
+          <div
+            className="h-8 w-16 animate-shimmer rounded bg-slate-200 dark:bg-slate-700"
             style={{ backgroundSize: "200% 100%" }}
           />
         </div>
       ))}
     </div>
+  );
+}
+
+function BudgetSkeleton() {
+  return (
+    <>
+      <BudgetStatSkeleton />
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-24 relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800"
+          >
+            <div
+              className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-slate-200/50 to-transparent dark:via-slate-600/30"
+              style={{ backgroundSize: "200% 100%" }}
+            />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
