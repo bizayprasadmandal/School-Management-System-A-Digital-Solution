@@ -5,9 +5,11 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
+import { useBulkSelect } from "../../hooks/useBulkSelect";
 import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
+import { BulkActionBar } from "../../components/common/BulkActionBar";
 import {
   CakeIcon,
   PlusIcon,
@@ -15,6 +17,7 @@ import {
   TrashIcon,
   CalendarDaysIcon,
   MagnifyingGlassIcon,
+  CheckIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
@@ -95,6 +98,8 @@ export default function CafeteriaPage() {
 
   const totalPages = Math.ceil(menus.length / 12);
 
+  const bulk = useBulkSelect(menus);
+
   const handleExport = () => {
     const cols = [
       { key: "name", label: "Name" },
@@ -107,6 +112,27 @@ export default function CafeteriaPage() {
     const csv = toCsv(rows, cols);
     downloadCsv(csv, "cafeteria-menus-" + dayjs().format("YYYY-MM-DD") + ".csv");
   };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${bulk.selectedCount} items?`)) return;
+    try {
+      await Promise.all(
+        bulk.selectedArray.map((id) => api.delete("/cafeteria/menus//" + id + "/")),
+      );
+      toast.success(`${bulk.selectedCount} items deleted`);
+      bulk.clear();
+      qc.invalidateQueries({ queryKey: ["student-cafeteria"] });
+    } catch {
+      toast.error("Failed to delete items");
+    }
+  };
+
+  const handleBulkExport = () => {
+    const cols = [{ key: "id", label: "ID" }];
+    const rows = bulk.selectedItems.map((item) => ({ id: item.id }));
+    const csv = toCsv(rows, cols);
+    downloadCsv(csv, "bulk-export-" + new Date().toISOString().slice(0, 10) + ".csv");
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -116,6 +142,19 @@ export default function CafeteriaPage() {
             View daily menus and book your meals
           </p>
         </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={bulk.allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = bulk.someSelected;
+            }}
+            onChange={bulk.toggleAll}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+          />
+          <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
+        </label>
         <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
