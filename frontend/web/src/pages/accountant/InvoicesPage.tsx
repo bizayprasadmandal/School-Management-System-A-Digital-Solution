@@ -1,11 +1,22 @@
 /**
  * Accountant Invoices Page — generate and manage student invoices
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { DocumentTextIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import { DocumentTextIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  student_name: string;
+  description: string;
+  amount: number;
+  due_date: string;
+  status: string;
+}
 
 function InvoiceSkeleton() {
   return (
@@ -18,11 +29,42 @@ function InvoiceSkeleton() {
 }
 
 export default function InvoicesPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Invoice | null>(null);
+
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["accountant-invoices"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/fees/invoices/");
+      const r = await api.get<{ results: Invoice[] }>("/fees/invoices/");
       return r.results ?? [];
+    },
+  });
+
+  const createInvoice = useMutation({
+    mutationFn: (data: Partial<Invoice>) => api.post("/fees/invoices/", data),
+    onSuccess: () => {
+      toast.success("Invoice created");
+      qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateInvoice = useMutation({
+    mutationFn: (data: Partial<Invoice>) => api.patch(`/fees/invoices/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Invoice updated");
+      qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteInvoice = useMutation({
+    mutationFn: (id: string) => api.delete(`/fees/invoices/${id}/`),
+    onSuccess: () => {
+      toast.success("Invoice deleted");
+      qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
     },
   });
 
@@ -35,6 +77,15 @@ export default function InvoicesPage() {
             Generate and manage student invoices
           </p>
         </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create Invoice
+        </Button>
       </div>
 
       {isLoading ? (
@@ -47,7 +98,7 @@ export default function InvoicesPage() {
         />
       ) : (
         <div className="space-y-3">
-          {invoices.map((inv: any) => (
+          {invoices.map((inv) => (
             <div
               key={inv.id}
               className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -57,34 +108,166 @@ export default function InvoicesPage() {
                   {inv.invoice_number}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {inv.student_name ?? "—"} · {inv.description ?? "—"}
+                  {inv.student_name || "—"} · {inv.description || "—"}
                 </p>
                 <p className="text-xs text-slate-400">
                   Due: {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  ${(inv.amount ?? 0).toLocaleString()}
-                </p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    inv.status === "paid"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : inv.status === "overdue"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : inv.status === "sent"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  }`}
-                >
-                  {inv.status}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    ${(inv.amount ?? 0).toLocaleString()}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      inv.status === "paid"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : inv.status === "overdue"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : inv.status === "sent"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {inv.status}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setEditing(inv);
+                      setShowForm(true);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this invoice?")) deleteInvoice.mutate(inv.id);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Invoice" : "Create Invoice"}
+      >
+        <InvoiceForm
+          invoice={editing}
+          saving={createInvoice.isPending || updateInvoice.isPending}
+          onSave={(data) => {
+            if (editing) updateInvoice.mutate(data);
+            else createInvoice.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function InvoiceForm({
+  invoice,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  invoice: Invoice | null;
+  saving: boolean;
+  onSave: (data: Partial<Invoice>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    invoice_number: invoice?.invoice_number ?? "",
+    student_name: invoice?.student_name ?? "",
+    description: invoice?.description ?? "",
+    amount: invoice?.amount ?? 0,
+    due_date: invoice?.due_date ?? "",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.student_name.trim()) return toast.error("Student required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Invoice Number</label>
+          <input
+            value={f.invoice_number}
+            onChange={(e) => setF((p) => ({ ...p, invoice_number: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Student *</label>
+          <input
+            value={f.student_name}
+            onChange={(e) => setF((p) => ({ ...p, student_name: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Description</label>
+        <input
+          value={f.description}
+          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Amount ($)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={f.amount}
+            onChange={(e) => setF((p) => ({ ...p, amount: Number(e.target.value) }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Due Date</label>
+          <input
+            type="date"
+            value={f.due_date}
+            onChange={(e) => setF((p) => ({ ...p, due_date: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {invoice ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

@@ -21,6 +21,8 @@ interface Sport {
   category: string;
   team_count: number;
   is_active: boolean;
+  min_players: number;
+  max_players: number;
 }
 
 function SportsSkeleton() {
@@ -268,7 +270,7 @@ function SportForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Create"}
+          {sport ? "Update" : "Create"}
         </Button>
       </div>
     </form>

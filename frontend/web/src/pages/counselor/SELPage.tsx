@@ -1,11 +1,21 @@
 /**
  * Counselor SEL Page — manage Social-Emotional Learning programs
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { HeartIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import { HeartIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+
+interface SELProgram {
+  id: string;
+  title: string;
+  category: string;
+  participants: number;
+  status: string;
+  progress: number;
+}
 
 function SELSkeleton() {
   return (
@@ -18,11 +28,43 @@ function SELSkeleton() {
 }
 
 export default function SELPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<SELProgram | null>(null);
+
   const { data: programs = [], isLoading } = useQuery({
     queryKey: ["counselor-sel"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/counseling/sel-programs/");
+      const r = await api.get<{ results: SELProgram[] }>("/counseling/sel-programs/");
       return r.results ?? [];
+    },
+  });
+
+  const createProgram = useMutation({
+    mutationFn: (data: Partial<SELProgram>) => api.post("/counseling/sel-programs/", data),
+    onSuccess: () => {
+      toast.success("Program created");
+      qc.invalidateQueries({ queryKey: ["counselor-sel"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateProgram = useMutation({
+    mutationFn: (data: Partial<SELProgram>) =>
+      api.patch(`/counseling/sel-programs/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Program updated");
+      qc.invalidateQueries({ queryKey: ["counselor-sel"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteProgram = useMutation({
+    mutationFn: (id: string) => api.delete(`/counseling/sel-programs/${id}/`),
+    onSuccess: () => {
+      toast.success("Program deleted");
+      qc.invalidateQueries({ queryKey: ["counselor-sel"] });
     },
   });
 
@@ -37,6 +79,15 @@ export default function SELPage() {
             Manage SEL programs for students
           </p>
         </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create Program
+        </Button>
       </div>
 
       {isLoading ? (
@@ -49,7 +100,7 @@ export default function SELPage() {
         />
       ) : (
         <div className="space-y-3">
-          {programs.map((program: any) => {
+          {programs.map((program) => {
             const progress = program.progress ?? 0;
             return (
               <div
@@ -62,29 +113,50 @@ export default function SELPage() {
                       {program.title}
                     </h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {program.category ?? "—"}
+                      {program.category || "—"}
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       {program.participants ?? 0} participants
                     </p>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        program.status === "active"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : program.status === "upcoming"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                      }`}
-                    >
-                      {program.status}
-                    </span>
-                    <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full bg-indigo-500"
-                        style={{ width: `${Math.min(progress, 100)}%` }}
-                      />
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          program.status === "active"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : program.status === "upcoming"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                        }`}
+                      >
+                        {program.status}
+                      </span>
+                      <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                        <div
+                          className="h-full rounded-full bg-indigo-500"
+                          style={{ width: `${Math.min(progress, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          setEditing(program);
+                          setShowForm(true);
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm("Delete this program?")) deleteProgram.mutate(program.id);
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -93,6 +165,110 @@ export default function SELPage() {
           })}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Program" : "Create Program"}
+      >
+        <SELForm
+          program={editing}
+          saving={createProgram.isPending || updateProgram.isPending}
+          onSave={(data) => {
+            if (editing) updateProgram.mutate(data);
+            else createProgram.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function SELForm({
+  program,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  program: SELProgram | null;
+  saving: boolean;
+  onSave: (data: Partial<SELProgram>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    title: program?.title ?? "",
+    category: program?.category ?? "",
+    status: program?.status ?? "upcoming",
+    progress: program?.progress ?? 0,
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.title.trim()) return toast.error("Title required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="mb-1 block text-sm font-medium">Title *</label>
+        <input
+          value={f.title}
+          onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Category</label>
+          <input
+            value={f.category}
+            onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))}
+            placeholder="e.g. Empathy, Self-regulation"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Status</label>
+          <select
+            value={f.status}
+            onChange={(e) => setF((p) => ({ ...p, status: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Progress (%)</label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={f.progress}
+          onChange={(e) => setF((p) => ({ ...p, progress: Number(e.target.value) }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {program ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

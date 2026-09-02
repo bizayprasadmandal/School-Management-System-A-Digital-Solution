@@ -269,7 +269,7 @@ function SessionForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Book"}
+          {session ? "Update" : "Book"}
         </Button>
       </div>
     </form>

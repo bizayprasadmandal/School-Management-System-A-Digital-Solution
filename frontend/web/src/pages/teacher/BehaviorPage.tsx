@@ -266,7 +266,7 @@ function BehaviorForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Award"}
+          {record ? "Update" : "Award"}
         </Button>
       </div>
     </form>

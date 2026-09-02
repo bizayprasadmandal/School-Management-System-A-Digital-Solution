@@ -1,11 +1,28 @@
 /**
  * Accountant Purchase Orders Page — manage POs
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import {
+  ClipboardDocumentListIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+
+interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  vendor: string;
+  description: string;
+  total_amount: number;
+  status: string;
+  requested_by: string;
+  created_at: string;
+}
 
 function POSkeleton() {
   return (
@@ -18,11 +35,43 @@ function POSkeleton() {
 }
 
 export default function PurchaseOrdersPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<PurchaseOrder | null>(null);
+
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["accountant-pos"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/fees/purchase-orders/");
+      const r = await api.get<{ results: PurchaseOrder[] }>("/fees/purchase-orders/");
       return r.results ?? [];
+    },
+  });
+
+  const createPO = useMutation({
+    mutationFn: (data: Partial<PurchaseOrder>) => api.post("/fees/purchase-orders/", data),
+    onSuccess: () => {
+      toast.success("PO created");
+      qc.invalidateQueries({ queryKey: ["accountant-pos"] });
+      setShowForm(false);
+    },
+  });
+
+  const updatePO = useMutation({
+    mutationFn: (data: Partial<PurchaseOrder>) =>
+      api.patch(`/fees/purchase-orders/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("PO updated");
+      qc.invalidateQueries({ queryKey: ["accountant-pos"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deletePO = useMutation({
+    mutationFn: (id: string) => api.delete(`/fees/purchase-orders/${id}/`),
+    onSuccess: () => {
+      toast.success("PO deleted");
+      qc.invalidateQueries({ queryKey: ["accountant-pos"] });
     },
   });
 
@@ -35,6 +84,15 @@ export default function PurchaseOrdersPage() {
             Manage purchase orders for school supplies
           </p>
         </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create PO
+        </Button>
       </div>
 
       {isLoading ? (
@@ -47,7 +105,7 @@ export default function PurchaseOrdersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {orders.map((order: any) => (
+          {orders.map((order) => (
             <div
               key={order.id}
               className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -55,35 +113,167 @@ export default function PurchaseOrdersPage() {
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-white">{order.po_number}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {order.vendor ?? "—"} · {order.description ?? "—"}
+                  {order.vendor || "—"} · {order.description || "—"}
                 </p>
                 <p className="text-xs text-slate-400">
-                  {order.requested_by ?? "—"} ·{" "}
+                  {order.requested_by || "—"} ·{" "}
                   {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  ${(order.total_amount ?? 0).toLocaleString()}
-                </p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    order.status === "approved" || order.status === "received"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : order.status === "pending_approval"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        : order.status === "cancelled"
-                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                  }`}
-                >
-                  {(order.status ?? "draft").replace(/_/g, " ")}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    ${(order.total_amount ?? 0).toLocaleString()}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      order.status === "approved" || order.status === "received"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : order.status === "pending_approval"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          : order.status === "cancelled"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                    }`}
+                  >
+                    {(order.status || "draft").replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setEditing(order);
+                      setShowForm(true);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this PO?")) deletePO.mutate(order.id);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit PO" : "Create PO"}
+      >
+        <POForm
+          po={editing}
+          saving={createPO.isPending || updatePO.isPending}
+          onSave={(data) => {
+            if (editing) updatePO.mutate(data);
+            else createPO.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function POForm({
+  po,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  po: PurchaseOrder | null;
+  saving: boolean;
+  onSave: (data: Partial<PurchaseOrder>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    po_number: po?.po_number ?? "",
+    vendor: po?.vendor ?? "",
+    description: po?.description ?? "",
+    total_amount: po?.total_amount ?? 0,
+    requested_by: po?.requested_by ?? "",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.vendor.trim()) return toast.error("Vendor required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">PO Number</label>
+          <input
+            value={f.po_number}
+            onChange={(e) => setF((p) => ({ ...p, po_number: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Vendor *</label>
+          <input
+            value={f.vendor}
+            onChange={(e) => setF((p) => ({ ...p, vendor: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            required
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Description</label>
+        <textarea
+          value={f.description}
+          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+          rows={2}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Total Amount ($)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={f.total_amount}
+            onChange={(e) => setF((p) => ({ ...p, total_amount: Number(e.target.value) }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Requested By</label>
+          <input
+            value={f.requested_by}
+            onChange={(e) => setF((p) => ({ ...p, requested_by: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {po ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

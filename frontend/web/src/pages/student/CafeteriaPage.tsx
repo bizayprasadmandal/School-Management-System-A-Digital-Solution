@@ -257,7 +257,7 @@ function MenuForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Create"}
+          {menu ? "Update" : "Create"}
         </Button>
       </div>
     </form>

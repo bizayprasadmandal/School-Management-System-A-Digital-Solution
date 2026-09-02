@@ -232,7 +232,7 @@ function HealthRecordForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Create"}
+          {record ? "Update" : "Create"}
         </Button>
       </div>
     </form>

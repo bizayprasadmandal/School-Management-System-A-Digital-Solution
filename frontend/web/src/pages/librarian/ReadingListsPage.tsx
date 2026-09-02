@@ -1,11 +1,21 @@
 /**
  * Librarian Reading Lists Page — curated reading lists by grade
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { ListBulletIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import { ListBulletIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+
+interface ReadingList {
+  id: string;
+  title: string;
+  description: string;
+  grade_level: string;
+  books_count: number;
+  assigned_to: number;
+}
 
 function ReadingListSkeleton() {
   return (
@@ -18,11 +28,43 @@ function ReadingListSkeleton() {
 }
 
 export default function ReadingListsPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ReadingList | null>(null);
+
   const { data: lists = [], isLoading } = useQuery({
     queryKey: ["librarian-reading-lists"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/library/reading-lists/");
+      const r = await api.get<{ results: ReadingList[] }>("/library/reading-lists/");
       return r.results ?? [];
+    },
+  });
+
+  const createList = useMutation({
+    mutationFn: (data: Partial<ReadingList>) => api.post("/library/reading-lists/", data),
+    onSuccess: () => {
+      toast.success("Reading list created");
+      qc.invalidateQueries({ queryKey: ["librarian-reading-lists"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateList = useMutation({
+    mutationFn: (data: Partial<ReadingList>) =>
+      api.patch(`/library/reading-lists/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Reading list updated");
+      qc.invalidateQueries({ queryKey: ["librarian-reading-lists"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteList = useMutation({
+    mutationFn: (id: string) => api.delete(`/library/reading-lists/${id}/`),
+    onSuccess: () => {
+      toast.success("Reading list deleted");
+      qc.invalidateQueries({ queryKey: ["librarian-reading-lists"] });
     },
   });
 
@@ -35,6 +77,15 @@ export default function ReadingListsPage() {
             Curated reading lists for different grade levels
           </p>
         </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create List
+        </Button>
       </div>
 
       {isLoading ? (
@@ -47,7 +98,7 @@ export default function ReadingListsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {lists.map((list: any) => (
+          {lists.map((list) => (
             <div
               key={list.id}
               className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -55,17 +106,123 @@ export default function ReadingListsPage() {
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-white">{list.title}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {list.description ?? "—"}
+                  {list.description || "—"}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Grade: {list.grade_level ?? "—"} · {list.books_count ?? 0} books · Assigned to{" "}
+                  Grade: {list.grade_level || "—"} · {list.books_count ?? 0} books · Assigned to{" "}
                   {list.assigned_to ?? 0} students
                 </p>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setEditing(list);
+                    setShowForm(true);
+                  }}
+                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Delete this list?")) deleteList.mutate(list.id);
+                  }}
+                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit List" : "Create List"}
+      >
+        <ListForm
+          list={editing}
+          saving={createList.isPending || updateList.isPending}
+          onSave={(data) => {
+            if (editing) updateList.mutate(data);
+            else createList.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function ListForm({
+  list,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  list: ReadingList | null;
+  saving: boolean;
+  onSave: (data: Partial<ReadingList>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    title: list?.title ?? "",
+    description: list?.description ?? "",
+    grade_level: list?.grade_level ?? "",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.title.trim()) return toast.error("Title required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="mb-1 block text-sm font-medium">Title *</label>
+        <input
+          value={f.title}
+          onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          required
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Grade Level</label>
+        <input
+          value={f.grade_level}
+          onChange={(e) => setF((p) => ({ ...p, grade_level: e.target.value }))}
+          placeholder="e.g. Grade 5, 9-10"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Description</label>
+        <textarea
+          value={f.description}
+          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+          rows={3}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {list ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

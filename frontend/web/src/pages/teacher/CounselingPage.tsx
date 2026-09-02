@@ -244,7 +244,7 @@ function ReferralForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Submit"}
+          {referral ? "Update" : "Submit"}
         </Button>
       </div>
     </form>

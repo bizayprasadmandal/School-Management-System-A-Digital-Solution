@@ -329,7 +329,7 @@ function TransportForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Create"}
+          {assignment ? "Update" : "Create"}
         </Button>
       </div>
     </form>

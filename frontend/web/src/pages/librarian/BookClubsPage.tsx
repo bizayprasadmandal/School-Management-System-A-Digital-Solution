@@ -1,11 +1,28 @@
 /**
  * Librarian Book Clubs Page — manage book clubs
  */
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { EmptyState } from "../../components/common";
-import { UserGroupIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { Button, EmptyState, Modal } from "../../components/common";
+import {
+  UserGroupIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  CalendarDaysIcon,
+} from "@heroicons/react/24/outline";
+
+interface BookClub {
+  id: string;
+  name: string;
+  book_title: string;
+  description: string;
+  meeting_day: string;
+  members: number;
+  status: string;
+}
 
 function BookClubSkeleton() {
   return (
@@ -18,11 +35,42 @@ function BookClubSkeleton() {
 }
 
 export default function BookClubsPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<BookClub | null>(null);
+
   const { data: clubs = [], isLoading } = useQuery({
     queryKey: ["librarian-book-clubs"],
     queryFn: async () => {
-      const r = await api.get<{ results: any[] }>("/library/book-clubs/");
+      const r = await api.get<{ results: BookClub[] }>("/library/book-clubs/");
       return r.results ?? [];
+    },
+  });
+
+  const createClub = useMutation({
+    mutationFn: (data: Partial<BookClub>) => api.post("/library/book-clubs/", data),
+    onSuccess: () => {
+      toast.success("Book club created");
+      qc.invalidateQueries({ queryKey: ["librarian-book-clubs"] });
+      setShowForm(false);
+    },
+  });
+
+  const updateClub = useMutation({
+    mutationFn: (data: Partial<BookClub>) => api.patch(`/library/book-clubs/${editing!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Book club updated");
+      qc.invalidateQueries({ queryKey: ["librarian-book-clubs"] });
+      setShowForm(false);
+      setEditing(null);
+    },
+  });
+
+  const deleteClub = useMutation({
+    mutationFn: (id: string) => api.delete(`/library/book-clubs/${id}/`),
+    onSuccess: () => {
+      toast.success("Book club deleted");
+      qc.invalidateQueries({ queryKey: ["librarian-book-clubs"] });
     },
   });
 
@@ -35,6 +83,15 @@ export default function BookClubsPage() {
             Manage book clubs and reading groups
           </p>
         </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Create Club
+        </Button>
       </div>
 
       {isLoading ? (
@@ -47,20 +104,43 @@ export default function BookClubsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {clubs.map((club: any) => (
+          {clubs.map((club) => (
             <div
               key={club.id}
               className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
             >
-              <h3 className="font-semibold text-slate-900 dark:text-white">{club.name}</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Reading: {club.book_title ?? "—"}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">{club.description ?? "—"}</p>
+              <div className="mb-2 flex items-start justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{club.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Reading: {club.book_title || "—"}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setEditing(club);
+                      setShowForm(true);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this club?")) deleteClub.mutate(club.id);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">{club.description || "—"}</p>
               <div className="mt-3 flex items-center gap-3">
                 <span className="flex items-center gap-1 text-xs text-slate-400">
                   <CalendarDaysIcon className="h-3.5 w-3.5" />
-                  {club.meeting_day ?? "—"}
+                  {club.meeting_day || "—"}
                 </span>
                 <span className="text-xs text-slate-400">{club.members ?? 0} members</span>
                 <span
@@ -79,6 +159,117 @@ export default function BookClubsPage() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Club" : "Create Club"}
+      >
+        <ClubForm
+          club={editing}
+          saving={createClub.isPending || updateClub.isPending}
+          onSave={(data) => {
+            if (editing) updateClub.mutate(data);
+            else createClub.mutate(data);
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function ClubForm({
+  club,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  club: BookClub | null;
+  saving: boolean;
+  onSave: (data: Partial<BookClub>) => void;
+  onCancel: () => void;
+}) {
+  const [f, setF] = useState({
+    name: club?.name ?? "",
+    book_title: club?.book_title ?? "",
+    description: club?.description ?? "",
+    meeting_day: club?.meeting_day ?? "",
+    status: club?.status ?? "upcoming",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.name.trim()) return toast.error("Name required");
+        onSave(f);
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="mb-1 block text-sm font-medium">Club Name *</label>
+        <input
+          value={f.name}
+          onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          required
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Book Title</label>
+        <input
+          value={f.book_title}
+          onChange={(e) => setF((p) => ({ ...p, book_title: e.target.value }))}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Meeting Day</label>
+          <input
+            value={f.meeting_day}
+            onChange={(e) => setF((p) => ({ ...p, meeting_day: e.target.value }))}
+            placeholder="e.g. Wednesday"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Status</label>
+          <select
+            value={f.status}
+            onChange={(e) => setF((p) => ({ ...p, status: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Description</label>
+        <textarea
+          value={f.description}
+          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+          rows={2}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={saving}>
+          {club ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   );
 }

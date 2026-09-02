@@ -240,7 +240,7 @@ function VisitForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Save"}
+          {visit ? "Update" : "Save"}
         </Button>
       </div>
     </form>

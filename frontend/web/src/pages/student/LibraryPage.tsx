@@ -255,7 +255,7 @@ function BookForm({
           Cancel
         </Button>
         <Button type="submit" loading={saving}>
-          {editing ? "Update" : "Create"}
+          {book ? "Update" : "Create"}
         </Button>
       </div>
     </form>
