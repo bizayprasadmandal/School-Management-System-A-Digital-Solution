@@ -10,6 +10,7 @@ import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
+import { InfiniteScroll } from "../../components/common/InfiniteScroll";
 import {
   KeyboardShortcutHelp,
   useShortcutHelp,
@@ -60,6 +61,7 @@ export default function SportsPage() {
   const [search, setSearch] = useState("");
   const [sportFilter, setSportFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<"pagination" | "infinite">("pagination");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Sport | null>(null);
 
@@ -179,6 +181,28 @@ export default function SportsPage() {
           />
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+          <button
+            onClick={() => setViewMode("pagination")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              viewMode === "pagination"
+                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+            }`}
+          >
+            Pages
+          </button>
+          <button
+            onClick={() => setViewMode("infinite")}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              viewMode === "infinite"
+                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+            }`}
+          >
+            Scroll
+          </button>
+        </div>
         <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
