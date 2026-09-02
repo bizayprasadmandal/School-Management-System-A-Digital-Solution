@@ -56,7 +56,10 @@ describe("Teacher AssignmentsPage", () => {
       data: { results: [mockAssessment] },
       isLoading: false,
     });
-    (useCreateAssessment as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
+    (useCreateAssessment as jest.Mock).mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    });
     (useAssignmentSubmissions as jest.Mock).mockReturnValue({
       data: { results: [] },
       isLoading: false,
@@ -90,7 +93,10 @@ describe("Teacher AssignmentsPage", () => {
 
   test("grades a submission with marks and feedback", async () => {
     const grade = jest.fn().mockResolvedValue({});
-    (useGradeSubmission as jest.Mock).mockReturnValue({ mutateAsync: grade, isPending: false });
+    (useGradeSubmission as jest.Mock).mockReturnValue({
+      mutateAsync: grade,
+      isPending: false,
+    });
     (useAssignmentSubmissions as jest.Mock).mockReturnValue({
       data: {
         results: [

@@ -69,7 +69,11 @@ function CheckoutFormModal({
 
   const checkoutMut = useMutation({
     mutationFn: () =>
-      api.post("/library/checkouts/", { book: bookId, student: studentId, due_date: dueDate }),
+      api.post("/library/checkouts/", {
+        book: bookId,
+        student: studentId,
+        due_date: dueDate,
+      }),
     onSuccess: () => {
       toast.success("Book checked out successfully!");
       onSaved();

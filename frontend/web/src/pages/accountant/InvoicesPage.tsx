@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   DocumentTextIcon,
   PlusIcon,
@@ -38,6 +38,7 @@ export default function InvoicesPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
 
@@ -94,6 +95,12 @@ export default function InvoicesPage() {
     },
   });
 
+  const paginatedInvoices = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return invoices.slice(start, start + 12);
+  }, [invoices, page]);
+
+  const totalPages = Math.ceil(invoices.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -123,13 +130,19 @@ export default function InvoicesPage() {
               type="search"
               placeholder="Search invoices..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
           >
             <option value="all">All Status</option>
@@ -222,6 +235,10 @@ export default function InvoicesPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={invoices.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {

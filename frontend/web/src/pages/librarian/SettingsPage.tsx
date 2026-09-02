@@ -43,7 +43,8 @@ export default function LibrarianSettingsPage() {
   });
 
   useEffect(() => {
-    api.get("/library/profile/")
+    api
+      .get("/library/profile/")
       .then((data: any) => {
         setForm({
           library_section: data.library_section || "",
@@ -70,7 +71,9 @@ export default function LibrarianSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your profile and preferences</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Manage your profile and preferences
+        </p>
       </div>
 
       {/* Shared profile section (avatar, personal info, password, notifications, security) */}
@@ -85,7 +88,9 @@ export default function LibrarianSettingsPage() {
           </h2>
         </div>
         {loadingProfile ? (
-          <div className="p-5"><SkeletonCard /></div>
+          <div className="p-5">
+            <SkeletonCard />
+          </div>
         ) : (
           <div className="p-5 space-y-4">
             <Select
@@ -106,7 +111,12 @@ export default function LibrarianSettingsPage() {
               type="number"
               min={0}
               value={String(form.experience_years)}
-              onChange={(e) => setForm((p) => ({ ...p, experience_years: Number(e.target.value) }))}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  experience_years: Number(e.target.value),
+                }))
+              }
             />
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">

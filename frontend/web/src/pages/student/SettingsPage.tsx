@@ -44,8 +44,7 @@ export default function StudentSettingsPage() {
   }, [studentProfile]);
 
   const updateStudentProfile = useMutation({
-    mutationFn: (data: Partial<StudentProfileData>) =>
-      api.patch("/students/me/", data),
+    mutationFn: (data: Partial<StudentProfileData>) => api.patch("/students/me/", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["student-me"] });
       toast.success("Student profile updated!");
@@ -57,7 +56,9 @@ export default function StudentSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your profile and preferences</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Manage your profile and preferences
+        </p>
       </div>
 
       {/* Personal Info & Notifications (shared) */}
@@ -73,7 +74,9 @@ export default function StudentSettingsPage() {
         </div>
 
         {profileLoading ? (
-          <div className="p-5"><SkeletonCard /></div>
+          <div className="p-5">
+            <SkeletonCard />
+          </div>
         ) : (
           <div className="p-5 space-y-4">
             <div>

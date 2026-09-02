@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   ListBulletIcon,
   PlusIcon,
@@ -36,6 +36,7 @@ function ReadingListSkeleton() {
 export default function ReadingListsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ReadingList | null>(null);
 
@@ -87,6 +88,12 @@ export default function ReadingListsPage() {
     },
   });
 
+  const paginatedAllLists = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return allLists.slice(start, start + 12);
+  }, [allLists, page]);
+
+  const totalPages = Math.ceil(allLists.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -115,7 +122,10 @@ export default function ReadingListsPage() {
             type="search"
             placeholder="Search reading lists..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
           />
         </div>
@@ -131,7 +141,7 @@ export default function ReadingListsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {lists.map((list) => (
+          {paginatedAllLists.map((list) => (
             <div
               key={list.id}
               className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -170,6 +180,10 @@ export default function ReadingListsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={lists.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {

@@ -63,9 +63,18 @@ describe("Teacher GradebookPage", () => {
   beforeEach(() => {
     queryClient.clear();
     jest.clearAllMocks();
-    (useCurrentAcademicYear as jest.Mock).mockReturnValue({ data: mockYear, isLoading: false });
-    (useExams as jest.Mock).mockReturnValue({ data: mockExams, isLoading: false });
-    (useClassrooms as jest.Mock).mockReturnValue({ data: mockClassrooms, isLoading: false });
+    (useCurrentAcademicYear as jest.Mock).mockReturnValue({
+      data: mockYear,
+      isLoading: false,
+    });
+    (useExams as jest.Mock).mockReturnValue({
+      data: mockExams,
+      isLoading: false,
+    });
+    (useClassrooms as jest.Mock).mockReturnValue({
+      data: mockClassrooms,
+      isLoading: false,
+    });
     (useSubmitGrades as jest.Mock).mockReturnValue({
       mutateAsync: submitGrades,
       isPending: false,

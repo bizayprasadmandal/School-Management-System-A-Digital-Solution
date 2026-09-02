@@ -108,7 +108,10 @@ describe("Teacher AttendancePage", () => {
     useAuthStore.setState({
       user: makeUser({ role: "teacher", email: "sarah@demo.edusphere.school" }),
     });
-    (useClassrooms as jest.Mock).mockReturnValue({ data: mockClassrooms, isLoading: false });
+    (useClassrooms as jest.Mock).mockReturnValue({
+      data: mockClassrooms,
+      isLoading: false,
+    });
     mockBulkRecord(jest.fn().mockResolvedValue({}));
     (api.get as jest.Mock).mockResolvedValue(mockStudents);
   });
@@ -186,7 +189,9 @@ describe("Teacher AttendancePage", () => {
 
     // Pick yesterday — valid because the input caps at today.
     const pastDate = dayjs().subtract(1, "day").format("YYYY-MM-DD");
-    fireEvent.change(screen.getByLabelText("Date"), { target: { value: pastDate } });
+    fireEvent.change(screen.getByLabelText("Date"), {
+      target: { value: pastDate },
+    });
 
     await user.click(screen.getByRole("button", { name: "Save Attendance" }));
 

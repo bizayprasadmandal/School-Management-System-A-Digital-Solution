@@ -112,7 +112,11 @@ export default function TeacherConferencesPage() {
     onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Failed to delete Zoom meeting"),
   });
 
-  const [newSlot, setNewSlot] = useState({ start_time: "09:00", end_time: "09:30", notes: "" });
+  const [newSlot, setNewSlot] = useState({
+    start_time: "09:00",
+    end_time: "09:30",
+    notes: "",
+  });
 
   return (
     <div className="space-y-6">

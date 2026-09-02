@@ -69,7 +69,10 @@ describe("Teacher LessonPlansPage", () => {
 
     expect(api.post).toHaveBeenCalledWith(
       "/academics/lesson-plans/",
-      expect.objectContaining({ title: "Quadratic Equations", topic: "Solving quadratics" }),
+      expect.objectContaining({
+        title: "Quadratic Equations",
+        topic: "Solving quadratics",
+      }),
     );
     expect(mockToast.success).toHaveBeenCalledWith("Lesson plan created");
   });

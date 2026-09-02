@@ -50,7 +50,9 @@ export default function TeacherGradebookPage() {
   const { data: schedulesData } = useQuery<unknown[]>({
     queryKey: ["exam-schedules", selectedExam, selectedClassroom],
     queryFn: () =>
-      api.get(`/gradebook/exams/${selectedExam}/schedules/`, { classroom_id: selectedClassroom }),
+      api.get(`/gradebook/exams/${selectedExam}/schedules/`, {
+        classroom_id: selectedClassroom,
+      }),
     enabled: !!selectedExam && !!selectedClassroom,
   });
   const schedules = Array.isArray(schedulesData) ? (schedulesData as any[]) : [];
@@ -80,7 +82,10 @@ export default function TeacherGradebookPage() {
   }, [students]);
 
   const setField = useCallback((id: string, field: keyof GradeEntry, value: string | boolean) => {
-    setEntries((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+    setEntries((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
     setSaved(false);
   }, []);
 
@@ -96,7 +101,10 @@ export default function TeacherGradebookPage() {
       remarks: e.remarks,
     }));
     try {
-      const result = await submitGrades.mutateAsync({ exam_schedule_id: selectedSubject, grades });
+      const result = await submitGrades.mutateAsync({
+        exam_schedule_id: selectedSubject,
+        grades,
+      });
       const pending = (result as { pending_approval?: number })?.pending_approval ?? 0;
       setSaved(true);
       setPendingApproval(pending);
@@ -269,9 +277,21 @@ export default function TeacherGradebookPage() {
               value: `${stats.entered}/${stats.total}`,
               color: "text-indigo-600 bg-indigo-50",
             },
-            { label: "Passing", value: stats.passing, color: "text-green-600 bg-green-50" },
-            { label: "Failing", value: stats.failing, color: "text-red-600 bg-red-50" },
-            { label: "Absent", value: stats.absent, color: "text-amber-600 bg-amber-50" },
+            {
+              label: "Passing",
+              value: stats.passing,
+              color: "text-green-600 bg-green-50",
+            },
+            {
+              label: "Failing",
+              value: stats.failing,
+              color: "text-red-600 bg-red-50",
+            },
+            {
+              label: "Absent",
+              value: stats.absent,
+              color: "text-amber-600 bg-amber-50",
+            },
             {
               label: "Avg Score",
               value: `${stats.avgScore.toFixed(1)}/${maxMarks}`,

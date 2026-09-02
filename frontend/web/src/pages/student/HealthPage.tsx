@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   HeartIcon,
   PlusIcon,
@@ -37,6 +37,7 @@ export default function HealthPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<HealthRecord | null>(null);
 
@@ -98,6 +99,12 @@ export default function HealthPage() {
     },
   });
 
+  const paginatedRecords = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return records.slice(start, start + 12);
+  }, [records, page]);
+
+  const totalPages = Math.ceil(records.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -127,14 +134,20 @@ export default function HealthPage() {
               type="search"
               placeholder="Search health records..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
             />
           </div>
           {recordTypes.length > 2 && (
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setPage(1);
+              }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
             >
               {recordTypes.map((t) => (
@@ -172,7 +185,7 @@ export default function HealthPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {records.map((record) => (
+          {paginatedRecords.map((record) => (
             <div
               key={record.id}
               className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -213,6 +226,10 @@ export default function HealthPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={records.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {

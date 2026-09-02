@@ -3,7 +3,12 @@
  * subject breakdown, and report card history
  */
 import React, { useMemo } from "react";
-import { DocumentArrowDownIcon, TrophyIcon, AcademicCapIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import {
+  DocumentArrowDownIcon,
+  TrophyIcon,
+  AcademicCapIcon,
+  ChartBarIcon,
+} from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useReportCards } from "../../api/hooks";
@@ -11,8 +16,15 @@ import { Badge, EmptyState, DataTable, SkeletonCard, ErrorState } from "../../co
 import { percent, gradeBg, gradeColor } from "../../utils";
 import { useTitle } from "../../hooks";
 import { useAuthStore } from "../../store/authStore";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -47,12 +59,22 @@ export default function StudentGradesPage() {
 
   // ── Data fetching ───────────────────────────────────────────────────────
 
-  const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useQuery({
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+    refetch: refetchProfile,
+  } = useQuery({
     queryKey: ["student-me"],
     queryFn: () => api.get<{ id: string }>("/students/me/"),
   });
 
-  const { data: rcData, isLoading: rcLoading, isError: rcError, refetch: refetchRc } = useReportCards(profile?.id ?? "");
+  const {
+    data: rcData,
+    isLoading: rcLoading,
+    isError: rcError,
+    refetch: refetchRc,
+  } = useReportCards(profile?.id ?? "");
   const reportCards = rcData?.results ?? [];
   const latest = reportCards.find((r) => r.status === "published") ?? reportCards[0];
 
@@ -67,7 +89,8 @@ export default function StudentGradesPage() {
   // Subject breakdown
   const { data: gradeSummary, isLoading: gsLoading } = useQuery({
     queryKey: ["student-grade-summary", profile?.id],
-    queryFn: () => api.get<{ grades: GradeSummaryItem[] }>(`/students/${profile!.id}/grade-summary/`),
+    queryFn: () =>
+      api.get<{ grades: GradeSummaryItem[] }>(`/students/${profile!.id}/grade-summary/`),
     enabled: !!profile?.id,
     staleTime: 5 * 60 * 1000,
   });
@@ -83,7 +106,10 @@ export default function StudentGradesPage() {
       return dateA - dateB;
     });
     return sorted.map((rc, idx) => ({
-      name: rc.exam_name?.length > 12 ? rc.exam_name.slice(0, 12) + "…" : rc.exam_name || `Exam ${idx + 1}`,
+      name:
+        rc.exam_name?.length > 12
+          ? rc.exam_name.slice(0, 12) + "…"
+          : rc.exam_name || `Exam ${idx + 1}`,
       percentage: Number(rc.percentage),
       gpa: Number(rc.gpa ?? 0),
       fullName: rc.exam_name,
@@ -103,19 +129,31 @@ export default function StudentGradesPage() {
     });
     return Object.entries(bySubject).map(([subject, data]) => ({
       subject,
-      avg_percentage: Math.round(data.percentages.reduce((a, b) => a + b, 0) / data.percentages.length),
+      avg_percentage: Math.round(
+        data.percentages.reduce((a, b) => a + b, 0) / data.percentages.length,
+      ),
       total_exams: data.count,
       best_score: Math.round(data.best),
     }));
   }, [gradeSummary]);
 
   const downloadPDF = async (url: string, name: string) => {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${tokens?.access}` } });
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${tokens?.access}` },
+    });
     const blob = await res.blob();
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${name}.pdf`; a.click();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name}.pdf`;
+    a.click();
   };
 
-  if (profileLoading || rcLoading) return <div className="p-4"><SkeletonCard /></div>;
+  if (profileLoading || rcLoading)
+    return (
+      <div className="p-4">
+        <SkeletonCard />
+      </div>
+    );
   if (profileError) return <ErrorState onRetry={() => refetchProfile()} />;
   if (rcError) return <ErrorState onRetry={() => refetchRc()} />;
 
@@ -124,7 +162,9 @@ export default function StudentGradesPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Grades</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Exam results, GPA, and performance trends</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Exam results, GPA, and performance trends
+        </p>
       </div>
 
       {/* Hero card — Latest result + GPA */}
@@ -186,13 +226,19 @@ export default function StudentGradesPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Total Exams</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{reportCards.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+            {reportCards.length}
+          </p>
         </div>
         <div className="rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Average Score</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
             {reportCards.length > 0
-              ? percent(Math.round(reportCards.reduce((s, r) => s + Number(r.percentage), 0) / reportCards.length))
+              ? percent(
+                  Math.round(
+                    reportCards.reduce((s, r) => s + Number(r.percentage), 0) / reportCards.length,
+                  ),
+                )
               : "—"}
           </p>
         </div>
@@ -231,7 +277,13 @@ export default function StudentGradesPage() {
                 <LineChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    unit="%"
+                  />
                   <Tooltip
                     formatter={(value: number) => [`${value.toFixed(1)}%`, "Score"]}
                     labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName ?? label}
@@ -242,7 +294,12 @@ export default function StudentGradesPage() {
                     stroke="#6366f1"
                     strokeWidth={2}
                     dot={{ fill: "#6366f1", r: 4, strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
+                    activeDot={{
+                      r: 6,
+                      fill: "#6366f1",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -254,11 +311,20 @@ export default function StudentGradesPage() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
             <AcademicCapIcon className="h-4 w-4 text-indigo-500" />
-            <h2 className="text-base font-semibold text-slate-800 dark:text-white">Subject Performance</h2>
+            <h2 className="text-base font-semibold text-slate-800 dark:text-white">
+              Subject Performance
+            </h2>
           </div>
           <div className="p-5">
             {gsLoading ? (
-              <div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-12 bg-slate-100 dark:bg-slate-700 rounded-lg animate-pulse" />)}</div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-12 bg-slate-100 dark:bg-slate-700 rounded-lg animate-pulse"
+                  />
+                ))}
+              </div>
             ) : subjectData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-500">
                 <AcademicCapIcon className="h-10 w-10 mb-2 opacity-30" />
@@ -269,20 +335,30 @@ export default function StudentGradesPage() {
                 {subjectData.map((s) => (
                   <div key={s.subject}>
                     <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{s.subject}</span>
-                      <span className={`font-semibold ${gradeColor(String(s.avg_percentage))}`}>{percent(s.avg_percentage)}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                        {s.subject}
+                      </span>
+                      <span className={`font-semibold ${gradeColor(String(s.avg_percentage))}`}>
+                        {percent(s.avg_percentage)}
+                      </span>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${s.avg_percentage}%`,
-                          backgroundColor: s.avg_percentage >= 75 ? "#22c55e" : s.avg_percentage >= 50 ? "#f59e0b" : "#ef4444",
+                          backgroundColor:
+                            s.avg_percentage >= 75
+                              ? "#22c55e"
+                              : s.avg_percentage >= 50
+                                ? "#f59e0b"
+                                : "#ef4444",
                         }}
                       />
                     </div>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      {s.total_exams} exam{s.total_exams !== 1 ? "s" : ""} · Best: {percent(s.best_score)}
+                      {s.total_exams} exam{s.total_exams !== 1 ? "s" : ""} · Best:{" "}
+                      {percent(s.best_score)}
                     </p>
                   </div>
                 ))}
@@ -295,7 +371,9 @@ export default function StudentGradesPage() {
       {/* All Report Cards table */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-white">All Report Cards</h2>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-white">
+            All Report Cards
+          </h2>
           <Badge color="indigo">{reportCards.length} total</Badge>
         </div>
         {reportCards.length === 0 ? (
@@ -315,7 +393,11 @@ export default function StudentGradesPage() {
                 key: "percentage",
                 header: "Score",
                 render: (r) => (
-                  <span className={`font-semibold text-xs px-2 py-1 rounded-full ${gradeBg(Number(r.percentage))}`}>
+                  <span
+                    className={`font-semibold text-xs px-2 py-1 rounded-full ${gradeBg(
+                      Number(r.percentage),
+                    )}`}
+                  >
                     {percent(Number(r.percentage))}
                   </span>
                 ),

@@ -33,7 +33,13 @@ jest.mock("../../api/hooks", () => ({
 const mockClassrooms = {
   count: 1,
   results: [
-    { id: 1, name: "5A", grade_name: "Grade 5", teacher_name: "Sarah Mitchell", student_count: 28 },
+    {
+      id: 1,
+      name: "5A",
+      grade_name: "Grade 5",
+      teacher_name: "Sarah Mitchell",
+      student_count: 28,
+    },
   ],
 };
 
@@ -57,7 +63,10 @@ const mockConference = {
 
 const mockThread = {
   partner: { id: "p1", name: "Jane Smith" },
-  last_message: { content: "Is the homework due Friday?", sent_at: "2024-06-09T10:00:00Z" },
+  last_message: {
+    content: "Is the homework due Friday?",
+    sent_at: "2024-06-09T10:00:00Z",
+  },
   unread_count: 2,
 };
 
@@ -68,15 +77,23 @@ describe("Teacher Dashboard", () => {
     useAuthStore.setState({
       user: makeUser({ role: "teacher", email: "sarah@demo.edusphere.school" }),
     });
-    (useClassrooms as jest.Mock).mockReturnValue({ data: mockClassrooms, isLoading: false });
-    (useCurrentAcademicYear as jest.Mock).mockReturnValue({ data: { id: 1, name: "2026-27" } });
+    (useClassrooms as jest.Mock).mockReturnValue({
+      data: mockClassrooms,
+      isLoading: false,
+    });
+    (useCurrentAcademicYear as jest.Mock).mockReturnValue({
+      data: { id: 1, name: "2026-27" },
+    });
 
     // Default: everything empty so empty states render.
     const get = api.get as jest.Mock;
     get.mockImplementation((url: string) => {
       if (url.includes("teacher-schedule")) return Promise.resolve([]);
       if (url.includes("classroom-summary"))
-        return Promise.resolve({ total_students: 0, breakdown: { present: 0, absent: 0 } });
+        return Promise.resolve({
+          total_students: 0,
+          breakdown: { present: 0, absent: 0 },
+        });
       if (url.includes("gradebook/assessments")) return Promise.resolve({ results: [] });
       if (url.includes("gradebook/submissions")) return Promise.resolve({ results: [] });
       if (url.includes("conference-slots")) return Promise.resolve({ results: [] });
@@ -114,7 +131,9 @@ describe("Teacher Dashboard", () => {
         return Promise.resolve({ results: [mockAssessment] });
       if (url.includes("gradebook/submissions")) {
         // One ungraded + one graded submission → 1 pending
-        return Promise.resolve({ results: [{ marks_obtained: null }, { marks_obtained: 8 }] });
+        return Promise.resolve({
+          results: [{ marks_obtained: null }, { marks_obtained: 8 }],
+        });
       }
       if (url.includes("teacher-schedule")) return Promise.resolve([]);
       if (url.includes("messages/inbox")) return Promise.resolve([]);

@@ -164,7 +164,11 @@ export default function TeacherAttendancePage() {
       remarks,
     }));
     try {
-      await mutate.mutateAsync({ classroom_id: selectedClassroom, date: selectedDate, records });
+      await mutate.mutateAsync({
+        classroom_id: selectedClassroom,
+        date: selectedDate,
+        records,
+      });
       setSubmitted(true);
       toast.success(`Attendance recorded for ${records.length} students`);
     } catch {

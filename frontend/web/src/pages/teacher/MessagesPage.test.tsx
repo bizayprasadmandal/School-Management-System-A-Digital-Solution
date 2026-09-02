@@ -26,12 +26,18 @@ jest.mock("../../api/client", () => ({
 const mockThreads = [
   {
     partner: { id: "p1", name: "Jane Smith" },
-    last_message: { content: "Is the homework due Friday?", sent_at: "2024-06-09T10:00:00Z" },
+    last_message: {
+      content: "Is the homework due Friday?",
+      sent_at: "2024-06-09T10:00:00Z",
+    },
     unread_count: 2,
   },
   {
     partner: { id: "p2", name: "Mr. Patel" },
-    last_message: { content: "Thanks for the update.", sent_at: "2024-06-08T09:00:00Z" },
+    last_message: {
+      content: "Thanks for the update.",
+      sent_at: "2024-06-08T09:00:00Z",
+    },
     unread_count: 0,
   },
 ];

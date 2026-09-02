@@ -24,7 +24,11 @@ interface DashboardStats {
 }
 
 interface FeeForecast {
-  forecast_90d: { window_start: string; expected: number; already_paid: number }[];
+  forecast_90d: {
+    window_start: string;
+    expected: number;
+    already_paid: number;
+  }[];
   history_3m: { month: string; collected: number }[];
 }
 

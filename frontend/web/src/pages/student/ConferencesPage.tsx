@@ -6,9 +6,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import {
-  CalendarDaysIcon, VideoCameraIcon,
-} from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, VideoCameraIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import { Button, EmptyState, Badge } from "../../components/common";
 
@@ -57,7 +55,7 @@ export default function StudentConferencesPage() {
         <input
           type="date"
           value={date}
-          onChange={e => setDate(e.target.value)}
+          onChange={(e) => setDate(e.target.value)}
           className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-slate-200"
         />
         <span className="text-sm text-slate-500 dark:text-slate-400">
@@ -67,7 +65,7 @@ export default function StudentConferencesPage() {
 
       {isLoading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
           ))}
         </div>
@@ -75,11 +73,11 @@ export default function StudentConferencesPage() {
         <EmptyState
           icon={CalendarDaysIcon}
           title="No conferences booked"
-          description="You don&apos;t have any parent-teacher conferences scheduled for this date."
+          description="You don't have any parent-teacher conferences scheduled for this date."
         />
       ) : (
         <div className="space-y-2">
-          {slots.map(slot => (
+          {slots.map((slot) => (
             <div
               key={slot.id}
               className="bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-800 p-4 transition-shadow hover:shadow-sm"
@@ -88,15 +86,23 @@ export default function StudentConferencesPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-center w-16">
-                    <span className="text-lg font-bold text-slate-900 dark:text-white">{slot.start_time}</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white">
+                      {slot.start_time}
+                    </span>
                     <span className="text-xs text-slate-400">—{slot.end_time}</span>
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-white">{slot.teacher_name}</p>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                      {slot.teacher_name}
+                    </p>
                     {slot.notes && <p className="text-xs text-slate-400 mt-0.5">{slot.notes}</p>}
                     {/* Zoom status badge */}
                     {slot.is_zoom_created && (
-                      <div className="mt-1"><Badge color="green" dot>Zoom meeting ready</Badge></div>
+                      <div className="mt-1">
+                        <Badge color="green" dot>
+                          Zoom meeting ready
+                        </Badge>
+                      </div>
                     )}
                   </div>
                 </div>

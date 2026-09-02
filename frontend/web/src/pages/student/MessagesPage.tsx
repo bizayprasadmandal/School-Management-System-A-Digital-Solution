@@ -79,7 +79,10 @@ export default function StudentMessagesPage() {
 
   const sendMsg = useMutation({
     mutationFn: (content: string) =>
-      api.post("/communication/messages/", { recipient: activeThread, content }),
+      api.post("/communication/messages/", {
+        recipient: activeThread,
+        content,
+      }),
     onSuccess: () => {
       setMsgText("");
       qc.invalidateQueries({ queryKey: ["student-thread", activeThread] });

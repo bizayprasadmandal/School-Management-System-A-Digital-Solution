@@ -131,7 +131,9 @@ export default function TeacherDashboard() {
   } = useQuery({
     queryKey: ["teacher-today-slots", user?.id, academicYear?.id],
     queryFn: () =>
-      api.get<any>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
+      api.get<any>("/timetable/slots/teacher-schedule/", {
+        academic_year_id: academicYear?.id,
+      }),
     enabled: !!user && !!academicYear,
   });
 
@@ -158,7 +160,10 @@ export default function TeacherDashboard() {
       const results = await Promise.allSettled(
         classrooms.map((c) =>
           api
-            .get<any>("/attendance/classroom-summary/", { classroom_id: c.id, date: todayStr })
+            .get<any>("/attendance/classroom-summary/", {
+              classroom_id: c.id,
+              date: todayStr,
+            })
             .then((d) => ({ ...d, classroom: c })),
         ),
       );
@@ -202,7 +207,10 @@ export default function TeacherDashboard() {
       pendingCounts.forEach((r) => {
         if (r.status === "fulfilled") countMap[r.value.id] = r.value.pending;
       });
-      return assessments.map((a) => ({ ...a, pending_count: countMap[a.id] ?? 0 }));
+      return assessments.map((a) => ({
+        ...a,
+        pending_count: countMap[a.id] ?? 0,
+      }));
     },
     enabled: !!user,
     staleTime: 30_000,

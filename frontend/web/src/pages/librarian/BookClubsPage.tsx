@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   UserGroupIcon,
   PlusIcon,
@@ -38,6 +38,7 @@ function BookClubSkeleton() {
 export default function BookClubsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<BookClub | null>(null);
 
@@ -88,6 +89,12 @@ export default function BookClubsPage() {
     },
   });
 
+  const paginatedAllClubs = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return allClubs.slice(start, start + 12);
+  }, [allClubs, page]);
+
+  const totalPages = Math.ceil(allClubs.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -116,7 +123,10 @@ export default function BookClubsPage() {
             type="search"
             placeholder="Search book clubs..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
           />
         </div>
@@ -132,7 +142,7 @@ export default function BookClubsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {clubs.map((club) => (
+          {paginatedAllClubs.map((club) => (
             <div
               key={club.id}
               className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -188,6 +198,10 @@ export default function BookClubsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={clubs.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {

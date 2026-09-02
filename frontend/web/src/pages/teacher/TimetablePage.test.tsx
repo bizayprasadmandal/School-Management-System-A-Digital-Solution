@@ -53,7 +53,9 @@ describe("Teacher TimetablePage", () => {
     queryClient.clear();
     jest.clearAllMocks();
     useAuthStore.setState({ user: makeUser({ role: "teacher" }) });
-    (useCurrentAcademicYear as jest.Mock).mockReturnValue({ data: { id: 1, name: "2026-27" } });
+    (useCurrentAcademicYear as jest.Mock).mockReturnValue({
+      data: { id: 1, name: "2026-27" },
+    });
     (api.get as jest.Mock).mockResolvedValue(mockSlots);
   });
 

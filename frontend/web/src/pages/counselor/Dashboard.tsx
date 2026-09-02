@@ -6,8 +6,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  CalendarDaysIcon, UserGroupIcon, ExclamationTriangleIcon,
-  MegaphoneIcon, ChevronRightIcon, CheckCircleIcon, ClockIcon,
+  CalendarDaysIcon,
+  UserGroupIcon,
+  ExclamationTriangleIcon,
+  MegaphoneIcon,
+  ChevronRightIcon,
+  CheckCircleIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthStore } from "../../store/authStore";
 import { SkeletonDashboard, ErrorState } from "../../components/common";
@@ -84,7 +89,9 @@ export default function CounselorDashboard() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
               <UserGroupIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Referrals</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Pending Referrals
+            </p>
           </div>
           <p className="text-3xl font-bold text-slate-900 dark:text-white">
             {stats?.pending_referrals ?? 0}
@@ -101,16 +108,28 @@ export default function CounselorDashboard() {
       {/* Secondary metrics row — lighter stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border border-slate-100 dark:border-slate-700">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Appointments</p>
-          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{stats?.total_appointments ?? 0}</p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Total Appointments
+          </p>
+          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
+            {stats?.total_appointments ?? 0}
+          </p>
         </div>
         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border border-slate-100 dark:border-slate-700">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Referrals</p>
-          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{stats?.total_referrals ?? 0}</p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Total Referrals
+          </p>
+          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
+            {stats?.total_referrals ?? 0}
+          </p>
         </div>
         <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border border-slate-100 dark:border-slate-700">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Referrals Resolved</p>
-          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{stats?.referrals_resolved ?? 0}</p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Referrals Resolved
+          </p>
+          <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
+            {stats?.referrals_resolved ?? 0}
+          </p>
         </div>
       </div>
 

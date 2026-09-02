@@ -52,8 +52,14 @@ describe("Student Dashboard", () => {
       data: { results: [{ id: "n1", title: "T", body: "B", read_at: null }] },
       isLoading: false,
     });
-    (useStudentInvoices as jest.Mock).mockReturnValue({ data: { results: [] }, isLoading: false });
-    (useSchoolEvents as jest.Mock).mockReturnValue({ data: { results: [] }, isLoading: false });
+    (useStudentInvoices as jest.Mock).mockReturnValue({
+      data: { results: [] },
+      isLoading: false,
+    });
+    (useSchoolEvents as jest.Mock).mockReturnValue({
+      data: { results: [] },
+      isLoading: false,
+    });
     (useStudentAssessments as jest.Mock).mockReturnValue({
       data: { results: [] },
       isLoading: false,

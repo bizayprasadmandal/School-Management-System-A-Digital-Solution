@@ -73,7 +73,10 @@ describe("Teacher SettingsPage", () => {
 
     expect(api.patch).toHaveBeenCalledWith(
       "/academics/teacher-profiles/me/",
-      expect.objectContaining({ specialization: "Physics", experience_years: 5 }),
+      expect.objectContaining({
+        specialization: "Physics",
+        experience_years: 5,
+      }),
     );
     expect(mockToast.success).toHaveBeenCalledWith("Teacher profile updated!");
   });

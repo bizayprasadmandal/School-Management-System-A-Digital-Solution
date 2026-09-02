@@ -25,7 +25,9 @@ export default function TeacherTimetablePage() {
   const { data: scheduleData, isLoading } = useQuery({
     queryKey: ["teacher-schedule", user?.id, academicYear?.id],
     queryFn: () =>
-      api.get<any>("/timetable/slots/teacher-schedule/", { academic_year_id: academicYear?.id }),
+      api.get<any>("/timetable/slots/teacher-schedule/", {
+        academic_year_id: academicYear?.id,
+      }),
     enabled: !!academicYear?.id,
   });
 

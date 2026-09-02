@@ -24,7 +24,8 @@ export default function AccountantSettingsPage() {
   });
 
   useEffect(() => {
-    api.get("/hr/profile/")
+    api
+      .get("/hr/profile/")
       .then((data: any) => {
         setForm({
           qualification: data.qualification || "",
@@ -51,7 +52,9 @@ export default function AccountantSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your profile and preferences</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Manage your profile and preferences
+        </p>
       </div>
 
       {/* Shared profile section (avatar, personal info, password, notifications, security) */}
@@ -66,7 +69,9 @@ export default function AccountantSettingsPage() {
           </h2>
         </div>
         {loadingProfile ? (
-          <div className="p-5"><SkeletonCard /></div>
+          <div className="p-5">
+            <SkeletonCard />
+          </div>
         ) : (
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -88,7 +93,12 @@ export default function AccountantSettingsPage() {
               type="number"
               min={0}
               value={String(form.experience_years)}
-              onChange={(e) => setForm((p) => ({ ...p, experience_years: Number(e.target.value) }))}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  experience_years: Number(e.target.value),
+                }))
+              }
             />
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">

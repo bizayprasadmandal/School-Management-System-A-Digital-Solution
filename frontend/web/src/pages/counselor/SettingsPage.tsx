@@ -47,8 +47,7 @@ export default function CounselorSettingsPage() {
   }, [counselorProfile]);
 
   const updateCounselorProfile = useMutation({
-    mutationFn: (data: Partial<CounselorProfileData>) =>
-      api.patch("/counseling/profile/", data),
+    mutationFn: (data: Partial<CounselorProfileData>) => api.patch("/counseling/profile/", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["counselor-profile"] });
       toast.success("Counselor profile updated!");
@@ -60,7 +59,9 @@ export default function CounselorSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your profile and preferences</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Manage your profile and preferences
+        </p>
       </div>
 
       {/* Personal Info & Notifications (shared) */}
@@ -76,7 +77,9 @@ export default function CounselorSettingsPage() {
         </div>
 
         {profileLoading ? (
-          <div className="p-5"><SkeletonCard /></div>
+          <div className="p-5">
+            <SkeletonCard />
+          </div>
         ) : (
           <div className="p-5 space-y-4">
             <div>

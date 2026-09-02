@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import { ChartBarIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface BudgetItem {
@@ -31,6 +31,7 @@ function BudgetSkeleton() {
 export default function BudgetPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<BudgetItem | null>(null);
 
@@ -85,6 +86,12 @@ export default function BudgetPage() {
   const totalAllocated = budgets.reduce((sum, b) => sum + (b.allocated ?? 0), 0);
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent ?? 0), 0);
 
+  const paginatedAllBudgets = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return allBudgets.slice(start, start + 12);
+  }, [allBudgets, page]);
+
+  const totalPages = Math.ceil(allBudgets.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,6 +204,10 @@ export default function BudgetPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={budgets.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {

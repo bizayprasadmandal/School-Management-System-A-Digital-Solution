@@ -43,10 +43,7 @@ export default function StudentFeesPage() {
     .filter((i) => ["unpaid", "overdue", "partial"].includes(i.status))
     .reduce((s, i) => s + Number(i.outstanding_amount), 0);
 
-  const totalPaid = invoices.reduce(
-    (s, i) => s + Number(i.paid_amount),
-    0,
-  );
+  const totalPaid = invoices.reduce((s, i) => s + Number(i.paid_amount), 0);
 
   if (isLoading) {
     return (
@@ -65,10 +62,7 @@ export default function StudentFeesPage() {
   if (isError) {
     return (
       <div className="p-4">
-        <ErrorState
-          title="Failed to load fee data"
-          onRetry={() => refetch()}
-        />
+        <ErrorState title="Failed to load fee data" onRetry={() => refetch()} />
       </div>
     );
   }
@@ -78,9 +72,7 @@ export default function StudentFeesPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">My Fees</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Payment history and outstanding balances
-        </p>
+        <p className="text-sm text-slate-500 mt-1">Payment history and outstanding balances</p>
       </div>
 
       {/* Summary cards */}
@@ -96,10 +88,7 @@ export default function StudentFeesPage() {
             label: "Outstanding",
             value: npr(totalDue),
             icon: ClockIcon,
-            color:
-              totalDue > 0
-                ? "text-red-600 bg-red-50"
-                : "text-slate-500 bg-slate-50",
+            color: totalDue > 0 ? "text-red-600 bg-red-50" : "text-slate-500 bg-slate-50",
           },
           {
             label: "Invoices",
@@ -120,9 +109,7 @@ export default function StudentFeesPage() {
               <Icon className={`h-5 w-5 ${color.split(" ")[0]}`} />
             </div>
             <div>
-              <p className={`text-xl font-bold ${color.split(" ")[0]}`}>
-                {value}
-              </p>
+              <p className={`text-xl font-bold ${color.split(" ")[0]}`}>{value}</p>
               <p className="text-xs text-slate-500">{label}</p>
             </div>
           </div>
@@ -133,16 +120,12 @@ export default function StudentFeesPage() {
       {totalDue > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-amber-800">
-              Outstanding Balance
-            </p>
+            <p className="text-sm font-semibold text-amber-800">Outstanding Balance</p>
             <p className="text-xs text-amber-600 mt-0.5">
               Please pay {npr(totalDue)} to avoid late penalties.
             </p>
           </div>
-          <span className="text-lg font-bold text-amber-800">
-            {npr(totalDue)}
-          </span>
+          <span className="text-lg font-bold text-amber-800">{npr(totalDue)}</span>
         </div>
       )}
 
@@ -165,56 +148,37 @@ export default function StudentFeesPage() {
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50">
                 <tr>
-                  {[
-                    "Invoice #",
-                    "Due Date",
-                    "Total",
-                    "Paid",
-                    "Outstanding",
-                    "Status",
-                    "",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {["Invoice #", "Due Date", "Total", "Paid", "Outstanding", "Status", ""].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 bg-white">
                 {invoices.map((inv: FeeInvoice) => {
-                  const isOverdue =
-                    dayjs(inv.due_date).isBefore(dayjs()) &&
-                    inv.status !== "paid";
-                  const canPay = ["unpaid", "overdue", "partial"].includes(
-                    inv.status,
-                  );
+                  const isOverdue = dayjs(inv.due_date).isBefore(dayjs()) && inv.status !== "paid";
+                  const canPay = ["unpaid", "overdue", "partial"].includes(inv.status);
                   const s = FEE_STATUS[inv.status];
                   return (
-                    <tr
-                      key={inv.id}
-                      className="hover:bg-slate-50/60 transition-colors"
-                    >
+                    <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-4 py-3 text-sm font-mono text-slate-700">
                         {inv.invoice_number}
                       </td>
                       <td
                         className={`px-4 py-3 text-sm ${
-                          isOverdue
-                            ? "text-red-600 font-medium"
-                            : "text-slate-600"
+                          isOverdue ? "text-red-600 font-medium" : "text-slate-600"
                         }`}
                       >
                         {fmt.date(inv.due_date)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">
-                        {npr(inv.total_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-green-600">
-                        {npr(inv.paid_amount)}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{npr(inv.total_amount)}</td>
+                      <td className="px-4 py-3 text-sm text-green-600">{npr(inv.paid_amount)}</td>
                       <td className="px-4 py-3 text-sm">
                         {Number(inv.outstanding_amount) > 0 ? (
                           <span className="text-red-600 font-semibold">
@@ -225,9 +189,7 @@ export default function StudentFeesPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <Badge color={s?.color ?? "slate"}>
-                          {s?.label ?? inv.status}
-                        </Badge>
+                        <Badge color={s?.color ?? "slate"}>{s?.label ?? inv.status}</Badge>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {canPay ? (

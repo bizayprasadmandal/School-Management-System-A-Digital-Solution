@@ -1,9 +1,7 @@
 /** Librarian Dashboard — library stats, recent additions, overdue counts */
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  BookOpenIcon, MegaphoneIcon, ChevronRightIcon,
-} from "@heroicons/react/24/outline";
+import { BookOpenIcon, MegaphoneIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/authStore";
@@ -24,7 +22,13 @@ export default function LibrarianDashboard() {
   const { user } = useAuthStore();
   const today = dayjs().format("dddd, MMMM D YYYY");
 
-  const { data: stats, isLoading, isError, error, refetch } = useQuery<DashboardStats>({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<DashboardStats>({
     queryKey: ["librarian-dashboard"],
     queryFn: () => api.get("/reporting/dashboard-stats/"),
   });
@@ -45,27 +49,38 @@ export default function LibrarianDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Students</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{stats?.total_students?.toLocaleString() ?? "—"}</p>
+          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">
+            {stats?.total_students?.toLocaleString() ?? "—"}
+          </p>
         </div>
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Today&apos;s Attendance</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            Today&apos;s Attendance
+          </p>
           <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">
             {stats ? `${stats.attendance_today_pct.toFixed(1)}%` : "—"}
           </p>
         </div>
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Teachers</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{stats?.total_teachers?.toLocaleString() ?? "—"}</p>
+          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">
+            {stats?.total_teachers?.toLocaleString() ?? "—"}
+          </p>
         </div>
         <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Classrooms</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">{stats?.total_classrooms?.toLocaleString() ?? "—"}</p>
+          <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-white">
+            {stats?.total_classrooms?.toLocaleString() ?? "—"}
+          </p>
         </div>
       </div>
 
       {/* Quick action cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <button onClick={() => navigate("/librarian/library")} className="rounded-xl bg-teal-50 dark:bg-teal-900/20 p-5 border border-teal-200 dark:border-teal-800 text-left hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors group cursor-pointer">
+        <button
+          onClick={() => navigate("/librarian/library")}
+          className="rounded-xl bg-teal-50 dark:bg-teal-900/20 p-5 border border-teal-200 dark:border-teal-800 text-left hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors group cursor-pointer"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500">
               <BookOpenIcon className="h-5 w-5 text-white" />
@@ -77,7 +92,10 @@ export default function LibrarianDashboard() {
             <ChevronRightIcon className="h-5 w-5 text-teal-400 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </button>
-        <button onClick={() => navigate("/librarian/announcements")} className="rounded-xl bg-sky-50 dark:bg-sky-900/20 p-5 border border-sky-200 dark:border-sky-800 text-left hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors group cursor-pointer">
+        <button
+          onClick={() => navigate("/librarian/announcements")}
+          className="rounded-xl bg-sky-50 dark:bg-sky-900/20 p-5 border border-sky-200 dark:border-sky-800 text-left hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors group cursor-pointer"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500">
               <MegaphoneIcon className="h-5 w-5 text-white" />

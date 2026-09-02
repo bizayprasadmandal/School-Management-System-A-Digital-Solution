@@ -70,7 +70,9 @@ export default function TeacherSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your profile and preferences</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Manage your profile and preferences
+        </p>
       </div>
 
       {/* Personal Info & Notifications (shared) */}
@@ -86,7 +88,9 @@ export default function TeacherSettingsPage() {
         </div>
 
         {profileLoading ? (
-          <div className="p-5"><SkeletonCard /></div>
+          <div className="p-5">
+            <SkeletonCard />
+          </div>
         ) : (
           <div className="p-5 space-y-4">
             <Select
@@ -112,7 +116,12 @@ export default function TeacherSettingsPage() {
               type="number"
               min={0}
               value={form.experience_years}
-              onChange={(e) => setForm((p) => ({ ...p, experience_years: parseInt(e.target.value) || 0 }))}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  experience_years: parseInt(e.target.value) || 0,
+                }))
+              }
             />
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">

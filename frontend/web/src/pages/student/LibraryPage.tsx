@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
-import { Button, EmptyState, Modal } from "../../components/common";
+import { Button, EmptyState, Modal, Pagination } from "../../components/common";
 import {
   BookOpenIcon,
   BanknotesIcon,
@@ -38,6 +38,7 @@ export default function LibraryPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
 
@@ -94,6 +95,12 @@ export default function LibraryPage() {
     },
   });
 
+  const paginatedBooks = React.useMemo(() => {
+    const start = (page - 1) * 12;
+    return books.slice(start, start + 12);
+  }, [books, page]);
+
+  const totalPages = Math.ceil(books.length / 12);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -124,7 +131,7 @@ export default function LibraryPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {books.map((book) => (
+          {paginatedBooks.map((book) => (
             <div
               key={book.id}
               className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
@@ -169,6 +176,10 @@ export default function LibraryPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination page={page} total={books.length} pageSize={12} onChange={setPage} />
+      )}
       <Modal
         open={showForm}
         onClose={() => {
