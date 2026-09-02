@@ -30,16 +30,30 @@ function BudgetSkeleton() {
 
 export default function BudgetPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<BudgetItem | null>(null);
 
-  const { data: budgets = [], isLoading } = useQuery({
+  const { data: allBudgets = [], isLoading } = useQuery({
     queryKey: ["accountant-budgets"],
     queryFn: async () => {
       const r = await api.get<{ results: BudgetItem[] }>("/fees/budgets/");
       return r.results ?? [];
     },
   });
+
+  const budgets = React.useMemo(() => {
+    if (!search.trim()) return allBudgets;
+    const q = search.toLowerCase();
+    return allBudgets.filter(
+      (b) =>
+        (b as any).name?.toLowerCase().includes(q) ||
+        (b as any).title?.toLowerCase().includes(q) ||
+        b.department?.toLowerCase().includes(q) ||
+        (b as any).category?.toLowerCase().includes(q) ||
+        (b as any).description?.toLowerCase().includes(q),
+    );
+  }, [allBudgets, search]);
 
   const createBudget = useMutation({
     mutationFn: (data: Partial<BudgetItem>) => api.post("/fees/budgets/", data),

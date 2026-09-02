@@ -36,16 +36,36 @@ function LibrarySkeleton() {
 
 export default function LibraryPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
 
-  const { data: books = [], isLoading } = useQuery({
+  const { data: allBooks = [], isLoading } = useQuery({
     queryKey: ["student-library-books"],
     queryFn: async () => {
       const r = await api.get<{ results: Book[] }>("/library/books/");
       return r.results ?? [];
     },
   });
+
+  const books = React.useMemo(() => {
+    let items = allBooks;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (b) =>
+          (b as any).title?.toLowerCase().includes(q) ||
+          (b as any).author?.toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter !== "all") {
+      items = items.filter(
+        (b) => (b as any).status === statusFilter || (b as any).availability === statusFilter,
+      );
+    }
+    return items;
+  }, [allBooks, search, statusFilter]);
 
   const createBook = useMutation({
     mutationFn: (data: Partial<Book>) => api.post("/library/books/", data),

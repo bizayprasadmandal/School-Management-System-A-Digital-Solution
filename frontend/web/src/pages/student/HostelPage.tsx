@@ -6,7 +6,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { Button, EmptyState, Modal } from "../../components/common";
-import { HomeIcon, PlusIcon, PencilIcon, TrashIcon, UsersIcon } from "@heroicons/react/24/outline";
+import {
+  HomeIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  UsersIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 interface RoomAssignment {
   id: string;
@@ -31,6 +38,7 @@ function HostelSkeleton() {
 
 export default function HostelPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<RoomAssignment | null>(null);
 
@@ -90,6 +98,20 @@ export default function HostelPage() {
           <PlusIcon className="mr-1.5 h-4 w-4" />
           {assignment ? "Edit" : "Add"} Assignment
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search rooms by number, block, or floor..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
+          />
+        </div>
       </div>
 
       {isLoading ? (

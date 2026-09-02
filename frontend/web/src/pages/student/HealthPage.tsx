@@ -6,7 +6,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { Button, EmptyState, Modal } from "../../components/common";
-import { HeartIcon, PlusIcon, PencilIcon, TrashIcon, ClockIcon } from "@heroicons/react/24/outline";
+import {
+  HeartIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  ClockIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 interface HealthRecord {
   id: string;
@@ -28,16 +35,40 @@ function HealthSkeleton() {
 
 export default function HealthPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<HealthRecord | null>(null);
 
-  const { data: records = [], isLoading } = useQuery({
+  const { data: allRecords = [], isLoading } = useQuery({
     queryKey: ["student-health-records"],
     queryFn: async () => {
       const r = await api.get<{ results: HealthRecord[] }>("/health-clinic/health-records/");
       return r.results ?? [];
     },
   });
+
+  const records = React.useMemo(() => {
+    let items = allRecords;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (r) =>
+          r.record_type?.toLowerCase().includes(q) ||
+          r.description?.toLowerCase().includes(q) ||
+          r.notes?.toLowerCase().includes(q),
+      );
+    }
+    if (typeFilter !== "all") {
+      items = items.filter((r) => r.record_type?.toLowerCase() === typeFilter);
+    }
+    return items;
+  }, [allRecords, search, typeFilter]);
+
+  const recordTypes = React.useMemo(() => {
+    const types = new Set(allRecords.map((r) => r.record_type).filter(Boolean));
+    return ["all", ...Array.from(types)];
+  }, [allRecords]);
 
   const createRecord = useMutation({
     mutationFn: (data: Partial<HealthRecord>) => api.post("/health-clinic/health-records/", data),
@@ -87,13 +118,57 @@ export default function HealthPage() {
         </Button>
       </div>
 
+      {/* Search + Filters */}
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 space-y-3">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Search health records..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
+            />
+          </div>
+          {recordTypes.length > 2 && (
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+            >
+              {recordTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t === "all" ? "All Types" : t}
+                </option>
+              ))}
+            </select>
+          )}
+          {(search || typeFilter !== "all") && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setTypeFilter("all");
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       {isLoading ? (
         <HealthSkeleton />
       ) : records.length === 0 ? (
         <EmptyState
           icon={HeartIcon}
           title="No health records"
-          description="Your health records will appear here once added by the school nurse."
+          description={
+            search || typeFilter !== "all"
+              ? "No records match your search. Try adjusting your filters."
+              : "Your health records will appear here once added by the school nurse."
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -6,7 +6,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { Button, EmptyState, Modal } from "../../components/common";
-import { HeartIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  HeartIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 interface SELProgram {
   id: string;
@@ -29,16 +35,28 @@ function SELSkeleton() {
 
 export default function SELPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SELProgram | null>(null);
 
-  const { data: programs = [], isLoading } = useQuery({
+  const { data: allPrograms = [], isLoading } = useQuery({
     queryKey: ["counselor-sel"],
     queryFn: async () => {
       const r = await api.get<{ results: SELProgram[] }>("/counseling/sel-programs/");
       return r.results ?? [];
     },
   });
+
+  const programs = React.useMemo(() => {
+    if (!search.trim()) return allPrograms;
+    const q = search.toLowerCase();
+    return allPrograms.filter(
+      (p) =>
+        p.title?.toLowerCase().includes(q) ||
+        (p as any).name?.toLowerCase().includes(q) ||
+        (p as any).description?.toLowerCase().includes(q),
+    );
+  }, [allPrograms, search]);
 
   const createProgram = useMutation({
     mutationFn: (data: Partial<SELProgram>) => api.post("/counseling/sel-programs/", data),
@@ -88,6 +106,20 @@ export default function SELPage() {
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Create Program
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search SEL programs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
+          />
+        </div>
       </div>
 
       {isLoading ? (

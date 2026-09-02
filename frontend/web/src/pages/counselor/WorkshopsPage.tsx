@@ -12,6 +12,7 @@ import {
   PencilIcon,
   TrashIcon,
   CalendarDaysIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
 interface Workshop {
@@ -36,16 +37,28 @@ function WorkshopSkeleton() {
 
 export default function WorkshopsPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Workshop | null>(null);
 
-  const { data: workshops = [], isLoading } = useQuery({
+  const { data: allWorkshops = [], isLoading } = useQuery({
     queryKey: ["counselor-workshops"],
     queryFn: async () => {
       const r = await api.get<{ results: Workshop[] }>("/counseling/workshops/");
       return r.results ?? [];
     },
   });
+
+  const workshops = React.useMemo(() => {
+    if (!search.trim()) return allWorkshops;
+    const q = search.toLowerCase();
+    return allWorkshops.filter(
+      (w) =>
+        w.title?.toLowerCase().includes(q) ||
+        w.facilitator?.toLowerCase().includes(q) ||
+        w.description?.toLowerCase().includes(q),
+    );
+  }, [allWorkshops, search]);
 
   const createWorkshop = useMutation({
     mutationFn: (data: Partial<Workshop>) => api.post("/counseling/workshops/", data),
@@ -93,6 +106,20 @@ export default function WorkshopsPage() {
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Schedule Workshop
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search workshops..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
+          />
+        </div>
       </div>
 
       {isLoading ? (

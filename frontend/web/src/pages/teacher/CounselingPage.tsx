@@ -12,6 +12,7 @@ import {
   PencilIcon,
   TrashIcon,
   ClockIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
 interface Referral {
@@ -35,16 +36,36 @@ function CounselingSkeleton() {
 
 export default function CounselingPage() {
   const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Referral | null>(null);
 
-  const { data: referrals = [], isLoading } = useQuery({
+  const { data: allReferrals = [], isLoading } = useQuery({
     queryKey: ["teacher-counseling"],
     queryFn: async () => {
       const r = await api.get<{ results: Referral[] }>("/counseling/referrals/");
       return r.results ?? [];
     },
   });
+
+  const referrals = React.useMemo(() => {
+    let items = allReferrals;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (r) =>
+          r.student_name?.toLowerCase().includes(q) ||
+          r.reason?.toLowerCase().includes(q) ||
+          (r as any).priority?.toLowerCase().includes(q) ||
+          (r as any).category?.toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter !== "all") {
+      items = items.filter((r) => r.status === statusFilter);
+    }
+    return items;
+  }, [allReferrals, search, statusFilter]);
 
   const createReferral = useMutation({
     mutationFn: (data: Partial<Referral>) => api.post("/counseling/referrals/", data),
@@ -94,6 +115,43 @@ export default function CounselingPage() {
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Create Referral
         </Button>
+      </div>
+
+      {/* Search + Filters */}
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 space-y-3">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Search by student name or reason..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          {(search || statusFilter !== "all") && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
