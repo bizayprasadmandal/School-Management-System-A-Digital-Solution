@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -18,6 +19,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface SELProgram {
@@ -109,6 +111,12 @@ export default function SELPage() {
   const totalPages = Math.ceil(allPrograms.length / 12);
 
   const bulk = useBulkSelect(allPrograms);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(allPrograms);
+
+  React.useEffect(() => {
+    setOrderedItems(allPrograms);
+  }, [allPrograms]);
 
   const handleExport = () => {
     const cols = [
@@ -168,6 +176,13 @@ export default function SELPage() {
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
         <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
+        <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
           onClick={handleExport}
@@ -212,69 +227,72 @@ export default function SELPage() {
         />
       ) : (
         <div className="space-y-3">
-          {paginatedAllPrograms.map((program) => {
-            const progress = program.progress ?? 0;
-            return (
-              <div
-                key={program.id}
-                className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      {program.title}
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {program.category || "—"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {program.participants ?? 0} participants
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          program.status === "active"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : program.status === "upcoming"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                        }`}
-                      >
-                        {program.status}
-                      </span>
-                      <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-                        <div
-                          className="h-full rounded-full bg-indigo-500"
-                          style={{ width: `${Math.min(progress, 100)}%` }}
-                        />
-                      </div>
+          {
+            /* Drag-and-drop: Use Reorder.Group with orderedItems for full DnD */
+            paginatedAllPrograms.map((program) => {
+              const progress = program.progress ?? 0;
+              return (
+                <div
+                  key={program.id}
+                  className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-900 dark:text-white">
+                        {program.title}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {program.category || "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {program.participants ?? 0} participants
+                      </p>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setEditing(program);
-                          setShowForm(true);
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm("Delete this program?")) deleteProgram.mutate(program.id);
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            program.status === "active"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : program.status === "upcoming"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                          }`}
+                        >
+                          {program.status}
+                        </span>
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                          <div
+                            className="h-full rounded-full bg-indigo-500"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditing(program);
+                            setShowForm(true);
+                          }}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("Delete this program?")) deleteProgram.mutate(program.id);
+                          }}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          }
         </div>
       )}
 

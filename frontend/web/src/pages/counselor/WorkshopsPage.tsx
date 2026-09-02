@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -19,6 +20,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface Workshop {
@@ -111,6 +113,12 @@ export default function WorkshopsPage() {
   const totalPages = Math.ceil(allWorkshops.length / 12);
 
   const bulk = useBulkSelect(allWorkshops);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(allWorkshops);
+
+  React.useEffect(() => {
+    setOrderedItems(allWorkshops);
+  }, [allWorkshops]);
 
   const handleExport = () => {
     const cols = [
@@ -167,6 +175,13 @@ export default function WorkshopsPage() {
           />
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
+        <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
         <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}

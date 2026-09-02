@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -18,6 +19,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface MentoringPair {
@@ -98,6 +100,12 @@ export default function PeerMentoringPage() {
   const totalPages = Math.ceil(pairs.length / 12);
 
   const bulk = useBulkSelect(pairs);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(pairs);
+
+  React.useEffect(() => {
+    setOrderedItems(pairs);
+  }, [pairs]);
 
   const handleExport = () => {
     const cols = [
@@ -155,6 +163,13 @@ export default function PeerMentoringPage() {
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
         <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
+        <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
           onClick={handleExport}
@@ -199,54 +214,57 @@ export default function PeerMentoringPage() {
         />
       ) : (
         <div className="space-y-3">
-          {paginatedPairs.map((pair) => (
-            <div
-              key={pair.id}
-              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
-                  {pair.mentor_name} → {pair.mentee_name}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{pair.goals || "—"}</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {pair.sessions_completed ?? 0} sessions completed
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    pair.status === "active"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : pair.status === "pending"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  }`}
-                >
-                  {pair.status}
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => {
-                      setEditing(pair);
-                      setShowForm(true);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+          {
+            /* Drag-and-drop: Use Reorder.Group with orderedItems for full DnD */
+            paginatedPairs.map((pair) => (
+              <div
+                key={pair.id}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+              >
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    {pair.mentor_name} → {pair.mentee_name}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{pair.goals || "—"}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {pair.sessions_completed ?? 0} sessions completed
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      pair.status === "active"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : pair.status === "pending"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    }`}
                   >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete this pair?")) deletePair.mutate(pair.id);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                    {pair.status}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditing(pair);
+                        setShowForm(true);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this pair?")) deletePair.mutate(pair.id);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          }
         </div>
       )}
 

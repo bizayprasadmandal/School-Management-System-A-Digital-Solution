@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -19,6 +20,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface BookClub {
@@ -111,6 +113,12 @@ export default function BookClubsPage() {
   const totalPages = Math.ceil(allClubs.length / 12);
 
   const bulk = useBulkSelect(allClubs);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(allClubs);
+
+  React.useEffect(() => {
+    setOrderedItems(allClubs);
+  }, [allClubs]);
 
   const handleExport = () => {
     const cols = [
@@ -168,6 +176,13 @@ export default function BookClubsPage() {
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
         <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
+        <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
           onClick={handleExport}
@@ -212,59 +227,62 @@ export default function BookClubsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {paginatedAllClubs.map((club) => (
-            <div
-              key={club.id}
-              className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div className="mb-2 flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">{club.name}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Reading: {club.book_title || "—"}
-                  </p>
+          {
+            /* Drag-and-drop: Use Reorder.Group with orderedItems for full DnD */
+            paginatedAllClubs.map((club) => (
+              <div
+                key={club.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+              >
+                <div className="mb-2 flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{club.name}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Reading: {club.book_title || "—"}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditing(club);
+                        setShowForm(true);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this club?")) deleteClub.mutate(club.id);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => {
-                      setEditing(club);
-                      setShowForm(true);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                <p className="text-xs text-slate-400">{club.description || "—"}</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="flex items-center gap-1 text-xs text-slate-400">
+                    <CalendarDaysIcon className="h-3.5 w-3.5" />
+                    {club.meeting_day || "—"}
+                  </span>
+                  <span className="text-xs text-slate-400">{club.members ?? 0} members</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      club.status === "active"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : club.status === "upcoming"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    }`}
                   >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete this club?")) deleteClub.mutate(club.id);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                    {club.status}
+                  </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-400">{club.description || "—"}</p>
-              <div className="mt-3 flex items-center gap-3">
-                <span className="flex items-center gap-1 text-xs text-slate-400">
-                  <CalendarDaysIcon className="h-3.5 w-3.5" />
-                  {club.meeting_day || "—"}
-                </span>
-                <span className="text-xs text-slate-400">{club.members ?? 0} members</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    club.status === "active"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : club.status === "upcoming"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  }`}
-                >
-                  {club.status}
-                </span>
-              </div>
-            </div>
-          ))}
+            ))
+          }
         </div>
       )}
 

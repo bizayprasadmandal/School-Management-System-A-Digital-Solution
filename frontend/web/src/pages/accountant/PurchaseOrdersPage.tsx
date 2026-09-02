@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -18,6 +19,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface PurchaseOrder {
@@ -117,6 +119,12 @@ export default function PurchaseOrdersPage() {
   const totalPages = Math.ceil(orders.length / 12);
 
   const bulk = useBulkSelect(orders);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(orders);
+
+  React.useEffect(() => {
+    setOrderedItems(orders);
+  }, [orders]);
 
   const handleExport = () => {
     const cols = [
@@ -177,6 +185,13 @@ export default function PurchaseOrdersPage() {
           />
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
+        <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
         <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
@@ -249,62 +264,67 @@ export default function PurchaseOrdersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {paginatedOrders.map((order) => (
-            <div
-              key={order.id}
-              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">{order.po_number}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {order.vendor || "—"} · {order.description || "—"}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {order.requested_by || "—"} ·{" "}
-                  {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    ${(order.total_amount ?? 0).toLocaleString()}
+          {
+            /* Drag-and-drop: Use Reorder.Group with orderedItems for full DnD */
+            paginatedOrders.map((order) => (
+              <div
+                key={order.id}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+              >
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    {order.po_number}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {order.vendor || "—"} · {order.description || "—"}
                   </p>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      order.status === "approved" || order.status === "received"
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : order.status === "pending_approval"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : order.status === "cancelled"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                    }`}
-                  >
-                    {(order.status || "draft").replace(/_/g, " ")}
-                  </span>
+                  <p className="text-xs text-slate-400">
+                    {order.requested_by || "—"} ·{" "}
+                    {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
+                  </p>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => {
-                      setEditing(order);
-                      setShowForm(true);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete this PO?")) deletePO.mutate(order.id);
-                    }}
-                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                      ${(order.total_amount ?? 0).toLocaleString()}
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        order.status === "approved" || order.status === "received"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : order.status === "pending_approval"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : order.status === "cancelled"
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      }`}
+                    >
+                      {(order.status || "draft").replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditing(order);
+                        setShowForm(true);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this PO?")) deletePO.mutate(order.id);
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          }
         </div>
       )}
 

@@ -3,6 +3,7 @@
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
@@ -18,6 +19,7 @@ import {
   MagnifyingGlassIcon,
   CheckIcon,
   ArrowDownTrayIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 
 interface Invoice {
@@ -117,6 +119,12 @@ export default function InvoicesPage() {
   const totalPages = Math.ceil(invoices.length / 12);
 
   const bulk = useBulkSelect(invoices);
+  const [reorderMode, setReorderMode] = React.useState(false);
+  const [orderedItems, setOrderedItems] = React.useState(invoices);
+
+  React.useEffect(() => {
+    setOrderedItems(invoices);
+  }, [invoices]);
 
   const handleExport = () => {
     const cols = [
@@ -175,6 +183,13 @@ export default function InvoicesPage() {
           />
           <span className="text-sm text-slate-500 dark:text-slate-400">Select all</span>
         </label>
+        <Button
+          variant={reorderMode ? "primary" : "secondary"}
+          leftIcon={<Bars3Icon className="h-4 w-4" />}
+          onClick={() => setReorderMode(!reorderMode)}
+        >
+          {reorderMode ? "Done" : "Reorder"}
+        </Button>
         <Button
           variant="secondary"
           leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
