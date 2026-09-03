@@ -12,7 +12,12 @@ import dayjs from "dayjs";
 import TeacherAttendancePage from "./AttendancePage";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../api/client";
-import { useClassrooms, useBulkRecordAttendance } from "../../api/hooks";
+import {
+  useClassrooms,
+  useBulkRecordAttendance,
+  useClassroomAttendanceRecords,
+  usePeriodAttendanceRecords,
+} from "../../api/hooks";
 import { queryClient, makeUser, renderWithProviders } from "../../testUtils";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -38,6 +43,8 @@ jest.mock("../../api/client", () => ({
 jest.mock("../../api/hooks", () => ({
   useClassrooms: jest.fn(),
   useBulkRecordAttendance: jest.fn(),
+  useClassroomAttendanceRecords: jest.fn(),
+  usePeriodAttendanceRecords: jest.fn(),
 }));
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
@@ -112,6 +119,8 @@ describe("Teacher AttendancePage", () => {
       data: mockClassrooms,
       isLoading: false,
     });
+    (useClassroomAttendanceRecords as jest.Mock).mockReturnValue({ data: null, isLoading: false });
+    (usePeriodAttendanceRecords as jest.Mock).mockReturnValue({ data: null, isLoading: false });
     mockBulkRecord(jest.fn().mockResolvedValue({}));
     (api.get as jest.Mock).mockResolvedValue(mockStudents);
   });
@@ -120,7 +129,7 @@ describe("Teacher AttendancePage", () => {
 
   test("renders the heading and classroom selector options", () => {
     renderWithProviders(<TeacherAttendancePage />);
-    expect(screen.getByRole("heading", { name: "Record Attendance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Attendance" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Grade 5 5A" })).toBeInTheDocument();
   });
 

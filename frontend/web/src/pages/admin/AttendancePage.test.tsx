@@ -11,7 +11,12 @@ import userEvent from "@testing-library/user-event";
 import AttendancePage from "./AttendancePage";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../api/client";
-import { useClassrooms, useCurrentAcademicYear } from "../../api/hooks";
+import {
+  useClassrooms,
+  useCurrentAcademicYear,
+  useAttendanceDashboard,
+  useAtRiskAttendanceStudents,
+} from "../../api/hooks";
 import { queryClient, makeUser, renderWithProviders } from "../../testUtils";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -34,6 +39,8 @@ jest.mock("../../api/client", () => ({
 jest.mock("../../api/hooks", () => ({
   useClassrooms: jest.fn(),
   useCurrentAcademicYear: jest.fn(),
+  useAttendanceDashboard: jest.fn(),
+  useAtRiskAttendanceStudents: jest.fn(),
 }));
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
@@ -73,6 +80,8 @@ describe("Admin AttendancePage", () => {
     useAuthStore.setState({ user: makeUser() });
     (useClassrooms as jest.Mock).mockReturnValue({ data: mockClassrooms, isLoading: false });
     (useCurrentAcademicYear as jest.Mock).mockReturnValue({ data: mockYear, isLoading: false });
+    (useAttendanceDashboard as jest.Mock).mockReturnValue({ data: null, isLoading: false });
+    (useAtRiskAttendanceStudents as jest.Mock).mockReturnValue({ data: null, isLoading: false });
     // URL-dispatch so the classroom-summary and record list endpoints each get
     // the shape they expect (mirrors the ReportsPage test pattern).
     (api.get as jest.Mock).mockImplementation((url: string) => {
