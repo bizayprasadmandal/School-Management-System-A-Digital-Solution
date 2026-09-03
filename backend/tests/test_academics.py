@@ -351,10 +351,10 @@ class TestCurriculumStandard:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["created"] == 2
 
-    def test_bulk_create_skips_duplicates(self, admin_auth, grade):
+    def test_bulk_create_skips_duplicates(self, admin_auth, admin_user, grade):
         from tests.factories import CurriculumStandardFactory
 
-        CurriculumStandardFactory(school=admin_auth.handler._view.request.user.school, code="DUP-001")
+        CurriculumStandardFactory(school=admin_user.school, code="DUP-001")
         response = admin_auth.post(
             "/api/v1/academics/curriculum-standards/bulk-create/",
             {
@@ -370,10 +370,10 @@ class TestCurriculumStandard:
         assert response.data["created"] == 1
         assert response.data["skipped"] == 1
 
-    def test_by_framework_endpoint(self, admin_auth):
+    def test_by_framework_endpoint(self, admin_auth, admin_user):
         from tests.factories import CurriculumStandardFactory
 
-        school = admin_auth.handler._view.request.user.school
+        school = admin_user.school
         CurriculumStandardFactory(school=school, framework="common_core", code="CC-01")
         CurriculumStandardFactory(school=school, framework="ngss", code="NGSS-01")
         response = admin_auth.get("/api/v1/academics/curriculum-standards/by-framework/")
@@ -392,10 +392,10 @@ class TestSubjectStandardMapping:
         response = admin_auth.get("/api/v1/academics/subject-standard-mappings/")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_create_mapping(self, admin_auth, subject, academic_year):
+    def test_create_mapping(self, admin_auth, admin_user, subject, academic_year):
         from tests.factories import CurriculumStandardFactory
 
-        school = admin_auth.handler._view.request.user.school
+        school = admin_user.school
         standard = CurriculumStandardFactory(school=school)
         response = admin_auth.post(
             "/api/v1/academics/subject-standard-mappings/",
@@ -409,10 +409,10 @@ class TestSubjectStandardMapping:
         )
         assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
 
-    def test_bulk_map_standards(self, admin_auth, subject, academic_year):
+    def test_bulk_map_standards(self, admin_auth, admin_user, subject, academic_year):
         from tests.factories import CurriculumStandardFactory
 
-        school = admin_auth.handler._view.request.user.school
+        school = admin_user.school
         std1 = CurriculumStandardFactory(school=school)
         std2 = CurriculumStandardFactory(school=school)
         response = admin_auth.post(
@@ -428,11 +428,11 @@ class TestSubjectStandardMapping:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["mapped"] == 2
 
-    def test_subject_coverage_endpoint(self, admin_auth, subject, academic_year):
+    def test_subject_coverage_endpoint(self, admin_auth, admin_user, subject, academic_year):
         from services.academics.models import SubjectStandardMapping
         from tests.factories import CurriculumStandardFactory
 
-        school = admin_auth.handler._view.request.user.school
+        school = admin_user.school
         standard = CurriculumStandardFactory(school=school)
         SubjectStandardMapping.objects.create(
             subject=subject, standard=standard, academic_year=academic_year, coverage_level="full"
@@ -441,10 +441,10 @@ class TestSubjectStandardMapping:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
 
-    def test_coverage_report_endpoint(self, admin_auth, subject, academic_year):
+    def test_coverage_report_endpoint(self, admin_auth, admin_user, subject, academic_year):
         from tests.factories import CurriculumStandardFactory
 
-        school = admin_auth.handler._view.request.user.school
+        school = admin_user.school
         standard = CurriculumStandardFactory(school=school)
         from services.academics.models import SubjectStandardMapping
 
@@ -506,10 +506,10 @@ class TestSyllabus:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "under_review"
 
-    def test_approve_syllabus(self, admin_auth, subject, academic_year):
+    def test_approve_syllabus(self, admin_auth, admin_user, subject, academic_year):
         from services.academics.models import Syllabus
 
-        admin = admin_auth.handler._view.request.user
+        admin = admin_user
         syllabus = Syllabus.objects.create(
             subject=subject,
             academic_year=academic_year,
@@ -523,10 +523,10 @@ class TestSyllabus:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "approved"
 
-    def test_reject_syllabus(self, admin_auth, subject, academic_year):
+    def test_reject_syllabus(self, admin_auth, admin_user, subject, academic_year):
         from services.academics.models import Syllabus
 
-        admin = admin_auth.handler._view.request.user
+        admin = admin_user
         syllabus = Syllabus.objects.create(
             subject=subject,
             academic_year=academic_year,
@@ -544,10 +544,10 @@ class TestSyllabus:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "rejected"
 
-    def test_reject_syllabus_requires_reason(self, admin_auth, subject, academic_year):
+    def test_reject_syllabus_requires_reason(self, admin_auth, admin_user, subject, academic_year):
         from services.academics.models import Syllabus
 
-        admin = admin_auth.handler._view.request.user
+        admin = admin_user
         syllabus = Syllabus.objects.create(
             subject=subject,
             academic_year=academic_year,
@@ -845,7 +845,7 @@ class TestTeacherEvaluation:
         assert response.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
         assert response.data["status"] == "draft"
 
-    def test_advance_status(self, admin_auth, teacher_user, academic_year, school):
+    def test_advance_status(self, admin_auth, admin_user, teacher_user, academic_year, school):
         from services.academics.models import TeacherEvaluation
         from tests.factories import EvaluationTemplateFactory
 
@@ -856,13 +856,13 @@ class TestTeacherEvaluation:
             academic_year=academic_year,
             title="Test Evaluation",
             status="draft",
-            created_by=admin_auth.handler._view.request.user,
+            created_by=admin_user,
         )
         response = admin_auth.post(f"/api/v1/academics/evaluations/{evaluation.id}/advance-status/")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["status"] == "self_review"
 
-    def test_submit_scores(self, admin_auth, teacher_user, academic_year, school):
+    def test_submit_scores(self, admin_auth, admin_user, teacher_user, academic_year, school):
         from services.academics.models import TeacherEvaluation
         from tests.factories import EvaluationCriteriaFactory, EvaluationTemplateFactory
 
@@ -874,7 +874,7 @@ class TestTeacherEvaluation:
             academic_year=academic_year,
             title="Test Evaluation",
             status="draft",
-            created_by=admin_auth.handler._view.request.user,
+            created_by=admin_user,
         )
         response = admin_auth.post(
             f"/api/v1/academics/evaluations/{evaluation.id}/submit-scores/",
@@ -893,7 +893,7 @@ class TestTeacherEvaluation:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["overall_score"] is not None
 
-    def test_add_comment(self, admin_auth, teacher_user, academic_year, school):
+    def test_add_comment(self, admin_auth, admin_user, teacher_user, academic_year, school):
         from services.academics.models import TeacherEvaluation
         from tests.factories import EvaluationTemplateFactory
 
@@ -904,7 +904,7 @@ class TestTeacherEvaluation:
             academic_year=academic_year,
             title="Test Evaluation",
             status="draft",
-            created_by=admin_auth.handler._view.request.user,
+            created_by=admin_user,
         )
         response = admin_auth.post(
             f"/api/v1/academics/evaluations/{evaluation.id}/comments/",
@@ -933,7 +933,7 @@ class TestTeacherEvaluation:
         response = teacher_auth.get("/api/v1/academics/evaluations/my-evaluations/")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_complete_evaluation(self, admin_auth, teacher_user, academic_year, school):
+    def test_complete_evaluation(self, admin_auth, admin_user, teacher_user, academic_year, school):
         from services.academics.models import TeacherEvaluation
         from tests.factories import EvaluationTemplateFactory
 
@@ -944,7 +944,7 @@ class TestTeacherEvaluation:
             academic_year=academic_year,
             title="Test Evaluation",
             status="admin_review",
-            created_by=admin_auth.handler._view.request.user,
+            created_by=admin_user,
         )
         response = admin_auth.post(
             f"/api/v1/academics/evaluations/{evaluation.id}/complete/",

@@ -307,7 +307,7 @@ class SyllabusTopicSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "syllabus", "created_at", "updated_at"]
 
 
 class SyllabusSerializer(serializers.ModelSerializer):
@@ -531,7 +531,7 @@ class EvaluationCommentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "author", "created_at", "updated_at"]
+        read_only_fields = ["id", "evaluation", "author", "created_at", "updated_at"]
 
 
 class TeacherEvaluationSerializer(serializers.ModelSerializer):
@@ -597,6 +597,10 @@ class TeacherEvaluationSerializer(serializers.ModelSerializer):
 class AcademicTranscriptSerializer(serializers.ModelSerializer):
     """Serializer for academic transcripts."""
 
+    student = serializers.UUIDField(source="student_id")
+    academic_year = serializers.IntegerField(source="academic_year_id")
+    generated_by = serializers.UUIDField(source="generated_by_id", read_only=True, allow_null=True)
+    verified_by = serializers.UUIDField(source="verified_by_id", read_only=True, allow_null=True)
     student_name = serializers.CharField(source="student.user.full_name", read_only=True)
     admission_number = serializers.CharField(source="student.admission_number", read_only=True)
     student_dob = serializers.DateField(source="student.date_of_birth", read_only=True)
@@ -1072,6 +1076,7 @@ class SubjectPerformanceSerializer(serializers.ModelSerializer):
             "calculated_at",
         ]
         read_only_fields = ["id", "calculated_at"]
+        extra_kwargs = {"term": {"required": False, "allow_null": True, "default": None}}
 
 
 class StudentProgressReportSerializer(serializers.ModelSerializer):
@@ -1106,6 +1111,7 @@ class StudentProgressReportSerializer(serializers.ModelSerializer):
             "calculated_at",
         ]
         read_only_fields = ["id", "calculated_at"]
+        extra_kwargs = {"term": {"required": False, "allow_null": True, "default": None}}
 
 
 class TeacherEffectivenessSerializer(serializers.ModelSerializer):
@@ -1140,6 +1146,7 @@ class TeacherEffectivenessSerializer(serializers.ModelSerializer):
             "calculated_at",
         ]
         read_only_fields = ["id", "calculated_at"]
+        extra_kwargs = {"term": {"required": False, "allow_null": True, "default": None}}
 
 
 # ---------------------------------------------------------------------------

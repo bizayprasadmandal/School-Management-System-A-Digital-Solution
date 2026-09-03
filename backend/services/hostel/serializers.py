@@ -63,7 +63,23 @@ class HostelSerializer(serializers.ModelSerializer):
             "total_floors",
             "rules",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
+
+    def validate_warden(self, value):
+        # Hostels must stay within the tenant — the warden has to be a staff
+        # member of the same school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Warden must be in your school.")
+        return value
+
+    def validate_assistant_warden(self, value):
+        # Hostels must stay within the tenant — the assistant warden has to be
+        # a staff member of the same school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Assistant warden must be in your school.")
+        return value
 
 
 class HostelRoomSerializer(serializers.ModelSerializer):
@@ -86,6 +102,14 @@ class HostelRoomSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def validate_hostel(self, value):
+        # Rooms inherit tenant scope from their hostel — reject hostels from
+        # another school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
+
 
 class HostelAllocationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -107,6 +131,22 @@ class HostelAllocationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def validate_student(self, value):
+        # Allocations must stay within the tenant — the student has to belong
+        # to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
+
+    def validate_room(self, value):
+        # Allocations inherit tenant scope from the room (which belongs to a
+        # hostel) — reject rooms from another school.
+        user = self.context["request"].user
+        if value.hostel.school_id != user.school_id:
+            raise serializers.ValidationError("Room not found in your school.")
+        return value
+
 
 class HostelFeeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -126,7 +166,15 @@ class HostelFeeSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
+
+    def validate_hostel(self, value):
+        # Fee structures must stay within the tenant — the hostel has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
 
 
 class HostelVisitorSerializer(serializers.ModelSerializer):
@@ -148,6 +196,22 @@ class HostelVisitorSerializer(serializers.ModelSerializer):
             "notes",
         ]
         read_only_fields = ["id", "created_at"]
+
+    def validate_hostel(self, value):
+        # Visitor logs must stay within the tenant — the hostel has to belong
+        # to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Hostel not found in your school.")
+        return value
+
+    def validate_student_visited(self, value):
+        # Visitor logs must stay within the tenant — the student visited has
+        # to belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
 
 
 class RoomMaintenanceSerializer(serializers.ModelSerializer):

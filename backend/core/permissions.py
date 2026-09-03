@@ -16,18 +16,59 @@ class IsSchoolMember(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated and request.user.school)
 
     def has_object_permission(self, request, view, obj):
-        # Support objects with direct school FK or nested ones. Fail CLOSED:
-        # an object we cannot prove belongs to the caller's school is denied.
-        if hasattr(obj, "school"):
-            return obj.school_id == request.user.school_id
-        if hasattr(obj, "student"):
-            return obj.student.school_id == request.user.school_id
-        if hasattr(obj, "user") and getattr(obj.user, "school_id", None) is not None:
-            return obj.user.school_id == request.user.school_id
         # Direct messages carry sender/recipient instead of school/student
         if hasattr(obj, "sender") and hasattr(obj, "recipient"):
             return obj.sender_id == request.user.id or obj.recipient_id == request.user.id
-        return False
+        # Support objects with direct school FK or nested ones. Fail CLOSED:
+        # an object we cannot prove belongs to the caller's school is denied.
+        school_id = self._resolve_school_id(obj)
+        return school_id is not None and school_id == request.user.school_id
+
+    @staticmethod
+    def _resolve_school_id(obj, _depth=0, _seen=None):
+        """Resolve the owning school id through common FK paths (max 4 hops)."""
+        if obj is None or _depth > 4:
+            return None
+        if _seen is None:
+            _seen = set()
+        marker = (id(obj), _depth)
+        if marker in _seen:
+            return None
+        _seen.add(marker)
+
+        # Direct school FK
+        school = getattr(obj, "school", None)
+        if school is not None:
+            school_id = getattr(school, "id", None) or getattr(school, "school_id", None)
+            if school_id is not None:
+                return school_id
+        # User-owner objects
+        user = getattr(obj, "user", None)
+        if user is not None:
+            user_school_id = getattr(user, "school_id", None)
+            if user_school_id is not None:
+                return user_school_id
+        # Common relation names that lead to a school
+        for attr in (
+            "subject",
+            "student",
+            "syllabus",
+            "classroom",
+            "assignment",
+            "course",
+            "grade",
+            "teacher",
+            "template",
+            "created_by",
+            "generated_by",
+            "verified_by",
+        ):
+            related = getattr(obj, attr, None)
+            if related is not None:
+                resolved = IsSchoolMember._resolve_school_id(related, _depth + 1, _seen)
+                if resolved is not None:
+                    return resolved
+        return None
 
 
 class IsSchoolAdmin(permissions.BasePermission):

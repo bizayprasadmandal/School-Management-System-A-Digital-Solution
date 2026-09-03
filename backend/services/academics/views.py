@@ -785,7 +785,7 @@ class SyllabusTopicViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(syllabus_id=self.kwargs.get("syllabus_pk"))
 
     @action(detail=True, methods=["post"])
     def start(self, request, pk=None, syllabus_pk=None):
@@ -2101,9 +2101,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         # Send notifications to students
         students = User.objects.filter(
             role="student",
-            enrollments__classroom=assignment.assignment.classroom,
-            enrollments__academic_year=assignment.assignment.academic_year,
-            enrollments__is_active=True,
+            student_profile__enrollments__classroom=assignment.assignment.classroom,
+            student_profile__enrollments__academic_year=assignment.assignment.academic_year,
+            student_profile__enrollments__is_active=True,
         ).distinct()
         for student in students:
             AcademicNotification.objects.create(
@@ -2669,7 +2669,10 @@ class SubjectVersionViewSet(viewsets.ModelViewSet):
                 {"error": "subject is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        subject = Subject.objects.filter(id=subject_id, school=request.user.school).first()
+        try:
+            subject = Subject.objects.filter(id=subject_id, school=request.user.school).first()
+        except (ValueError, TypeError):
+            subject = None
         if not subject:
             return Response({"error": "Subject not found."}, status=status.HTTP_404_NOT_FOUND)
         last_version = SubjectVersion.objects.filter(subject=subject).order_by("-version_number").first()

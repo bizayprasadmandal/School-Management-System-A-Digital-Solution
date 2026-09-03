@@ -76,6 +76,22 @@ class CheckoutSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def validate_book(self, value):
+        # Checkouts must stay within the tenant — the book has to belong to the
+        # same school as the librarian.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Book not found in your school.")
+        return value
+
+    def validate_student(self, value):
+        # Checkouts must stay within the tenant — the student has to belong to
+        # the same school as the librarian.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Student not found in your school.")
+        return value
+
 
 class LibrarianProfileSerializer(serializers.ModelSerializer):
     class Meta:

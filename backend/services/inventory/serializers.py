@@ -93,7 +93,23 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             "minimum_stock",
             "maximum_stock",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
+
+    def validate_category(self, value):
+        # Inventory items must stay within the tenant — the category has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Category not found in your school.")
+        return value
+
+    def validate_supplier(self, value):
+        # Inventory items must stay within the tenant — the supplier has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Supplier not found in your school.")
+        return value
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
@@ -115,6 +131,22 @@ class StockMovementSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def validate_item(self, value):
+        # Stock movements inherit tenant scope from the item — reject items
+        # from another school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Item not found in your school.")
+        return value
+
+    def validate_performed_by(self, value):
+        # Stock movements must stay within the tenant — the performing user
+        # has to belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Performed-by user must be in your school.")
+        return value
+
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -135,7 +167,15 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "notes",
             "ordered_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
+
+    def validate_supplier(self, value):
+        # Purchase orders must stay within the tenant — the supplier has to
+        # belong to the same school as the caller.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Supplier not found in your school.")
+        return value
 
 
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
