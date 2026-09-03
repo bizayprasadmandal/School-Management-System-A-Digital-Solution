@@ -566,7 +566,7 @@ class RolePermission(models.Model):
         return f"{self.role} - {self.permission}"
 
 
-class UserRole(models.Model):
+class UserRoleAssignment(models.Model):
     """Assign roles to users."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

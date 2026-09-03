@@ -57,34 +57,21 @@ from .models import (
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicYear
-        fields = ["id", "school", "on_delete", "name", "start_date", "end_date", "is_current"]
+        fields = ["id", "school", "name", "start_date", "end_date", "is_current"]
         read_only_fields = ["id"]
 
 
 class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
-        fields = ["id", "school", "on_delete", "name", "level", "description"]
+        fields = ["id", "school", "name", "level", "description"]
         read_only_fields = ["id"]
 
 
 class ClassroomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Classroom
-        fields = [
-            "id",
-            "school",
-            "on_delete",
-            "grade",
-            "on_delete",
-            "name",
-            "capacity",
-            "room_number",
-            "class_teacher",
-            "on_delete",
-            "academic_year",
-            "on_delete",
-        ]
+        fields = ["id", "school", "grade", "name", "capacity", "room_number", "class_teacher", "academic_year"]
         read_only_fields = ["id"]
 
 
@@ -96,8 +83,6 @@ class StudentSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "admission_number",
             "roll_number",
             "date_of_birth",
@@ -118,7 +103,6 @@ class GuardianSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "on_delete",
             "students",
             "first_name",
             "last_name",
@@ -139,9 +123,7 @@ class StudentGuardianSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "guardian",
-            "on_delete",
             "relationship",
             "is_primary_contact",
             "has_pickup_permission",
@@ -156,15 +138,11 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "classroom",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "status",
             "enrollment_date",
             "promoted_from",
-            "on_delete",
             "is_active",
             "notes",
         ]
@@ -179,8 +157,6 @@ class ParentProfileSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "occupation",
             "alternate_phone",
             "address",
@@ -196,18 +172,7 @@ class ParentProfileSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
-        fields = [
-            "id",
-            "student",
-            "on_delete",
-            "document_type",
-            "title",
-            "file",
-            "uploaded_by",
-            "on_delete",
-            "uploaded_at",
-            "notes",
-        ]
+        fields = ["id", "student", "document_type", "title", "file", "uploaded_by", "uploaded_at", "notes"]
         read_only_fields = ["id"]
 
 
@@ -218,7 +183,6 @@ class StudentContactSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "personal_phone",
             "personal_email",
             "emergency_contact_1_name",
@@ -242,7 +206,6 @@ class StudentMedicalRecordSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "record_type",
             "title",
             "description",
@@ -266,7 +229,6 @@ class StudentCustomFieldSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "field_type",
             "description",
@@ -289,9 +251,7 @@ class StudentCustomFieldValueSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "field",
-            "on_delete",
             "text_value",
             "number_value",
             "date_value",
@@ -310,7 +270,6 @@ class StudentPhotoSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "photo_type",
             "title",
             "description",
@@ -322,7 +281,6 @@ class StudentPhotoSerializer(serializers.ModelSerializer):
             "is_public",
             "notes",
             "uploaded_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -334,7 +292,6 @@ class StudentIDCardSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "card_number",
             "barcode",
             "rfid_number",
@@ -345,7 +302,6 @@ class StudentIDCardSerializer(serializers.ModelSerializer):
             "access_level",
             "notes",
             "issued_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -358,14 +314,12 @@ class StudentStatusHistorySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "status",
             "previous_status",
             "effective_date",
             "reason",
             "document_url",
             "approved_by",
-            "on_delete",
             "approved_at",
             "notes",
             "created_at",
@@ -376,7 +330,7 @@ class StudentStatusHistorySerializer(serializers.ModelSerializer):
 class SiblingTrackingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiblingTracking
-        fields = ["id", "id", "student", "on_delete", "sibling", "on_delete", "relationship", "notes", "created_at"]
+        fields = ["id", "id", "student", "sibling", "relationship", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -387,7 +341,6 @@ class StudentCategorySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "color",
@@ -402,44 +355,21 @@ class StudentCategorySerializer(serializers.ModelSerializer):
 class StudentCategoryMembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentCategoryMembership
-        fields = [
-            "id",
-            "id",
-            "student",
-            "on_delete",
-            "category",
-            "on_delete",
-            "start_date",
-            "end_date",
-            "is_active",
-            "notes",
-            "created_at",
-        ]
+        fields = ["id", "id", "student", "category", "start_date", "end_date", "is_active", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class StudentTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentTag
-        fields = ["id", "school", "id", "on_delete", "name", "color", "usage_count", "is_active", "notes", "created_at"]
+        fields = ["id", "school", "id", "name", "color", "usage_count", "is_active", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class StudentTagAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentTagAssignment
-        fields = [
-            "id",
-            "id",
-            "student",
-            "on_delete",
-            "tag",
-            "on_delete",
-            "assigned_by",
-            "on_delete",
-            "notes",
-            "created_at",
-        ]
+        fields = ["id", "id", "student", "tag", "assigned_by", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -450,12 +380,10 @@ class StudentNoteSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "note_type",
             "title",
             "content",
             "author",
-            "on_delete",
             "is_confidential",
             "is_pinned",
             "notes",
@@ -473,14 +401,9 @@ class StudentArchiveSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "grade",
-            "on_delete",
             "classroom",
-            "on_delete",
             "status",
             "final_grade",
             "gpa",
@@ -496,7 +419,6 @@ class StudentSocialMediaSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "platform",
             "username",
             "profile_url",
@@ -516,7 +438,6 @@ class StudentPortfolioSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "portfolio_type",
             "title",
             "description",
@@ -541,8 +462,6 @@ class StudentWellnessSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "wellness_type",
             "status",
             "title",
@@ -550,7 +469,6 @@ class StudentWellnessSerializer(serializers.ModelSerializer):
             "mood_score",
             "stress_level",
             "recorded_by",
-            "on_delete",
             "follow_up_required",
             "follow_up_date",
         ]
@@ -565,8 +483,6 @@ class StudentLearningStyleSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "primary_style",
             "secondary_style",
             "assessment_tool",
@@ -589,8 +505,6 @@ class StudentAchievementSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "achievement_type",
             "title",
             "description",
@@ -611,8 +525,6 @@ class StudentClubSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "club_name",
             "club_type",
             "role",
@@ -620,7 +532,6 @@ class StudentClubSerializer(serializers.ModelSerializer):
             "end_date",
             "is_active",
             "advisor",
-            "on_delete",
             "notes",
             "created_at",
         ]
@@ -635,8 +546,6 @@ class StudentActivitySerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "activity_name",
             "activity_type",
             "start_date",
@@ -645,7 +554,6 @@ class StudentActivitySerializer(serializers.ModelSerializer):
             "total_hours",
             "is_active",
             "instructor",
-            "on_delete",
             "notes",
         ]
         read_only_fields = ["id", "created_at"]
@@ -659,8 +567,6 @@ class StudentAwardSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "award_name",
             "award_level",
             "category",
@@ -681,8 +587,6 @@ class StudentDisciplineSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "action_type",
             "severity",
             "incident_date",
@@ -705,12 +609,8 @@ class StudentTutoringSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "subject",
-            "on_delete",
             "tutor",
-            "on_delete",
             "session_date",
             "start_time",
             "end_time",
@@ -729,10 +629,7 @@ class StudentMentorSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "mentor",
-            "on_delete",
             "program_name",
             "start_date",
             "end_date",
@@ -753,8 +650,6 @@ class StudentCareerGuidanceSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "career_interest",
             "career_goals",
             "strengths",
@@ -777,8 +672,6 @@ class StudentParentCommunicationSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "communication_type",
             "subject",
             "description",
@@ -787,7 +680,6 @@ class StudentParentCommunicationSerializer(serializers.ModelSerializer):
             "parent_phone",
             "parent_email",
             "teacher",
-            "on_delete",
             "follow_up_required",
         ]
         read_only_fields = ["id", "created_at"]
@@ -801,10 +693,7 @@ class StudentAcademicAdvisorSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "advisor",
-            "on_delete",
             "advising_date",
             "status",
             "academic_goals",
@@ -825,15 +714,11 @@ class StudentTransferSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "transfer_type",
             "from_school",
             "to_school",
             "from_classroom",
-            "on_delete",
             "to_classroom",
-            "on_delete",
             "transfer_date",
             "reason",
             "status",
@@ -849,8 +734,6 @@ class StudentGraduationSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "expected_graduation_year",
             "actual_graduation_year",
             "status",
@@ -873,8 +756,6 @@ class StudentVolunteerSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "organization",
             "activity",
             "hours",
@@ -897,8 +778,6 @@ class StudentInternshipSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "company_name",
             "position",
             "department",
@@ -921,8 +800,6 @@ class StudentScholarshipSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "scholarship_name",
             "provider",
             "amount",
@@ -945,8 +822,6 @@ class StudentFinancialAidSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "aid_type",
             "aid_name",
             "amount",
@@ -969,12 +844,8 @@ class StudentTransportAssignmentSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "route",
-            "on_delete",
             "vehicle",
-            "on_delete",
             "service_type",
             "pickup_address",
             "pickup_latitude",
@@ -993,8 +864,6 @@ class StudentMealPlanSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "plan_type",
             "plan_name",
             "start_date",
@@ -1017,8 +886,6 @@ class StudentParkingSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "permit_number",
             "permit_type",
             "vehicle_make",
@@ -1041,10 +908,7 @@ class StudentIDActivitySerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "id_card",
-            "on_delete",
             "activity_type",
             "location",
             "timestamp",
@@ -1062,8 +926,6 @@ class StudentFeedbackSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "student",
-            "on_delete",
-            "on_delete",
             "feedback_type",
             "subject",
             "rating",
@@ -1072,7 +934,206 @@ class StudentFeedbackSerializer(serializers.ModelSerializer):
             "is_anonymous",
             "response",
             "responded_by",
-            "on_delete",
             "responded_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+# ── Serializers restored from original module (expansion regression fix) ──
+
+
+class StudentListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list views.
+
+    Uses the annotated `current_class_name` field from the ViewSet's
+    prefetch/annotate to avoid N+1 queries per student.
+    """
+
+    full_name = serializers.SerializerMethodField()
+    current_class = serializers.CharField(source="current_class_name", read_only=True, default=None)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    avatar = serializers.ImageField(source="user.avatar", read_only=True)
+
+    class Meta:
+        model = Student
+        fields = ["id", "admission_number", "full_name", "email", "avatar", "gender", "current_class", "is_active"]
+
+    def get_full_name(self, obj):
+        return obj.user.full_name
+
+
+class StudentDetailSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    email = serializers.EmailField(source="user.email", read_only=True)
+    phone = serializers.CharField(source="user.phone", read_only=True)
+    avatar = serializers.ImageField(source="user.avatar", read_only=True)
+    guardians = StudentGuardianSerializer(source="studentguardian_set", many=True, read_only=True)
+    enrollments = EnrollmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Student
+        fields = [
+            "id",
+            "admission_number",
+            "roll_number",
+            "full_name",
+            "email",
+            "phone",
+            "avatar",
+            "date_of_birth",
+            "gender",
+            "blood_group",
+            "nationality",
+            "religion",
+            "address",
+            "city",
+            "state",
+            "country",
+            "postal_code",
+            "admission_date",
+            "medical_conditions",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+            "previous_school",
+            "is_active",
+            "age",
+            "guardians",
+            "enrollments",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_full_name(self, obj):
+        return obj.user.full_name
+
+
+class StudentSelfProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for students to update their own profile fields.
+    Only exposes non-sensitive self-service fields (bio, interests, learning_goals).
+    """
+
+    class Meta:
+        model = Student
+        fields = ["bio", "interests", "learning_goals"]
+
+
+class StudentCreateSerializer(serializers.ModelSerializer):
+    """Handles student creation including user account creation.
+
+    admission_number is optional — if left blank or omitted the system
+    auto-generates one using the format ADM-YYYY-NNNN (e.g. ADM-2026-0001).
+    Admins can still supply a custom number (e.g. for transfers).
+    """
+
+    first_name = serializers.CharField(write_only=True)
+    last_name = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    classroom_id = serializers.IntegerField(write_only=True)
+    admission_number = serializers.CharField(required=False, allow_blank=True)
+    MAX_BULK_SIZE = 200
+
+    class Meta:
+        model = Student
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "password",
+            "admission_number",
+            "date_of_birth",
+            "gender",
+            "blood_group",
+            "nationality",
+            "address",
+            "city",
+            "state",
+            "country",
+            "admission_date",
+            "classroom_id",
+            "medical_conditions",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+        ]
+
+    def _generate_admission_number(self, school):
+        """Auto-generate admission number: ADM-YYYY-NNNN.
+
+        Queries the highest existing sequence number for the current year
+        and increments it.  Uses ``select_for_update`` so concurrent
+        creates within the same transaction cannot collide.
+        """
+        from datetime import datetime
+
+        year = datetime.now().year
+        prefix = f"ADM-{year}-"
+
+        last_student = (
+            Student.objects.select_for_update()
+            .filter(school=school, admission_number__startswith=prefix)
+            .order_by("-admission_number")
+            .first()
+        )
+
+        if last_student:
+            last_seq = int(last_student.admission_number.split("-")[-1])
+            new_seq = last_seq + 1
+        else:
+            new_seq = 1
+
+        return f"{prefix}{new_seq:04d}"
+
+    def validate_email(self, value):
+        from services.auth.models import User
+
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_admission_number(self, value):
+        school = self.context["request"].user.school
+
+        # Auto-generate when blank or omitted
+        if not value:
+            return self._generate_admission_number(school)
+
+        # Manual override — just enforce uniqueness within the school
+        if Student.objects.filter(school=school, admission_number=value).exists():
+            raise serializers.ValidationError("This admission number is already in use.")
+        return value
+
+    def create(self, validated_data):
+        from django.db import transaction
+        from services.auth.models import User, UserRole
+
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=validated_data.pop("email"),
+                password=validated_data.pop("password"),
+                first_name=validated_data.pop("first_name"),
+                last_name=validated_data.pop("last_name"),
+                role=UserRole.STUDENT,
+                school=self.context["request"].user.school,
+            )
+            classroom_id = validated_data.pop("classroom_id")
+            # Tenant isolation: classroom must belong to the caller's school.
+            try:
+                classroom = Classroom.objects.get(id=classroom_id, school=self.context["request"].user.school)
+            except Classroom.DoesNotExist:
+                raise serializers.ValidationError({"classroom_id": "Classroom not found in your school."})
+
+            student = Student.objects.create(
+                user=user,
+                school=self.context["request"].user.school,
+                **validated_data,
+            )
+
+            academic_year = AcademicYear.objects.filter(school=student.school, is_current=True).first()
+            if academic_year:
+                Enrollment.objects.create(
+                    student=student,
+                    classroom=classroom,
+                    academic_year=academic_year,
+                )
+            return student

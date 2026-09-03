@@ -53,7 +53,6 @@ class EnrollmentIntakeSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "academic_year",
             "application_start",
@@ -74,9 +73,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "intake",
-            "on_delete",
             "application_number",
             "status",
             "first_name",
@@ -94,7 +91,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
 class ApplicationTimelineEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApplicationTimelineEvent
-        fields = ["id", "id", "application", "on_delete", "stage", "note", "created_by", "on_delete", "created_at"]
+        fields = ["id", "id", "application", "stage", "note", "created_by", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -105,7 +102,6 @@ class ApplicationDocumentSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "document_type",
             "file_url",
             "file_name",
@@ -123,7 +119,6 @@ class EntranceAssessmentSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "assessment_type",
             "scheduled_date",
             "completed_date",
@@ -145,9 +140,7 @@ class ApplicationReviewSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "reviewer",
-            "on_delete",
             "score",
             "strengths",
             "weaknesses",
@@ -165,7 +158,6 @@ class ApplicationFeeSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "amount",
             "currency",
             "status",
@@ -175,7 +167,6 @@ class ApplicationFeeSerializer(serializers.ModelSerializer):
             "receipt_number",
             "waiver_reason",
             "waived_by",
-            "on_delete",
             "gateway_response",
             "notes",
         ]
@@ -189,7 +180,6 @@ class InterviewScheduleSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "interview_type",
             "status",
             "scheduled_date",
@@ -199,7 +189,6 @@ class InterviewScheduleSerializer(serializers.ModelSerializer):
             "meeting_link",
             "meeting_id",
             "interviewer",
-            "on_delete",
             "panel_members",
             "feedback",
         ]
@@ -213,9 +202,7 @@ class MeritListSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "intake",
-            "on_delete",
             "name",
             "description",
             "grade",
@@ -225,7 +212,6 @@ class MeritListSerializer(serializers.ModelSerializer):
             "total_waitlisted",
             "published_at",
             "published_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -237,9 +223,7 @@ class MeritListEntrySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "merit_list",
-            "on_delete",
             "application",
-            "on_delete",
             "rank",
             "total_score",
             "status",
@@ -261,7 +245,6 @@ class WaitlistManagementSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "position",
             "status",
             "offer_extended_at",
@@ -285,7 +268,6 @@ class EnrollmentConfirmationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "status",
             "confirmation_sent_at",
             "confirmation_deadline",
@@ -309,9 +291,7 @@ class AdmissionsReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "intake",
-            "on_delete",
             "title",
             "report_type",
             "status",
@@ -333,7 +313,6 @@ class AdmissionsEmailNotificationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "notification_type",
             "status",
             "subject",
@@ -354,7 +333,6 @@ class AdmissionsSMSNotificationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "notification_type",
             "status",
             "message",
@@ -373,11 +351,8 @@ class ReEnrollmentSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "intake",
-            "on_delete",
             "status",
             "current_grade",
             "next_grade",
@@ -397,9 +372,7 @@ class AdmissionsPipelineSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "application",
-            "on_delete",
             "current_stage",
             "inquiry_date",
             "application_date",
@@ -421,11 +394,9 @@ class ApplicationTemplateSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "intake",
-            "on_delete",
             "required_fields",
             "optional_fields",
             "required_documents",
@@ -445,7 +416,6 @@ class BulkApplicationImportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "batch_name",
             "description",
             "status",
@@ -455,7 +425,6 @@ class BulkApplicationImportSerializer(serializers.ModelSerializer):
             "errors",
             "error_file_url",
             "initiated_by",
-            "on_delete",
             "initiated_at",
             "completed_at",
         ]
@@ -469,19 +438,16 @@ class CampusVisitSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "visitor_name",
             "visitor_email",
             "visitor_phone",
             "prospective_student",
-            "on_delete",
             "visit_type",
             "status",
             "scheduled_date",
             "scheduled_time",
             "duration_minutes",
             "tour_guide",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -493,7 +459,6 @@ class OpenHouseEventSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "description",
             "status",
@@ -517,7 +482,6 @@ class OpenHouseRegistrationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "event",
-            "on_delete",
             "registrant_name",
             "registrant_email",
             "registrant_phone",
@@ -541,7 +505,6 @@ class ScholarshipSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "scholarship_type",
@@ -565,9 +528,7 @@ class ScholarshipApplicationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "scholarship",
-            "on_delete",
             "application",
-            "on_delete",
             "status",
             "essay",
             "recommendation_letter",
@@ -589,7 +550,6 @@ class AdmissionPolicySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "policy_type",
             "description",
@@ -613,7 +573,6 @@ class AdmissionAgreementSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "content",
@@ -624,7 +583,6 @@ class AdmissionAgreementSerializer(serializers.ModelSerializer):
             "requires_parent_signature",
             "requires_student_signature",
             "created_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -637,9 +595,7 @@ class AgreementSignatureSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "agreement",
-            "on_delete",
             "application",
-            "on_delete",
             "signer_type",
             "signer_name",
             "signature",
@@ -656,15 +612,12 @@ class AdmissionCommunicationLogSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "application",
-            "on_delete",
             "channel",
             "direction",
             "subject",
             "content",
             "sent_by",
-            "on_delete",
             "sent_to_name",
             "sent_to_email",
             "delivered",
@@ -680,9 +633,7 @@ class AdmissionReminderSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "application",
-            "on_delete",
             "reminder_type",
             "status",
             "subject",
@@ -691,7 +642,6 @@ class AdmissionReminderSerializer(serializers.ModelSerializer):
             "sent_date",
             "channel",
             "created_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -704,7 +654,6 @@ class GradeLevelCapacitySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "intake",
-            "on_delete",
             "grade_level",
             "max_capacity",
             "current_enrollment",
@@ -728,7 +677,6 @@ class AdmissionDecisionSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "decision",
             "decision_reason",
             "rationale",
@@ -738,7 +686,6 @@ class AdmissionDecisionSerializer(serializers.ModelSerializer):
             "scholarship_amount",
             "financial_aid_amount",
             "decided_by",
-            "on_delete",
             "decided_at",
             "parent_notified",
         ]
@@ -753,8 +700,6 @@ class TransferStudentSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "application",
-            "on_delete",
-            "on_delete",
             "previous_school_name",
             "previous_school_address",
             "previous_school_phone",
@@ -776,7 +721,6 @@ class SiblingGroupSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "family_name",
             "parent_name",
             "parent_email",
@@ -797,11 +741,8 @@ class SiblingRecordSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "sibling_group",
-            "on_delete",
             "student",
-            "on_delete",
             "application",
-            "on_delete",
             "is_currently_enrolled",
             "grade_level",
             "enrollment_date",
@@ -817,7 +758,6 @@ class AdmissionFunnelSnapshotSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "intake",
-            "on_delete",
             "snapshot_date",
             "inquiries",
             "campus_visits",
@@ -841,7 +781,6 @@ class AdmissionDocumentChecklistSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "intake",
-            "on_delete",
             "grade_level",
             "document_name",
             "description",
@@ -862,15 +801,12 @@ class AdmissionDocumentVerificationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "application",
-            "on_delete",
             "checklist_item",
-            "on_delete",
             "status",
             "file",
             "original_filename",
             "file_size",
             "verified_by",
-            "on_delete",
             "verified_at",
             "rejection_reason",
             "uploaded_at",
@@ -886,7 +822,6 @@ class AdmissionPredictionModelSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "intake",
-            "on_delete",
             "prediction_type",
             "prediction_date",
             "predicted_value",
@@ -905,7 +840,6 @@ class AdmissionMarketingSourceSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "source_type",
             "total_inquiries",
@@ -928,10 +862,8 @@ class AdmissionTrendAnalysisSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "academic_year",
             "intake",
-            "on_delete",
             "total_applications",
             "applications_male",
             "applications_female",
@@ -943,3 +875,52 @@ class AdmissionTrendAnalysisSerializer(serializers.ModelSerializer):
             "total_scholarships_awarded",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+# ── Serializers restored from original module (expansion regression fix) ──
+
+
+class ApplicationTimelineSerializer(serializers.ModelSerializer):
+    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default="")
+
+    class Meta:
+        model = ApplicationTimelineEvent
+        fields = ["id", "stage", "stage_display", "note", "created_by", "created_by_name", "created_at"]
+        read_only_fields = fields
+
+
+class ApplicationListSerializer(serializers.ModelSerializer):
+    """Lightweight list serializer without nested docs/reviews."""
+
+    intake_name = serializers.CharField(source="intake.name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Application
+        fields = [
+            "id",
+            "intake",
+            "intake_name",
+            "application_number",
+            "status",
+            "status_display",
+            "full_name",
+            "email",
+            "phone",
+            "applying_for_grade",
+            "previous_school",
+            "submitted_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "application_number", "created_at"]
+
+    def get_full_name(self, obj):
+        parts = [obj.first_name, obj.middle_name, obj.last_name]
+        return " ".join(p for p in parts if p)
+
+
+# =============================================================================
+# Application Fees Serializers
+# =============================================================================

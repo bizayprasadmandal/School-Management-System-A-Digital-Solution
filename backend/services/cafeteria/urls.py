@@ -1,5 +1,3 @@
-"""URL Configuration for cafeteria."""
-
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
@@ -47,26 +45,35 @@ from .views import (
 )
 
 app_name = "cafeteria_v1"
-
 router = DefaultRouter()
-router.register(r"meal-menu", MealMenuViewSet, basename="meal-menu")
-router.register(r"meal-plan", MealPlanViewSet, basename="meal-plan")
-router.register(r"meal-booking", MealBookingViewSet, basename="meal-booking")
-router.register(r"dietary-restriction", DietaryRestrictionViewSet, basename="dietary-restriction")
-router.register(r"point-of-sale", PointOfSaleViewSet, basename="point-of-sale")
-router.register(r"payment-transaction", PaymentTransactionViewSet, basename="payment-transaction")
-router.register(r"free-reduced-lunch", FreeReducedLunchViewSet, basename="free-reduced-lunch")
-router.register(r"cafeteria-inventory", CafeteriaInventoryViewSet, basename="cafeteria-inventory")
-router.register(r"u-s-d-a-compliance-report", USDAComplianceReportViewSet, basename="u-s-d-a-compliance-report")
-router.register(r"pre-order-system", PreOrderSystemViewSet, basename="pre-order-system")
-router.register(r"student-account", StudentAccountViewSet, basename="student-account")
-router.register(r"allergen-management", AllergenManagementViewSet, basename="allergen-management")
-router.register(r"menu-item-allergen", MenuItemAllergenViewSet, basename="menu-item-allergen")
-router.register(r"nutrition-tracking", NutritionTrackingViewSet, basename="nutrition-tracking")
-router.register(r"vendor-management", VendorManagementViewSet, basename="vendor-management")
-router.register(r"vendor-order", VendorOrderViewSet, basename="vendor-order")
-router.register(r"production-planning", ProductionPlanningViewSet, basename="production-planning")
-router.register(r"waste-tracking", WasteTrackingViewSet, basename="waste-tracking")
+# Core
+router.register(r"menus", MealMenuViewSet, basename="meal-menu")
+router.register(r"plans", MealPlanViewSet, basename="meal-plan")
+router.register(r"bookings", MealBookingViewSet, basename="meal-booking")
+router.register(r"dietary", DietaryRestrictionViewSet, basename="dietary")
+# POS & Payments
+router.register(r"pos", PointOfSaleViewSet, basename="point-of-sale")
+router.register(r"payments", PaymentTransactionViewSet, basename="payment-transaction")
+router.register(r"accounts", StudentAccountViewSet, basename="student-account")
+# Free/Reduced Lunch
+router.register(r"free-reduced", FreeReducedLunchViewSet, basename="free-reduced-lunch")
+# Inventory & Vendors
+router.register(r"inventory", CafeteriaInventoryViewSet, basename="cafeteria-inventory")
+router.register(r"vendors", VendorManagementViewSet, basename="vendor-management")
+router.register(r"vendor-orders", VendorOrderViewSet, basename="vendor-order")
+# Allergens & Nutrition
+router.register(r"allergens", AllergenManagementViewSet, basename="allergen-management")
+router.register(r"menu-allergens", MenuItemAllergenViewSet, basename="menu-item-allergen")
+router.register(r"nutrition", NutritionTrackingViewSet, basename="nutrition-tracking")
+# Pre-Orders & Production
+router.register(r"pre-orders", PreOrderSystemViewSet, basename="pre-order-system")
+router.register(r"production", ProductionPlanningViewSet, basename="production-planning")
+# Compliance & Waste
+router.register(r"usda-reports", USDAComplianceReportViewSet, basename="usda-compliance-report")
+router.register(r"waste", WasteTrackingViewSet, basename="waste-tracking")
+
+
+# ── Additional registrations (module expansion) ──
 router.register(r"online-order", OnlineOrderViewSet, basename="online-order")
 router.register(r"online-order-item", OnlineOrderItemViewSet, basename="online-order-item")
 router.register(r"meal-delivery", MealDeliveryViewSet, basename="meal-delivery")
@@ -90,6 +97,4 @@ router.register(r"cafeteria-holiday-schedule", CafeteriaHolidayScheduleViewSet, 
 router.register(r"cafeteria-monthly-report", CafeteriaMonthlyReportViewSet, basename="cafeteria-monthly-report")
 router.register(r"cafeteria-inventory-alert", CafeteriaInventoryAlertViewSet, basename="cafeteria-inventory-alert")
 
-urlpatterns = [
-    path("", include(router.urls)),
-]
+urlpatterns = [path("", include(router.urls))]

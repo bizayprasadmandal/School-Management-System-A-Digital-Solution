@@ -49,29 +49,84 @@ from .models import (
 class PeriodSerializer(serializers.ModelSerializer):
     class Meta:
         model = Period
-        fields = ["id", "school", "on_delete", "name", "period_number", "start_time", "end_time", "is_break"]
-        read_only_fields = ["id"]
+        fields = ["id", "school", "name", "period_number", "start_time", "end_time", "is_break"]
+        read_only_fields = ["id", "school"]
+
+    def validate_period_number(self, value):
+        request = self.context.get("request")
+        if request and getattr(request, "user", None) and request.user.is_authenticated:
+            school = request.user.school
+            qs = Period.objects.filter(school=school, period_number=value)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(f"A period with number {value} already exists for this school.")
+        return value
 
 
 class TimetableSlotSerializer(serializers.ModelSerializer):
+
+    subject_name = serializers.CharField(source="assignment.subject.name", read_only=True)
+    subject_code = serializers.CharField(source="assignment.subject.code", read_only=True)
+    teacher_name = serializers.CharField(source="assignment.teacher.full_name", read_only=True)
+    classroom_name = serializers.SerializerMethodField()
+    period_name = serializers.CharField(source="period.name", read_only=True)
+    period_number = serializers.IntegerField(source="period.period_number", read_only=True)
+    start_time = serializers.TimeField(source="period.start_time", read_only=True)
+    end_time = serializers.TimeField(source="period.end_time", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TimetableSlot
         fields = [
             "id",
             "classroom",
-            "on_delete",
+            "classroom_name",
             "assignment",
-            "on_delete",
+            "subject_name",
+            "subject_code",
+            "teacher_name",
             "period",
-            "on_delete",
+            "period_name",
+            "period_number",
+            "start_time",
+            "end_time",
             "day_of_week",
-            "academic_year",
-            "on_delete",
+            "day_name",
             "room",
+            "academic_year",
             "effective_from",
             "effective_to",
         ]
-        read_only_fields = ["id"]
+
+    def get_classroom_name(self, obj):
+        return str(obj.classroom)
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+
+    def validate(self, attrs):
+        # Conflict detection: teacher double-booking.
+        # Use instance values for fields not present in a PATCH payload.
+        assignment = attrs.get("assignment") or getattr(self.instance, "assignment", None)
+        if assignment is None:
+            return attrs
+        teacher = assignment.teacher
+        day = attrs.get("day_of_week", getattr(self.instance, "day_of_week", None))
+        period = attrs.get("period", getattr(self.instance, "period", None))
+        academic_year = attrs.get("academic_year", getattr(self.instance, "academic_year", None))
+        existing = TimetableSlot.objects.filter(
+            assignment__teacher=teacher,
+            day_of_week=day,
+            period=period,
+            academic_year=academic_year,
+        ).exclude(pk=self.instance.pk if self.instance else None)
+        if existing.exists():
+            raise serializers.ValidationError(
+                f"Teacher '{teacher.full_name}' is already assigned to another class "
+                f"in {period.name} on {dict(TimetableSlot.DAYS_OF_WEEK)[day]}."
+            )
+        return attrs
 
 
 class SchoolEventSerializer(serializers.ModelSerializer):
@@ -80,7 +135,6 @@ class SchoolEventSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "on_delete",
             "title",
             "description",
             "event_type",
@@ -92,82 +146,84 @@ class SchoolEventSerializer(serializers.ModelSerializer):
             "is_school_wide",
             "target_grades",
             "created_by",
-            "on_delete",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_by", "created_at"]
 
 
 class TeacherTimetableSerializer(serializers.ModelSerializer):
+
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TeacherTimetable
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
-            "id",
+            "created_at",
             "teacher",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "slot",
-            "on_delete",
             "classroom",
-            "on_delete",
             "subject",
-            "on_delete",
             "period",
-            "on_delete",
             "day_of_week",
             "total_hours_per_week",
         ]
-        read_only_fields = ["id", "created_at"]
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
 
 
 class SubstituteTeacherSerializer(serializers.ModelSerializer):
+
+    original_teacher_name = serializers.CharField(source="original_teacher.get_full_name", read_only=True)
+    substitute_teacher_name = serializers.CharField(source="substitute_teacher.get_full_name", read_only=True)
+
     class Meta:
         model = SubstituteTeacher
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
+            "updated_at",
             "school",
-            "id",
-            "on_delete",
             "original_teacher",
-            "on_delete",
             "substitute_teacher",
-            "on_delete",
             "slot",
-            "on_delete",
             "date",
             "period",
-            "on_delete",
             "reason",
             "status",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ConflictDetectionSerializer(serializers.ModelSerializer):
+
+    conflict_type_display = serializers.CharField(source="get_conflict_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = ConflictDetection
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
             "school",
-            "id",
-            "on_delete",
             "conflict_type",
             "slot1",
-            "on_delete",
             "slot2",
-            "on_delete",
             "description",
             "status",
             "resolution_notes",
             "resolved_by",
-            "on_delete",
             "resolved_at",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
 
 
 class ExamScheduleSerializer(serializers.ModelSerializer):
@@ -177,57 +233,58 @@ class ExamScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "exam_type",
             "academic_year",
-            "on_delete",
             "start_date",
             "end_date",
             "status",
             "instructions",
             "published_at",
             "created_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ExamScheduleEntrySerializer(serializers.ModelSerializer):
+
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    invigilator_name = serializers.CharField(source="invigilator.get_full_name", read_only=True)
+
     class Meta:
         model = ExamScheduleEntry
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
-            "id",
+            "created_at",
             "exam_schedule",
-            "on_delete",
             "classroom",
-            "on_delete",
             "subject",
-            "on_delete",
             "exam_date",
             "start_time",
             "end_time",
             "room",
             "invigilator",
-            "on_delete",
             "total_marks",
             "passing_marks",
         ]
-        read_only_fields = ["id", "created_at"]
 
 
 class AcademicCalendarSerializer(serializers.ModelSerializer):
+
+    calendar_type_display = serializers.CharField(source="get_calendar_type_display", read_only=True)
+
     class Meta:
         model = AcademicCalendar
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
+            "updated_at",
             "school",
-            "id",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "title",
             "calendar_type",
             "start_date",
@@ -236,24 +293,25 @@ class AcademicCalendarSerializer(serializers.ModelSerializer):
             "is_school_wide",
             "target_grades",
             "notes",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class RoomBookingSerializer(serializers.ModelSerializer):
+
+    booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
+    booking_type_display = serializers.CharField(source="get_booking_type_display", read_only=True)
+
     class Meta:
         model = RoomBooking
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
+            "updated_at",
             "school",
-            "id",
-            "on_delete",
             "room_name",
             "booking_type",
             "booked_by",
-            "on_delete",
             "date",
             "start_time",
             "end_time",
@@ -263,7 +321,6 @@ class RoomBookingSerializer(serializers.ModelSerializer):
             "notes",
             "approved_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class TimetableTemplateSerializer(serializers.ModelSerializer):
@@ -273,11 +330,9 @@ class TimetableTemplateSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "grade",
-            "on_delete",
             "periods_per_day",
             "working_days",
             "is_active",
@@ -288,105 +343,113 @@ class TimetableTemplateSerializer(serializers.ModelSerializer):
 
 
 class TimetableTemplateSlotSerializer(serializers.ModelSerializer):
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TimetableTemplateSlot
-        fields = [
-            "id",
-            "id",
-            "template",
-            "on_delete",
-            "subject",
-            "on_delete",
-            "period",
-            "on_delete",
-            "day_of_week",
-            "room",
-            "notes",
-        ]
-        read_only_fields = ["id"]
+        fields = "__all__"
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
 
 
 class TeacherPreferenceSerializer(serializers.ModelSerializer):
+
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    preference_type_display = serializers.CharField(source="get_preference_type_display", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TeacherPreference
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
-            "id",
+            "created_at",
+            "updated_at",
             "teacher",
-            "on_delete",
             "preference_type",
             "day_of_week",
             "period",
-            "on_delete",
             "reason",
             "is_recurring",
             "effective_from",
             "effective_to",
-            "created_at",
-            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_day_name(self, obj):
+        if obj.day_of_week is not None:
+            return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
+        return None
 
 
 class TimetableApprovalSerializer(serializers.ModelSerializer):
+
+    submitted_by_name = serializers.CharField(source="submitted_by.get_full_name", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = TimetableApproval
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
+            "updated_at",
             "school",
-            "id",
-            "on_delete",
             "title",
             "academic_year",
-            "on_delete",
             "grade",
-            "on_delete",
             "status",
             "submitted_by",
-            "on_delete",
             "submitted_at",
             "approved_by",
-            "on_delete",
             "approved_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class TimetableChangeSerializer(serializers.ModelSerializer):
+
+    change_type_display = serializers.CharField(source="get_change_type_display", read_only=True)
+    changed_by_name = serializers.CharField(source="changed_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableChange
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
             "school",
-            "id",
-            "on_delete",
             "change_type",
             "slot",
-            "on_delete",
             "old_value",
             "new_value",
             "effective_date",
             "reason",
             "changed_by",
-            "on_delete",
             "notified",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
 
 
 class CoCurricularScheduleSerializer(serializers.ModelSerializer):
+
+    activity_type_display = serializers.CharField(source="get_activity_type_display", read_only=True)
+    instructor_name = serializers.CharField(source="instructor.get_full_name", read_only=True)
+    day_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CoCurricularSchedule
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
+            "updated_at",
             "school",
-            "id",
-            "on_delete",
             "activity_name",
             "activity_type",
             "instructor",
-            "on_delete",
             "day_of_week",
             "start_time",
             "end_time",
@@ -396,41 +459,46 @@ class CoCurricularScheduleSerializer(serializers.ModelSerializer):
             "is_mandatory",
             "is_active",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_day_name(self, obj):
+        return dict(TimetableSlot.DAYS_OF_WEEK).get(obj.day_of_week, "")
 
 
 class TimetableReportSerializer(serializers.ModelSerializer):
+
+    report_type_display = serializers.CharField(source="get_report_type_display", read_only=True)
+    generated_by_name = serializers.CharField(source="generated_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableReport
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
             "school",
-            "id",
-            "on_delete",
             "title",
             "report_type",
             "academic_year",
-            "on_delete",
             "date_from",
             "date_to",
             "data",
             "summary",
             "generated_by",
-            "on_delete",
             "file_url",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
 
 
 class SchoolClosureSerializer(serializers.ModelSerializer):
+
+    closure_type_display = serializers.CharField(source="get_closure_type_display", read_only=True)
+
     class Meta:
         model = SchoolClosure
-        fields = [
+        fields = "__all__"
+        read_only_fields = [
             "id",
+            "created_at",
             "school",
-            "id",
-            "on_delete",
             "title",
             "closure_type",
             "date",
@@ -438,11 +506,10 @@ class SchoolClosureSerializer(serializers.ModelSerializer):
             "affects_all",
             "target_grades",
             "notified",
-            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
 
 
+# ─── New Views ───────────────────────────────────────────────────────────────
 class BellScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = BellSchedule
@@ -450,7 +517,6 @@ class BellScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "day_type",
             "is_active",
@@ -469,9 +535,7 @@ class BellScheduleEntrySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "bell_schedule",
-            "on_delete",
             "period",
-            "on_delete",
             "start_time",
             "end_time",
             "is_break",
@@ -488,16 +552,13 @@ class ClassGroupSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "grade_level",
             "section_name",
             "academic_year",
             "max_students",
             "current_students",
             "class_teacher",
-            "on_delete",
             "homeroom",
-            "on_delete",
             "subjects",
             "is_active",
             "created_at",
@@ -508,17 +569,7 @@ class ClassGroupSerializer(serializers.ModelSerializer):
 class ClassGroupEnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassGroupEnrollment
-        fields = [
-            "id",
-            "id",
-            "class_group",
-            "on_delete",
-            "student",
-            "on_delete",
-            "enrolled_date",
-            "is_active",
-            "created_at",
-        ]
+        fields = ["id", "id", "class_group", "student", "enrolled_date", "is_active", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -529,13 +580,10 @@ class SubjectTeacherAssignmentSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "teacher",
-            "on_delete",
             "subject",
             "subject_code",
             "class_group",
-            "on_delete",
             "periods_per_week",
             "academic_year",
             "semester",
@@ -553,17 +601,12 @@ class LessonPlanSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "teacher",
-            "on_delete",
             "class_group",
-            "on_delete",
             "subject",
             "plan_date",
             "period",
-            "on_delete",
             "timetable_slot",
-            "on_delete",
             "topic",
             "learning_objectives",
         ]
@@ -577,17 +620,12 @@ class ExamRoomAllocationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "exam_schedule",
-            "on_delete",
             "room",
-            "on_delete",
             "seating_capacity",
             "students_allocated",
             "invigilator",
-            "on_delete",
             "co_invigilator",
-            "on_delete",
             "seating_arrangement",
             "equipment_needed",
         ]
@@ -597,18 +635,7 @@ class ExamRoomAllocationSerializer(serializers.ModelSerializer):
 class SeatingArrangementSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeatingArrangement
-        fields = [
-            "id",
-            "id",
-            "room_allocation",
-            "on_delete",
-            "student",
-            "on_delete",
-            "seat_number",
-            "row",
-            "column",
-            "created_at",
-        ]
+        fields = ["id", "id", "room_allocation", "student", "seat_number", "row", "column", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -619,18 +646,14 @@ class ExamAttendanceSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "exam_entry",
-            "on_delete",
             "student",
-            "on_delete",
             "status",
             "arrival_time",
             "departure_time",
             "minutes_late",
             "seating",
-            "on_delete",
             "invigilator_notes",
             "recorded_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -643,7 +666,6 @@ class AcademicSessionSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "academic_year",
             "semester",
@@ -667,16 +689,11 @@ class SubstituteScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "substitute_teacher",
-            "on_delete",
             "original_teacher",
-            "on_delete",
             "date",
             "timetable_slot",
-            "on_delete",
             "class_group",
-            "on_delete",
             "subject",
             "status",
             "lesson_plan",
@@ -691,7 +708,6 @@ class RoomUtilizationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "room",
-            "on_delete",
             "date",
             "total_hours_available",
             "total_hours_used",
@@ -713,7 +729,6 @@ class TimetableValidationRuleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "rule_type",
             "description",
@@ -736,15 +751,12 @@ class TimetableValidationErrorSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "rule",
-            "on_delete",
             "timetable_slot",
-            "on_delete",
             "severity",
             "message",
             "details",
             "resolved",
             "resolved_by",
-            "on_delete",
             "resolved_at",
             "resolution_notes",
             "created_at",
@@ -759,11 +771,9 @@ class TimetableResourceSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "resource_type",
             "room",
-            "on_delete",
             "capacity",
             "is_available",
             "hourly_cost",
@@ -781,17 +791,13 @@ class TimetableResourceBookingSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "resource",
-            "on_delete",
             "booked_by",
-            "on_delete",
             "class_group",
-            "on_delete",
             "booking_date",
             "start_time",
             "end_time",
             "purpose",
             "event",
-            "on_delete",
             "status",
             "approved_by",
         ]
@@ -805,7 +811,6 @@ class TimetableAnalyticsSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "academic_year",
             "semester",
             "generation_date",
@@ -829,18 +834,13 @@ class TimetableChangeRequestSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "requested_by",
-            "on_delete",
             "request_type",
             "status",
             "description",
             "original_slot",
-            "on_delete",
             "requested_slot",
-            "on_delete",
             "approved_by",
-            "on_delete",
             "approval_notes",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -853,7 +853,6 @@ class DailyScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "date",
             "day_of_week",
             "total_classes_scheduled",
@@ -877,9 +876,7 @@ class TeacherWorkloadSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "teacher",
-            "on_delete",
             "academic_year",
             "semester",
             "total_periods_per_week",
@@ -901,14 +898,12 @@ class ClassScheduleSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "class_group",
-            "on_delete",
             "academic_year",
             "total_weekly_periods",
             "subjects_scheduled",
             "is_finalized",
             "finalized_at",
             "finalized_by",
-            "on_delete",
             "created_at",
             "updated_at",
         ]
@@ -922,7 +917,6 @@ class TimetableVersionSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "academic_year",
             "semester",
             "version_number",
@@ -934,6 +928,5 @@ class TimetableVersionSerializer(serializers.ModelSerializer):
             "published_at",
             "changes_from_previous",
             "created_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at"]

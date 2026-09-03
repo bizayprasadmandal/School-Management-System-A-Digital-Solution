@@ -38,7 +38,7 @@ from .models import (
     SSOConfiguration,
     TwoFactorBackupCode,
     UserActivity,
-    UserRole,
+    UserRoleAssignment,
     UserSession,
     UserSessionHistory,
     UserTrustScore,
@@ -165,8 +165,8 @@ class RolePermissionAdmin(admin.ModelAdmin):
     search_fields = ["id"]
 
 
-@admin.register(UserRole)
-class UserRoleAdmin(admin.ModelAdmin):
+@admin.register(UserRoleAssignment)
+class UserRoleAssignmentAdmin(admin.ModelAdmin):
     list_display = ["id", "is_active"]
     list_filter = ["is_active"]
     search_fields = ["id"]

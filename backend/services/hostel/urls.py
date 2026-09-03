@@ -1,4 +1,4 @@
-"""URL Configuration for hostel."""
+"""Hostel / Accommodation Management URL Configuration."""
 
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
@@ -48,25 +48,28 @@ from .views import (
 app_name = "hostel_v1"
 
 router = DefaultRouter()
-router.register(r"hostel", HostelViewSet, basename="hostel")
-router.register(r"hostel-room", HostelRoomViewSet, basename="hostel-room")
-router.register(r"hostel-allocation", HostelAllocationViewSet, basename="hostel-allocation")
-router.register(r"hostel-fee", HostelFeeViewSet, basename="hostel-fee")
-router.register(r"hostel-visitor", HostelVisitorViewSet, basename="hostel-visitor")
-router.register(r"room-maintenance", RoomMaintenanceViewSet, basename="room-maintenance")
-router.register(r"hostel-attendance", HostelAttendanceViewSet, basename="hostel-attendance")
-router.register(r"leave-management", LeaveManagementViewSet, basename="leave-management")
-router.register(r"mess-management", MessManagementViewSet, basename="mess-management")
+router.register(r"hostels", HostelViewSet, basename="hostel")
+router.register(r"rooms", HostelRoomViewSet, basename="room")
+router.register(r"allocations", HostelAllocationViewSet, basename="allocation")
+router.register(r"fees", HostelFeeViewSet, basename="fee")
+router.register(r"visitors", HostelVisitorViewSet, basename="visitor")
+router.register(r"maintenance", RoomMaintenanceViewSet, basename="maintenance")
+router.register(r"attendance", HostelAttendanceViewSet, basename="hostel-attendance")
+router.register(r"leaves", LeaveManagementViewSet, basename="leave")
+router.register(r"mess", MessManagementViewSet, basename="mess")
 router.register(r"mess-attendance", MessAttendanceViewSet, basename="mess-attendance")
-router.register(r"complaint-management", ComplaintManagementViewSet, basename="complaint-management")
-router.register(r"room-inspection", RoomInspectionViewSet, basename="room-inspection")
-router.register(r"inventory-management", InventoryManagementViewSet, basename="inventory-management")
-router.register(r"hostel-report", HostelReportViewSet, basename="hostel-report")
-router.register(r"emergency-contact", EmergencyContactViewSet, basename="emergency-contact")
-router.register(r"room-transfer", RoomTransferViewSet, basename="room-transfer")
-router.register(r"checkout-process", CheckoutProcessViewSet, basename="checkout-process")
-router.register(r"hostel-notification", HostelNotificationViewSet, basename="hostel-notification")
-router.register(r"hostel-feedback", HostelFeedbackViewSet, basename="hostel-feedback")
+router.register(r"complaints", ComplaintManagementViewSet, basename="complaint")
+router.register(r"inspections", RoomInspectionViewSet, basename="inspection")
+router.register(r"inventory", InventoryManagementViewSet, basename="inventory")
+router.register(r"reports", HostelReportViewSet, basename="hostel-report")
+router.register(r"emergency-contacts", EmergencyContactViewSet, basename="emergency-contact")
+router.register(r"transfers", RoomTransferViewSet, basename="room-transfer")
+router.register(r"checkouts", CheckoutProcessViewSet, basename="checkout")
+router.register(r"notifications", HostelNotificationViewSet, basename="notification")
+router.register(r"feedback", HostelFeedbackViewSet, basename="feedback")
+
+
+# ── Additional registrations (module expansion) ──
 router.register(r"roommate-preference", RoommatePreferenceViewSet, basename="roommate-preference")
 router.register(r"roommate-assignment", RoommateAssignmentViewSet, basename="roommate-assignment")
 router.register(r"room-key", RoomKeyViewSet, basename="room-key")

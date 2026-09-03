@@ -1,5 +1,7 @@
 """Serializers for attendance."""
 
+from django.conf import settings
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
@@ -45,6 +47,22 @@ from .models import (
     TardyRecord,
 )
 
+MAX_BULK_RECORDS = 50
+ATTENDANCE_EDIT_WINDOW_DAYS = getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 7)
+
+
+def log_attendance_change(attendance_type, record, change_type, user, old_values=None, new_values=None, reason=""):
+    """Create an audit log entry for attendance changes."""
+    AttendanceChangeLog.objects.create(
+        attendance_type=attendance_type,
+        attendance_id=record.id,
+        change_type=change_type,
+        old_values=old_values,
+        new_values=new_values,
+        changed_by=user,
+        reason=reason,
+    )
+
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -52,18 +70,13 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "classroom",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "date",
             "status",
             "recorded_by",
-            "on_delete",
             "recorded_at",
             "updated_by",
-            "on_delete",
             "updated_at",
             "remarks",
         ]
@@ -76,17 +89,13 @@ class PeriodAttendanceSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "assignment",
-            "on_delete",
             "date",
             "period_number",
             "status",
             "recorded_by",
-            "on_delete",
             "recorded_at",
             "updated_by",
-            "on_delete",
             "updated_at",
         ]
         read_only_fields = ["id", "updated_at"]
@@ -98,7 +107,6 @@ class AttendanceLeaveSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "leave_type",
             "from_date",
             "to_date",
@@ -106,7 +114,6 @@ class AttendanceLeaveSerializer(serializers.ModelSerializer):
             "supporting_document",
             "status",
             "reviewed_by",
-            "on_delete",
             "review_remarks",
             "requested_at",
             "reviewed_at",
@@ -125,7 +132,6 @@ class AttendanceChangeLogSerializer(serializers.ModelSerializer):
             "old_values",
             "new_values",
             "changed_by",
-            "on_delete",
             "changed_at",
             "reason",
         ]
@@ -138,7 +144,6 @@ class AttendancePolicySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "on_delete",
             "name",
             "min_attendance_pct",
             "auto_fail_below",
@@ -158,18 +163,7 @@ class AttendancePolicySerializer(serializers.ModelSerializer):
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Holiday
-        fields = [
-            "id",
-            "school",
-            "on_delete",
-            "name",
-            "date",
-            "holiday_type",
-            "description",
-            "academic_year",
-            "on_delete",
-            "created_at",
-        ]
+        fields = ["id", "school", "name", "date", "holiday_type", "description", "academic_year", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -179,9 +173,7 @@ class LeaveBalanceSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "student",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "sick_leave_total",
             "sick_leave_used",
             "casual_leave_total",
@@ -197,18 +189,7 @@ class LeaveBalanceSerializer(serializers.ModelSerializer):
 class LeaveApprovalLevelSerializer(serializers.ModelSerializer):
     class Meta:
         model = LeaveApprovalLevel
-        fields = [
-            "id",
-            "leave",
-            "on_delete",
-            "level",
-            "approver",
-            "on_delete",
-            "status",
-            "remarks",
-            "decided_at",
-            "created_at",
-        ]
+        fields = ["id", "leave", "level", "approver", "status", "remarks", "decided_at", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -218,9 +199,7 @@ class QRCodeSessionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "classroom",
-            "on_delete",
             "teacher",
-            "on_delete",
             "date",
             "period_number",
             "qr_code",
@@ -235,7 +214,7 @@ class QRCodeSessionSerializer(serializers.ModelSerializer):
 class QRCodeCheckinSerializer(serializers.ModelSerializer):
     class Meta:
         model = QRCodeCheckin
-        fields = ["id", "session", "on_delete", "student", "on_delete", "checked_in_at", "ip_address", "device_info"]
+        fields = ["id", "session", "student", "checked_in_at", "ip_address", "device_info"]
         read_only_fields = ["id"]
 
 
@@ -245,15 +224,11 @@ class SubstituteTeacherSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "original_teacher",
-            "on_delete",
             "substitute_teacher",
-            "on_delete",
             "date",
             "period_number",
             "classroom",
-            "on_delete",
             "subject",
-            "on_delete",
             "reason",
             "is_auto_assigned",
             "created_at",
@@ -267,9 +242,7 @@ class AttendanceDataArchiveSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "archive_type",
             "data",
             "record_count",
@@ -288,9 +261,7 @@ class BiometricCheckinSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "biometric_type",
             "device_id",
             "status",
@@ -311,9 +282,7 @@ class RFIDCheckinSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "card_number",
             "reader_id",
             "status",
@@ -334,9 +303,7 @@ class GPSAttendanceSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "latitude",
             "longitude",
             "accuracy_meters",
@@ -358,9 +325,7 @@ class ParentNotificationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "notification_type",
             "channel",
             "title",
@@ -382,7 +347,6 @@ class AttendanceDashboardSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "dashboard_type",
             "title",
             "start_date",
@@ -406,13 +370,9 @@ class ChronicAbsenceTrackingSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "term",
-            "on_delete",
             "total_days",
             "days_present",
             "days_absent",
@@ -430,18 +390,14 @@ class AttendanceReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "report_type",
             "title",
             "description",
             "start_date",
             "end_date",
             "classroom",
-            "on_delete",
             "student",
-            "on_delete",
             "grade",
-            "on_delete",
             "total_students",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -454,7 +410,6 @@ class BulkAttendanceImportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "file_name",
             "file_url",
             "status",
@@ -478,12 +433,9 @@ class AttendanceCorrectionWorkflowSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "correction_type",
             "attendance_record",
-            "on_delete",
             "period_attendance",
-            "on_delete",
             "old_status",
             "new_status",
             "old_time",
@@ -502,11 +454,8 @@ class AttendanceHistoryViewSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "term",
-            "on_delete",
             "total_days",
             "days_present",
             "days_absent",
@@ -526,11 +475,8 @@ class AttendancePatternsSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "academic_year",
-            "on_delete",
             "pattern_type",
             "pattern_name",
             "description",
@@ -550,7 +496,6 @@ class RealTimeDashboardSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "scope",
             "scope_id",
             "total_expected",
@@ -574,7 +519,6 @@ class AttendanceIncentiveSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "incentive_type",
             "description",
@@ -598,12 +542,9 @@ class AttendanceIncentiveAwardSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "incentive",
-            "on_delete",
             "student",
-            "on_delete",
             "awarded_date",
             "awarded_by",
-            "on_delete",
             "streak_days",
             "attendance_percentage",
             "notes",
@@ -620,9 +561,7 @@ class AttendancePredictionSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "prediction_type",
             "risk_score",
             "prediction_date",
@@ -644,7 +583,6 @@ class FieldTripSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "description",
             "destination",
@@ -654,7 +592,6 @@ class FieldTripSerializer(serializers.ModelSerializer):
             "return_date",
             "return_time",
             "organizer",
-            "on_delete",
             "chaperones",
             "eligible_grades",
         ]
@@ -668,9 +605,7 @@ class FieldTripParticipantSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "field_trip",
-            "on_delete",
             "student",
-            "on_delete",
             "consent_status",
             "attendance_status",
             "parent_contacted",
@@ -688,9 +623,7 @@ class AttendanceEscalationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "escalation_level",
             "status",
             "trigger_reason",
@@ -698,7 +631,6 @@ class AttendanceEscalationSerializer(serializers.ModelSerializer):
             "tardies_count",
             "actions_taken",
             "assigned_to",
-            "on_delete",
             "meeting_date",
             "meeting_notes",
         ]
@@ -712,7 +644,6 @@ class AttendanceAlertConfigSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "absence_threshold",
@@ -736,7 +667,6 @@ class TardyPolicySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "tardy_count",
             "consequence",
@@ -758,16 +688,13 @@ class TardyRecordSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "student",
-            "on_delete",
             "attendance_record",
-            "on_delete",
             "tardy_date",
             "arrival_time",
             "minutes_late",
             "reason",
             "excuse",
             "policy_applied",
-            "on_delete",
             "consequence",
             "status",
             "parent_notified",
@@ -782,11 +709,8 @@ class EarlyDismissalSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "requested_by",
-            "on_delete",
             "reason_type",
             "status",
             "dismissal_date",
@@ -806,18 +730,14 @@ class AttendanceMakeUpSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "original_absence",
-            "on_delete",
             "status",
             "make_up_date",
             "start_time",
             "end_time",
             "location",
             "supervised_by",
-            "on_delete",
             "reason",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -830,16 +750,13 @@ class AttendanceAuditEntrySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "change_type",
             "old_status",
             "new_status",
             "old_time",
             "new_time",
             "changed_by",
-            "on_delete",
             "reason",
             "change_date",
             "change_timestamp",
@@ -854,7 +771,6 @@ class AttendanceConfigurationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "attendance_mode",
             "check_in_method",
             "grace_period_minutes",
@@ -878,9 +794,7 @@ class StudentAttendanceSummarySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "academic_year",
             "semester",
             "total_school_days",
@@ -902,16 +816,13 @@ class AttendanceLockoutSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "lock_date",
             "period",
             "locked_by",
-            "on_delete",
             "lock_reason",
             "is_locked",
             "locked_at",
             "unlocked_by",
-            "on_delete",
             "unlocked_at",
             "unlock_reason",
         ]
@@ -925,11 +836,8 @@ class AttendanceCommentSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "author",
-            "on_delete",
             "comment_type",
             "comment",
             "comment_date",
@@ -940,3 +848,139 @@ class AttendanceCommentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+# ── Serializers restored from original module (expansion regression fix) ──
+
+
+class BulkAttendanceSerializer(serializers.Serializer):
+    classroom_id = serializers.IntegerField()
+    date = serializers.DateField()
+    records = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False,
+        max_length=MAX_BULK_RECORDS,
+    )
+
+    def validate_records(self, value):
+        if len(value) > MAX_BULK_RECORDS:
+            raise serializers.ValidationError(
+                f"Cannot record attendance for more than {MAX_BULK_RECORDS} students at once."
+            )
+        return value
+
+    def validate_classroom_id(self, value):
+        from services.students.models import Classroom
+
+        user = self.context["request"].user
+        try:
+            return Classroom.objects.get(id=value, school=user.school)
+        except Classroom.DoesNotExist:
+            raise serializers.ValidationError("Classroom not found.")
+
+    @transaction.atomic
+    def save(self):
+        classroom = self.validated_data["classroom_id"]
+        date = self.validated_data["date"]
+        user = self.context["request"].user
+        from services.students.models import AcademicYear, Student
+
+        academic_year = AcademicYear.objects.filter(school=user.school, is_current=True).first()
+
+        # Tenant isolation on the write path: every student in the payload must
+        # belong to the classroom's school, otherwise a teacher could record
+        # attendance against another school's students by ID.
+        student_ids = [entry["student_id"] for entry in self.validated_data["records"]]
+        valid_ids = set(
+            str(i)
+            for i in Student.objects.filter(id__in=student_ids, school=classroom.school).values_list("id", flat=True)
+        )
+        invalid_ids = [str(sid) for sid in student_ids if str(sid) not in valid_ids]
+        if invalid_ids:
+            raise serializers.ValidationError({"records": f"Student(s) not found in this school: {invalid_ids[:5]}"})
+
+        records = []
+        for entry in self.validated_data["records"]:
+            record, _ = AttendanceRecord.objects.update_or_create(
+                student_id=entry["student_id"],
+                date=date,
+                defaults={
+                    "classroom": classroom,
+                    "academic_year": academic_year,
+                    "status": entry["status"],
+                    "remarks": entry.get("remarks", ""),
+                    "recorded_by": user,
+                },
+            )
+            records.append(record)
+        return records
+
+
+class BulkPeriodAttendanceSerializer(serializers.Serializer):
+    """Bulk record period attendance for multiple students."""
+
+    assignment_id = serializers.IntegerField()
+    date = serializers.DateField()
+    period_number = serializers.IntegerField(min_value=1, max_value=10)
+    records = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False,
+        max_length=MAX_BULK_RECORDS,
+    )
+
+    def validate_assignment_id(self, value):
+        from services.academics.models import TeacherAssignment
+
+        user = self.context["request"].user
+        try:
+            assignment = TeacherAssignment.objects.select_related("subject", "teacher").get(id=value)
+        except TeacherAssignment.DoesNotExist:
+            raise serializers.ValidationError("Teacher assignment not found.")
+
+        # Tenant isolation: assignment must belong to user's school
+        if assignment.subject.school != user.school:
+            raise serializers.ValidationError("Assignment not found in your school.")
+
+        return assignment
+
+    def validate_records(self, value):
+        if len(value) > MAX_BULK_RECORDS:
+            raise serializers.ValidationError(
+                f"Cannot record attendance for more than {MAX_BULK_RECORDS} students at once."
+            )
+        return value
+
+    @transaction.atomic
+    def save(self):
+        assignment = self.validated_data["assignment_id"]
+        date = self.validated_data["date"]
+        period_number = self.validated_data["period_number"]
+        user = self.context["request"].user
+
+        from services.students.models import Student
+
+        student_ids = [entry["student_id"] for entry in self.validated_data["records"]]
+        valid_ids = set(
+            str(i)
+            for i in Student.objects.filter(id__in=student_ids, school=assignment.subject.school).values_list(
+                "id", flat=True
+            )
+        )
+        invalid_ids = [str(sid) for sid in student_ids if str(sid) not in valid_ids]
+        if invalid_ids:
+            raise serializers.ValidationError({"records": f"Student(s) not found in this school: {invalid_ids[:5]}"})
+
+        records = []
+        for entry in self.validated_data["records"]:
+            record, _ = PeriodAttendance.objects.update_or_create(
+                student_id=entry["student_id"],
+                assignment=assignment,
+                date=date,
+                period_number=period_number,
+                defaults={
+                    "status": entry["status"],
+                    "recorded_by": user,
+                },
+            )
+            records.append(record)
+        return records

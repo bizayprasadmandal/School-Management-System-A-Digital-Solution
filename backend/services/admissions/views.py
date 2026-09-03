@@ -1,12 +1,15 @@
-"""Viewsets for admissions."""
+"""Admissions — School-scoped viewsets."""
 
 import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from .models import (
     AdmissionAgreement,
@@ -69,6 +72,7 @@ from .serializers import (
     AgreementSignatureSerializer,
     ApplicationDocumentSerializer,
     ApplicationFeeSerializer,
+    ApplicationListSerializer,
     ApplicationReviewSerializer,
     ApplicationSerializer,
     ApplicationTemplateSerializer,
@@ -93,6 +97,17 @@ from .serializers import (
     WaitlistManagementSerializer,
 )
 
+
+def _log_timeline(application, stage, request, note=""):
+    """Append an immutable stage event to an application's pipeline timeline."""
+    ApplicationTimelineEvent.objects.create(
+        application=application,
+        stage=stage,
+        note=note,
+        created_by=request.user,
+    )
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -100,11 +115,13 @@ class EnrollmentIntakeViewSet(viewsets.ModelViewSet):
     serializer_class = EnrollmentIntakeSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
+    search_fields = ["name", "academic_year"]
+    filterset_fields = ["status"]
 
     def get_queryset(self):
-        return EnrollmentIntake.objects.filter(school=self.request.user.school)
+        return EnrollmentIntake.objects.filter(school=self.request.user.school).annotate(
+            application_count=Count("applications")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -116,14 +133,704 @@ class EnrollmentIntakeViewSet(viewsets.ModelViewSet):
 
 
 class ApplicationViewSet(viewsets.ModelViewSet):
-    serializer_class = ApplicationSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["first_name", "last_name", "email", "application_number", "phone"]
+    filterset_fields = ["intake", "status", "applying_for_grade"]
+    ordering_fields = ["created_at", "last_name"]
+    ordering = ["-created_at"]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ApplicationListSerializer
+        return ApplicationSerializer
 
     def get_queryset(self):
-        return Application.objects.filter(school=self.request.user.school)
+        return Application.objects.filter(school=self.request.user.school).select_related("intake")
+
+    def get_permissions(self):
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "update_status",
+            "schedule_tour",
+            "complete_tour",
+            "send_offer",
+            "accept_offer",
+            "enroll",
+        ]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        import uuid
+
+        from django.utils import timezone as dj_timezone
+
+        # application_number is NOT NULL and unique — generate it up front
+        # (before the INSERT) so a missing value can't raise IntegrityError.
+        application_number = f"APP-{dj_timezone.localdate():%Y%m}-{str(uuid.uuid4())[:6].upper()}"
+        app = serializer.save(school=self.request.user.school, application_number=application_number)
+        _log_timeline(app, ApplicationTimelineEvent.Stage.CREATED, self.request)
+
+    @action(detail=True, methods=["post"], url_path="submit")
+    def submit(self, request, pk=None):
+        """Submit an application for review."""
+        app = self.get_object()
+        if app.status != Application.Status.DRAFT:
+            return Response({"detail": "Only draft applications can be submitted."}, status=400)
+        from django.utils import timezone
+
+        app.status = Application.Status.SUBMITTED
+        app.submitted_at = timezone.now()
+        app.save(update_fields=["status", "submitted_at"])
+        _log_timeline(app, ApplicationTimelineEvent.Stage.SUBMITTED, request)
+        return Response(ApplicationSerializer(app).data)
+
+    @action(detail=True, methods=["post"], url_path="update-status")
+    def update_status(self, request, pk=None):
+        """Admin action to change application status with transition validation."""
+        app = self.get_object()
+        new_status = request.data.get("status")
+        if new_status not in [s.value for s in Application.Status]:
+            return Response({"detail": "Invalid status."}, status=400)
+
+        # Enforce valid transitions
+        allowed = Application.VALID_TRANSITIONS.get(app.status, [])
+        if new_status not in allowed:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot transition from '{app.status}' to '{new_status}'. "
+                        f"Allowed transitions: {allowed or 'none (terminal state)'}"
+                    )
+                },
+                status=400,
+            )
+
+        old_status = app.status
+        app.status = new_status
+        app.reviewed_by = request.user
+        app.review_notes = request.data.get("review_notes", app.review_notes)
+        app.save(update_fields=["status", "reviewed_by", "review_notes"])
+        _log_timeline(
+            app,
+            ApplicationTimelineEvent.Stage.STATUS_CHANGED,
+            request,
+            note=f"{old_status} → {new_status}",
+        )
+
+        # Send email notification on key transitions (best-effort)
+        self._send_status_notification(app, old_status, new_status)
+
+        return Response(ApplicationSerializer(app).data)
+
+    def _send_status_notification(self, app, old_status, new_status):
+        """Send email to the applicant's guardian on key status transitions."""
+        from django.conf import settings as _settings
+        from django.core.mail import send_mail
+
+        MESSAGES = {
+            "submitted": (
+                "Your application has been received",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"Thank you for applying. Application {app.application_number} "
+                f"for {app.first_name} {app.last_name} has been received and is "
+                f"now being processed.\n\nYou will be notified of further updates.",
+            ),
+            "under_review": (
+                "Your application is under review",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"Application {app.application_number} for {app.first_name} "
+                f"{app.last_name} is now being reviewed by our admissions team.",
+            ),
+            "shortlisted": (
+                f"Congratulations! {app.first_name} has been shortlisted",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"We are pleased to inform you that {app.first_name} {app.last_name} "
+                f"has been shortlisted for admission. We will be in touch with next steps.",
+            ),
+            "rejected": (
+                f"Update on {app.first_name}'s application",
+                f"Dear {app.guardian_name or 'Parent'},\n\n"
+                f"After careful consideration, we regret to inform you that "
+                f"{app.first_name} {app.last_name}'s application ({app.application_number}) "
+                f"has not been successful at this time.\n\n"
+                f"We wish you the best in finding the right school.",
+            ),
+        }
+        if new_status not in MESSAGES or not app.guardian_email:
+            return
+        subject, body = MESSAGES[new_status]
+        try:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=_settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[app.guardian_email],
+                fail_silently=True,
+            )
+        except Exception:  # pragma: no cover — notification must never block the status change
+            logger.error(
+                "Status notification failed for %s (%s → %s)",
+                app.application_number,
+                old_status,
+                new_status,
+                exc_info=True,
+            )
+
+    @action(detail=True, methods=["post"], url_path="schedule-tour")
+    def schedule_tour(self, request, pk=None):
+        """Schedule a campus tour for this applicant."""
+        app = self.get_object()
+        if app.status == Application.Status.ENROLLED:
+            return Response({"detail": "Already enrolled."}, status=400)
+        tour_date = request.data.get("tour_date")
+        if not tour_date:
+            return Response({"detail": "tour_date is required."}, status=400)
+        app.tour_date = tour_date
+        app.toured_at = None
+        app.save(update_fields=["tour_date", "toured_at"])
+        note = request.data.get("note", "")
+        _log_timeline(app, ApplicationTimelineEvent.Stage.TOUR_SCHEDULED, request, note=note)
+        return Response(ApplicationSerializer(app).data)
+
+    @action(detail=True, methods=["post"], url_path="complete-tour")
+    def complete_tour(self, request, pk=None):
+        """Mark the applicant's campus tour as completed."""
+        from django.utils import timezone
+
+        app = self.get_object()
+        if not app.tour_date:
+            return Response({"detail": "No tour scheduled for this application."}, status=400)
+        app.toured_at = timezone.now()
+        app.save(update_fields=["toured_at"])
+        _log_timeline(
+            app,
+            ApplicationTimelineEvent.Stage.TOUR_COMPLETED,
+            request,
+            note=request.data.get("note", ""),
+        )
+        return Response(ApplicationSerializer(app).data)
+
+    @action(detail=True, methods=["post"], url_path="send-offer")
+    def send_offer(self, request, pk=None):
+        """Extend an admission offer — requires shortlisted or accepted status."""
+        from django.utils import timezone
+
+        app = self.get_object()
+        if app.status not in [
+            Application.Status.SHORTLISTED,
+            Application.Status.ACCEPTED,
+            Application.Status.WAITLISTED,
+        ]:
+            return Response(
+                {"detail": "Offer can only be sent for shortlisted, accepted or waitlisted applications."},
+                status=400,
+            )
+        from datetime import timedelta
+
+        app.status = Application.Status.ACCEPTED
+        app.offer_sent_at = timezone.now()
+        app.offer_deadline = (timezone.now() + timedelta(days=14)).date()
+        app.save(update_fields=["status", "offer_sent_at", "offer_deadline"])
+        _log_timeline(
+            app,
+            ApplicationTimelineEvent.Stage.OFFER_SENT,
+            request,
+            note=request.data.get("note", ""),
+        )
+        # Send offer email directly (guardian isn't a User yet, so we can't use
+        # the User-based notification system — use Django's send_mail instead).
+        if app.guardian_email:
+            from django.conf import settings as _settings
+            from django.core.mail import send_mail
+
+            try:
+                send_mail(
+                    subject=f"Admission Offer — {app.first_name} {app.last_name}",
+                    message=(
+                        f"Dear {app.guardian_name or 'Parent'},\n\n"
+                        f"We are pleased to offer {app.first_name} {app.last_name} a place at our school.\n\n"
+                        f"Please accept this offer by {app.offer_deadline}.\n\n"
+                        f"If you have any questions, please contact the admissions office."
+                    ),
+                    from_email=_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[app.guardian_email],
+                    fail_silently=True,
+                )
+            except Exception:  # pragma: no cover
+                logger.error("Offer email failed for %s", app.guardian_email, exc_info=True)
+        return Response(ApplicationSerializer(app).data)
+
+    @action(detail=True, methods=["post"], url_path="accept-offer")
+    def accept_offer(self, request, pk=None):
+        """Record the family's acceptance of the offer."""
+        from django.utils import timezone
+
+        app = self.get_object()
+        if not app.offer_sent_at:
+            return Response({"detail": "No offer has been sent yet."}, status=400)
+        app.offer_accepted_at = timezone.now()
+        app.save(update_fields=["offer_accepted_at"])
+        _log_timeline(
+            app,
+            ApplicationTimelineEvent.Stage.OFFER_ACCEPTED,
+            request,
+            note=request.data.get("note", ""),
+        )
+        return Response(ApplicationSerializer(app).data)
+
+    @action(detail=True, methods=["post"], url_path="enroll")
+    def enroll(self, request, pk=None):
+        """Convert an accepted application into a student + enrollment.
+
+        Creates the User + Student profile + active Enrollment in the current
+        academic year, links it back to the application and marks it enrolled.
+        If guardian information is provided on the application, a parent user
+        and guardian profile are also created with portal access.
+        """
+        from django.db import transaction
+        from django.utils import timezone
+        from services.auth.models import User, UserRole
+        from services.auth.utils import generate_secure_password
+        from services.communication.services import send_email_notification, send_in_app_notification
+        from services.students.models import AcademicYear, Classroom, Enrollment, Guardian, Student, StudentGuardian
+
+        app = self.get_object()
+        if app.status != Application.Status.ACCEPTED or not app.offer_sent_at:
+            return Response(
+                {"detail": "Only accepted applications with a sent offer can be enrolled."},
+                status=400,
+            )
+        if app.linked_student:
+            return Response({"detail": "Application is already enrolled."}, status=400)
+
+        classroom_id = request.data.get("classroom_id")
+        if not classroom_id:
+            return Response({"detail": "classroom_id is required."}, status=400)
+
+        school = request.user.school
+        with transaction.atomic():
+            classroom = Classroom.objects.filter(id=classroom_id, school=school).select_related("grade").first()
+            if not classroom:
+                return Response({"detail": "Classroom not found in your school."}, status=400)
+            academic_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+            if not academic_year:
+                return Response({"detail": "No current academic year set."}, status=400)
+
+            email = app.email.strip().lower()
+            if User.objects.filter(email=email).exists():
+                return Response({"detail": f"A user already exists with email {email}."}, status=400)
+
+            password = generate_secure_password()
+            user = User.objects.create_user(
+                email=email,
+                password=password,
+                first_name=app.first_name,
+                last_name=app.last_name,
+                role=UserRole.STUDENT,
+                school=school,
+            )
+            # Auto-generate admission number using consistent format: ADM-YYYY-NNNN
+            year = timezone.now().year
+            prefix = f"ADM-{year}-"
+            last_student = (
+                Student.objects.filter(school=school, admission_number__startswith=prefix)
+                .order_by("-admission_number")
+                .first()
+            )
+            if last_student:
+                last_seq = int(last_student.admission_number.split("-")[-1])
+                admission_number = f"{prefix}{last_seq + 1:04d}"
+            else:
+                admission_number = f"{prefix}0001"
+
+            student = Student.objects.create(
+                user=user,
+                school=school,
+                admission_number=admission_number,
+                date_of_birth=app.date_of_birth,
+                gender={"male": "M", "female": "F"}.get(app.gender, "O"),
+                address=app.address or "",
+                city=app.city or "",
+                state=app.state or "",
+                country=app.nationality or "",
+                admission_date=timezone.now().date(),
+            )
+            Enrollment.objects.create(
+                student=student,
+                classroom=classroom,
+                academic_year=academic_year,
+            )
+
+            # ── Guardian account ────────────────────────────────────────────────
+            guardian_user = None
+            if app.guardian_email and app.guardian_name:
+                g_email = app.guardian_email.strip().lower()
+                if not User.objects.filter(email=g_email).exists():
+                    g_password = generate_secure_password()
+                    g_first, _, g_last = app.guardian_name.partition(" ")
+                    if not g_last:
+                        g_first, g_last = app.guardian_name, ""
+                    guardian_user = User.objects.create_user(
+                        email=g_email,
+                        password=g_password,
+                        first_name=g_first,
+                        last_name=g_last or app.last_name,
+                        role=UserRole.PARENT,
+                        school=school,
+                    )
+                    Guardian.objects.create(
+                        user=guardian_user,
+                        first_name=g_first,
+                        last_name=g_last or app.last_name,
+                        email=g_email,
+                        phone=app.guardian_phone or "",
+                    )
+                    StudentGuardian.objects.create(
+                        student=student,
+                        guardian=guardian_user.guardian_profile,
+                        relationship=app.guardian_relation or "parent",
+                        portal_access=True,
+                    )
+
+            app.linked_student = student
+            app.status = Application.Status.ENROLLED
+            app.save(update_fields=["linked_student", "status"])
+            _log_timeline(app, ApplicationTimelineEvent.Stage.ENROLLED, request)
+
+        # ── Enrollment notifications (best-effort, outside transaction) ────────
+        try:
+            send_in_app_notification.delay(
+                user_id=str(user.id),
+                title="Welcome to EduSphere",
+                body=(
+                    f"Welcome to {school.name}! Your admission number is "
+                    f"{student.admission_number}. "
+                    f"You are enrolled in {classroom}."
+                ),
+                reference_type="enrollment",
+                reference_id=str(student.id),
+            )
+            send_email_notification.delay(
+                user_id=str(user.id),
+                subject=f"Welcome to {school.name} — Enrollment Confirmed",
+                body=(
+                    f"Dear {app.first_name},\n\n"
+                    f"Congratulations! You have been enrolled at {school.name}.\n\n"
+                    f"Admission Number: {student.admission_number}\n"
+                    f"Class: {classroom}\n"
+                    f"Academic Year: {academic_year.name}\n\n"
+                    f"Your login credentials:\n"
+                    f"  Email: {email}\n"
+                    f"  Password: {password}\n\n"
+                    f"Please change your password after first login.\n\n"
+                    f" Regards,\n{school.name} Admissions"
+                ),
+            )
+        except Exception:  # pragma: no cover — notification must never block enrollment
+            logger.error("Enrollment notification failed for %s", email, exc_info=True)
+
+        return Response(
+            {
+                **ApplicationSerializer(app).data,
+                "generated_password": password,
+                **({"guardian_password": g_password} if guardian_user else {}),
+            }
+        )
+
+
+class ApplicationDocumentViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationDocumentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["application", "document_type", "is_verified"]
+
+    def get_queryset(self):
+        return ApplicationDocument.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class ApplicationReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationReviewSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["application", "reviewer"]
+
+    def get_queryset(self):
+        return ApplicationReview.objects.filter(application__school=self.request.user.school).select_related("reviewer")
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsSchoolAdmin()]
+
+    def perform_create(self, serializer):
+        serializer.save(reviewer=self.request.user)
+
+
+# =============================================================================
+# Application Fees ViewSets
+# =============================================================================
+
+
+class ApplicationFeeViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationFeeSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "transaction_id"]
+    filterset_fields = ["application", "status", "payment_method"]
+    ordering_fields = ["created_at", "payment_date"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return ApplicationFee.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Interview Schedule ViewSets
+# =============================================================================
+
+
+class InterviewScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = InterviewScheduleSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "interview_type", "status", "interviewer"]
+    ordering_fields = ["scheduled_date", "scheduled_time"]
+    ordering = ["scheduled_date", "scheduled_time"]
+
+    def get_queryset(self):
+        return InterviewSchedule.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Merit List ViewSets
+# =============================================================================
+
+
+class MeritListEntryViewSet(viewsets.ModelViewSet):
+    serializer_class = MeritListEntrySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["merit_list", "application", "status"]
+    ordering_fields = ["rank", "total_score"]
+    ordering = ["rank"]
+
+    def get_queryset(self):
+        return MeritListEntry.objects.filter(merit_list__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class MeritListViewSet(viewsets.ModelViewSet):
+    serializer_class = MeritListSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description", "grade"]
+    filterset_fields = ["status", "grade", "intake"]
+    ordering_fields = ["created_at", "published_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return MeritList.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "publish"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"])
+    def publish(self, request, pk=None):
+        """Publish the merit list."""
+        from django.utils import timezone
+
+        merit_list = self.get_object()
+        merit_list.status = MeritList.Status.PUBLISHED
+        merit_list.published_at = timezone.now()
+        merit_list.published_by = request.user
+        merit_list.save(update_fields=["status", "published_at", "published_by"])
+        return Response(MeritListSerializer(merit_list).data)
+
+
+# =============================================================================
+# Waitlist Management ViewSets
+# =============================================================================
+
+
+class WaitlistManagementViewSet(viewsets.ModelViewSet):
+    serializer_class = WaitlistManagementSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "status"]
+    ordering_fields = ["position", "created_at"]
+    ordering = ["position"]
+
+    def get_queryset(self):
+        return WaitlistManagement.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Enrollment Confirmation ViewSets
+# =============================================================================
+
+
+class EnrollmentConfirmationViewSet(viewsets.ModelViewSet):
+    serializer_class = EnrollmentConfirmationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number"]
+    filterset_fields = ["application", "status", "payment_status"]
+    ordering_fields = ["created_at", "confirmation_deadline"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return EnrollmentConfirmation.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Admissions Reports ViewSets
+# =============================================================================
+
+
+class AdmissionsReportViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsReportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "summary"]
+    filterset_fields = ["report_type", "status", "intake"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsReport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, generated_by=self.request.user)
+
+
+# =============================================================================
+# Email Notifications ViewSets
+# =============================================================================
+
+
+class AdmissionsEmailNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsEmailNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "recipient_email"]
+    filterset_fields = ["application", "notification_type", "status"]
+    ordering_fields = ["created_at", "sent_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsEmailNotification.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# SMS Notifications ViewSets
+# =============================================================================
+
+
+class AdmissionsSMSNotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsSMSNotificationSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "phone_number"]
+    filterset_fields = ["application", "notification_type", "status"]
+    ordering_fields = ["created_at", "sent_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsSMSNotification.objects.filter(application__school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+# =============================================================================
+# Re-enrollment Management ViewSets
+# =============================================================================
+
+
+class ReEnrollmentViewSet(viewsets.ModelViewSet):
+    serializer_class = ReEnrollmentSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["student__user__first_name", "student__user__last_name"]
+    filterset_fields = ["student", "status", "intake", "fee_paid"]
+    ordering_fields = ["invited_at", "deadline"]
+    ordering = ["-invited_at"]
+
+    def get_queryset(self):
+        return ReEnrollment.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -132,6 +839,107 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+
+# =============================================================================
+# Admissions Pipeline ViewSets
+# =============================================================================
+
+
+class AdmissionsPipelineViewSet(viewsets.ModelViewSet):
+    serializer_class = AdmissionsPipelineSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["application__application_number", "lead_source"]
+    filterset_fields = ["current_stage", "is_priority", "is_hot_lead", "assigned_to"]
+    ordering_fields = ["created_at", "updated_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AdmissionsPipeline.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"], url_path="move-stage")
+    def move_stage(self, request, pk=None):
+        """Move application to next stage in pipeline."""
+        from django.utils import timezone
+
+        pipeline = self.get_object()
+        new_stage = request.data.get("stage")
+        valid_stages = [choice[0] for choice in AdmissionsPipeline.Stage.choices]
+        if new_stage not in valid_stages:
+            return Response({"detail": "Invalid stage."}, status=400)
+
+        # Update the current stage and set the corresponding date field
+        stage_date_field = f"{new_stage}_date"
+        if hasattr(pipeline, stage_date_field):
+            setattr(pipeline, stage_date_field, timezone.now())
+
+        pipeline.current_stage = new_stage
+        pipeline.save()
+        return Response(AdmissionsPipelineSerializer(pipeline).data)
+
+
+# =============================================================================
+# Application Templates ViewSets
+# =============================================================================
+
+
+class ApplicationTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationTemplateSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "description"]
+    filterset_fields = ["is_active", "allow_late_applications"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        return ApplicationTemplate.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
+
+
+# =============================================================================
+# Bulk Application Import ViewSets
+# =============================================================================
+
+
+class BulkApplicationImportViewSet(viewsets.ModelViewSet):
+    serializer_class = BulkApplicationImportSerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["batch_name", "description"]
+    filterset_fields = ["status"]
+    ordering_fields = ["initiated_at", "completed_at"]
+    ordering = ["-initiated_at"]
+
+    def get_queryset(self):
+        return BulkApplicationImport.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, initiated_by=self.request.user)
+
+
+# ── Additional ViewSets (module expansion) ──
 
 
 class ApplicationTimelineEventViewSet(viewsets.ModelViewSet):
@@ -152,24 +960,6 @@ class ApplicationTimelineEventViewSet(viewsets.ModelViewSet):
         serializer.save(school=self.request.user.school)
 
 
-class ApplicationDocumentViewSet(viewsets.ModelViewSet):
-    serializer_class = ApplicationDocumentSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return ApplicationDocument.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
 class EntranceAssessmentViewSet(viewsets.ModelViewSet):
     serializer_class = EntranceAssessmentSerializer
     pagination_class = StandardResultsSetPagination
@@ -178,264 +968,6 @@ class EntranceAssessmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return EntranceAssessment.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class ApplicationReviewViewSet(viewsets.ModelViewSet):
-    serializer_class = ApplicationReviewSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return ApplicationReview.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class ApplicationFeeViewSet(viewsets.ModelViewSet):
-    serializer_class = ApplicationFeeSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return ApplicationFee.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class InterviewScheduleViewSet(viewsets.ModelViewSet):
-    serializer_class = InterviewScheduleSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return InterviewSchedule.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class MeritListViewSet(viewsets.ModelViewSet):
-    serializer_class = MeritListSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return MeritList.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class MeritListEntryViewSet(viewsets.ModelViewSet):
-    serializer_class = MeritListEntrySerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return MeritListEntry.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class WaitlistManagementViewSet(viewsets.ModelViewSet):
-    serializer_class = WaitlistManagementSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return WaitlistManagement.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class EnrollmentConfirmationViewSet(viewsets.ModelViewSet):
-    serializer_class = EnrollmentConfirmationSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return EnrollmentConfirmation.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class AdmissionsReportViewSet(viewsets.ModelViewSet):
-    serializer_class = AdmissionsReportSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return AdmissionsReport.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class AdmissionsEmailNotificationViewSet(viewsets.ModelViewSet):
-    serializer_class = AdmissionsEmailNotificationSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return AdmissionsEmailNotification.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class AdmissionsSMSNotificationViewSet(viewsets.ModelViewSet):
-    serializer_class = AdmissionsSMSNotificationSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return AdmissionsSMSNotification.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class ReEnrollmentViewSet(viewsets.ModelViewSet):
-    serializer_class = ReEnrollmentSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return ReEnrollment.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class AdmissionsPipelineViewSet(viewsets.ModelViewSet):
-    serializer_class = AdmissionsPipelineSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return AdmissionsPipeline.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class ApplicationTemplateViewSet(viewsets.ModelViewSet):
-    serializer_class = ApplicationTemplateSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return ApplicationTemplate.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
-
-
-class BulkApplicationImportViewSet(viewsets.ModelViewSet):
-    serializer_class = BulkApplicationImportSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return BulkApplicationImport.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

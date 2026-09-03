@@ -1,6 +1,7 @@
 """Serializers for auth."""
 
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import (
     APIKey,
@@ -37,13 +38,15 @@ from .models import (
     SessionToken,
     SSOConfiguration,
     TwoFactorBackupCode,
+    User,
     UserActivity,
-    UserRole,
+    UserRoleAssignment,
     UserSession,
     UserSessionHistory,
     UserTrustScore,
     WebhookDelivery,
 )
+from .utils import generate_secure_password
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -77,7 +80,6 @@ class UserSessionSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "refresh_token_jti",
             "device_info",
             "ip_address",
@@ -91,21 +93,21 @@ class UserSessionSerializer(serializers.ModelSerializer):
 class PasswordResetTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = PasswordResetToken
-        fields = ["id", "user", "on_delete", "token", "created_at", "expires_at", "used"]
+        fields = ["id", "user", "token", "created_at", "expires_at", "used"]
         read_only_fields = ["id", "created_at"]
 
 
 class EmailVerificationTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailVerificationToken
-        fields = ["id", "id", "user", "on_delete", "email", "token", "created_at", "expires_at", "used"]
+        fields = ["id", "id", "user", "email", "token", "created_at", "expires_at", "used"]
         read_only_fields = ["id", "created_at"]
 
 
 class TwoFactorBackupCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TwoFactorBackupCode
-        fields = ["id", "id", "user", "on_delete", "hashed_code", "used", "created_at"]
+        fields = ["id", "id", "user", "hashed_code", "used", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -116,9 +118,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "user",
-            "on_delete",
             "action",
             "resource_type",
             "resource_id",
@@ -137,7 +137,6 @@ class LoginHistorySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "email",
             "login_type",
             "status",
@@ -161,9 +160,7 @@ class APIKeySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "user",
-            "on_delete",
             "name",
             "description",
             "key_prefix",
@@ -185,7 +182,6 @@ class DeviceManagementSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "device_name",
             "device_type",
             "device_id",
@@ -209,7 +205,6 @@ class PasswordPolicySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "min_length",
             "max_length",
             "require_uppercase",
@@ -233,7 +228,6 @@ class IPWhitelistSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "ip_address",
             "ip_range",
             "description",
@@ -252,7 +246,6 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "provider_type",
             "name",
             "client_id",
@@ -273,7 +266,6 @@ class UserActivitySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "activity_type",
             "description",
             "resource_type",
@@ -293,7 +285,6 @@ class SessionPolicySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "session_timeout_minutes",
             "absolute_timeout_hours",
             "idle_timeout_minutes",
@@ -316,11 +307,9 @@ class RoleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "parent_role",
-            "on_delete",
             "level",
             "is_active",
             "is_system_role",
@@ -340,39 +329,14 @@ class PermissionSerializer(serializers.ModelSerializer):
 class RolePermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = RolePermission
-        fields = [
-            "id",
-            "id",
-            "role",
-            "on_delete",
-            "permission",
-            "on_delete",
-            "granted",
-            "conditions",
-            "granted_at",
-            "granted_by",
-            "on_delete",
-        ]
+        fields = ["id", "id", "role", "permission", "granted", "conditions", "granted_at", "granted_by"]
         read_only_fields = ["id"]
 
 
 class UserRoleSerializer(serializers.ModelSerializer):
     class Meta:
-        model = UserRole
-        fields = [
-            "id",
-            "id",
-            "user",
-            "on_delete",
-            "role",
-            "on_delete",
-            "scope",
-            "is_active",
-            "assigned_date",
-            "expiry_date",
-            "assigned_by",
-            "on_delete",
-        ]
+        model = UserRoleAssignment
+        fields = ["id", "id", "user", "role", "scope", "is_active", "assigned_date", "expiry_date", "assigned_by"]
         read_only_fields = ["id"]
 
 
@@ -383,7 +347,6 @@ class SecurityPolicySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "policy_type",
             "description",
@@ -407,7 +370,6 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "username",
             "email",
             "status",
@@ -419,7 +381,6 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
             "country",
             "attempted_at",
             "user",
-            "on_delete",
         ]
         read_only_fields = ["id"]
 
@@ -431,7 +392,6 @@ class SessionTokenSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "token_type",
             "status",
             "token_hash",
@@ -454,7 +414,6 @@ class MFAMethodSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "method_type",
             "status",
             "totp_secret",
@@ -474,7 +433,7 @@ class MFAMethodSerializer(serializers.ModelSerializer):
 class MFAVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = MFAVerification
-        fields = ["id", "id", "mfa_method", "on_delete", "status", "ip_address", "user_agent", "attempted_at"]
+        fields = ["id", "id", "mfa_method", "status", "ip_address", "user_agent", "attempted_at"]
         read_only_fields = ["id"]
 
 
@@ -485,9 +444,7 @@ class OAuthTokenSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "provider",
-            "on_delete",
             "status",
             "access_token",
             "refresh_token",
@@ -509,7 +466,6 @@ class UserSessionHistorySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "session_id",
             "device_type",
             "device_name",
@@ -533,7 +489,6 @@ class APIUsageLogSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "api_key",
-            "on_delete",
             "endpoint",
             "method",
             "status_code",
@@ -555,7 +510,6 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "compliance_type",
             "status",
             "requirement",
@@ -566,7 +520,6 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
             "next_assessment_date",
             "last_compliant_date",
             "responsible_person",
-            "on_delete",
             "evidence_file",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -575,17 +528,7 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
 class PasswordHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = PasswordHistory
-        fields = [
-            "id",
-            "id",
-            "user",
-            "on_delete",
-            "password_hash",
-            "changed_at",
-            "changed_by",
-            "on_delete",
-            "change_reason",
-        ]
+        fields = ["id", "id", "user", "password_hash", "changed_at", "changed_by", "change_reason"]
         read_only_fields = ["id"]
 
 
@@ -596,7 +539,6 @@ class UserTrustScoreSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "trust_score",
             "risk_level",
             "account_age_days",
@@ -620,7 +562,6 @@ class SecurityNotificationPreferenceSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "notification_type",
             "email_enabled",
             "sms_enabled",
@@ -640,8 +581,6 @@ class DataExportRequestSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "data_type",
             "status",
             "requested_at",
@@ -651,7 +590,6 @@ class DataExportRequestSerializer(serializers.ModelSerializer):
             "expires_at",
             "error_message",
             "processed_by",
-            "on_delete",
         ]
         read_only_fields = ["id"]
 
@@ -664,13 +602,10 @@ class DataDeletionRequestSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "status",
             "reason",
             "data_scope",
             "reviewed_by",
-            "on_delete",
             "review_notes",
             "requested_at",
             "reviewed_at",
@@ -687,7 +622,6 @@ class AuthWebhookSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "url",
             "secret",
@@ -711,7 +645,6 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "webhook",
-            "on_delete",
             "payload",
             "headers",
             "status",
@@ -735,7 +668,6 @@ class SSOConfigurationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "provider",
             "status",
@@ -759,7 +691,6 @@ class DomainVerificationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "domain",
             "status",
             "verification_token",
@@ -804,8 +735,6 @@ class ConsentRecordSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "consent_type",
             "status",
             "policy_version",
@@ -827,7 +756,6 @@ class SchoolFeatureFlagSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "feature_name",
             "category",
             "description",
@@ -847,7 +775,6 @@ class AuditReportScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "report_type",
             "frequency",
@@ -862,3 +789,137 @@ class AuditReportScheduleSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+def serialize_login_user(user):
+    """Build the user payload shared by login and 2FA-login responses."""
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "full_name": user.full_name,
+        "role": user.role,
+        "avatar": user.avatar.url if user.avatar else None,
+        "email_verified": user.email_verified,
+        "school": (
+            {
+                "id": str(user.school.id),
+                "name": user.school.name,
+                "code": user.school.code,
+            }
+            if user.school
+            else None
+        ),
+        "notify_email": user.notify_email,
+        "notify_sms": user.notify_sms,
+        "notify_push": user.notify_push,
+    }
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Extends JWT payload with user profile data."""
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data["user"] = serialize_login_user(self.user)
+        return data
+
+
+class PlatformDashboardSerializer(serializers.Serializer):
+    """Cross-school analytics for super admin platform dashboard."""
+
+    total_schools = serializers.IntegerField()
+    active_schools = serializers.IntegerField()
+    total_users = serializers.IntegerField()
+    total_students = serializers.IntegerField()
+    total_teachers = serializers.IntegerField()
+    total_revenue = serializers.DecimalField(max_digits=15, decimal_places=2)
+    schools_by_tier = serializers.DictField(child=serializers.IntegerField())
+    recent_schools = SchoolSerializer(many=True)
+    top_schools = serializers.ListField(child=serializers.DictField())
+
+
+class SchoolAdminSerializer(serializers.ModelSerializer):
+    """Serializer for creating/managing school admin users."""
+
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "phone", "role", "is_active", "password", "date_joined"]
+        read_only_fields = ["id", "date_joined"]
+
+    def validate_role(self, value):
+        if value != "school_admin":
+            raise serializers.ValidationError("Only school_admin role can be created here.")
+        return value
+
+    def create(self, validated_data):
+        password = validated_data.pop("password", None)
+        generated = password is None
+        if generated:
+            password = generate_secure_password()
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        # Expose the one-time plaintext when the password was auto-generated so
+        # the caller can share it with the new admin. A caller-supplied
+        # password is never echoed back.
+        if generated:
+            user._generated_password = password
+        return user
+
+
+class SendEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        required=False,
+        help_text="Email to verify. Defaults to the authenticated user's email if omitted.",
+    )
+
+    def validate_email(self, value):
+        user = self.context["request"].user
+        if value and value.lower() != user.email:
+            raise serializers.ValidationError("You can only verify your own email address.")
+        return value or user.email
+
+    def validate(self, attrs):
+        # Runs even when `email` is omitted from the payload.
+        user = self.context["request"].user
+        if user.email_verified:
+            raise serializers.ValidationError({"email": "Email is already verified."})
+        return attrs
+
+
+class ConfirmEmailVerificationSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True, help_text="The verification token sent to your email.")
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    backup_codes_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "avatar",
+            "role",
+            "is_active",
+            "email_verified",
+            "two_factor_enabled",
+            "backup_codes_remaining",
+            "notify_email",
+            "notify_sms",
+            "notify_push",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "email", "role", "is_active", "email_verified", "date_joined"]
+
+    def get_backup_codes_remaining(self, obj):
+        if not obj.two_factor_enabled:
+            return None
+        return obj.backup_codes.filter(used=False).count()

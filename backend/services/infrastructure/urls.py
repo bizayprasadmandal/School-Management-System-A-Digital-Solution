@@ -1,96 +1,57 @@
-"""URL Configuration for infrastructure."""
+"""Infrastructure URL configuration."""
 
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    AccessControlPointViewSet,
-    AssetAssignmentViewSet,
-    AssetLifecycleViewSet,
-    AssetViewSet,
-    BuildingInspectionViewSet,
-    BuildingViewSet,
-    CCTVCameraViewSet,
-    EnergyAlertViewSet,
-    EnergyMeterViewSet,
-    EnergyReadingViewSet,
-    FloorPlanViewSet,
-    GreenInitiativeViewSet,
-    InfrastructureAlertViewSet,
-    InfrastructureComplianceRecordViewSet,
-    InfrastructureEmergencyPlanViewSet,
-    InfrastructureMaintenanceRequestViewSet,
-    InfrastructureReportViewSet,
-    LightingScheduleViewSet,
-    MaintenanceCostTrackingViewSet,
-    ParkingAssignmentViewSet,
-    ParkingLotViewSet,
-    PestControlInspectionViewSet,
-    PestTreatmentViewSet,
-    PreventiveMaintenanceViewSet,
-    RoomAllocationViewSet,
-    RoomEquipmentViewSet,
-    RoomViewSet,
-    SafetyInspectionViewSet,
-    SpaceReservationViewSet,
-    UtilityTrackerViewSet,
-    VendorContractViewSet,
-    VendorPerformanceViewSet,
-    WarrantyClaimViewSet,
-    WasteCollectionScheduleViewSet,
-    WaterUsageRecordViewSet,
-    WorkOrderCommentViewSet,
-    WorkOrderViewSet,
-)
-
-app_name = "infrastructure_v1"
+from . import views
 
 router = DefaultRouter()
-router.register(r"building", BuildingViewSet, basename="building")
-router.register(r"room", RoomViewSet, basename="room")
-router.register(r"room-allocation", RoomAllocationViewSet, basename="room-allocation")
-router.register(r"work-order", WorkOrderViewSet, basename="work-order")
-router.register(r"work-order-comment", WorkOrderCommentViewSet, basename="work-order-comment")
-router.register(r"preventive-maintenance", PreventiveMaintenanceViewSet, basename="preventive-maintenance")
-router.register(r"asset", AssetViewSet, basename="asset")
-router.register(r"asset-assignment", AssetAssignmentViewSet, basename="asset-assignment")
-router.register(r"asset-lifecycle", AssetLifecycleViewSet, basename="asset-lifecycle")
-router.register(r"warranty-claim", WarrantyClaimViewSet, basename="warranty-claim")
-router.register(r"space-reservation", SpaceReservationViewSet, basename="space-reservation")
-router.register(r"utility-tracker", UtilityTrackerViewSet, basename="utility-tracker")
-router.register(r"safety-inspection", SafetyInspectionViewSet, basename="safety-inspection")
+router.register(r"buildings", views.BuildingViewSet)
+router.register(r"rooms", views.RoomViewSet)
+router.register(r"room-allocations", views.RoomAllocationViewSet)
+router.register(r"work-orders", views.WorkOrderViewSet)
+router.register(r"work-order-comments", views.WorkOrderCommentViewSet)
+router.register(r"preventive-maintenance", views.PreventiveMaintenanceViewSet)
+router.register(r"assets", views.AssetViewSet)
+router.register(r"asset-assignments", views.AssetAssignmentViewSet)
+router.register(r"asset-lifecycle", views.AssetLifecycleViewSet)
+router.register(r"warranty-claims", views.WarrantyClaimViewSet)
+router.register(r"space-reservations", views.SpaceReservationViewSet)
+router.register(r"utility-tracker", views.UtilityTrackerViewSet)
+router.register(r"safety-inspections", views.SafetyInspectionViewSet)
+router.register(r"compliance-records", views.InfrastructureComplianceRecordViewSet)
+router.register(r"vendor-contracts", views.VendorContractViewSet)
+router.register(r"emergency-plans", views.InfrastructureEmergencyPlanViewSet)
+router.register(r"reports", views.InfrastructureReportViewSet)
+
+
+# ── Additional registrations (module expansion) ──
+router.register(r"energy-meter", views.EnergyMeterViewSet, basename="energy-meter")
+router.register(r"energy-reading", views.EnergyReadingViewSet, basename="energy-reading")
+router.register(r"energy-alert", views.EnergyAlertViewSet, basename="energy-alert")
+router.register(r"c-c-t-v-camera", views.CCTVCameraViewSet, basename="c-c-t-v-camera")
+router.register(r"access-control-point", views.AccessControlPointViewSet, basename="access-control-point")
+router.register(r"pest-control-inspection", views.PestControlInspectionViewSet, basename="pest-control-inspection")
+router.register(r"pest-treatment", views.PestTreatmentViewSet, basename="pest-treatment")
 router.register(
-    r"infrastructure-compliance-record",
-    InfrastructureComplianceRecordViewSet,
-    basename="infrastructure-compliance-record",
+    r"waste-collection-schedule", views.WasteCollectionScheduleViewSet, basename="waste-collection-schedule"
 )
-router.register(r"vendor-contract", VendorContractViewSet, basename="vendor-contract")
+router.register(r"green-initiative", views.GreenInitiativeViewSet, basename="green-initiative")
+router.register(r"water-usage-record", views.WaterUsageRecordViewSet, basename="water-usage-record")
+router.register(r"vendor-performance", views.VendorPerformanceViewSet, basename="vendor-performance")
+router.register(r"building-inspection", views.BuildingInspectionViewSet, basename="building-inspection")
+router.register(r"infrastructure-alert", views.InfrastructureAlertViewSet, basename="infrastructure-alert")
+router.register(r"floor-plan", views.FloorPlanViewSet, basename="floor-plan")
+router.register(r"room-equipment", views.RoomEquipmentViewSet, basename="room-equipment")
+router.register(r"parking-lot", views.ParkingLotViewSet, basename="parking-lot")
+router.register(r"parking-assignment", views.ParkingAssignmentViewSet, basename="parking-assignment")
+router.register(r"lighting-schedule", views.LightingScheduleViewSet, basename="lighting-schedule")
 router.register(
-    r"infrastructure-emergency-plan", InfrastructureEmergencyPlanViewSet, basename="infrastructure-emergency-plan"
+    r"maintenance-cost-tracking", views.MaintenanceCostTrackingViewSet, basename="maintenance-cost-tracking"
 )
-router.register(r"infrastructure-report", InfrastructureReportViewSet, basename="infrastructure-report")
-router.register(r"energy-meter", EnergyMeterViewSet, basename="energy-meter")
-router.register(r"energy-reading", EnergyReadingViewSet, basename="energy-reading")
-router.register(r"energy-alert", EnergyAlertViewSet, basename="energy-alert")
-router.register(r"c-c-t-v-camera", CCTVCameraViewSet, basename="c-c-t-v-camera")
-router.register(r"access-control-point", AccessControlPointViewSet, basename="access-control-point")
-router.register(r"pest-control-inspection", PestControlInspectionViewSet, basename="pest-control-inspection")
-router.register(r"pest-treatment", PestTreatmentViewSet, basename="pest-treatment")
-router.register(r"waste-collection-schedule", WasteCollectionScheduleViewSet, basename="waste-collection-schedule")
-router.register(r"green-initiative", GreenInitiativeViewSet, basename="green-initiative")
-router.register(r"water-usage-record", WaterUsageRecordViewSet, basename="water-usage-record")
-router.register(r"vendor-performance", VendorPerformanceViewSet, basename="vendor-performance")
-router.register(r"building-inspection", BuildingInspectionViewSet, basename="building-inspection")
-router.register(r"infrastructure-alert", InfrastructureAlertViewSet, basename="infrastructure-alert")
-router.register(r"floor-plan", FloorPlanViewSet, basename="floor-plan")
-router.register(r"room-equipment", RoomEquipmentViewSet, basename="room-equipment")
-router.register(r"parking-lot", ParkingLotViewSet, basename="parking-lot")
-router.register(r"parking-assignment", ParkingAssignmentViewSet, basename="parking-assignment")
-router.register(r"lighting-schedule", LightingScheduleViewSet, basename="lighting-schedule")
-router.register(r"maintenance-cost-tracking", MaintenanceCostTrackingViewSet, basename="maintenance-cost-tracking")
 router.register(
     r"infrastructure-maintenance-request",
-    InfrastructureMaintenanceRequestViewSet,
+    views.InfrastructureMaintenanceRequestViewSet,
     basename="infrastructure-maintenance-request",
 )
 

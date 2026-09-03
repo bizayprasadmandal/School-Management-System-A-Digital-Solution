@@ -51,7 +51,6 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "content",
             "priority",
@@ -71,7 +70,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 class AnnouncementReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnnouncementRead
-        fields = ["id", "announcement", "on_delete", "user", "on_delete", "read_at"]
+        fields = ["id", "announcement", "user", "read_at"]
         read_only_fields = ["id"]
 
 
@@ -82,14 +81,11 @@ class DirectMessageSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "sender",
-            "on_delete",
             "recipient",
-            "on_delete",
             "content",
             "attachment",
             "status",
             "parent_message",
-            "on_delete",
             "is_deleted_sender",
             "is_deleted_recipient",
             "sent_at",
@@ -105,7 +101,6 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "on_delete",
             "name",
             "event_type",
             "email_subject",
@@ -125,7 +120,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "title",
             "body",
             "channel",
@@ -146,7 +140,6 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
-            "on_delete",
             "token",
             "platform",
             "device_id",
@@ -166,16 +159,12 @@ class ChatGroupSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "group_type",
             "classroom",
-            "on_delete",
             "subject",
-            "on_delete",
             "created_by",
-            "on_delete",
             "avatar",
             "is_archived",
             "is_muted",
@@ -190,9 +179,7 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "group",
-            "on_delete",
             "user",
-            "on_delete",
             "role",
             "nickname",
             "is_muted",
@@ -212,14 +199,11 @@ class GroupMessageSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "group",
-            "on_delete",
             "sender",
-            "on_delete",
             "message_type",
             "content",
             "attachment",
             "reply_to",
-            "on_delete",
             "is_pinned",
             "is_edited",
             "is_deleted",
@@ -236,13 +220,9 @@ class ParentTeacherChatSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "parent",
-            "on_delete",
             "teacher",
-            "on_delete",
             "student",
-            "on_delete",
             "subject",
             "status",
             "is_archived_by_parent",
@@ -260,14 +240,11 @@ class ParentTeacherMessageSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "chat",
-            "on_delete",
             "sender",
-            "on_delete",
             "message_type",
             "content",
             "attachment",
             "reply_to",
-            "on_delete",
             "is_read_by_parent",
             "is_read_by_teacher",
             "sent_at",
@@ -283,12 +260,10 @@ class VideoConferenceSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "description",
             "conference_type",
             "host",
-            "on_delete",
             "meeting_url",
             "meeting_id",
             "meeting_password",
@@ -303,19 +278,7 @@ class VideoConferenceSerializer(serializers.ModelSerializer):
 class ConferenceParticipantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceParticipant
-        fields = [
-            "id",
-            "id",
-            "conference",
-            "on_delete",
-            "user",
-            "on_delete",
-            "status",
-            "joined_at",
-            "left_at",
-            "duration_minutes",
-            "invited_at",
-        ]
+        fields = ["id", "id", "conference", "user", "status", "joined_at", "left_at", "duration_minutes", "invited_at"]
         read_only_fields = ["id"]
 
 
@@ -326,7 +289,6 @@ class SMSIntegrationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "provider",
             "from_number",
             "to_number",
@@ -335,7 +297,6 @@ class SMSIntegrationSerializer(serializers.ModelSerializer):
             "provider_message_id",
             "cost",
             "sent_by",
-            "on_delete",
             "error_message",
             "sent_at",
             "delivered_at",
@@ -350,7 +311,6 @@ class EmailIntegrationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "provider",
             "from_email",
             "to_email",
@@ -374,9 +334,7 @@ class FileAttachmentSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "uploaded_by",
-            "on_delete",
             "file",
             "file_name",
             "file_type",
@@ -398,11 +356,9 @@ class MessageThreadSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "parent_message",
-            "on_delete",
             "reply_count",
             "last_reply_at",
             "last_reply_by",
-            "on_delete",
             "is_closed",
             "created_at",
         ]
@@ -412,21 +368,21 @@ class MessageThreadSerializer(serializers.ModelSerializer):
 class ReadReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReadReceipt
-        fields = ["id", "id", "message", "on_delete", "user", "on_delete", "read_at"]
+        fields = ["id", "id", "message", "user", "read_at"]
         read_only_fields = ["id"]
 
 
 class TypingIndicatorSerializer(serializers.ModelSerializer):
     class Meta:
         model = TypingIndicator
-        fields = ["id", "id", "user", "on_delete", "chat_type", "chat_id", "started_at", "expires_at"]
+        fields = ["id", "id", "user", "chat_type", "chat_id", "started_at", "expires_at"]
         read_only_fields = ["id"]
 
 
 class MessageReactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MessageReaction
-        fields = ["id", "id", "message", "on_delete", "user", "on_delete", "emoji", "created_at"]
+        fields = ["id", "id", "message", "user", "emoji", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -437,11 +393,8 @@ class VoiceMessageSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "sender",
-            "on_delete",
             "group",
-            "on_delete",
             "parent_teacher_chat",
-            "on_delete",
             "audio_file",
             "duration_seconds",
             "file_size",
@@ -459,7 +412,6 @@ class BroadcastMessageSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "content",
             "channel",
@@ -483,14 +435,10 @@ class CommunicationLogSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "communication_type",
             "sender",
-            "on_delete",
             "recipient",
-            "on_delete",
             "recipient_group",
-            "on_delete",
             "subject",
             "content_preview",
             "reference_type",
@@ -507,7 +455,6 @@ class SurveySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "description",
             "survey_type",
@@ -531,14 +478,10 @@ class SurveyResponseSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "survey",
-            "on_delete",
             "respondent_type",
             "student",
-            "on_delete",
             "parent",
-            "on_delete",
             "staff",
-            "on_delete",
             "answers",
             "overall_rating",
             "comments",
@@ -554,15 +497,12 @@ class PollSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "created_by",
-            "on_delete",
             "title",
             "description",
             "options",
             "status",
             "target_group",
-            "on_delete",
             "target_audience",
             "is_anonymous",
             "allow_multiple_choices",
@@ -574,21 +514,7 @@ class PollSerializer(serializers.ModelSerializer):
 class PollVoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = PollVote
-        fields = [
-            "id",
-            "id",
-            "poll",
-            "on_delete",
-            "voter_type",
-            "student",
-            "on_delete",
-            "parent",
-            "on_delete",
-            "staff",
-            "on_delete",
-            "selected_options",
-            "voted_at",
-        ]
+        fields = ["id", "id", "poll", "voter_type", "student", "parent", "staff", "selected_options", "voted_at"]
         read_only_fields = ["id"]
 
 
@@ -599,7 +525,6 @@ class EmailTemplateSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "category",
             "subject",
@@ -609,7 +534,6 @@ class EmailTemplateSerializer(serializers.ModelSerializer):
             "times_used",
             "last_used_at",
             "created_by",
-            "on_delete",
             "created_at",
             "updated_at",
         ]
@@ -623,7 +547,6 @@ class SMSGatewayConfigSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "provider",
             "api_key",
             "api_secret",
@@ -645,7 +568,6 @@ class SMSLogSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "recipient_phone",
             "recipient_name",
             "message",
@@ -656,7 +578,6 @@ class SMSLogSerializer(serializers.ModelSerializer):
             "reference_type",
             "reference_id",
             "sent_by",
-            "on_delete",
             "sent_at",
         ]
         read_only_fields = ["id"]
@@ -669,7 +590,6 @@ class NewsletterSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "subject",
             "content_html",
@@ -693,7 +613,6 @@ class EmergencyAlertSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "message",
             "alert_level",
@@ -718,8 +637,6 @@ class CommunicationPreferenceSerializer(serializers.ModelSerializer):
             "school",
             "id",
             "user",
-            "on_delete",
-            "on_delete",
             "email_enabled",
             "sms_enabled",
             "push_enabled",
@@ -741,7 +658,6 @@ class MessageTemplateSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "template_type",
             "category",
@@ -751,7 +667,6 @@ class MessageTemplateSerializer(serializers.ModelSerializer):
             "is_active",
             "times_used",
             "created_by",
-            "on_delete",
             "created_at",
             "updated_at",
         ]
@@ -765,13 +680,9 @@ class MessageDeliveryStatusSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "notification",
-            "on_delete",
             "broadcast",
-            "on_delete",
             "recipient",
-            "on_delete",
             "channel",
             "status",
             "sent_at",
@@ -789,9 +700,7 @@ class CommunicationBlacklistSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "user",
-            "on_delete",
             "channel",
             "category",
             "reason",
@@ -809,7 +718,6 @@ class CommunicationAnalyticsSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "period_start",
             "period_end",
             "emails_sent",
@@ -833,11 +741,8 @@ class NotificationScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "notification",
-            "on_delete",
             "announcement",
-            "on_delete",
             "scheduled_at",
             "status",
             "is_recurring",

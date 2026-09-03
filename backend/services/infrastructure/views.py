@@ -1,6 +1,4 @@
-"""Viewsets for infrastructure."""
-
-import logging
+"""Infrastructure views."""
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
@@ -87,322 +85,110 @@ from .serializers import (
     WorkOrderSerializer,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class BuildingViewSet(viewsets.ModelViewSet):
+    queryset = Building.objects.all()
     serializer_class = BuildingSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return Building.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class RoomViewSet(viewsets.ModelViewSet):
+    queryset = Room.objects.select_related("building").all()
     serializer_class = RoomSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-
-    def get_queryset(self):
-        return Room.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class RoomAllocationViewSet(viewsets.ModelViewSet):
+    queryset = RoomAllocation.objects.select_related("room").all()
     serializer_class = RoomAllocationSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return RoomAllocation.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
+    queryset = WorkOrder.objects.select_related("building", "room", "reported_by", "assigned_to").all()
     serializer_class = WorkOrderSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return WorkOrder.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class WorkOrderCommentViewSet(viewsets.ModelViewSet):
+    queryset = WorkOrderComment.objects.select_related("author").all()
     serializer_class = WorkOrderCommentSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return WorkOrderComment.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class PreventiveMaintenanceViewSet(viewsets.ModelViewSet):
+    queryset = PreventiveMaintenance.objects.select_related("building", "room", "assigned_to").all()
     serializer_class = PreventiveMaintenanceSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return PreventiveMaintenance.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class AssetViewSet(viewsets.ModelViewSet):
+    queryset = Asset.objects.select_related("building", "room").all()
     serializer_class = AssetSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return Asset.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class AssetAssignmentViewSet(viewsets.ModelViewSet):
+    queryset = AssetAssignment.objects.select_related("asset", "assigned_to", "room").all()
     serializer_class = AssetAssignmentSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return AssetAssignment.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class AssetLifecycleViewSet(viewsets.ModelViewSet):
+    queryset = AssetLifecycle.objects.select_related("asset", "performed_by").all()
     serializer_class = AssetLifecycleSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return AssetLifecycle.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class WarrantyClaimViewSet(viewsets.ModelViewSet):
+    queryset = WarrantyClaim.objects.select_related("asset", "reported_by").all()
     serializer_class = WarrantyClaimSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return WarrantyClaim.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class SpaceReservationViewSet(viewsets.ModelViewSet):
+    queryset = SpaceReservation.objects.select_related("room", "room__building", "reserved_by", "approved_by").all()
     serializer_class = SpaceReservationSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return SpaceReservation.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class UtilityTrackerViewSet(viewsets.ModelViewSet):
+    queryset = UtilityTracker.objects.select_related("building", "recorded_by").all()
     serializer_class = UtilityTrackerSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-
-    def get_queryset(self):
-        return UtilityTracker.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class SafetyInspectionViewSet(viewsets.ModelViewSet):
+    queryset = SafetyInspection.objects.select_related("building", "room", "conducted_by").all()
     serializer_class = SafetyInspectionSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return SafetyInspection.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class InfrastructureComplianceRecordViewSet(viewsets.ModelViewSet):
+    queryset = InfrastructureComplianceRecord.objects.select_related("responsible_person").all()
     serializer_class = InfrastructureComplianceRecordSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return InfrastructureComplianceRecord.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class VendorContractViewSet(viewsets.ModelViewSet):
+    queryset = VendorContract.objects.select_related("created_by").all()
     serializer_class = VendorContractSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return VendorContract.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class InfrastructureEmergencyPlanViewSet(viewsets.ModelViewSet):
+    queryset = InfrastructureEmergencyPlan.objects.select_related("reviewed_by").all()
     serializer_class = InfrastructureEmergencyPlanSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
-
-    def get_queryset(self):
-        return InfrastructureEmergencyPlan.objects.filter(school=self.request.user.school)
-
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    permission_classes = [IsAuthenticated]
 
 
 class InfrastructureReportViewSet(viewsets.ModelViewSet):
+    queryset = InfrastructureReport.objects.select_related("generated_by").all()
     serializer_class = InfrastructureReportSerializer
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
+    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return InfrastructureReport.objects.filter(school=self.request.user.school)
 
-    def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+# ── Additional ViewSets (module expansion) ──
 
 
 class EnergyMeterViewSet(viewsets.ModelViewSet):

@@ -46,10 +46,26 @@ class Migration(migrations.Migration):
                 help_text="When the incident occurred",
             ),
         ),
-        migrations.AlterField(
-            model_name="referral",
-            name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name="referral",
+                    name="id",
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE referrals DROP COLUMN id;
+                        ALTER TABLE referrals ADD COLUMN id uuid DEFAULT gen_random_uuid() PRIMARY KEY;
+                    """,
+                    reverse_sql="""
+                        ALTER TABLE referrals DROP COLUMN id;
+                        ALTER TABLE referrals ADD COLUMN id bigserial PRIMARY KEY;
+                    """,
+                ),
+            ],
         ),
         migrations.CreateModel(
             name="BehaviorAnalytics",

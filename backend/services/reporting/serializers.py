@@ -53,7 +53,6 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "report_type",
@@ -62,7 +61,6 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
             "filters",
             "is_public",
             "created_by",
-            "on_delete",
             "created_at",
             "updated_at",
         ]
@@ -76,16 +74,11 @@ class AcademicPerformanceReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "academic_year",
-            "on_delete",
             "grade",
-            "on_delete",
             "classroom",
-            "on_delete",
             "subject",
-            "on_delete",
             "report_data",
             "summary",
             "average_score",
@@ -100,12 +93,9 @@ class TeacherPerformanceReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "academic_year",
-            "on_delete",
             "teacher",
-            "on_delete",
             "report_data",
             "summary",
             "average_class_score",
@@ -124,15 +114,11 @@ class GradeTrendReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "trend_type",
             "academic_year",
-            "on_delete",
             "grade",
-            "on_delete",
             "subject",
-            "on_delete",
             "date_from",
             "date_to",
             "report_data",
@@ -148,7 +134,6 @@ class ScheduledReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "report_type",
             "frequency",
@@ -159,7 +144,6 @@ class ScheduledReportSerializer(serializers.ModelSerializer):
             "last_generated",
             "next_generation",
             "created_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
@@ -172,19 +156,15 @@ class YearOverYearReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "academic_year_from",
-            "on_delete",
             "academic_year_to",
-            "on_delete",
             "report_data",
             "summary",
             "enrollment_change",
             "performance_change",
             "attendance_change",
             "generated_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -196,18 +176,15 @@ class DepartmentReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "department",
             "academic_year",
-            "on_delete",
             "report_data",
             "summary",
             "total_students",
             "total_teachers",
             "average_score",
             "generated_by",
-            "on_delete",
             "file_url",
         ]
         read_only_fields = ["id", "created_at"]
@@ -220,11 +197,9 @@ class ComplianceReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "compliance_type",
             "academic_year",
-            "on_delete",
             "submission_date",
             "due_date",
             "status",
@@ -244,7 +219,6 @@ class ReportShareSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "title",
             "share_type",
             "access_level",
@@ -256,7 +230,6 @@ class ReportShareSerializer(serializers.ModelSerializer):
             "access_password",
             "view_count",
             "shared_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -268,13 +241,10 @@ class StudentProgressTrackingSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "student",
-            "on_delete",
             "title",
             "progress_type",
             "academic_year",
-            "on_delete",
             "date_from",
             "date_to",
             "report_data",
@@ -292,7 +262,6 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "widget_type",
             "description",
@@ -312,36 +281,14 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
 class DashboardConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = DashboardConfiguration
-        fields = [
-            "id",
-            "id",
-            "user",
-            "on_delete",
-            "name",
-            "is_default",
-            "is_public",
-            "columns",
-            "theme",
-            "created_at",
-            "updated_at",
-        ]
+        fields = ["id", "id", "user", "name", "is_default", "is_public", "columns", "theme", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class DashboardWidgetPlacementSerializer(serializers.ModelSerializer):
     class Meta:
         model = DashboardWidgetPlacement
-        fields = [
-            "id",
-            "id",
-            "dashboard",
-            "on_delete",
-            "widget",
-            "on_delete",
-            "position",
-            "custom_config",
-            "is_visible",
-        ]
+        fields = ["id", "id", "dashboard", "widget", "position", "custom_config", "is_visible"]
         read_only_fields = ["id"]
 
 
@@ -352,7 +299,6 @@ class ReportScheduleSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "report_type",
             "frequency",
@@ -376,7 +322,6 @@ class ReportHistorySerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "report_type",
             "title",
             "status",
@@ -388,7 +333,6 @@ class ReportHistorySerializer(serializers.ModelSerializer):
             "date_to",
             "record_count",
             "generated_by",
-            "on_delete",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -400,7 +344,6 @@ class CustomReportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "status",
@@ -424,7 +367,6 @@ class CustomReportExecutionSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "report",
-            "on_delete",
             "status",
             "parameters",
             "result_file",
@@ -434,7 +376,6 @@ class CustomReportExecutionSerializer(serializers.ModelSerializer):
             "duration_seconds",
             "error_message",
             "executed_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -447,7 +388,6 @@ class ChartConfigurationSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "chart_type",
             "data_source",
@@ -455,7 +395,6 @@ class ChartConfigurationSerializer(serializers.ModelSerializer):
             "colors",
             "config",
             "created_by",
-            "on_delete",
             "is_public",
             "total_views",
             "created_at",
@@ -471,7 +410,6 @@ class KPIDefinitionSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "description",
             "category",
@@ -491,43 +429,21 @@ class KPIDefinitionSerializer(serializers.ModelSerializer):
 class KPIValueSerializer(serializers.ModelSerializer):
     class Meta:
         model = KPIValue
-        fields = ["id", "id", "kpi", "on_delete", "date", "value", "target_met", "trend", "notes", "created_at"]
+        fields = ["id", "id", "kpi", "date", "value", "target_met", "trend", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class ReportAccessLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportAccessLog
-        fields = [
-            "id",
-            "id",
-            "report_history",
-            "on_delete",
-            "user",
-            "on_delete",
-            "access_type",
-            "ip_address",
-            "accessed_at",
-        ]
+        fields = ["id", "id", "report_history", "user", "access_type", "ip_address", "accessed_at"]
         read_only_fields = ["id"]
 
 
 class ReportCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportComment
-        fields = [
-            "id",
-            "id",
-            "report_history",
-            "on_delete",
-            "user",
-            "on_delete",
-            "comment",
-            "parent",
-            "on_delete",
-            "created_at",
-            "updated_at",
-        ]
+        fields = ["id", "id", "report_history", "user", "comment", "parent", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
@@ -538,7 +454,6 @@ class ReportDataSourceSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "source_type",
             "model_path",
@@ -561,7 +476,6 @@ class ReportBookmarkSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "user",
-            "on_delete",
             "report_type",
             "report_id",
             "name",
@@ -580,9 +494,7 @@ class ReportEmailDeliverySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "report_history",
-            "on_delete",
             "recipient",
-            "on_delete",
             "status",
             "subject",
             "message",
@@ -601,7 +513,6 @@ class AnalyticsSnapshotSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "snapshot_type",
             "snapshot_date",
             "data",
@@ -621,7 +532,7 @@ class AnalyticsSnapshotSerializer(serializers.ModelSerializer):
 class ReportFavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportFavorite
-        fields = ["id", "id", "user", "on_delete", "report_type", "report_name", "report_config", "created_at"]
+        fields = ["id", "id", "user", "report_type", "report_name", "report_config", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
@@ -632,7 +543,6 @@ class ReportTemplateParameterSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "template",
-            "on_delete",
             "name",
             "display_name",
             "param_type",
@@ -652,7 +562,6 @@ class ReportAlertSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "alert_type",
             "status",
@@ -673,7 +582,6 @@ class ReportExportSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "report_type",
             "format",
             "status",
@@ -683,7 +591,6 @@ class ReportExportSerializer(serializers.ModelSerializer):
             "file",
             "record_count",
             "requested_by",
-            "on_delete",
             "requested_at",
             "completed_at",
         ]
@@ -697,7 +604,6 @@ class ReportInsightSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "insight_type",
             "title",
             "description",
@@ -718,12 +624,10 @@ class ReportVersionSerializer(serializers.ModelSerializer):
             "id",
             "id",
             "template",
-            "on_delete",
             "version_number",
             "config_snapshot",
             "is_current",
             "created_by",
-            "on_delete",
             "created_at",
             "notes",
         ]
@@ -733,27 +637,14 @@ class ReportVersionSerializer(serializers.ModelSerializer):
 class ReportFolderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportFolder
-        fields = [
-            "id",
-            "school",
-            "id",
-            "on_delete",
-            "name",
-            "parent",
-            "on_delete",
-            "description",
-            "owner",
-            "on_delete",
-            "is_shared",
-            "created_at",
-        ]
+        fields = ["id", "school", "id", "name", "parent", "description", "owner", "is_shared", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class ReportFolderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportFolderItem
-        fields = ["id", "id", "folder", "on_delete", "item_type", "item_id", "name", "sort_order", "added_at"]
+        fields = ["id", "id", "folder", "item_type", "item_id", "name", "sort_order", "added_at"]
         read_only_fields = ["id"]
 
 
@@ -765,13 +656,11 @@ class ReportAccessControlSerializer(serializers.ModelSerializer):
             "id",
             "report_type",
             "user",
-            "on_delete",
             "role",
             "access_level",
             "is_active",
             "expires_at",
             "granted_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -784,7 +673,6 @@ class ReportAnalyticsSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "date",
             "total_reports_generated",
             "total_reports_viewed",
@@ -805,9 +693,7 @@ class ReportScheduleDeliverySerializer(serializers.ModelSerializer):
             "id",
             "id",
             "schedule",
-            "on_delete",
             "report_history",
-            "on_delete",
             "status",
             "recipient_count",
             "sent_at",
@@ -824,7 +710,6 @@ class ReportDataCacheSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "cache_key",
             "report_type",
             "data",
@@ -844,7 +729,6 @@ class ReportComparisonSerializer(serializers.ModelSerializer):
             "id",
             "school",
             "id",
-            "on_delete",
             "name",
             "report_type",
             "period_a_start",
@@ -854,7 +738,6 @@ class ReportComparisonSerializer(serializers.ModelSerializer):
             "comparison_data",
             "highlights",
             "created_by",
-            "on_delete",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
@@ -863,15 +746,34 @@ class ReportComparisonSerializer(serializers.ModelSerializer):
 class ReportSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportSubscription
-        fields = [
-            "id",
-            "id",
-            "user",
-            "on_delete",
-            "report_type",
-            "update_type",
-            "is_active",
-            "last_notified_at",
-            "created_at",
-        ]
+        fields = ["id", "id", "user", "report_type", "update_type", "is_active", "last_notified_at", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+
+# ── Serializers restored from original module (expansion regression fix) ──
+
+
+class DashboardStatsSerializer(serializers.Serializer):
+    total_students = serializers.IntegerField()
+    total_teachers = serializers.IntegerField()
+    total_classrooms = serializers.IntegerField()
+    attendance_today_pct = serializers.FloatField()
+    fees_collected_month = serializers.FloatField()
+    fees_outstanding = serializers.FloatField()
+    student_delta_pct = serializers.FloatField()
+    attendance_delta_pct = serializers.FloatField()
+
+
+class AttendanceDailySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    total = serializers.IntegerField()
+    present = serializers.IntegerField()
+    absent = serializers.IntegerField()
+    late = serializers.IntegerField()
+    excused = serializers.IntegerField()
+
+
+class FeeStatusSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    count = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2)

@@ -2,6 +2,7 @@
 
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     APIKeyViewSet,
@@ -9,17 +10,23 @@ from .views import (
     AuditLogViewSet,
     AuditReportScheduleViewSet,
     AuthWebhookViewSet,
+    ChangePasswordView,
     ComplianceRecordViewSet,
+    ConfirmEmailVerificationView,
+    ConfirmPasswordResetView,
     ConsentRecordViewSet,
     DataDeletionRequestViewSet,
     DataExportRequestViewSet,
     DeviceManagementViewSet,
+    Disable2FAView,
     DomainVerificationViewSet,
     EmailVerificationTokenViewSet,
     IPGeolocationCacheViewSet,
     IPWhitelistViewSet,
     LoginAttemptViewSet,
     LoginHistoryViewSet,
+    LoginView,
+    LogoutView,
     MFAMethodViewSet,
     MFAVerificationViewSet,
     OAuthProviderViewSet,
@@ -28,22 +35,32 @@ from .views import (
     PasswordPolicyViewSet,
     PasswordResetTokenViewSet,
     PermissionViewSet,
+    PlatformDashboardView,
+    ProfileView,
+    RegenerateBackupCodesView,
+    RequestPasswordResetView,
     RolePermissionViewSet,
     RoleViewSet,
     SchoolFeatureFlagViewSet,
     SchoolViewSet,
     SecurityNotificationPreferenceViewSet,
     SecurityPolicyViewSet,
+    SendEmailVerificationView,
     SessionPolicyViewSet,
     SessionTokenViewSet,
+    Setup2FAView,
     SSOConfigurationViewSet,
     TwoFactorBackupCodeViewSet,
+    UploadAvatarView,
     UserActivityViewSet,
     UserRoleViewSet,
     UserSessionHistoryViewSet,
     UserSessionViewSet,
     UserTrustScoreViewSet,
+    Verify2FALoginView,
+    Verify2FAView,
     WebhookDeliveryViewSet,
+    me,
 )
 
 app_name = "auth_v1"
@@ -96,4 +113,26 @@ router.register(r"audit-report-schedule", AuditReportScheduleViewSet, basename="
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("login/", LoginView.as_view(), name="login"),
+    path("logout/", LogoutView.as_view(), name="logout"),
+    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("me/", me, name="me"),
+    path("profile/", ProfileView.as_view(), name="profile"),
+    path("change-password/", ChangePasswordView.as_view(), name="change_password"),
+    path("password-reset/", RequestPasswordResetView.as_view(), name="password_reset"),
+    path("password-reset/confirm/", ConfirmPasswordResetView.as_view(), name="password_reset_confirm"),
+    # 2FA
+    path("setup-2fa/", Setup2FAView.as_view(), name="setup_2fa"),
+    path("verify-2fa/", Verify2FAView.as_view(), name="verify_2fa"),
+    path("disable-2fa/", Disable2FAView.as_view(), name="disable_2fa"),
+    path("verify-2fa-login/", Verify2FALoginView.as_view(), name="verify_2fa_login"),
+    # Email Verification
+    path("send-verification/", SendEmailVerificationView.as_view(), name="send_verification"),
+    path("verify-email/", ConfirmEmailVerificationView.as_view(), name="confirm_verification"),
+    # Avatar Upload
+    path("upload-avatar/", UploadAvatarView.as_view(), name="upload_avatar"),
+    # 2FA Backup Codes
+    path("regenerate-backup-codes/", RegenerateBackupCodesView.as_view(), name="regenerate_backup_codes"),
+    # Platform Management (super admin)
+    path("platform/stats/", PlatformDashboardView.as_view(), name="platform_stats"),
 ]

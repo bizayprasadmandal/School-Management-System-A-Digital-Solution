@@ -49,12 +49,14 @@ from .views import (
 app_name = "inventory_v1"
 
 router = DefaultRouter()
+router.register(r"categories", CategoryViewSet, basename="category")
+router.register(r"suppliers", SupplierViewSet, basename="supplier")
+router.register(r"items", InventoryItemViewSet, basename="item")
+router.register(r"stock-movements", StockMovementViewSet, basename="stock-movement")
+router.register(r"purchase-orders", PurchaseOrderViewSet, basename="purchase-order")
 
-router.register(r"category", CategoryViewSet, basename="category")
-router.register(r"supplier", SupplierViewSet, basename="supplier")
-router.register(r"inventory-item", InventoryItemViewSet, basename="inventory-item")
-router.register(r"stock-movement", StockMovementViewSet, basename="stock-movement")
-router.register(r"purchase-order", PurchaseOrderViewSet, basename="purchase-order")
+
+# ── Additional registrations (module expansion) ──
 router.register(r"purchase-order-item", PurchaseOrderItemViewSet, basename="purchase-order-item")
 router.register(r"warehouse", WarehouseViewSet, basename="warehouse")
 router.register(r"warehouse-zone", WarehouseZoneViewSet, basename="warehouse-zone")
