@@ -84,6 +84,7 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
       { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
       { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
+      { label: "Infrastructure", to: "/admin/infrastructure", icon: BuildingOffice2Icon },
       { label: "Hostel", to: "/admin/hostel", icon: BuildingOffice2Icon },
       { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
       { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
