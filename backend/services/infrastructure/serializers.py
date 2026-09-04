@@ -63,20 +63,28 @@ class BuildingSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class RoomSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_type_display = serializers.CharField(source="get_room_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = Room
         fields = [
             "id",
             "id",
             "building",
+            "building_name",
             "name",
             "room_number",
             "floor",
             "room_type",
+            "room_type_display",
+            "status",
+            "status_display",
             "capacity",
             "area_sqft",
             "has_projector",
@@ -86,7 +94,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "has_computers",
             "computer_count",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "building_name", "room_type_display", "status_display", "created_at", "updated_at"]
 
 
 class RoomAllocationSerializer(serializers.ModelSerializer):
@@ -111,6 +119,13 @@ class RoomAllocationSerializer(serializers.ModelSerializer):
 
 
 class WorkOrderSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    reported_by_name = serializers.CharField(source="reported_by.full_name", read_only=True)
+    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True)
+
     class Meta:
         model = WorkOrder
         fields = [
@@ -121,13 +136,30 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "priority",
+            "priority_display",
             "status",
+            "status_display",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "reported_by",
+            "reported_by_name",
             "assigned_to",
+            "assigned_to_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "building_name",
+            "room_name",
+            "priority_display",
+            "status_display",
+            "reported_by_name",
+            "assigned_to_name",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class WorkOrderCommentSerializer(serializers.ModelSerializer):
@@ -158,6 +190,12 @@ class PreventiveMaintenanceSerializer(serializers.ModelSerializer):
 
 
 class AssetSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    asset_type_display = serializers.CharField(source="get_asset_type_display", read_only=True)
+    condition_display = serializers.CharField(source="get_condition_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = Asset
         fields = [
@@ -168,14 +206,29 @@ class AssetSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "asset_type",
+            "asset_type_display",
             "condition",
+            "condition_display",
             "status",
+            "status_display",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "purchase_date",
             "purchase_cost",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "building_name",
+            "room_name",
+            "asset_type_display",
+            "condition_display",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class AssetAssignmentSerializer(serializers.ModelSerializer):

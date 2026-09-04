@@ -87,15 +87,40 @@ from .serializers import (
 
 
 class BuildingViewSet(viewsets.ModelViewSet):
-    queryset = Building.objects.all()
     serializer_class = BuildingSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "code", "address"]
+    filterset_fields = ["status", "is_active"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        return Building.objects.filter(school=self.request.user.school)
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class RoomViewSet(viewsets.ModelViewSet):
-    queryset = Room.objects.select_related("building").all()
     serializer_class = RoomSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "room_number"]
+    filterset_fields = ["building", "room_type", "status"]
+    ordering = ["building", "floor", "room_number"]
+
+    def get_queryset(self):
+        return Room.objects.filter(building__school=self.request.user.school).select_related("building")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
 
 class RoomAllocationViewSet(viewsets.ModelViewSet):
@@ -105,9 +130,25 @@ class RoomAllocationViewSet(viewsets.ModelViewSet):
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
-    queryset = WorkOrder.objects.select_related("building", "room", "reported_by", "assigned_to").all()
     serializer_class = WorkOrderSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["title", "description", "category"]
+    filterset_fields = ["status", "priority", "building", "assigned_to"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return WorkOrder.objects.filter(school=self.request.user.school).select_related(
+            "building", "room", "reported_by", "assigned_to"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, reported_by=self.request.user)
 
 
 class WorkOrderCommentViewSet(viewsets.ModelViewSet):
@@ -123,9 +164,23 @@ class PreventiveMaintenanceViewSet(viewsets.ModelViewSet):
 
 
 class AssetViewSet(viewsets.ModelViewSet):
-    queryset = Asset.objects.select_related("building", "room").all()
     serializer_class = AssetSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["name", "asset_tag", "description"]
+    filterset_fields = ["asset_type", "condition", "status", "building"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        return Asset.objects.filter(school=self.request.user.school).select_related("building", "room")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class AssetAssignmentViewSet(viewsets.ModelViewSet):

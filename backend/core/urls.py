@@ -39,6 +39,7 @@ urlpatterns = [
     path(API_V1 + "cafeteria/", include("services.cafeteria.urls", namespace="cafeteria_v1")),
     path(API_V1 + "admissions/", include("services.admissions.urls", namespace="admissions_v1")),
     path(API_V1 + "counseling/", include("services.counseling.urls", namespace="counseling_v1")),
+    path(API_V1 + "infrastructure/", include("services.infrastructure.urls", namespace="infrastructure_v1")),
     # ── API Docs ─────────────────────────────────────────────────────────────
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

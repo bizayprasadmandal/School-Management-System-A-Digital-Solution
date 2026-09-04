@@ -6,13 +6,13 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-router.register(r"buildings", views.BuildingViewSet)
-router.register(r"rooms", views.RoomViewSet)
+router.register(r"buildings", views.BuildingViewSet, basename="building")
+router.register(r"rooms", views.RoomViewSet, basename="room")
 router.register(r"room-allocations", views.RoomAllocationViewSet)
-router.register(r"work-orders", views.WorkOrderViewSet)
+router.register(r"work-orders", views.WorkOrderViewSet, basename="work-order")
 router.register(r"work-order-comments", views.WorkOrderCommentViewSet)
 router.register(r"preventive-maintenance", views.PreventiveMaintenanceViewSet)
-router.register(r"assets", views.AssetViewSet)
+router.register(r"assets", views.AssetViewSet, basename="asset")
 router.register(r"asset-assignments", views.AssetAssignmentViewSet)
 router.register(r"asset-lifecycle", views.AssetLifecycleViewSet)
 router.register(r"warranty-claims", views.WarrantyClaimViewSet)
@@ -54,6 +54,8 @@ router.register(
     views.InfrastructureMaintenanceRequestViewSet,
     basename="infrastructure-maintenance-request",
 )
+
+app_name = "infrastructure_v1"
 
 urlpatterns = [
     path("", include(router.urls)),
