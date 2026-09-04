@@ -68,6 +68,17 @@ class VehicleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "school", "created_at", "updated_at"]
 
+    def validate_plate_number(self, value):
+        # Plate numbers are globally unique — a duplicate would hit the DB
+        # constraint and 500; surface a clean 400 instead.
+        if (
+            Vehicle.objects.filter(plate_number__iexact=value)
+            .exclude(pk=self.instance.pk if self.instance else None)
+            .exists()
+        ):
+            raise serializers.ValidationError(f"A vehicle with plate '{value}' already exists.")
+        return value
+
 
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
@@ -109,6 +120,15 @@ class RouteSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "school", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        # Duplicate (school, name) would hit the DB unique constraint → 500.
+        name = attrs.get("name")
+        if name:
+            user = self.context["request"].user
+            if Route.objects.filter(school_id=user.school_id, name__iexact=name).exists():
+                raise serializers.ValidationError({"detail": f"A route named '{name}' already exists."})
+        return attrs
 
 
 class RouteStopSerializer(serializers.ModelSerializer):

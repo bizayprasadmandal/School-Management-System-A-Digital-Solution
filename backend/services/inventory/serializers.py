@@ -52,6 +52,17 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ["id", "school", "name", "description", "is_active", "created_at"]
         read_only_fields = ["id", "school", "created_at"]
 
+    def validate(self, attrs):
+        # Duplicate (school, name) would hit the DB unique constraint → 500;
+        # surface a clean 400 instead (DRF skips its auto validator because
+        # school is read-only and never present in the input attrs).
+        name = attrs.get("name")
+        if name:
+            user = self.context["request"].user
+            if Category.objects.filter(school_id=user.school_id, name__iexact=name).exists():
+                raise serializers.ValidationError({"detail": f"A category named '{name}' already exists."})
+        return attrs
+
 
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
@@ -94,6 +105,15 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             "maximum_stock",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "school"]
+
+    def validate(self, attrs):
+        # Duplicate (school, sku) would hit the DB unique constraint → 500.
+        sku = attrs.get("sku")
+        if sku:
+            user = self.context["request"].user
+            if InventoryItem.objects.filter(school_id=user.school_id, sku__iexact=sku).exists():
+                raise serializers.ValidationError({"detail": f"An item with SKU '{sku}' already exists."})
+        return attrs
 
     def validate_category(self, value):
         # Inventory items must stay within the tenant — the category has to

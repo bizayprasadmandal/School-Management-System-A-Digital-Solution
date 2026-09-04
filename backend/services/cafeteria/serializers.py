@@ -68,6 +68,17 @@ class MealMenuSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "school", "created_at", "updated_at"]
 
+    def validate(self, attrs):
+        # Duplicate (school, date, meal_type) would hit the DB unique
+        # constraint → 500; surface a clean 400 instead.
+        date = attrs.get("date")
+        meal_type = attrs.get("meal_type")
+        if date is not None and meal_type:
+            user = self.context["request"].user
+            if MealMenu.objects.filter(school_id=user.school_id, date=date, meal_type=meal_type).exists():
+                raise serializers.ValidationError({"detail": f"A {meal_type} menu already exists for {date}."})
+        return attrs
+
 
 class MealPlanSerializer(serializers.ModelSerializer):
     class Meta:
