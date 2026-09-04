@@ -420,6 +420,12 @@ class TestConcurrentProcessing:
             t.start()
         for t in threads:
             t.join(timeout=timeout)
+        # A still-running thread must never leak into the next test (its writes
+        # would land outside this test's transaction and corrupt later tests).
+        # Fail loudly here so the flake is attributed to this test.
+        alive = [t.name for t in threads if t.is_alive()]
+        if alive:
+            raise AssertionError(f"race thread(s) still running after {timeout}s: {alive}")
         return results
 
     def _assert_no_thread_errors(self, results):

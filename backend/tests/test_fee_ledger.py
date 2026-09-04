@@ -91,6 +91,15 @@ class TestLedgerRowLocking:
                 results[i] = credit_invoice(invoice, Decimal("300.00")).paid_amount
             except Exception as exc:  # noqa: BLE001 - surfaced via assertion
                 results[i] = exc
+            finally:
+                # Close only this thread's DB connections so racing credits
+                # can't leak connections past test teardown.
+                from django.db import connections
+
+                thread_id = threading.get_ident()
+                for conn in connections.all():
+                    if getattr(conn, "_thread_ident", None) == thread_id:
+                        conn.close()
 
         threads = [threading.Thread(target=_run, args=(i,)) for i in range(2)]
         for t in threads:
