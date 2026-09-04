@@ -398,24 +398,48 @@ class UtilityTrackerSerializer(serializers.ModelSerializer):
 
 
 class SafetyInspectionSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True, default="")
+    room_name = serializers.CharField(source="room.name", read_only=True, default="")
+    inspection_type_display = serializers.CharField(source="get_inspection_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    severity_display = serializers.CharField(source="get_overall_severity_display", read_only=True)
+
     class Meta:
         model = SafetyInspection
         fields = [
             "id",
             "school",
-            "id",
             "title",
             "inspection_type",
+            "inspection_type_display",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "scheduled_date",
             "completed_date",
             "inspector_name",
             "inspector_organization",
             "status",
+            "status_display",
             "overall_severity",
+            "severity_display",
+            "findings",
+            "recommendations",
+            "corrective_actions",
+            "next_inspection_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "building_name",
+            "room_name",
+            "inspection_type_display",
+            "status_display",
+            "severity_display",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class InfrastructureComplianceRecordSerializer(serializers.ModelSerializer):
@@ -441,14 +465,18 @@ class InfrastructureComplianceRecordSerializer(serializers.ModelSerializer):
 
 
 class VendorContractSerializer(serializers.ModelSerializer):
+    contract_type_display = serializers.CharField(source="get_contract_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True, default="")
+
     class Meta:
         model = VendorContract
         fields = [
             "id",
             "school",
-            "id",
             "vendor_name",
             "contract_type",
+            "contract_type_display",
             "title",
             "description",
             "contract_number",
@@ -459,8 +487,24 @@ class VendorContractSerializer(serializers.ModelSerializer):
             "value",
             "payment_frequency",
             "contact_person",
+            "contact_phone",
+            "contact_email",
+            "sla_description",
+            "status",
+            "status_display",
+            "created_by",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "contract_type_display",
+            "status_display",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class InfrastructureEmergencyPlanSerializer(serializers.ModelSerializer):
@@ -508,15 +552,21 @@ class InfrastructureReportSerializer(serializers.ModelSerializer):
 
 
 class EnergyMeterSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True, default="")
+    meter_type_display = serializers.CharField(source="get_meter_type_display", read_only=True)
+
     class Meta:
         model = EnergyMeter
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "meter_number",
             "meter_type",
+            "meter_type_display",
             "installation_date",
             "last_reading_date",
             "last_reading_value",
@@ -525,46 +575,78 @@ class EnergyMeterSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "building_name",
+            "room_name",
+            "meter_type_display",
+            "last_reading_date",
+            "last_reading_value",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class EnergyReadingSerializer(serializers.ModelSerializer):
+    meter_number = serializers.CharField(source="meter.meter_number", read_only=True)
+    recorded_by_name = serializers.CharField(source="recorded_by.full_name", read_only=True, default="")
+
     class Meta:
         model = EnergyReading
         fields = [
             "id",
-            "id",
             "meter",
+            "meter_number",
             "reading_date",
             "reading_value",
             "units",
             "cost",
             "recorded_by",
+            "recorded_by_name",
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "meter_number", "recorded_by", "recorded_by_name", "created_at"]
 
 
 class EnergyAlertSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    meter_number = serializers.CharField(source="meter.meter_number", read_only=True, default="")
+    alert_type_display = serializers.CharField(source="get_alert_type_display", read_only=True)
+    severity_display = serializers.CharField(source="get_severity_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = EnergyAlert
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "meter",
+            "meter_number",
             "alert_type",
+            "alert_type_display",
             "severity",
+            "severity_display",
             "status",
+            "status_display",
             "description",
             "threshold_value",
             "actual_value",
             "acknowledged_by",
             "resolved_at",
             "resolution_notes",
+            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "building_name",
+            "meter_number",
+            "alert_type_display",
+            "severity_display",
+            "status_display",
+            "created_at",
+        ]
 
 
 class CCTVCameraSerializer(serializers.ModelSerializer):
@@ -820,7 +902,6 @@ class ParkingLotSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "total_spots",
             "available_spots",
@@ -828,26 +909,38 @@ class ParkingLotSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class ParkingAssignmentSerializer(serializers.ModelSerializer):
+    parking_lot_name = serializers.CharField(source="parking_lot.name", read_only=True)
+    spot_type_display = serializers.CharField(source="get_spot_type_display", read_only=True)
+    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, default="")
+
     class Meta:
         model = ParkingAssignment
         fields = [
             "id",
-            "id",
             "parking_lot",
+            "parking_lot_name",
             "assigned_to",
+            "assigned_to_name",
             "spot_number",
             "spot_type",
+            "spot_type_display",
             "vehicle_plate",
             "is_active",
             "start_date",
             "end_date",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "parking_lot_name",
+            "spot_type_display",
+            "assigned_to_name",
+            "created_at",
+        ]
 
 
 class LightingScheduleSerializer(serializers.ModelSerializer):

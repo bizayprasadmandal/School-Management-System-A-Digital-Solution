@@ -4,6 +4,7 @@ from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from .models import (
@@ -259,9 +260,25 @@ class UtilityTrackerViewSet(viewsets.ModelViewSet):
 
 
 class SafetyInspectionViewSet(viewsets.ModelViewSet):
-    queryset = SafetyInspection.objects.select_related("building", "room", "conducted_by").all()
     serializer_class = SafetyInspectionSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "inspector_name", "building__name"]
+    filterset_fields = ["status", "inspection_type", "building", "overall_severity"]
+    ordering = ["-scheduled_date"]
+
+    def get_queryset(self):
+        return SafetyInspection.objects.filter(school=self.request.user.school).select_related(
+            "building", "room", "conducted_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class InfrastructureComplianceRecordViewSet(viewsets.ModelViewSet):
@@ -271,9 +288,23 @@ class InfrastructureComplianceRecordViewSet(viewsets.ModelViewSet):
 
 
 class VendorContractViewSet(viewsets.ModelViewSet):
-    queryset = VendorContract.objects.select_related("created_by").all()
     serializer_class = VendorContractSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["vendor_name", "title", "contract_number", "contact_person"]
+    filterset_fields = ["status", "contract_type"]
+    ordering = ["-start_date"]
+
+    def get_queryset(self):
+        return VendorContract.objects.filter(school=self.request.user.school).select_related("created_by")
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school, created_by=self.request.user)
 
 
 class InfrastructureEmergencyPlanViewSet(viewsets.ModelViewSet):
@@ -295,10 +326,12 @@ class EnergyMeterViewSet(viewsets.ModelViewSet):
     serializer_class = EnergyMeterSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["meter_number", "building__name", "notes"]
+    filterset_fields = ["building", "meter_type", "is_active"]
+    ordering = ["meter_number"]
 
     def get_queryset(self):
-        return EnergyMeter.objects.filter(school=self.request.user.school)
+        return EnergyMeter.objects.filter(building__school=self.request.user.school).select_related("building", "room")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -306,17 +339,24 @@ class EnergyMeterViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class EnergyReadingViewSet(viewsets.ModelViewSet):
     serializer_class = EnergyReadingSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["meter__meter_number", "notes", "units"]
+    filterset_fields = ["meter"]
+    ordering = ["-reading_date"]
 
     def get_queryset(self):
-        return EnergyReading.objects.filter(school=self.request.user.school)
+        return EnergyReading.objects.filter(meter__building__school=self.request.user.school).select_related(
+            "meter", "recorded_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -324,17 +364,24 @@ class EnergyReadingViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        meter = serializer.validated_data.get("meter")
+        if meter and meter.building.school_id != self.request.user.school_id:
+            raise ValidationError({"meter": "Meter does not belong to your school."})
+        serializer.save(recorded_by=self.request.user)
 
 
 class EnergyAlertViewSet(viewsets.ModelViewSet):
     serializer_class = EnergyAlertSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["building__name", "description", "meter__meter_number"]
+    filterset_fields = ["building", "alert_type", "severity", "status"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
-        return EnergyAlert.objects.filter(school=self.request.user.school)
+        return EnergyAlert.objects.filter(building__school=self.request.user.school).select_related(
+            "building", "meter", "acknowledged_by"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -342,7 +389,10 @@ class EnergyAlertViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class CCTVCameraViewSet(viewsets.ModelViewSet):
@@ -586,10 +636,14 @@ class ParkingAssignmentViewSet(viewsets.ModelViewSet):
     serializer_class = ParkingAssignmentSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["spot_number", "vehicle_plate", "parking_lot__name"]
+    filterset_fields = ["parking_lot", "spot_type", "is_active"]
+    ordering = ["parking_lot__name", "spot_number"]
 
     def get_queryset(self):
-        return ParkingAssignment.objects.filter(school=self.request.user.school)
+        return ParkingAssignment.objects.filter(parking_lot__school=self.request.user.school).select_related(
+            "parking_lot", "assigned_to"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -597,7 +651,10 @@ class ParkingAssignmentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        lot = serializer.validated_data.get("parking_lot")
+        if lot and lot.school_id != self.request.user.school_id:
+            raise ValidationError({"parking_lot": "Parking lot does not belong to your school."})
+        serializer.save()
 
 
 class LightingScheduleViewSet(viewsets.ModelViewSet):
