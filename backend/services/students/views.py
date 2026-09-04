@@ -329,7 +329,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             return Response(DocumentSerializer(docs, many=True).data)
         serializer = DocumentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(student=student)
+        serializer.save(student=student, uploaded_by=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(summary="Restore a soft-deleted (inactive) student")

@@ -173,7 +173,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = ["id", "student", "document_type", "title", "file", "uploaded_by", "uploaded_at", "notes"]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "student", "uploaded_by", "uploaded_at"]
 
 
 class StudentContactSerializer(serializers.ModelSerializer):
