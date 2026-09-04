@@ -342,6 +342,21 @@ class PaymentViewSet(viewsets.ModelViewSet):
         # Lock the invoice row to prevent race conditions on concurrent payments
         invoice = FeeInvoice.objects.select_for_update().get(id=serializer.validated_data["invoice"].id)
 
+        # Tenant scoping — payments may only be recorded against invoices in the caller's school
+        if invoice.student.school_id != request.user.school_id:
+            return Response(
+                {"detail": "Invoice does not belong to your school."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Overpayments are not allowed — cap the amount at the outstanding balance
+        outstanding = invoice.total_amount - invoice.paid_amount
+        if serializer.validated_data["amount"] > outstanding:
+            return Response(
+                {"detail": (f"Payment amount exceeds the outstanding balance of " f"{outstanding} on this invoice.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         payment = serializer.save(collected_by=request.user)
 
         from .ledger import credit_invoice

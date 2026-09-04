@@ -50,7 +50,7 @@ class FeeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FeeCategory
         fields = ["id", "school", "name", "description", "is_mandatory", "is_recurring", "recurrence"]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class FeeStructureSerializer(serializers.ModelSerializer):
@@ -67,7 +67,7 @@ class FeeStructureSerializer(serializers.ModelSerializer):
             "late_fee_per_day",
             "is_active",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class FeeInvoiceSerializer(serializers.ModelSerializer):
@@ -128,7 +128,7 @@ class ScholarshipSerializer(serializers.ModelSerializer):
             "approved_by",
             "is_active",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school", "approved_by"]
 
 
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):

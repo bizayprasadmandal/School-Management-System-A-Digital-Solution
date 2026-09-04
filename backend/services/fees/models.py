@@ -113,7 +113,7 @@ class Payment(models.Model):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     transaction_id = models.CharField(max_length=255, blank=True, db_index=True)
     gateway_response = models.JSONField(default=dict)
-    receipt_number = models.CharField(max_length=30, unique=True)
+    receipt_number = models.CharField(max_length=30, unique=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     receipt_sent_at = models.DateTimeField(
         null=True,
@@ -137,6 +137,11 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=["status", "paid_at"]),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            self.receipt_number = f"RCPT-{uuid.uuid4().hex[:10].upper()}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"PAY-{self.receipt_number} | {self.amount} [{self.status}]"
