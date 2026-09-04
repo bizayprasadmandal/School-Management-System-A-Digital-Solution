@@ -1313,7 +1313,14 @@ class PolicyAcknowledgment(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     policy = models.ForeignKey(PolicyDocument, on_delete=models.CASCADE, related_name="acknowledgments")
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="policy_acknowledgments")
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="policy_acknowledgments",
+        help_text="Null when the acknowledging user has no Employee record (e.g. admins).",
+    )
     acknowledged_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 

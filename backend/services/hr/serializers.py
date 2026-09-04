@@ -298,7 +298,7 @@ class PerformanceReviewCycleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class PerformanceGoalSerializer(serializers.ModelSerializer):
@@ -428,7 +428,7 @@ class JobPostingSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
     def get_applicant_count(self, obj):
         return obj.applicants.count()
@@ -664,7 +664,7 @@ class BenefitPlanSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
     def get_enrollment_count(self, obj):
         return obj.enrollments.filter(status="enrolled").count()
@@ -731,7 +731,7 @@ class TrainingProgramSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class TrainingEnrollmentSerializer(serializers.ModelSerializer):
@@ -812,7 +812,7 @@ class EmployeeProfileUpdateSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "employee", "created_at", "updated_at"]
 
 
 class PayslipViewLogSerializer(serializers.ModelSerializer):
@@ -893,7 +893,7 @@ class TurnoverReportSerializer(serializers.ModelSerializer):
             "top_reasons",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class SalaryReportSerializer(serializers.ModelSerializer):
@@ -913,7 +913,7 @@ class SalaryReportSerializer(serializers.ModelSerializer):
             "department_breakdown",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 # ---------------------------------------------------------------------------
@@ -973,7 +973,7 @@ class PolicyDocumentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class PolicyAcknowledgmentSerializer(serializers.ModelSerializer):

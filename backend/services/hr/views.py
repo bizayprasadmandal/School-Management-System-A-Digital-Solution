@@ -92,6 +92,11 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _is_employee(user):
+    """True if the user has an HR Employee record (self-service scope)."""
+    return Employee.objects.filter(user=user).exists()
+
+
 class DepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
     pagination_class = StandardResultsSetPagination
@@ -369,7 +374,7 @@ class PerformanceGoalViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-goals")
     def my_goals(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user)
         return Response(PerformanceGoalSerializer(qs, many=True).data)
@@ -545,7 +550,7 @@ class TimeEntryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = TimeEntry.objects.filter(employee__school=user.school).select_related("employee__user", "approved_by")
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -574,7 +579,7 @@ class TimesheetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Timesheet.objects.filter(employee__school=user.school).select_related("employee__user", "approved_by")
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -612,7 +617,7 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
         qs = OvertimeRequest.objects.filter(employee__school=user.school).select_related(
             "employee__user", "reviewed_by"
         )
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -703,7 +708,7 @@ class EmployeeBenefitViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-benefits")
     def my_benefits(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user, status="enrolled")
         return Response(EmployeeBenefitSerializer(qs, many=True).data)
@@ -772,7 +777,7 @@ class TrainingEnrollmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-trainings")
     def my_trainings(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user)
         return Response(TrainingEnrollmentSerializer(qs, many=True).data)
@@ -788,7 +793,7 @@ class CertificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Certification.objects.filter(employee__school=user.school).select_related("employee__user")
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -816,7 +821,7 @@ class CertificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-certifications")
     def my_certifications(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user)
         return Response(CertificationSerializer(qs, many=True).data)
@@ -838,7 +843,7 @@ class EmployeeProfileUpdateViewSet(viewsets.ModelViewSet):
         qs = EmployeeProfileUpdate.objects.filter(employee__school=user.school).select_related(
             "employee__user", "reviewed_by"
         )
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -884,7 +889,7 @@ class LeaveBalanceHRViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = LeaveBalanceHR.objects.filter(employee__school=user.school).select_related("employee__user")
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -898,7 +903,7 @@ class LeaveBalanceHRViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-balance")
     def my_balance(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         from datetime import date
 
@@ -1001,7 +1006,7 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet):
         qs = EmployeeDocument.objects.filter(employee__school=user.school).select_related(
             "employee__user", "uploaded_by", "verified_by"
         )
-        if user.role == "employee":
+        if _is_employee(user):
             qs = qs.filter(employee__user=user)
         return qs
 
@@ -1025,7 +1030,7 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="my-documents")
     def my_documents(self, request):
-        if request.user.role != "employee":
+        if not _is_employee(request.user):
             return Response({"detail": "Employee only."}, status=403)
         qs = self.get_queryset().filter(employee__user=request.user)
         return Response(EmployeeDocumentSerializer(qs, many=True).data)
@@ -1052,9 +1057,9 @@ class PolicyDocumentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="acknowledge")
     def acknowledge(self, request, pk=None):
         policy = self.get_object()
+        # Acknowledge as the requesting user's Employee record when one exists;
+        # otherwise record the acknowledgment without an employee (e.g. admins).
         employee = Employee.objects.filter(user=request.user).first()
-        if not employee:
-            return Response({"detail": "Employee not found."}, status=404)
         ack, created = PolicyAcknowledgment.objects.get_or_create(policy=policy, employee=employee)
         return Response(
             PolicyAcknowledgmentSerializer(ack).data,
