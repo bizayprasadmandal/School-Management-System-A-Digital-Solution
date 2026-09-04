@@ -66,7 +66,7 @@ class VehicleSerializer(serializers.ModelSerializer):
             "fitness_expiry",
             "status",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -87,7 +87,7 @@ class DriverSerializer(serializers.ModelSerializer):
             "emergency_contact_name",
             "emergency_contact_phone",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class RouteSerializer(serializers.ModelSerializer):
@@ -108,7 +108,7 @@ class RouteSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class RouteStopSerializer(serializers.ModelSerializer):

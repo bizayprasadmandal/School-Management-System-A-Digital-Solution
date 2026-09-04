@@ -66,7 +66,7 @@ class MealMenuSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class MealPlanSerializer(serializers.ModelSerializer):
@@ -84,7 +84,7 @@ class MealPlanSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class MealBookingSerializer(serializers.ModelSerializer):
@@ -104,7 +104,17 @@ class MealBookingSerializer(serializers.ModelSerializer):
             "cancelled_at",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "booking_date", "created_at"]
+
+    def validate(self, attrs):
+        # A user can only hold one booking per menu (model unique_together) —
+        # surface a clean 400 instead of an IntegrityError 500.
+        user = attrs.get("user")
+        menu = attrs.get("menu")
+        if user is not None and menu is not None:
+            if MealBooking.objects.filter(user=user, menu=menu).exists():
+                raise serializers.ValidationError({"detail": "A booking already exists for this user and menu."})
+        return attrs
 
 
 class DietaryRestrictionSerializer(serializers.ModelSerializer):

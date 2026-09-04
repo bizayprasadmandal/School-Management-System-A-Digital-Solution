@@ -50,7 +50,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "school", "name", "description", "is_active", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -72,7 +72,7 @@ class SupplierSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
