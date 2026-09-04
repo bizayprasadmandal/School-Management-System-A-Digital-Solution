@@ -47,6 +47,8 @@ from .models import (
 
 
 class EnrollmentIntakeSerializer(serializers.ModelSerializer):
+    application_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = EnrollmentIntake
         fields = [
@@ -61,12 +63,15 @@ class EnrollmentIntakeSerializer(serializers.ModelSerializer):
             "status",
             "max_applications",
             "description",
+            "application_count",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
+    timeline = serializers.SerializerMethodField()
+
     class Meta:
         model = Application
         fields = [
@@ -84,8 +89,49 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "nationality",
             "email",
             "phone",
+            # CRM pipeline fields (populated by submit / tour / offer / enroll actions)
+            "submitted_at",
+            "reviewed_by",
+            "review_notes",
+            "tour_date",
+            "toured_at",
+            "offer_sent_at",
+            "offer_deadline",
+            "offer_accepted_at",
+            "linked_student",
+            "timeline",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "application_number",
+            "submitted_at",
+            "reviewed_by",
+            "review_notes",
+            "tour_date",
+            "toured_at",
+            "offer_sent_at",
+            "offer_deadline",
+            "offer_accepted_at",
+            "linked_student",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_timeline(self, obj):
+        events = obj.timeline.select_related("created_by").all()[:50]
+        return [
+            {
+                "id": str(e.id),
+                "stage": e.stage,
+                "note": e.note,
+                "created_by_name": e.created_by.full_name if e.created_by else None,
+                "created_at": e.created_at,
+            }
+            for e in events
+        ]
 
 
 class ApplicationTimelineEventSerializer(serializers.ModelSerializer):
@@ -134,6 +180,8 @@ class EntranceAssessmentSerializer(serializers.ModelSerializer):
 
 
 class ApplicationReviewSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.CharField(source="reviewer.full_name", read_only=True)
+
     class Meta:
         model = ApplicationReview
         fields = [
@@ -141,6 +189,7 @@ class ApplicationReviewSerializer(serializers.ModelSerializer):
             "id",
             "application",
             "reviewer",
+            "reviewer_name",
             "score",
             "strengths",
             "weaknesses",
@@ -148,7 +197,7 @@ class ApplicationReviewSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "reviewer", "created_at"]
 
 
 class ApplicationFeeSerializer(serializers.ModelSerializer):
