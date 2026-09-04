@@ -124,9 +124,22 @@ class RoomViewSet(viewsets.ModelViewSet):
 
 
 class RoomAllocationViewSet(viewsets.ModelViewSet):
-    queryset = RoomAllocation.objects.select_related("room").all()
     serializer_class = RoomAllocationSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["room__name", "event_name", "department"]
+    filterset_fields = ["room", "allocation_type"]
+    ordering = ["-effective_from"]
+
+    def get_queryset(self):
+        return RoomAllocation.objects.filter(room__building__school=self.request.user.school).select_related(
+            "room__building", "teacher", "classroom"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
@@ -158,9 +171,25 @@ class WorkOrderCommentViewSet(viewsets.ModelViewSet):
 
 
 class PreventiveMaintenanceViewSet(viewsets.ModelViewSet):
-    queryset = PreventiveMaintenance.objects.select_related("building", "room", "assigned_to").all()
     serializer_class = PreventiveMaintenanceSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "description", "category"]
+    filterset_fields = ["status", "frequency", "building"]
+    ordering = ["next_due"]
+
+    def get_queryset(self):
+        return PreventiveMaintenance.objects.filter(school=self.request.user.school).select_related(
+            "building", "room", "assigned_to"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class AssetViewSet(viewsets.ModelViewSet):
@@ -202,9 +231,25 @@ class WarrantyClaimViewSet(viewsets.ModelViewSet):
 
 
 class SpaceReservationViewSet(viewsets.ModelViewSet):
-    queryset = SpaceReservation.objects.select_related("room", "room__building", "reserved_by", "approved_by").all()
     serializer_class = SpaceReservationSerializer
-    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["title", "purpose", "room__name"]
+    filterset_fields = ["room", "status", "date"]
+    ordering = ["-date"]
+
+    def get_queryset(self):
+        return SpaceReservation.objects.filter(room__building__school=self.request.user.school).select_related(
+            "room__building", "reserved_by", "approved_by"
+        )
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSchoolAdmin()]
+        return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(reserved_by=self.request.user)
 
 
 class UtilityTrackerViewSet(viewsets.ModelViewSet):

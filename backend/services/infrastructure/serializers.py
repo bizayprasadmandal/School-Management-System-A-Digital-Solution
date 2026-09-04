@@ -98,15 +98,24 @@ class RoomSerializer(serializers.ModelSerializer):
 
 
 class RoomAllocationSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    room_building_name = serializers.CharField(source="room.building.name", read_only=True)
+    allocation_type_display = serializers.CharField(source="get_allocation_type_display", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+
     class Meta:
         model = RoomAllocation
         fields = [
             "id",
             "id",
             "room",
+            "room_name",
+            "room_building_name",
             "allocation_type",
+            "allocation_type_display",
             "classroom",
             "teacher",
+            "teacher_name",
             "department",
             "event_name",
             "effective_from",
@@ -115,7 +124,15 @@ class RoomAllocationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "room_name",
+            "room_building_name",
+            "allocation_type_display",
+            "teacher_name",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class WorkOrderSerializer(serializers.ModelSerializer):
@@ -170,6 +187,12 @@ class WorkOrderCommentSerializer(serializers.ModelSerializer):
 
 
 class PreventiveMaintenanceSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    frequency_display = serializers.CharField(source="get_frequency_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True)
+
     class Meta:
         model = PreventiveMaintenance
         fields = [
@@ -180,13 +203,29 @@ class PreventiveMaintenanceSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "frequency",
+            "frequency_display",
+            "status",
+            "status_display",
             "assigned_to",
+            "assigned_to_name",
             "last_completed",
             "next_due",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "school",
+            "building_name",
+            "room_name",
+            "frequency_display",
+            "status_display",
+            "assigned_to_name",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -295,25 +334,46 @@ class WarrantyClaimSerializer(serializers.ModelSerializer):
 
 
 class SpaceReservationSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    room_building_name = serializers.CharField(source="room.building.name", read_only=True)
+    reserved_by_name = serializers.CharField(source="reserved_by.full_name", read_only=True)
+    purpose_display = serializers.CharField(source="get_purpose_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = SpaceReservation
         fields = [
             "id",
             "id",
             "room",
+            "room_name",
+            "room_building_name",
             "title",
             "purpose",
+            "purpose_display",
             "reserved_by",
+            "reserved_by_name",
             "date",
             "start_time",
             "end_time",
             "attendees_count",
             "status",
+            "status_display",
             "requires_av",
             "requires_refreshments",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "room_name",
+            "room_building_name",
+            "reserved_by",
+            "reserved_by_name",
+            "purpose_display",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class UtilityTrackerSerializer(serializers.ModelSerializer):
