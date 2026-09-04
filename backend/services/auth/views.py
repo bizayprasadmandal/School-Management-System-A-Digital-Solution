@@ -135,6 +135,12 @@ def _is_allowed_origin(url: str, fallback_url: str) -> bool:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             return False
+        # Any loopback origin is an application origin — dev servers (Vite,
+        # CRA, etc.) run on localhost with arbitrary ports, so require only
+        # that the host is this machine rather than an exact port match.
+        hostname = (parsed.hostname or "").lower()
+        if hostname in ("localhost", "127.0.0.1", "::1"):
+            return True
         allowed = urlparse(fallback_url)
         return parsed.scheme == allowed.scheme and parsed.netloc == allowed.netloc
     except (ValueError, TypeError):
