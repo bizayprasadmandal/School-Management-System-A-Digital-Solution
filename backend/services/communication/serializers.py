@@ -61,10 +61,13 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "send_email",
             "send_sms",
             "send_push",
+            "is_draft",
+            "created_by",
             "published_at",
             "expires_at",
+            "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_by", "created_at"]
 
 
 class AnnouncementReadSerializer(serializers.ModelSerializer):
@@ -92,7 +95,20 @@ class DirectMessageSerializer(serializers.ModelSerializer):
             "delivered_at",
             "read_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "sender", "status", "sent_at"]
+
+    def validate_recipient(self, value):
+        # 1-to-1 messaging is tenant-scoped: sender and recipient must share a school.
+        user = self.context["request"].user
+        if value.school_id != user.school_id:
+            raise serializers.ValidationError("Cannot message a user from another school.")
+        return value
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if attrs.get("recipient") and attrs["recipient"].id == user.id:
+            raise serializers.ValidationError({"detail": "You cannot send a message to yourself."})
+        return attrs
 
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):
