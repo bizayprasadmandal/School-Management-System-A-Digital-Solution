@@ -68,7 +68,7 @@ export default function TransportPage() {
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["student-transport"],
     queryFn: async () => {
-      const r = await api.get<{ results: RouteAssignment[] }>("/transportation/route-assignments/");
+      const r = await api.get<{ results: RouteAssignment[] }>("/transport/student-routes/");
       return r.results ?? [];
     },
   });
@@ -81,8 +81,7 @@ export default function TransportPage() {
   const assignment = assignments[0] ?? null;
 
   const createAssignment = useMutation({
-    mutationFn: (data: Partial<RouteAssignment>) =>
-      api.post("/transportation/route-assignments/", data),
+    mutationFn: (data: Partial<RouteAssignment>) => api.post("/transport/student-routes/", data),
     onSuccess: () => {
       toast.success("Assignment created");
       qc.invalidateQueries({ queryKey: ["student-transport"] });
@@ -92,7 +91,7 @@ export default function TransportPage() {
 
   const updateAssignment = useMutation({
     mutationFn: (data: Partial<RouteAssignment>) =>
-      api.patch(`/transportation/route-assignments/${editing!.id}/`, data),
+      api.patch(`/transport/student-routes/${editing!.id}/`, data),
     onSuccess: () => {
       toast.success("Assignment updated");
       qc.invalidateQueries({ queryKey: ["student-transport"] });
@@ -102,7 +101,7 @@ export default function TransportPage() {
   });
 
   const deleteAssignment = useMutation({
-    mutationFn: (id: string) => api.delete(`/transportation/route-assignments/${id}/`),
+    mutationFn: (id: string) => api.delete(`/transport/student-routes/${id}/`),
     onSuccess: () => {
       toast.success("Assignment deleted");
       qc.invalidateQueries({ queryKey: ["student-transport"] });
@@ -137,7 +136,7 @@ export default function TransportPage() {
     if (!confirm(`Delete ${bulk.selectedCount} items?`)) return;
     try {
       await Promise.all(
-        bulk.selectedArray.map((id) => api.delete("/transportation/assignments//" + id + "/")),
+        bulk.selectedArray.map((id) => api.delete("/transport/student-routes/" + id + "/")),
       );
       toast.success(`${bulk.selectedCount} items deleted`);
       bulk.clear();

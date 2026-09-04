@@ -188,9 +188,13 @@ class StudentRouteViewSet(viewsets.ModelViewSet):
     filterset_fields = ["route", "student", "is_active"]
 
     def get_queryset(self):
-        return StudentRoute.objects.filter(route__school=self.request.user.school).select_related(
+        qs = StudentRoute.objects.filter(route__school=self.request.user.school).select_related(
             "route", "student__user", "pickup_stop", "dropoff_stop"
         )
+        # Students only ever see their own transport assignment.
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
