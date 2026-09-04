@@ -24,6 +24,12 @@ import {
   DocumentTextIcon,
   MapPinIcon,
   KeyIcon,
+  ArrowTrendingUpIcon,
+  ExclamationTriangleIcon,
+  VideoCameraIcon,
+  LockClosedIcon,
+  ArrowPathIcon,
+  LightBulbIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import { Button, Modal, EmptyState, Pagination } from "../../components/common";
@@ -254,6 +260,103 @@ interface ParkingAssignment {
   end_date: string | null;
 }
 
+interface EnergyReading {
+  id: string;
+  meter: string;
+  meter_number?: string;
+  reading_date: string | null;
+  reading_value: string | number | null;
+  units: string;
+  cost: string | number | null;
+  recorded_by_name?: string;
+  notes: string;
+}
+
+interface EnergyAlert {
+  id: string;
+  building: string;
+  building_name?: string;
+  meter: string | null;
+  meter_number?: string;
+  alert_type: string;
+  alert_type_display?: string;
+  severity: string;
+  severity_display?: string;
+  status: string;
+  status_display?: string;
+  description: string;
+  threshold_value: string | number | null;
+  actual_value: string | number | null;
+  resolution_notes: string;
+  created_at: string;
+}
+
+interface CCTVCamera {
+  id: string;
+  building: string;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  camera_name: string;
+  camera_id: string;
+  location_description: string;
+  stream_url: string;
+  recording_enabled: boolean;
+  storage_days: number;
+  status: string;
+  status_display?: string;
+  installation_date: string | null;
+  last_maintenance: string | null;
+  notes: string;
+}
+
+interface AccessControlPoint {
+  id: string;
+  building: string;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  point_name: string;
+  access_type: string;
+  access_type_display?: string;
+  status: string;
+  status_display?: string;
+  access_start_time: string | null;
+  access_end_time: string | null;
+  restricted_access: boolean;
+  installation_date: string | null;
+  last_maintenance: string | null;
+  notes: string;
+}
+
+interface WasteSchedule {
+  id: string;
+  building: string;
+  building_name?: string;
+  waste_type: string;
+  waste_type_display?: string;
+  frequency: string;
+  frequency_display?: string;
+  collection_day: string;
+  collection_time: string | null;
+  vendor_name: string;
+  is_active: boolean;
+}
+
+interface LightingSchedule {
+  id: string;
+  building: string;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  zone_name: string;
+  day_of_week: string;
+  on_time: string | null;
+  off_time: string | null;
+  brightness_level: number;
+  is_active: boolean;
+}
+
 // ─── Choice options (mirror backend TextChoices) ─────────────────────────────
 
 const BUILDING_STATUSES = [
@@ -434,6 +537,58 @@ const SPOT_TYPES = [
   ["visitor", "Visitor"],
 ] as const;
 
+const ALERT_TYPES = [
+  ["high", "High Consumption"],
+  ["spike", "Sudden Spike"],
+  ["leak", "Suspected Leak"],
+  ["fault", "Meter Fault"],
+] as const;
+
+const ALERT_STATUSES = [
+  ["active", "Active"],
+  ["acknowledged", "Acknowledged"],
+  ["resolved", "Resolved"],
+] as const;
+
+const CAMERA_STATUSES = [
+  ["online", "Online"],
+  ["offline", "Offline"],
+  ["maintenance", "Under Maintenance"],
+] as const;
+
+const ACCESS_TYPES = [
+  ["card", "Card Reader"],
+  ["biometric", "Biometric"],
+  ["pin", "PIN Pad"],
+  ["manual", "Manual Lock"],
+] as const;
+
+const ACCESS_STATUSES = [
+  ["active", "Active"],
+  ["disabled", "Disabled"],
+  ["maintenance", "Under Maintenance"],
+] as const;
+
+const WASTE_TYPES = [
+  ["general", "General Waste"],
+  ["recyclable", "Recyclable"],
+  ["organic", "Organic"],
+  ["hazardous", "Hazardous"],
+  ["e_waste", "Electronic Waste"],
+] as const;
+
+const WASTE_FREQUENCIES = [
+  ["daily", "Daily"],
+  ["weekly", "Weekly"],
+  ["monthly", "Monthly"],
+] as const;
+
+const ALERT_SEVERITIES = [
+  ["low", "Low"],
+  ["medium", "Medium"],
+  ["high", "High"],
+] as const;
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   available: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -464,6 +619,12 @@ const STATUS_COLORS: Record<string, string> = {
   poor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   damaged: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   written_off: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  online: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  resolved: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  acknowledged: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  maintenance: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  disabled: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  offline: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -505,7 +666,13 @@ type TabType =
   | "inspections"
   | "vendors"
   | "parking"
-  | "spots";
+  | "spots"
+  | "readings"
+  | "alerts"
+  | "cameras"
+  | "access"
+  | "waste"
+  | "lighting";
 
 const TABS: { key: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "buildings", label: "Buildings", icon: BuildingOffice2Icon },
@@ -516,8 +683,14 @@ const TABS: { key: TabType; label: string; icon: React.ComponentType<{ className
   { key: "maintenance", label: "Maintenance", icon: WrenchScrewdriverIcon },
   { key: "reservations", label: "Reservations", icon: CalendarDaysIcon },
   { key: "energy", label: "Energy", icon: BoltIcon },
+  { key: "readings", label: "Readings", icon: ArrowTrendingUpIcon },
+  { key: "alerts", label: "Energy Alerts", icon: ExclamationTriangleIcon },
   { key: "inspections", label: "Inspections", icon: ShieldCheckIcon },
   { key: "vendors", label: "Vendors", icon: DocumentTextIcon },
+  { key: "cameras", label: "Cameras", icon: VideoCameraIcon },
+  { key: "access", label: "Access", icon: LockClosedIcon },
+  { key: "waste", label: "Waste", icon: ArrowPathIcon },
+  { key: "lighting", label: "Lighting", icon: LightBulbIcon },
   { key: "parking", label: "Parking Lots", icon: MapPinIcon },
   { key: "spots", label: "Spot Assignments", icon: KeyIcon },
 ];
@@ -578,6 +751,18 @@ export default function InfrastructurePage() {
   const [editingParkingLot, setEditingParkingLot] = useState<ParkingLot | null>(null);
   const [showSpotForm, setShowSpotForm] = useState(false);
   const [editingSpot, setEditingSpot] = useState<ParkingAssignment | null>(null);
+  const [showReadingForm, setShowReadingForm] = useState(false);
+  const [editingReading, setEditingReading] = useState<EnergyReading | null>(null);
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<EnergyAlert | null>(null);
+  const [showCameraForm, setShowCameraForm] = useState(false);
+  const [editingCamera, setEditingCamera] = useState<CCTVCamera | null>(null);
+  const [showAccessForm, setShowAccessForm] = useState(false);
+  const [editingAccess, setEditingAccess] = useState<AccessControlPoint | null>(null);
+  const [showWasteForm, setShowWasteForm] = useState(false);
+  const [editingWaste, setEditingWaste] = useState<WasteSchedule | null>(null);
+  const [showLightingForm, setShowLightingForm] = useState(false);
+  const [editingLighting, setEditingLighting] = useState<LightingSchedule | null>(null);
 
   // ── Data fetching ───────────────────────────────────────────────────────
 
@@ -685,6 +870,60 @@ export default function InfrastructurePage() {
     },
   });
 
+  const { data: readings = [], isLoading: readingsLoading } = useQuery({
+    queryKey: ["infra-readings"],
+    queryFn: async () => {
+      const res = await api.get<{ results: EnergyReading[] }>("/infrastructure/energy-reading/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: alerts = [], isLoading: alertsLoading } = useQuery({
+    queryKey: ["infra-alerts"],
+    queryFn: async () => {
+      const res = await api.get<{ results: EnergyAlert[] }>("/infrastructure/energy-alert/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: cameras = [], isLoading: camerasLoading } = useQuery({
+    queryKey: ["infra-cameras"],
+    queryFn: async () => {
+      const res = await api.get<{ results: CCTVCamera[] }>("/infrastructure/c-c-t-v-camera/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: accessPoints = [], isLoading: accessLoading } = useQuery({
+    queryKey: ["infra-access"],
+    queryFn: async () => {
+      const res = await api.get<{ results: AccessControlPoint[] }>(
+        "/infrastructure/access-control-point/",
+      );
+      return res.results ?? [];
+    },
+  });
+
+  const { data: wasteSchedules = [], isLoading: wasteLoading } = useQuery({
+    queryKey: ["infra-waste"],
+    queryFn: async () => {
+      const res = await api.get<{ results: WasteSchedule[] }>(
+        "/infrastructure/waste-collection-schedule/",
+      );
+      return res.results ?? [];
+    },
+  });
+
+  const { data: lightingSchedules = [], isLoading: lightingLoading } = useQuery({
+    queryKey: ["infra-lighting"],
+    queryFn: async () => {
+      const res = await api.get<{ results: LightingSchedule[] }>(
+        "/infrastructure/lighting-schedule/",
+      );
+      return res.results ?? [];
+    },
+  });
+
   // ── Mutations ───────────────────────────────────────────────────────────
 
   const deleteBuilding = useMutation({
@@ -769,6 +1008,48 @@ export default function InfrastructurePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["infra-spots"] });
       toast.success("Assignment deleted");
+    },
+  });
+  const deleteReading = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/energy-reading/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-readings"] });
+      toast.success("Reading deleted");
+    },
+  });
+  const deleteAlert = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/energy-alert/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-alerts"] });
+      toast.success("Alert deleted");
+    },
+  });
+  const deleteCamera = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/c-c-t-v-camera/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-cameras"] });
+      toast.success("Camera deleted");
+    },
+  });
+  const deleteAccess = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/access-control-point/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-access"] });
+      toast.success("Access point deleted");
+    },
+  });
+  const deleteWaste = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/waste-collection-schedule/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-waste"] });
+      toast.success("Schedule deleted");
+    },
+  });
+  const deleteLighting = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/lighting-schedule/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-lighting"] });
+      toast.success("Lighting schedule deleted");
     },
   });
 
@@ -903,6 +1184,73 @@ export default function InfrastructurePage() {
     );
   }, [spotAssignments, search]);
 
+  const filteredReadings = useMemo(() => {
+    if (!search.trim()) return readings;
+    const q = search.toLowerCase();
+    return readings.filter(
+      (r) =>
+        (r.meter_number || "").toLowerCase().includes(q) ||
+        r.units.toLowerCase().includes(q) ||
+        r.notes.toLowerCase().includes(q),
+    );
+  }, [readings, search]);
+
+  const filteredAlerts = useMemo(() => {
+    if (!search.trim()) return alerts;
+    const q = search.toLowerCase();
+    return alerts.filter(
+      (a) =>
+        a.alert_type.toLowerCase().includes(q) ||
+        a.status.toLowerCase().includes(q) ||
+        (a.building_name || "").toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q),
+    );
+  }, [alerts, search]);
+
+  const filteredCameras = useMemo(() => {
+    if (!search.trim()) return cameras;
+    const q = search.toLowerCase();
+    return cameras.filter(
+      (c) =>
+        c.camera_name.toLowerCase().includes(q) ||
+        c.camera_id.toLowerCase().includes(q) ||
+        (c.building_name || "").toLowerCase().includes(q),
+    );
+  }, [cameras, search]);
+
+  const filteredAccess = useMemo(() => {
+    if (!search.trim()) return accessPoints;
+    const q = search.toLowerCase();
+    return accessPoints.filter(
+      (p) =>
+        p.point_name.toLowerCase().includes(q) ||
+        p.access_type.toLowerCase().includes(q) ||
+        (p.building_name || "").toLowerCase().includes(q),
+    );
+  }, [accessPoints, search]);
+
+  const filteredWaste = useMemo(() => {
+    if (!search.trim()) return wasteSchedules;
+    const q = search.toLowerCase();
+    return wasteSchedules.filter(
+      (w) =>
+        w.waste_type.toLowerCase().includes(q) ||
+        w.vendor_name.toLowerCase().includes(q) ||
+        (w.building_name || "").toLowerCase().includes(q),
+    );
+  }, [wasteSchedules, search]);
+
+  const filteredLighting = useMemo(() => {
+    if (!search.trim()) return lightingSchedules;
+    const q = search.toLowerCase();
+    return lightingSchedules.filter(
+      (l) =>
+        l.zone_name.toLowerCase().includes(q) ||
+        l.day_of_week.toLowerCase().includes(q) ||
+        (l.building_name || "").toLowerCase().includes(q),
+    );
+  }, [lightingSchedules, search]);
+
   const allFiltered =
     activeTab === "buildings"
       ? filteredBuildings
@@ -920,13 +1268,25 @@ export default function InfrastructurePage() {
                   ? filteredReservations
                   : activeTab === "energy"
                     ? filteredEnergy
-                    : activeTab === "inspections"
-                      ? filteredInspections
-                      : activeTab === "vendors"
-                        ? filteredVendors
-                        : activeTab === "parking"
-                          ? filteredParkingLots
-                          : filteredSpots;
+                    : activeTab === "readings"
+                      ? filteredReadings
+                      : activeTab === "alerts"
+                        ? filteredAlerts
+                        : activeTab === "inspections"
+                          ? filteredInspections
+                          : activeTab === "vendors"
+                            ? filteredVendors
+                            : activeTab === "cameras"
+                              ? filteredCameras
+                              : activeTab === "access"
+                                ? filteredAccess
+                                : activeTab === "waste"
+                                  ? filteredWaste
+                                  : activeTab === "lighting"
+                                    ? filteredLighting
+                                    : activeTab === "parking"
+                                      ? filteredParkingLots
+                                      : filteredSpots;
 
   const PAGE_SIZE = 12;
   const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE));
@@ -953,7 +1313,13 @@ export default function InfrastructurePage() {
     deleteInspection.isPending ||
     deleteVendor.isPending ||
     deleteParkingLot.isPending ||
-    deleteSpot.isPending;
+    deleteSpot.isPending ||
+    deleteReading.isPending ||
+    deleteAlert.isPending ||
+    deleteCamera.isPending ||
+    deleteAccess.isPending ||
+    deleteWaste.isPending ||
+    deleteLighting.isPending;
 
   const handleBulkDelete = async () => {
     if (bulk.selectedCount === 0) return;
@@ -984,7 +1350,19 @@ export default function InfrastructurePage() {
                                 ? "/infrastructure/vendor-contracts/"
                                 : activeTab === "parking"
                                   ? "/infrastructure/parking-lot/"
-                                  : "/infrastructure/parking-assignment/";
+                                  : activeTab === "spots"
+                                    ? "/infrastructure/parking-assignment/"
+                                    : activeTab === "readings"
+                                      ? "/infrastructure/energy-reading/"
+                                      : activeTab === "alerts"
+                                        ? "/infrastructure/energy-alert/"
+                                        : activeTab === "cameras"
+                                          ? "/infrastructure/c-c-t-v-camera/"
+                                          : activeTab === "access"
+                                            ? "/infrastructure/access-control-point/"
+                                            : activeTab === "waste"
+                                              ? "/infrastructure/waste-collection-schedule/"
+                                              : "/infrastructure/lighting-schedule/";
           return api.delete(`${base}${id}/`);
         }),
       );
@@ -1091,13 +1469,64 @@ export default function InfrastructurePage() {
                                 is_covered: l.is_covered,
                                 is_active: l.is_active,
                               }))
-                            : filteredSpots.map((s) => ({
-                                spot_number: s.spot_number,
-                                lot: s.parking_lot_name ?? "",
-                                spot_type: s.spot_type,
-                                vehicle_plate: s.vehicle_plate,
-                                is_active: s.is_active,
-                              }));
+                            : activeTab === "spots"
+                              ? filteredSpots.map((s) => ({
+                                  spot_number: s.spot_number,
+                                  lot: s.parking_lot_name ?? "",
+                                  spot_type: s.spot_type,
+                                  vehicle_plate: s.vehicle_plate,
+                                  is_active: s.is_active,
+                                }))
+                              : activeTab === "readings"
+                                ? filteredReadings.map((r) => ({
+                                    meter: r.meter_number ?? "",
+                                    reading_date: r.reading_date ?? "",
+                                    reading_value: r.reading_value ?? 0,
+                                    units: r.units,
+                                    cost: r.cost ?? "",
+                                  }))
+                                : activeTab === "alerts"
+                                  ? filteredAlerts.map((a) => ({
+                                      alert_type: a.alert_type,
+                                      severity: a.severity,
+                                      status: a.status,
+                                      building: a.building_name ?? "",
+                                      description: a.description,
+                                    }))
+                                  : activeTab === "cameras"
+                                    ? filteredCameras.map((c) => ({
+                                        camera_name: c.camera_name,
+                                        camera_id: c.camera_id,
+                                        building: c.building_name ?? "",
+                                        status: c.status,
+                                        recording_enabled: c.recording_enabled,
+                                      }))
+                                    : activeTab === "access"
+                                      ? filteredAccess.map((p) => ({
+                                          point_name: p.point_name,
+                                          access_type: p.access_type,
+                                          status: p.status,
+                                          building: p.building_name ?? "",
+                                          restricted_access: p.restricted_access,
+                                        }))
+                                      : activeTab === "waste"
+                                        ? filteredWaste.map((w) => ({
+                                            waste_type: w.waste_type,
+                                            frequency: w.frequency,
+                                            building: w.building_name ?? "",
+                                            collection_day: w.collection_day,
+                                            vendor: w.vendor_name,
+                                          }))
+                                        : activeTab === "lighting"
+                                          ? filteredLighting.map((l) => ({
+                                              zone_name: l.zone_name,
+                                              building: l.building_name ?? "",
+                                              day_of_week: l.day_of_week,
+                                              on_time: l.on_time ?? "",
+                                              off_time: l.off_time ?? "",
+                                              brightness: l.brightness_level,
+                                            }))
+                                          : [];
     const cols = Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
     downloadCsv(
       toCsv(rows, cols),
@@ -1132,7 +1561,13 @@ export default function InfrastructurePage() {
       else if (activeTab === "inspections") setShowInspectionForm(true);
       else if (activeTab === "vendors") setShowVendorForm(true);
       else if (activeTab === "parking") setShowParkingLotForm(true);
-      else setShowSpotForm(true);
+      else if (activeTab === "spots") setShowSpotForm(true);
+      else if (activeTab === "readings") setShowReadingForm(true);
+      else if (activeTab === "alerts") setShowAlertForm(true);
+      else if (activeTab === "cameras") setShowCameraForm(true);
+      else if (activeTab === "access") setShowAccessForm(true);
+      else if (activeTab === "waste") setShowWasteForm(true);
+      else setShowLightingForm(true);
     },
     onSearch: () => searchRef.current?.focus(),
     onExport: handleExport,
@@ -1166,7 +1601,19 @@ export default function InfrastructurePage() {
                         ? vendorsLoading
                         : activeTab === "parking"
                           ? parkingLoading
-                          : spotsLoading;
+                          : activeTab === "spots"
+                            ? spotsLoading
+                            : activeTab === "readings"
+                              ? readingsLoading
+                              : activeTab === "alerts"
+                                ? alertsLoading
+                                : activeTab === "cameras"
+                                  ? camerasLoading
+                                  : activeTab === "access"
+                                    ? accessLoading
+                                    : activeTab === "waste"
+                                      ? wasteLoading
+                                      : lightingLoading;
 
   const createButton =
     activeTab === "buildings"
@@ -1257,13 +1704,61 @@ export default function InfrastructurePage() {
                                 setShowParkingLotForm(true);
                               },
                             }
-                          : {
-                              label: "Assign Spot",
-                              action: () => {
-                                setEditingSpot(null);
-                                setShowSpotForm(true);
-                              },
-                            };
+                          : activeTab === "spots"
+                            ? {
+                                label: "Assign Spot",
+                                action: () => {
+                                  setEditingSpot(null);
+                                  setShowSpotForm(true);
+                                },
+                              }
+                            : activeTab === "readings"
+                              ? {
+                                  label: "Add Reading",
+                                  action: () => {
+                                    setEditingReading(null);
+                                    setShowReadingForm(true);
+                                  },
+                                }
+                              : activeTab === "alerts"
+                                ? {
+                                    label: "Raise Alert",
+                                    action: () => {
+                                      setEditingAlert(null);
+                                      setShowAlertForm(true);
+                                    },
+                                  }
+                                : activeTab === "cameras"
+                                  ? {
+                                      label: "Add Camera",
+                                      action: () => {
+                                        setEditingCamera(null);
+                                        setShowCameraForm(true);
+                                      },
+                                    }
+                                  : activeTab === "access"
+                                    ? {
+                                        label: "Add Access Point",
+                                        action: () => {
+                                          setEditingAccess(null);
+                                          setShowAccessForm(true);
+                                        },
+                                      }
+                                    : activeTab === "waste"
+                                      ? {
+                                          label: "Add Schedule",
+                                          action: () => {
+                                            setEditingWaste(null);
+                                            setShowWasteForm(true);
+                                          },
+                                        }
+                                      : {
+                                          label: "Add Lighting Schedule",
+                                          action: () => {
+                                            setEditingLighting(null);
+                                            setShowLightingForm(true);
+                                          },
+                                        };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -1274,7 +1769,7 @@ export default function InfrastructurePage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Infrastructure</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Buildings, rooms, work orders, assets, energy, safety, vendors and parking
+            Buildings, rooms, work orders, assets, energy, safety, vendors, parking, CCTV and more
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1411,13 +1906,25 @@ export default function InfrastructurePage() {
                     ? "reservations"
                     : activeTab === "energy"
                       ? "energy meters"
-                      : activeTab === "inspections"
-                        ? "inspections"
-                        : activeTab === "vendors"
-                          ? "vendor contracts"
-                          : activeTab === "parking"
-                            ? "parking lots"
-                            : "spot assignments"
+                      : activeTab === "readings"
+                        ? "energy readings"
+                        : activeTab === "alerts"
+                          ? "energy alerts"
+                          : activeTab === "inspections"
+                            ? "inspections"
+                            : activeTab === "vendors"
+                              ? "vendor contracts"
+                              : activeTab === "cameras"
+                                ? "cameras"
+                                : activeTab === "access"
+                                  ? "access points"
+                                  : activeTab === "waste"
+                                    ? "waste schedules"
+                                    : activeTab === "lighting"
+                                      ? "lighting schedules"
+                                      : activeTab === "parking"
+                                        ? "parking lots"
+                                        : "spot assignments"
           }`}
           description={`Add your first ${
             activeTab === "workorders"
@@ -1428,15 +1935,27 @@ export default function InfrastructurePage() {
                   ? "room allocation"
                   : activeTab === "energy"
                     ? "energy meter"
-                    : activeTab === "inspections"
-                      ? "inspection"
-                      : activeTab === "vendors"
-                        ? "vendor contract"
-                        : activeTab === "parking"
-                          ? "parking lot"
-                          : activeTab === "spots"
-                            ? "spot assignment"
-                            : activeTab.slice(0, -1)
+                    : activeTab === "readings"
+                      ? "energy reading"
+                      : activeTab === "alerts"
+                        ? "energy alert"
+                        : activeTab === "inspections"
+                          ? "inspection"
+                          : activeTab === "vendors"
+                            ? "vendor contract"
+                            : activeTab === "cameras"
+                              ? "camera"
+                              : activeTab === "access"
+                                ? "access point"
+                                : activeTab === "waste"
+                                  ? "waste schedule"
+                                  : activeTab === "lighting"
+                                    ? "lighting schedule"
+                                    : activeTab === "parking"
+                                      ? "parking lot"
+                                      : activeTab === "spots"
+                                        ? "spot assignment"
+                                        : activeTab.slice(0, -1)
           } to get started`}
         />
       ) : (
@@ -1484,9 +2003,27 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "parking") {
                       setEditingParkingLot(item as ParkingLot);
                       setShowParkingLotForm(true);
-                    } else {
+                    } else if (activeTab === "spots") {
                       setEditingSpot(item as ParkingAssignment);
                       setShowSpotForm(true);
+                    } else if (activeTab === "readings") {
+                      setEditingReading(item as EnergyReading);
+                      setShowReadingForm(true);
+                    } else if (activeTab === "alerts") {
+                      setEditingAlert(item as EnergyAlert);
+                      setShowAlertForm(true);
+                    } else if (activeTab === "cameras") {
+                      setEditingCamera(item as CCTVCamera);
+                      setShowCameraForm(true);
+                    } else if (activeTab === "access") {
+                      setEditingAccess(item as AccessControlPoint);
+                      setShowAccessForm(true);
+                    } else if (activeTab === "waste") {
+                      setEditingWaste(item as WasteSchedule);
+                      setShowWasteForm(true);
+                    } else {
+                      setEditingLighting(item as LightingSchedule);
+                      setShowLightingForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -1502,7 +2039,13 @@ export default function InfrastructurePage() {
                     else if (activeTab === "inspections") deleteInspection.mutate(item.id);
                     else if (activeTab === "vendors") deleteVendor.mutate(item.id);
                     else if (activeTab === "parking") deleteParkingLot.mutate(item.id);
-                    else deleteSpot.mutate(item.id);
+                    else if (activeTab === "spots") deleteSpot.mutate(item.id);
+                    else if (activeTab === "readings") deleteReading.mutate(item.id);
+                    else if (activeTab === "alerts") deleteAlert.mutate(item.id);
+                    else if (activeTab === "cameras") deleteCamera.mutate(item.id);
+                    else if (activeTab === "access") deleteAccess.mutate(item.id);
+                    else if (activeTab === "waste") deleteWaste.mutate(item.id);
+                    else deleteLighting.mutate(item.id);
                   }}
                 />
               ))}
@@ -1555,9 +2098,27 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "parking") {
                       setEditingParkingLot(item as ParkingLot);
                       setShowParkingLotForm(true);
-                    } else {
+                    } else if (activeTab === "spots") {
                       setEditingSpot(item as ParkingAssignment);
                       setShowSpotForm(true);
+                    } else if (activeTab === "readings") {
+                      setEditingReading(item as EnergyReading);
+                      setShowReadingForm(true);
+                    } else if (activeTab === "alerts") {
+                      setEditingAlert(item as EnergyAlert);
+                      setShowAlertForm(true);
+                    } else if (activeTab === "cameras") {
+                      setEditingCamera(item as CCTVCamera);
+                      setShowCameraForm(true);
+                    } else if (activeTab === "access") {
+                      setEditingAccess(item as AccessControlPoint);
+                      setShowAccessForm(true);
+                    } else if (activeTab === "waste") {
+                      setEditingWaste(item as WasteSchedule);
+                      setShowWasteForm(true);
+                    } else {
+                      setEditingLighting(item as LightingSchedule);
+                      setShowLightingForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -1573,7 +2134,13 @@ export default function InfrastructurePage() {
                     else if (activeTab === "inspections") deleteInspection.mutate(item.id);
                     else if (activeTab === "vendors") deleteVendor.mutate(item.id);
                     else if (activeTab === "parking") deleteParkingLot.mutate(item.id);
-                    else deleteSpot.mutate(item.id);
+                    else if (activeTab === "spots") deleteSpot.mutate(item.id);
+                    else if (activeTab === "readings") deleteReading.mutate(item.id);
+                    else if (activeTab === "alerts") deleteAlert.mutate(item.id);
+                    else if (activeTab === "cameras") deleteCamera.mutate(item.id);
+                    else if (activeTab === "access") deleteAccess.mutate(item.id);
+                    else if (activeTab === "waste") deleteWaste.mutate(item.id);
+                    else deleteLighting.mutate(item.id);
                   }}
                 />
               )}
@@ -1795,6 +2362,106 @@ export default function InfrastructurePage() {
           }}
         />
       )}
+      {activeTab === "readings" && (
+        <ReadingFormModal
+          open={showReadingForm}
+          onClose={() => {
+            setShowReadingForm(false);
+            setEditingReading(null);
+          }}
+          reading={editingReading}
+          meters={energyMeters}
+          onSaved={() => {
+            setShowReadingForm(false);
+            setEditingReading(null);
+            qc.invalidateQueries({ queryKey: ["infra-readings"] });
+          }}
+        />
+      )}
+      {activeTab === "alerts" && (
+        <AlertFormModal
+          open={showAlertForm}
+          onClose={() => {
+            setShowAlertForm(false);
+            setEditingAlert(null);
+          }}
+          alert={editingAlert}
+          buildings={buildings}
+          meters={energyMeters}
+          onSaved={() => {
+            setShowAlertForm(false);
+            setEditingAlert(null);
+            qc.invalidateQueries({ queryKey: ["infra-alerts"] });
+          }}
+        />
+      )}
+      {activeTab === "cameras" && (
+        <CameraFormModal
+          open={showCameraForm}
+          onClose={() => {
+            setShowCameraForm(false);
+            setEditingCamera(null);
+          }}
+          camera={editingCamera}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowCameraForm(false);
+            setEditingCamera(null);
+            qc.invalidateQueries({ queryKey: ["infra-cameras"] });
+          }}
+        />
+      )}
+      {activeTab === "access" && (
+        <AccessFormModal
+          open={showAccessForm}
+          onClose={() => {
+            setShowAccessForm(false);
+            setEditingAccess(null);
+          }}
+          access={editingAccess}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowAccessForm(false);
+            setEditingAccess(null);
+            qc.invalidateQueries({ queryKey: ["infra-access"] });
+          }}
+        />
+      )}
+      {activeTab === "waste" && (
+        <WasteFormModal
+          open={showWasteForm}
+          onClose={() => {
+            setShowWasteForm(false);
+            setEditingWaste(null);
+          }}
+          schedule={editingWaste}
+          buildings={buildings}
+          onSaved={() => {
+            setShowWasteForm(false);
+            setEditingWaste(null);
+            qc.invalidateQueries({ queryKey: ["infra-waste"] });
+          }}
+        />
+      )}
+      {activeTab === "lighting" && (
+        <LightingFormModal
+          open={showLightingForm}
+          onClose={() => {
+            setShowLightingForm(false);
+            setEditingLighting(null);
+          }}
+          schedule={editingLighting}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowLightingForm(false);
+            setEditingLighting(null);
+            qc.invalidateQueries({ queryKey: ["infra-lighting"] });
+          }}
+        />
+      )}
 
       {/* Shortcut help */}
       <KeyboardShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -1846,8 +2513,14 @@ function Card({
           {tab === "maintenance" && <MaintenanceCard item={item as PreventiveMaintenance} />}
           {tab === "reservations" && <ReservationCard item={item as SpaceReservation} />}
           {tab === "energy" && <MeterCard item={item as EnergyMeter} />}
+          {tab === "readings" && <ReadingCard item={item as EnergyReading} />}
+          {tab === "alerts" && <AlertCard item={item as EnergyAlert} />}
           {tab === "inspections" && <InspectionCard item={item as SafetyInspection} />}
           {tab === "vendors" && <VendorCard item={item as VendorContract} />}
+          {tab === "cameras" && <CameraCard item={item as CCTVCamera} />}
+          {tab === "access" && <AccessCard item={item as AccessControlPoint} />}
+          {tab === "waste" && <WasteCard item={item as WasteSchedule} />}
+          {tab === "lighting" && <LightingCard item={item as LightingSchedule} />}
           {tab === "parking" && <ParkingLotCard item={item as ParkingLot} />}
           {tab === "spots" && <SpotCard item={item as ParkingAssignment} />}
         </div>
@@ -2192,6 +2865,164 @@ function SpotCard({ item }: { item: ParkingAssignment }) {
       <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
         {item.vehicle_plate && <span>🚗 {item.vehicle_plate}</span>}
         {item.assigned_to_name && <span>👤 {item.assigned_to_name}</span>}
+      </div>
+    </>
+  );
+}
+
+function ReadingCard({ item }: { item: EnergyReading }) {
+  const value = item.reading_value != null ? Number(item.reading_value) : null;
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.meter_number ?? item.meter}
+      </p>
+      <p className="text-xs text-slate-400">{item.reading_date ?? "—"}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+          {value != null ? value.toLocaleString() : "—"} {item.units}
+        </span>
+        {item.cost != null && Number(item.cost) > 0 && (
+          <span>💲{Number(item.cost).toLocaleString()}</span>
+        )}
+      </div>
+      {item.recorded_by_name && (
+        <p className="mt-1 truncate text-xs text-slate-400">👤 {item.recorded_by_name}</p>
+      )}
+    </>
+  );
+}
+
+function AlertCard({ item }: { item: EnergyAlert }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.alert_type.replace(/_/g, " ")}
+        {item.meter_number ? ` · ${item.meter_number}` : ""}
+      </p>
+      <p className="truncate text-xs text-slate-400">{item.building_name ?? "—"}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.severity} colors={SEVERITY_COLORS} />
+        <Badge value={item.status} colors={STATUS_COLORS} />
+      </div>
+      <p className="mt-1 line-clamp-2 text-xs text-slate-400">{item.description}</p>
+      {item.threshold_value != null && item.actual_value != null && (
+        <p className="mt-1 text-xs text-slate-400">
+          ⚡ {Number(item.actual_value).toLocaleString()} vs threshold{" "}
+          {Number(item.threshold_value).toLocaleString()}
+        </p>
+      )}
+    </>
+  );
+}
+
+function CameraCard({ item }: { item: CCTVCamera }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.camera_name}
+      </p>
+      <p className="font-mono text-xs text-slate-400">{item.camera_id}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.status} colors={STATUS_COLORS} />
+        {item.building_name && <span className="text-slate-400">📍 {item.building_name}</span>}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.recording_enabled && <span>⏺ recording</span>}
+        {item.storage_days > 0 && <span>💾 {item.storage_days}d retention</span>}
+        {item.location_description && (
+          <span className="truncate">🗺 {item.location_description}</span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function AccessCard({ item }: { item: AccessControlPoint }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.point_name}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.building_name ?? "—"}
+        {item.room_name && ` · ${item.room_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.access_type} colors={{}} />
+        <Badge value={item.status} colors={STATUS_COLORS} />
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.restricted_access && <span>🔒 restricted</span>}
+        {item.access_start_time && (
+          <span>
+            🕐 {item.access_start_time.slice(0, 5)}–{item.access_end_time?.slice(0, 5)}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function WasteCard({ item }: { item: WasteSchedule }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.waste_type.replace(/_/g, " ")}
+      </p>
+      <p className="truncate text-xs text-slate-400">{item.building_name ?? "—"}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.frequency} colors={{}} />
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            item.is_active
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          }`}
+        >
+          {item.is_active ? "Active" : "Inactive"}
+        </span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.collection_day && (
+          <span>
+            🗓 {item.collection_day}
+            {item.collection_time ? ` ${item.collection_time.slice(0, 5)}` : ""}
+          </span>
+        )}
+        {item.vendor_name && <span>🚛 {item.vendor_name}</span>}
+      </div>
+    </>
+  );
+}
+
+function LightingCard({ item }: { item: LightingSchedule }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.zone_name || item.building_name || "Lighting schedule"}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.building_name ?? "—"}
+        {item.room_name && ` · ${item.room_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+          💡 {item.on_time?.slice(0, 5)}–{item.off_time?.slice(0, 5)}
+        </span>
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            item.is_active
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          }`}
+        >
+          {item.is_active ? "Active" : "Inactive"}
+        </span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.day_of_week && <span>📅 {item.day_of_week}</span>}
+        {item.brightness_level > 0 && <span>🔆 {item.brightness_level}%</span>}
       </div>
     </>
   );
@@ -4223,6 +5054,1005 @@ function SpotFormModal({
             className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
           />
           Assignment is active
+        </label>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Energy Reading Form Modal ───────────────────────────────────────────────
+
+function ReadingFormModal({
+  open,
+  onClose,
+  reading,
+  meters,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  reading?: EnergyReading | null;
+  meters: EnergyMeter[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    meter: reading?.meter ?? "",
+    reading_date: reading?.reading_date ?? "",
+    reading_value: reading?.reading_value != null ? String(reading.reading_value) : "",
+    units: reading?.units ?? "",
+    cost: reading?.cost != null ? String(reading.cost) : "",
+    notes: reading?.notes ?? "",
+  });
+  const isEdit = !!reading;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/energy-reading/", data),
+    onSuccess: () => {
+      toast.success("Reading recorded");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/energy-reading/${reading!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Reading updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.meter) return toast.error("Select a meter");
+    if (!f.reading_date) return toast.error("Reading date is required");
+    if (!f.reading_value) return toast.error("Reading value is required");
+    const data = {
+      ...f,
+      reading_value: Number(f.reading_value),
+      cost: f.cost ? Number(f.cost) : null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Reading" : "Record Reading"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Meter *</label>
+          <select
+            value={f.meter}
+            onChange={(e) => setF((p) => ({ ...p, meter: e.target.value }))}
+            className={inputCls}
+            required
+          >
+            <option value="">Select meter...</option>
+            {meters.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.meter_number} ({m.meter_type})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Reading Date *</label>
+            <input
+              type="date"
+              value={f.reading_date}
+              onChange={(e) => setF((p) => ({ ...p, reading_date: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Reading Value *</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={f.reading_value}
+              onChange={(e) => setF((p) => ({ ...p, reading_value: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Units</label>
+            <input
+              value={f.units}
+              onChange={(e) => setF((p) => ({ ...p, units: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. kWh"
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Cost</label>
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={f.cost}
+            onChange={(e) => setF((p) => ({ ...p, cost: e.target.value }))}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Energy Alert Form Modal ─────────────────────────────────────────────────
+
+function AlertFormModal({
+  open,
+  onClose,
+  alert,
+  buildings,
+  meters,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  alert?: EnergyAlert | null;
+  buildings: Building[];
+  meters: EnergyMeter[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: alert?.building ?? "",
+    meter: alert?.meter ?? "",
+    alert_type: alert?.alert_type ?? "high",
+    severity: alert?.severity ?? "medium",
+    status: alert?.status ?? "active",
+    description: alert?.description ?? "",
+    threshold_value: alert?.threshold_value != null ? String(alert.threshold_value) : "",
+    actual_value: alert?.actual_value != null ? String(alert.actual_value) : "",
+    resolution_notes: alert?.resolution_notes ?? "",
+  });
+  const isEdit = !!alert;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/energy-alert/", data),
+    onSuccess: () => {
+      toast.success("Alert raised");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) => api.patch(`/infrastructure/energy-alert/${alert!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Alert updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    if (!f.description.trim()) return toast.error("Description is required");
+    const data = {
+      ...f,
+      meter: f.meter || null,
+      threshold_value: f.threshold_value ? Number(f.threshold_value) : null,
+      actual_value: f.actual_value ? Number(f.actual_value) : null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingMeters = meters.filter((m) => m.building === f.building);
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Alert" : "Raise Energy Alert"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building *</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, meter: "" }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select building...</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Meter</label>
+            <select
+              value={f.meter}
+              onChange={(e) => setF((p) => ({ ...p, meter: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingMeters.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.meter_number}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <SelectField
+            label="Alert Type"
+            value={f.alert_type}
+            options={ALERT_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, alert_type: v }))}
+          />
+          <SelectField
+            label="Severity"
+            value={f.severity}
+            options={ALERT_SEVERITIES}
+            onChange={(v) => setF((p) => ({ ...p, severity: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={ALERT_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Description *</label>
+          <textarea
+            value={f.description}
+            onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+            rows={2}
+            className={inputCls}
+            required
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Threshold Value</label>
+            <input
+              type="number"
+              step={0.01}
+              value={f.threshold_value}
+              onChange={(e) => setF((p) => ({ ...p, threshold_value: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Actual Value</label>
+            <input
+              type="number"
+              step={0.01}
+              value={f.actual_value}
+              onChange={(e) => setF((p) => ({ ...p, actual_value: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Resolution Notes</label>
+          <textarea
+            value={f.resolution_notes}
+            onChange={(e) => setF((p) => ({ ...p, resolution_notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── CCTV Camera Form Modal ──────────────────────────────────────────────────
+
+function CameraFormModal({
+  open,
+  onClose,
+  camera,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  camera?: CCTVCamera | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: camera?.building ?? "",
+    room: camera?.room ?? "",
+    camera_name: camera?.camera_name ?? "",
+    camera_id: camera?.camera_id ?? "",
+    location_description: camera?.location_description ?? "",
+    stream_url: camera?.stream_url ?? "",
+    recording_enabled: camera?.recording_enabled ?? true,
+    storage_days: camera?.storage_days ?? 30,
+    status: camera?.status ?? "online",
+    installation_date: camera?.installation_date ?? "",
+    last_maintenance: camera?.last_maintenance ?? "",
+    notes: camera?.notes ?? "",
+  });
+  const isEdit = !!camera;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/c-c-t-v-camera/", data),
+    onSuccess: () => {
+      toast.success("Camera added");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/c-c-t-v-camera/${camera!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Camera updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    if (!f.camera_name.trim()) return toast.error("Camera name is required");
+    if (!f.camera_id.trim()) return toast.error("Camera ID is required");
+    const data = {
+      ...f,
+      room: f.room || null,
+      installation_date: f.installation_date || null,
+      last_maintenance: f.last_maintenance || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Camera" : "Add CCTV Camera"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building *</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select building...</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Camera Name *</label>
+            <input
+              value={f.camera_name}
+              onChange={(e) => setF((p) => ({ ...p, camera_name: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Camera ID *</label>
+            <input
+              value={f.camera_id}
+              onChange={(e) => setF((p) => ({ ...p, camera_id: e.target.value }))}
+              className={`${inputCls} font-mono`}
+              placeholder="e.g. CAM-001"
+              required
+            />
+          </div>
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={CAMERA_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Location Description</label>
+            <input
+              value={f.location_description}
+              onChange={(e) => setF((p) => ({ ...p, location_description: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Storage (days)</label>
+            <input
+              type="number"
+              min={0}
+              value={f.storage_days}
+              onChange={(e) => setF((p) => ({ ...p, storage_days: Number(e.target.value) }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Installation Date</label>
+            <input
+              type="date"
+              value={f.installation_date}
+              onChange={(e) => setF((p) => ({ ...p, installation_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Stream URL</label>
+          <input
+            type="url"
+            value={f.stream_url}
+            onChange={(e) => setF((p) => ({ ...p, stream_url: e.target.value }))}
+            className={inputCls}
+            placeholder="https://..."
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.recording_enabled}
+            onChange={(e) => setF((p) => ({ ...p, recording_enabled: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Recording enabled
+        </label>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Access Control Form Modal ───────────────────────────────────────────────
+
+function AccessFormModal({
+  open,
+  onClose,
+  access,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  access?: AccessControlPoint | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: access?.building ?? "",
+    room: access?.room ?? "",
+    point_name: access?.point_name ?? "",
+    access_type: access?.access_type ?? "card",
+    status: access?.status ?? "active",
+    access_start_time: access?.access_start_time ?? "",
+    access_end_time: access?.access_end_time ?? "",
+    restricted_access: access?.restricted_access ?? false,
+    installation_date: access?.installation_date ?? "",
+    last_maintenance: access?.last_maintenance ?? "",
+    notes: access?.notes ?? "",
+  });
+  const isEdit = !!access;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/access-control-point/", data),
+    onSuccess: () => {
+      toast.success("Access point created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/access-control-point/${access!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Access point updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    if (!f.point_name.trim()) return toast.error("Point name is required");
+    const data = {
+      ...f,
+      room: f.room || null,
+      access_start_time: f.access_start_time || null,
+      access_end_time: f.access_end_time || null,
+      installation_date: f.installation_date || null,
+      last_maintenance: f.last_maintenance || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Access Point" : "Add Access Point"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building *</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select building...</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Point Name *</label>
+            <input
+              value={f.point_name}
+              onChange={(e) => setF((p) => ({ ...p, point_name: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <SelectField
+            label="Access Type"
+            value={f.access_type}
+            options={ACCESS_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, access_type: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={ACCESS_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Access Start Time</label>
+            <input
+              type="time"
+              value={f.access_start_time}
+              onChange={(e) => setF((p) => ({ ...p, access_start_time: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Access End Time</label>
+            <input
+              type="time"
+              value={f.access_end_time}
+              onChange={(e) => setF((p) => ({ ...p, access_end_time: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.restricted_access}
+            onChange={(e) => setF((p) => ({ ...p, restricted_access: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Restricted access
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Installation Date</label>
+            <input
+              type="date"
+              value={f.installation_date}
+              onChange={(e) => setF((p) => ({ ...p, installation_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Last Maintenance</label>
+            <input
+              type="date"
+              value={f.last_maintenance}
+              onChange={(e) => setF((p) => ({ ...p, last_maintenance: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Waste Collection Form Modal ─────────────────────────────────────────────
+
+function WasteFormModal({
+  open,
+  onClose,
+  schedule,
+  buildings,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  schedule?: WasteSchedule | null;
+  buildings: Building[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: schedule?.building ?? "",
+    waste_type: schedule?.waste_type ?? "general",
+    frequency: schedule?.frequency ?? "weekly",
+    collection_day: schedule?.collection_day ?? "",
+    collection_time: schedule?.collection_time ?? "",
+    vendor_name: schedule?.vendor_name ?? "",
+    is_active: schedule?.is_active ?? true,
+  });
+  const isEdit = !!schedule;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/waste-collection-schedule/", data),
+    onSuccess: () => {
+      toast.success("Schedule created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/waste-collection-schedule/${schedule!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Schedule updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    const data = { ...f, collection_time: f.collection_time || null } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Schedule" : "Add Waste Schedule"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Building *</label>
+          <select
+            value={f.building}
+            onChange={(e) => setF((p) => ({ ...p, building: e.target.value }))}
+            className={inputCls}
+            required
+          >
+            <option value="">Select building...</option>
+            {buildings.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <SelectField
+            label="Waste Type"
+            value={f.waste_type}
+            options={WASTE_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, waste_type: v }))}
+          />
+          <SelectField
+            label="Frequency"
+            value={f.frequency}
+            options={WASTE_FREQUENCIES}
+            onChange={(v) => setF((p) => ({ ...p, frequency: v }))}
+          />
+          <div>
+            <label className={labelCls}>Collection Day</label>
+            <input
+              value={f.collection_day}
+              onChange={(e) => setF((p) => ({ ...p, collection_day: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. Monday"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Collection Time</label>
+            <input
+              type="time"
+              value={f.collection_time}
+              onChange={(e) => setF((p) => ({ ...p, collection_time: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Vendor</label>
+            <input
+              value={f.vendor_name}
+              onChange={(e) => setF((p) => ({ ...p, vendor_name: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.is_active}
+            onChange={(e) => setF((p) => ({ ...p, is_active: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Schedule is active
+        </label>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Lighting Schedule Form Modal ────────────────────────────────────────────
+
+function LightingFormModal({
+  open,
+  onClose,
+  schedule,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  schedule?: LightingSchedule | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: schedule?.building ?? "",
+    room: schedule?.room ?? "",
+    zone_name: schedule?.zone_name ?? "",
+    day_of_week: schedule?.day_of_week ?? "",
+    on_time: schedule?.on_time ?? "",
+    off_time: schedule?.off_time ?? "",
+    brightness_level: schedule?.brightness_level ?? 100,
+    is_active: schedule?.is_active ?? true,
+  });
+  const isEdit = !!schedule;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/lighting-schedule/", data),
+    onSuccess: () => {
+      toast.success("Lighting schedule created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/lighting-schedule/${schedule!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Lighting schedule updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    if (!f.on_time || !f.off_time) return toast.error("On and off times are required");
+    const data = {
+      ...f,
+      room: f.room || null,
+      on_time: f.on_time || null,
+      off_time: f.off_time || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Schedule" : "Add Lighting Schedule"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building *</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select building...</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Zone Name</label>
+            <input
+              value={f.zone_name}
+              onChange={(e) => setF((p) => ({ ...p, zone_name: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. Hallway A"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Day of Week</label>
+            <input
+              value={f.day_of_week}
+              onChange={(e) => setF((p) => ({ ...p, day_of_week: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. weekdays"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Brightness (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={f.brightness_level}
+              onChange={(e) => setF((p) => ({ ...p, brightness_level: Number(e.target.value) }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>On Time *</label>
+            <input
+              type="time"
+              value={f.on_time}
+              onChange={(e) => setF((p) => ({ ...p, on_time: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Off Time *</label>
+            <input
+              type="time"
+              value={f.off_time}
+              onChange={(e) => setF((p) => ({ ...p, off_time: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.is_active}
+            onChange={(e) => setF((p) => ({ ...p, is_active: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Schedule is active
         </label>
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
