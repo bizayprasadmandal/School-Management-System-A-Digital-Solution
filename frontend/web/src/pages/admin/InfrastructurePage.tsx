@@ -17,6 +17,8 @@ import {
   PencilIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  CalendarDaysIcon,
+  ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import { Button, Modal, EmptyState, Pagination } from "../../components/common";
@@ -107,6 +109,61 @@ interface Asset {
   created_at: string;
 }
 
+interface RoomAllocation {
+  id: string;
+  room: string;
+  room_name?: string;
+  room_building_name?: string;
+  allocation_type: string;
+  allocation_type_display?: string;
+  classroom: string | null;
+  teacher: string | null;
+  teacher_name?: string;
+  department: string;
+  event_name: string;
+  effective_from: string | null;
+  effective_to: string | null;
+  notes: string;
+}
+
+interface PreventiveMaintenance {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  building: string | null;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  frequency: string;
+  frequency_display?: string;
+  status: string;
+  status_display?: string;
+  assigned_to_name?: string;
+  last_completed: string | null;
+  next_due: string | null;
+}
+
+interface SpaceReservation {
+  id: string;
+  room: string;
+  room_name?: string;
+  room_building_name?: string;
+  title: string;
+  purpose: string;
+  purpose_display?: string;
+  reserved_by_name?: string;
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  attendees_count: number;
+  status: string;
+  status_display?: string;
+  requires_av: boolean;
+  requires_refreshments: boolean;
+  notes: string;
+}
+
 // ─── Choice options (mirror backend TextChoices) ─────────────────────────────
 
 const BUILDING_STATUSES = [
@@ -186,6 +243,45 @@ const ASSET_STATUSES = [
   ["disposed", "Disposed"],
 ] as const;
 
+const ALLOCATION_TYPES = [
+  ["class", "Class Room"],
+  ["teacher", "Teacher Office"],
+  ["department", "Department"],
+  ["event", "Event"],
+] as const;
+
+const PM_FREQUENCIES = [
+  ["daily", "Daily"],
+  ["weekly", "Weekly"],
+  ["biweekly", "Bi-weekly"],
+  ["monthly", "Monthly"],
+  ["quarterly", "Quarterly"],
+  ["semi_annual", "Semi-Annual"],
+  ["annual", "Annual"],
+] as const;
+
+const PM_STATUSES = [
+  ["active", "Active"],
+  ["paused", "Paused"],
+  ["completed", "Completed"],
+] as const;
+
+const RESERVATION_STATUSES = [
+  ["pending", "Pending"],
+  ["confirmed", "Confirmed"],
+  ["cancelled", "Cancelled"],
+  ["completed", "Completed"],
+] as const;
+
+const RESERVATION_PURPOSES = [
+  ["meeting", "Meeting"],
+  ["event", "Event"],
+  ["exam", "Examination"],
+  ["training", "Training"],
+  ["interview", "Interview"],
+  ["other", "Other"],
+] as const;
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   available: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -229,13 +325,23 @@ const CONDITION_COLORS: Record<string, string> = {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type TabType = "buildings" | "rooms" | "workorders" | "assets";
+type TabType =
+  | "buildings"
+  | "rooms"
+  | "workorders"
+  | "assets"
+  | "allocations"
+  | "maintenance"
+  | "reservations";
 
 const TABS: { key: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "buildings", label: "Buildings", icon: BuildingOffice2Icon },
   { key: "rooms", label: "Rooms", icon: Square2StackIcon },
   { key: "workorders", label: "Work Orders", icon: WrenchScrewdriverIcon },
   { key: "assets", label: "Assets", icon: ArchiveBoxIcon },
+  { key: "allocations", label: "Room Allocations", icon: ClipboardDocumentCheckIcon },
+  { key: "maintenance", label: "Maintenance", icon: WrenchScrewdriverIcon },
+  { key: "reservations", label: "Reservations", icon: CalendarDaysIcon },
 ];
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -278,6 +384,12 @@ export default function InfrastructurePage() {
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
   const [showAssetForm, setShowAssetForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [showAllocationForm, setShowAllocationForm] = useState(false);
+  const [editingAllocation, setEditingAllocation] = useState<RoomAllocation | null>(null);
+  const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState<PreventiveMaintenance | null>(null);
+  const [showReservationForm, setShowReservationForm] = useState(false);
+  const [editingReservation, setEditingReservation] = useState<SpaceReservation | null>(null);
 
   // ── Data fetching ───────────────────────────────────────────────────────
 
@@ -313,6 +425,34 @@ export default function InfrastructurePage() {
     },
   });
 
+  const { data: allocations = [], isLoading: allocationsLoading } = useQuery({
+    queryKey: ["infra-allocations"],
+    queryFn: async () => {
+      const res = await api.get<{ results: RoomAllocation[] }>("/infrastructure/room-allocations/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: maintenance = [], isLoading: maintenanceLoading } = useQuery({
+    queryKey: ["infra-maintenance"],
+    queryFn: async () => {
+      const res = await api.get<{ results: PreventiveMaintenance[] }>(
+        "/infrastructure/preventive-maintenance/",
+      );
+      return res.results ?? [];
+    },
+  });
+
+  const { data: reservations = [], isLoading: reservationsLoading } = useQuery({
+    queryKey: ["infra-reservations"],
+    queryFn: async () => {
+      const res = await api.get<{ results: SpaceReservation[] }>(
+        "/infrastructure/space-reservations/",
+      );
+      return res.results ?? [];
+    },
+  });
+
   // ── Mutations ───────────────────────────────────────────────────────────
 
   const deleteBuilding = useMutation({
@@ -341,6 +481,27 @@ export default function InfrastructurePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["infra-assets"] });
       toast.success("Asset deleted");
+    },
+  });
+  const deleteAllocation = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/room-allocations/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-allocations"] });
+      toast.success("Allocation deleted");
+    },
+  });
+  const deleteMaintenance = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/preventive-maintenance/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-maintenance"] });
+      toast.success("Maintenance task deleted");
+    },
+  });
+  const deleteReservation = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/space-reservations/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-reservations"] });
+      toast.success("Reservation deleted");
     },
   });
 
@@ -390,6 +551,39 @@ export default function InfrastructurePage() {
     );
   }, [assets, search]);
 
+  const filteredAllocations = useMemo(() => {
+    if (!search.trim()) return allocations;
+    const q = search.toLowerCase();
+    return allocations.filter(
+      (al) =>
+        al.department.toLowerCase().includes(q) ||
+        al.event_name.toLowerCase().includes(q) ||
+        (al.room_name || "").toLowerCase().includes(q),
+    );
+  }, [allocations, search]);
+
+  const filteredMaintenance = useMemo(() => {
+    if (!search.trim()) return maintenance;
+    const q = search.toLowerCase();
+    return maintenance.filter(
+      (m) =>
+        m.title.toLowerCase().includes(q) ||
+        m.category.toLowerCase().includes(q) ||
+        (m.building_name || "").toLowerCase().includes(q),
+    );
+  }, [maintenance, search]);
+
+  const filteredReservations = useMemo(() => {
+    if (!search.trim()) return reservations;
+    const q = search.toLowerCase();
+    return reservations.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.purpose.toLowerCase().includes(q) ||
+        (r.room_name || "").toLowerCase().includes(q),
+    );
+  }, [reservations, search]);
+
   const allFiltered =
     activeTab === "buildings"
       ? filteredBuildings
@@ -397,7 +591,13 @@ export default function InfrastructurePage() {
         ? filteredRooms
         : activeTab === "workorders"
           ? filteredWorkOrders
-          : filteredAssets;
+          : activeTab === "assets"
+            ? filteredAssets
+            : activeTab === "allocations"
+              ? filteredAllocations
+              : activeTab === "maintenance"
+                ? filteredMaintenance
+                : filteredReservations;
 
   const PAGE_SIZE = 12;
   const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE));
@@ -416,7 +616,10 @@ export default function InfrastructurePage() {
     deleteBuilding.isPending ||
     deleteRoom.isPending ||
     deleteWorkOrder.isPending ||
-    deleteAsset.isPending;
+    deleteAsset.isPending ||
+    deleteAllocation.isPending ||
+    deleteMaintenance.isPending ||
+    deleteReservation.isPending;
 
   const handleBulkDelete = async () => {
     if (bulk.selectedCount === 0) return;
@@ -431,7 +634,13 @@ export default function InfrastructurePage() {
                 ? "/infrastructure/rooms/"
                 : activeTab === "workorders"
                   ? "/infrastructure/work-orders/"
-                  : "/infrastructure/assets/";
+                  : activeTab === "assets"
+                    ? "/infrastructure/assets/"
+                    : activeTab === "allocations"
+                      ? "/infrastructure/room-allocations/"
+                      : activeTab === "maintenance"
+                        ? "/infrastructure/preventive-maintenance/"
+                        : "/infrastructure/space-reservations/";
           return api.delete(`${base}${id}/`);
         }),
       );
@@ -472,14 +681,40 @@ export default function InfrastructurePage() {
                 status: w.status,
                 building: w.building_name ?? "",
               }))
-            : filteredAssets.map((a) => ({
-                name: a.name,
-                asset_tag: a.asset_tag,
-                asset_type: a.asset_type,
-                condition: a.condition,
-                status: a.status,
-                building: a.building_name ?? "",
-              }));
+            : activeTab === "assets"
+              ? filteredAssets.map((a) => ({
+                  name: a.name,
+                  asset_tag: a.asset_tag,
+                  asset_type: a.asset_type,
+                  condition: a.condition,
+                  status: a.status,
+                  building: a.building_name ?? "",
+                }))
+              : activeTab === "allocations"
+                ? filteredAllocations.map((al) => ({
+                    room: al.room_name ?? "",
+                    allocation_type: al.allocation_type,
+                    department: al.department,
+                    event_name: al.event_name,
+                    effective_from: al.effective_from ?? "",
+                  }))
+                : activeTab === "maintenance"
+                  ? filteredMaintenance.map((m) => ({
+                      title: m.title,
+                      category: m.category,
+                      frequency: m.frequency,
+                      status: m.status,
+                      building: m.building_name ?? "",
+                      next_due: m.next_due ?? "",
+                    }))
+                  : filteredReservations.map((r) => ({
+                      title: r.title,
+                      purpose: r.purpose,
+                      room: r.room_name ?? "",
+                      date: r.date ?? "",
+                      status: r.status,
+                      attendees: r.attendees_count,
+                    }));
     const cols = Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
     downloadCsv(
       toCsv(rows, cols),
@@ -506,7 +741,10 @@ export default function InfrastructurePage() {
       if (activeTab === "buildings") setShowBuildingForm(true);
       else if (activeTab === "rooms") setShowRoomForm(true);
       else if (activeTab === "workorders") setShowWorkOrderForm(true);
-      else setShowAssetForm(true);
+      else if (activeTab === "assets") setShowAssetForm(true);
+      else if (activeTab === "allocations") setShowAllocationForm(true);
+      else if (activeTab === "maintenance") setShowMaintenanceForm(true);
+      else setShowReservationForm(true);
     },
     onSearch: () => searchRef.current?.focus(),
     onExport: handleExport,
@@ -524,7 +762,13 @@ export default function InfrastructurePage() {
         ? roomsLoading
         : activeTab === "workorders"
           ? workOrdersLoading
-          : assetsLoading;
+          : activeTab === "assets"
+            ? assetsLoading
+            : activeTab === "allocations"
+              ? allocationsLoading
+              : activeTab === "maintenance"
+                ? maintenanceLoading
+                : reservationsLoading;
 
   const createButton =
     activeTab === "buildings"
@@ -551,13 +795,37 @@ export default function InfrastructurePage() {
                 setShowWorkOrderForm(true);
               },
             }
-          : {
-              label: "Add Asset",
-              action: () => {
-                setEditingAsset(null);
-                setShowAssetForm(true);
-              },
-            };
+          : activeTab === "assets"
+            ? {
+                label: "Add Asset",
+                action: () => {
+                  setEditingAsset(null);
+                  setShowAssetForm(true);
+                },
+              }
+            : activeTab === "allocations"
+              ? {
+                  label: "New Allocation",
+                  action: () => {
+                    setEditingAllocation(null);
+                    setShowAllocationForm(true);
+                  },
+                }
+              : activeTab === "maintenance"
+                ? {
+                    label: "New Maintenance Task",
+                    action: () => {
+                      setEditingMaintenance(null);
+                      setShowMaintenanceForm(true);
+                    },
+                  }
+                : {
+                    label: "New Reservation",
+                    action: () => {
+                      setEditingReservation(null);
+                      setShowReservationForm(true);
+                    },
+                  };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -568,7 +836,7 @@ export default function InfrastructurePage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Infrastructure</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Buildings, rooms, work orders and assets
+            Buildings, rooms, work orders, assets and space management
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -676,11 +944,31 @@ export default function InfrastructurePage() {
                 ? Square2StackIcon
                 : activeTab === "workorders"
                   ? WrenchScrewdriverIcon
-                  : ArchiveBoxIcon
+                  : activeTab === "assets"
+                    ? ArchiveBoxIcon
+                    : activeTab === "allocations"
+                      ? ClipboardDocumentCheckIcon
+                      : activeTab === "maintenance"
+                        ? WrenchScrewdriverIcon
+                        : CalendarDaysIcon
           }
-          title={`No ${activeTab === "workorders" ? "work orders" : activeTab}`}
+          title={`No ${
+            activeTab === "workorders"
+              ? "work orders"
+              : activeTab === "maintenance"
+                ? "maintenance tasks"
+                : activeTab === "allocations"
+                  ? "room allocations"
+                  : activeTab
+          }`}
           description={`Add your first ${
-            activeTab === "workorders" ? "work order" : activeTab.slice(0, -1)
+            activeTab === "workorders"
+              ? "work order"
+              : activeTab === "maintenance"
+                ? "maintenance task"
+                : activeTab === "allocations"
+                  ? "room allocation"
+                  : activeTab.slice(0, -1)
           } to get started`}
         />
       ) : (
@@ -704,9 +992,18 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "workorders") {
                       setEditingWorkOrder(item as WorkOrder);
                       setShowWorkOrderForm(true);
-                    } else {
+                    } else if (activeTab === "assets") {
                       setEditingAsset(item as Asset);
                       setShowAssetForm(true);
+                    } else if (activeTab === "allocations") {
+                      setEditingAllocation(item as RoomAllocation);
+                      setShowAllocationForm(true);
+                    } else if (activeTab === "maintenance") {
+                      setEditingMaintenance(item as PreventiveMaintenance);
+                      setShowMaintenanceForm(true);
+                    } else {
+                      setEditingReservation(item as SpaceReservation);
+                      setShowReservationForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -714,7 +1011,10 @@ export default function InfrastructurePage() {
                     if (activeTab === "buildings") deleteBuilding.mutate(item.id);
                     else if (activeTab === "rooms") deleteRoom.mutate(item.id);
                     else if (activeTab === "workorders") deleteWorkOrder.mutate(item.id);
-                    else deleteAsset.mutate(item.id);
+                    else if (activeTab === "assets") deleteAsset.mutate(item.id);
+                    else if (activeTab === "allocations") deleteAllocation.mutate(item.id);
+                    else if (activeTab === "maintenance") deleteMaintenance.mutate(item.id);
+                    else deleteReservation.mutate(item.id);
                   }}
                 />
               ))}
@@ -743,9 +1043,18 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "workorders") {
                       setEditingWorkOrder(item as WorkOrder);
                       setShowWorkOrderForm(true);
-                    } else {
+                    } else if (activeTab === "assets") {
                       setEditingAsset(item as Asset);
                       setShowAssetForm(true);
+                    } else if (activeTab === "allocations") {
+                      setEditingAllocation(item as RoomAllocation);
+                      setShowAllocationForm(true);
+                    } else if (activeTab === "maintenance") {
+                      setEditingMaintenance(item as PreventiveMaintenance);
+                      setShowMaintenanceForm(true);
+                    } else {
+                      setEditingReservation(item as SpaceReservation);
+                      setShowReservationForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -753,7 +1062,10 @@ export default function InfrastructurePage() {
                     if (activeTab === "buildings") deleteBuilding.mutate(item.id);
                     else if (activeTab === "rooms") deleteRoom.mutate(item.id);
                     else if (activeTab === "workorders") deleteWorkOrder.mutate(item.id);
-                    else deleteAsset.mutate(item.id);
+                    else if (activeTab === "assets") deleteAsset.mutate(item.id);
+                    else if (activeTab === "allocations") deleteAllocation.mutate(item.id);
+                    else if (activeTab === "maintenance") deleteMaintenance.mutate(item.id);
+                    else deleteReservation.mutate(item.id);
                   }}
                 />
               )}
@@ -846,6 +1158,55 @@ export default function InfrastructurePage() {
           }}
         />
       )}
+      {activeTab === "allocations" && (
+        <AllocationFormModal
+          open={showAllocationForm}
+          onClose={() => {
+            setShowAllocationForm(false);
+            setEditingAllocation(null);
+          }}
+          allocation={editingAllocation}
+          rooms={rooms}
+          onSaved={() => {
+            setShowAllocationForm(false);
+            setEditingAllocation(null);
+            qc.invalidateQueries({ queryKey: ["infra-allocations"] });
+          }}
+        />
+      )}
+      {activeTab === "maintenance" && (
+        <MaintenanceFormModal
+          open={showMaintenanceForm}
+          onClose={() => {
+            setShowMaintenanceForm(false);
+            setEditingMaintenance(null);
+          }}
+          task={editingMaintenance}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowMaintenanceForm(false);
+            setEditingMaintenance(null);
+            qc.invalidateQueries({ queryKey: ["infra-maintenance"] });
+          }}
+        />
+      )}
+      {activeTab === "reservations" && (
+        <ReservationFormModal
+          open={showReservationForm}
+          onClose={() => {
+            setShowReservationForm(false);
+            setEditingReservation(null);
+          }}
+          reservation={editingReservation}
+          rooms={rooms}
+          onSaved={() => {
+            setShowReservationForm(false);
+            setEditingReservation(null);
+            qc.invalidateQueries({ queryKey: ["infra-reservations"] });
+          }}
+        />
+      )}
 
       {/* Shortcut help */}
       <KeyboardShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -893,6 +1254,9 @@ function Card({
           {tab === "rooms" && <RoomCard item={item as Room} />}
           {tab === "workorders" && <WorkOrderCard item={item as WorkOrder} />}
           {tab === "assets" && <AssetCard item={item as Asset} />}
+          {tab === "allocations" && <AllocationCard item={item as RoomAllocation} />}
+          {tab === "maintenance" && <MaintenanceCard item={item as PreventiveMaintenance} />}
+          {tab === "reservations" && <ReservationCard item={item as SpaceReservation} />}
         </div>
         <div className="flex gap-1">
           <button
@@ -1010,6 +1374,86 @@ function AssetCard({ item }: { item: Asset }) {
       <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
         {item.building_name && <span>📍 {item.building_name}</span>}
         {item.purchase_cost != null && <span>💲{Number(item.purchase_cost).toLocaleString()}</span>}
+      </div>
+    </>
+  );
+}
+
+function AllocationCard({ item }: { item: RoomAllocation }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.room_name ?? item.room}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.room_building_name || ""}
+        {item.allocation_type && ` · ${item.allocation_type.replace(/_/g, " ")}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <Badge value={item.allocation_type} colors={{}} />
+        {item.department && <span>🏛 {item.department}</span>}
+        {item.event_name && <span>🎪 {item.event_name}</span>}
+        {item.teacher_name && <span>👩‍🏫 {item.teacher_name}</span>}
+      </div>
+      {item.effective_from && (
+        <p className="mt-1 truncate text-xs text-slate-400">
+          📅 {item.effective_from}
+          {item.effective_to ? ` → ${item.effective_to}` : " → ongoing"}
+        </p>
+      )}
+    </>
+  );
+}
+
+function MaintenanceCard({ item }: { item: PreventiveMaintenance }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.title}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.building_name || "—"}
+        {item.room_name && ` · ${item.room_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.frequency} colors={{}} />
+        <Badge value={item.status} colors={STATUS_COLORS} />
+        {item.category && <span className="text-slate-400">{item.category}</span>}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.next_due && <span>⏳ due {item.next_due}</span>}
+        {item.assigned_to_name && <span>👷 {item.assigned_to_name}</span>}
+      </div>
+    </>
+  );
+}
+
+function ReservationCard({ item }: { item: SpaceReservation }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.title}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.room_name || item.room}
+        {item.room_building_name && ` · ${item.room_building_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.purpose} colors={{}} />
+        <Badge value={item.status} colors={STATUS_COLORS} />
+        {item.attendees_count > 0 && (
+          <span className="text-slate-400">👥 {item.attendees_count}</span>
+        )}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.date && (
+          <span>
+            📅 {item.date}
+            {item.start_time && ` ${item.start_time.slice(0, 5)}–${item.end_time?.slice(0, 5)}`}
+          </span>
+        )}
+        {item.requires_av && <span>🎤</span>}
+        {item.requires_refreshments && <span>☕</span>}
       </div>
     </>
   );
@@ -1687,6 +2131,499 @@ function AssetFormModal({
           <textarea
             value={f.description}
             onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Room Allocation Form Modal ──────────────────────────────────────────────
+
+function AllocationFormModal({
+  open,
+  onClose,
+  allocation,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  allocation?: RoomAllocation | null;
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    room: allocation?.room ?? "",
+    allocation_type: allocation?.allocation_type ?? "class",
+    department: allocation?.department ?? "",
+    event_name: allocation?.event_name ?? "",
+    effective_from: allocation?.effective_from ?? "",
+    effective_to: allocation?.effective_to ?? "",
+    notes: allocation?.notes ?? "",
+  });
+  const isEdit = !!allocation;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/room-allocations/", data),
+    onSuccess: () => {
+      toast.success("Allocation created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/room-allocations/${allocation!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Allocation updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.room) return toast.error("Select a room");
+    if (!f.effective_from) return toast.error("Effective from date is required");
+    const data = { ...f, effective_to: f.effective_to || null } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Allocation" : "New Room Allocation"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Room *</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select room...</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+          <SelectField
+            label="Allocation Type"
+            value={f.allocation_type}
+            options={ALLOCATION_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, allocation_type: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Department</label>
+            <input
+              value={f.department}
+              onChange={(e) => setF((p) => ({ ...p, department: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. Mathematics"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Event Name</label>
+            <input
+              value={f.event_name}
+              onChange={(e) => setF((p) => ({ ...p, event_name: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. Science Fair 2026"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Effective From *</label>
+            <input
+              type="date"
+              value={f.effective_from}
+              onChange={(e) => setF((p) => ({ ...p, effective_from: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Effective To</label>
+            <input
+              type="date"
+              value={f.effective_to}
+              onChange={(e) => setF((p) => ({ ...p, effective_to: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Maintenance Form Modal ──────────────────────────────────────────────────
+
+function MaintenanceFormModal({
+  open,
+  onClose,
+  task,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  task?: PreventiveMaintenance | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    title: task?.title ?? "",
+    description: task?.description ?? "",
+    category: task?.category ?? "general",
+    building: task?.building ?? "",
+    room: task?.room ?? "",
+    frequency: task?.frequency ?? "monthly",
+    status: task?.status ?? "active",
+    last_completed: task?.last_completed ?? "",
+    next_due: task?.next_due ?? "",
+  });
+  const isEdit = !!task;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/preventive-maintenance/", data),
+    onSuccess: () => {
+      toast.success("Maintenance task created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/preventive-maintenance/${task!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Maintenance task updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.title.trim()) return toast.error("Title is required");
+    if (!f.next_due) return toast.error("Next due date is required");
+    const data = {
+      ...f,
+      building: f.building || null,
+      room: f.room || null,
+      last_completed: f.last_completed || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "Edit Maintenance Task" : "New Maintenance Task"}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Title *</label>
+          <input
+            value={f.title}
+            onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+            className={inputCls}
+            required
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea
+            value={f.description}
+            onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <SelectField
+            label="Category"
+            value={f.category}
+            options={WORK_ORDER_CATEGORIES}
+            onChange={(v) => setF((p) => ({ ...p, category: v }))}
+          />
+          <SelectField
+            label="Frequency"
+            value={f.frequency}
+            options={PM_FREQUENCIES}
+            onChange={(v) => setF((p) => ({ ...p, frequency: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={PM_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+            >
+              <option value="">None</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Next Due *</label>
+            <input
+              type="date"
+              value={f.next_due}
+              onChange={(e) => setF((p) => ({ ...p, next_due: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Last Completed</label>
+            <input
+              type="date"
+              value={f.last_completed}
+              onChange={(e) => setF((p) => ({ ...p, last_completed: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Reservation Form Modal ──────────────────────────────────────────────────
+
+function ReservationFormModal({
+  open,
+  onClose,
+  reservation,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  reservation?: SpaceReservation | null;
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    room: reservation?.room ?? "",
+    title: reservation?.title ?? "",
+    purpose: reservation?.purpose ?? "meeting",
+    date: reservation?.date ?? "",
+    start_time: reservation?.start_time ?? "09:00",
+    end_time: reservation?.end_time ?? "10:00",
+    attendees_count: reservation?.attendees_count ?? 0,
+    status: reservation?.status ?? "pending",
+    requires_av: reservation?.requires_av ?? false,
+    requires_refreshments: reservation?.requires_refreshments ?? false,
+    notes: reservation?.notes ?? "",
+  });
+  const isEdit = !!reservation;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/space-reservations/", data),
+    onSuccess: () => {
+      toast.success("Reservation created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/space-reservations/${reservation!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Reservation updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.room) return toast.error("Select a room");
+    if (!f.title.trim()) return toast.error("Title is required");
+    if (!f.date) return toast.error("Date is required");
+    if (!f.start_time || !f.end_time) return toast.error("Start and end times are required");
+    const data = { ...f } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Reservation" : "New Reservation"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Room *</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select room...</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Title *</label>
+            <input
+              value={f.title}
+              onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="Purpose"
+            value={f.purpose}
+            options={RESERVATION_PURPOSES}
+            onChange={(v) => setF((p) => ({ ...p, purpose: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={RESERVATION_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Date *</label>
+            <input
+              type="date"
+              value={f.date}
+              onChange={(e) => setF((p) => ({ ...p, date: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Start Time *</label>
+            <input
+              type="time"
+              value={f.start_time}
+              onChange={(e) => setF((p) => ({ ...p, start_time: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>End Time *</label>
+            <input
+              type="time"
+              value={f.end_time}
+              onChange={(e) => setF((p) => ({ ...p, end_time: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Attendees Count</label>
+          <input
+            type="number"
+            min={0}
+            value={f.attendees_count}
+            onChange={(e) => setF((p) => ({ ...p, attendees_count: Number(e.target.value) }))}
+            className={inputCls}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={f.requires_av}
+              onChange={(e) => setF((p) => ({ ...p, requires_av: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Requires AV equipment
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={f.requires_refreshments}
+              onChange={(e) => setF((p) => ({ ...p, requires_refreshments: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Requires refreshments
+          </label>
+        </div>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
             rows={2}
             className={inputCls}
           />
