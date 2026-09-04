@@ -399,10 +399,12 @@ class CCTVCameraViewSet(viewsets.ModelViewSet):
     serializer_class = CCTVCameraSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["camera_name", "camera_id", "building__name", "location_description"]
+    filterset_fields = ["building", "status", "recording_enabled"]
+    ordering = ["camera_name"]
 
     def get_queryset(self):
-        return CCTVCamera.objects.filter(school=self.request.user.school)
+        return CCTVCamera.objects.filter(building__school=self.request.user.school).select_related("building", "room")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -410,17 +412,24 @@ class CCTVCameraViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class AccessControlPointViewSet(viewsets.ModelViewSet):
     serializer_class = AccessControlPointSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["point_name", "building__name", "notes"]
+    filterset_fields = ["building", "access_type", "status", "restricted_access"]
+    ordering = ["point_name"]
 
     def get_queryset(self):
-        return AccessControlPoint.objects.filter(school=self.request.user.school)
+        return AccessControlPoint.objects.filter(building__school=self.request.user.school).select_related(
+            "building", "room"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -428,7 +437,10 @@ class AccessControlPointViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class PestControlInspectionViewSet(viewsets.ModelViewSet):
@@ -471,10 +483,14 @@ class WasteCollectionScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = WasteCollectionScheduleSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["building__name", "vendor_name", "waste_type"]
+    filterset_fields = ["building", "waste_type", "frequency", "is_active"]
+    ordering = ["building__name"]
 
     def get_queryset(self):
-        return WasteCollectionSchedule.objects.filter(school=self.request.user.school)
+        return WasteCollectionSchedule.objects.filter(building__school=self.request.user.school).select_related(
+            "building"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -482,7 +498,10 @@ class WasteCollectionScheduleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class GreenInitiativeViewSet(viewsets.ModelViewSet):
@@ -661,10 +680,14 @@ class LightingScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = LightingScheduleSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["zone_name", "building__name", "day_of_week"]
+    filterset_fields = ["building", "room", "is_active"]
+    ordering = ["building__name", "on_time"]
 
     def get_queryset(self):
-        return LightingSchedule.objects.filter(school=self.request.user.school)
+        return LightingSchedule.objects.filter(building__school=self.request.user.school).select_related(
+            "building", "room"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -672,7 +695,10 @@ class LightingScheduleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        building = serializer.validated_data.get("building")
+        if building and building.school_id != self.request.user.school_id:
+            raise ValidationError({"building": "Building does not belong to your school."})
+        serializer.save()
 
 
 class MaintenanceCostTrackingViewSet(viewsets.ModelViewSet):

@@ -650,13 +650,18 @@ class EnergyAlertSerializer(serializers.ModelSerializer):
 
 
 class CCTVCameraSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True, default="")
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = CCTVCamera
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "camera_name",
             "camera_id",
             "location_description",
@@ -664,24 +669,35 @@ class CCTVCameraSerializer(serializers.ModelSerializer):
             "recording_enabled",
             "storage_days",
             "status",
+            "status_display",
             "installation_date",
             "last_maintenance",
             "notes",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "building_name", "room_name", "status_display", "created_at", "updated_at"]
 
 
 class AccessControlPointSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True, default="")
+    access_type_display = serializers.CharField(source="get_access_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = AccessControlPoint
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "point_name",
             "access_type",
+            "access_type_display",
             "status",
+            "status_display",
             "access_start_time",
             "access_end_time",
             "restricted_access",
@@ -689,8 +705,18 @@ class AccessControlPointSerializer(serializers.ModelSerializer):
             "installation_date",
             "last_maintenance",
             "notes",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "building_name",
+            "room_name",
+            "access_type_display",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class PestControlInspectionSerializer(serializers.ModelSerializer):
@@ -736,21 +762,27 @@ class PestTreatmentSerializer(serializers.ModelSerializer):
 
 
 class WasteCollectionScheduleSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    waste_type_display = serializers.CharField(source="get_waste_type_display", read_only=True)
+    frequency_display = serializers.CharField(source="get_frequency_display", read_only=True)
+
     class Meta:
         model = WasteCollectionSchedule
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "waste_type",
+            "waste_type_display",
             "frequency",
+            "frequency_display",
             "collection_day",
             "collection_time",
             "vendor_name",
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "building_name", "waste_type_display", "frequency_display", "created_at"]
 
 
 class GreenInitiativeSerializer(serializers.ModelSerializer):
@@ -944,13 +976,17 @@ class ParkingAssignmentSerializer(serializers.ModelSerializer):
 
 
 class LightingScheduleSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True, default="")
+
     class Meta:
         model = LightingSchedule
         fields = [
             "id",
-            "id",
             "building",
+            "building_name",
             "room",
+            "room_name",
             "zone_name",
             "day_of_week",
             "on_time",
@@ -959,7 +995,7 @@ class LightingScheduleSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "building_name", "room_name", "created_at"]
 
 
 class MaintenanceCostTrackingSerializer(serializers.ModelSerializer):
