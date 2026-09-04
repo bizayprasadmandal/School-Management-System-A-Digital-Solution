@@ -56,10 +56,13 @@ class BookSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "available_copies", "created_at"]
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
+    is_overdue = serializers.BooleanField(read_only=True)
+    days_overdue = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Checkout
         fields = [
@@ -73,8 +76,10 @@ class CheckoutSerializer(serializers.ModelSerializer):
             "fine_amount",
             "fine_paid",
             "notes",
+            "is_overdue",
+            "days_overdue",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "checked_out_by", "checked_out_at", "fine_amount"]
 
     def validate_book(self, value):
         # Checkouts must stay within the tenant — the book has to belong to the

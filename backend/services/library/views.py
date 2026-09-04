@@ -3,7 +3,7 @@ from core.permissions import IsSchoolAdmin, IsSchoolMember
 from django.db import models, transaction
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, generics, viewsets
+from rest_framework import filters, generics, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -97,7 +97,12 @@ class BookViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        # Newly added books are fully available immediately (available_copies is
+        # stock-managed downstream by checkout/return flows).
+        serializer.save(
+            school=self.request.user.school,
+            available_copies=serializer.validated_data.get("total_copies", 1),
+        )
 
 
 class LibrarianProfileView(generics.RetrieveUpdateAPIView):
@@ -142,7 +147,10 @@ class CheckoutViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        checkout = serializer.save(checked_out_by=self.request.user)
+        book = Book.objects.select_for_update().get(pk=serializer.validated_data["book"].id)
+        if book.available_copies < 1:
+            raise serializers.ValidationError({"detail": "No available copies of this book to check out."})
+        checkout = serializer.save(checked_out_by=self.request.user, book=book)
         Book.objects.filter(id=checkout.book_id).update(available_copies=models.F("available_copies") - 1)
 
     @action(detail=True, methods=["post"], url_path="return")
