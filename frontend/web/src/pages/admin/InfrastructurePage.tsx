@@ -19,6 +19,11 @@ import {
   ArrowDownTrayIcon,
   CalendarDaysIcon,
   ClipboardDocumentCheckIcon,
+  BoltIcon,
+  ShieldCheckIcon,
+  DocumentTextIcon,
+  MapPinIcon,
+  KeyIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import { Button, Modal, EmptyState, Pagination } from "../../components/common";
@@ -164,6 +169,91 @@ interface SpaceReservation {
   notes: string;
 }
 
+interface EnergyMeter {
+  id: string;
+  building: string;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  meter_number: string;
+  meter_type: string;
+  meter_type_display?: string;
+  installation_date: string | null;
+  last_reading_date: string | null;
+  last_reading_value: string | number | null;
+  is_active: boolean;
+  notes: string;
+}
+
+interface SafetyInspection {
+  id: string;
+  title: string;
+  inspection_type: string;
+  inspection_type_display?: string;
+  building: string | null;
+  building_name?: string;
+  room: string | null;
+  room_name?: string;
+  scheduled_date: string | null;
+  completed_date: string | null;
+  inspector_name: string;
+  inspector_organization: string;
+  status: string;
+  status_display?: string;
+  overall_severity: string;
+  severity_display?: string;
+  findings: string;
+  recommendations: string;
+  corrective_actions: string;
+  next_inspection_date: string | null;
+}
+
+interface VendorContract {
+  id: string;
+  vendor_name: string;
+  contract_type: string;
+  contract_type_display?: string;
+  title: string;
+  description: string;
+  contract_number: string;
+  start_date: string | null;
+  end_date: string | null;
+  renewal_date: string | null;
+  auto_renew: boolean;
+  value: string | number | null;
+  payment_frequency: string;
+  contact_person: string;
+  contact_phone: string;
+  contact_email: string;
+  sla_description: string;
+  status: string;
+  status_display?: string;
+  created_by_name?: string;
+}
+
+interface ParkingLot {
+  id: string;
+  name: string;
+  total_spots: number;
+  available_spots: number;
+  is_covered: boolean;
+  is_active: boolean;
+}
+
+interface ParkingAssignment {
+  id: string;
+  parking_lot: string;
+  parking_lot_name?: string;
+  assigned_to_name?: string;
+  spot_number: string;
+  spot_type: string;
+  spot_type_display?: string;
+  vehicle_plate: string;
+  is_active: boolean;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 // ─── Choice options (mirror backend TextChoices) ─────────────────────────────
 
 const BUILDING_STATUSES = [
@@ -282,28 +372,106 @@ const RESERVATION_PURPOSES = [
   ["other", "Other"],
 ] as const;
 
+const METER_TYPES = [
+  ["electric", "Electric"],
+  ["water", "Water"],
+  ["gas", "Gas"],
+  ["solar", "Solar"],
+] as const;
+
+const INSPECTION_TYPES = [
+  ["fire", "Fire Safety"],
+  ["structural", "Structural"],
+  ["electrical", "Electrical Safety"],
+  ["plumbing", "Plumbing Safety"],
+  ["hvac", "HVAC Safety"],
+  ["accessibility", "Accessibility"],
+  ["environmental", "Environmental"],
+  ["general", "General Safety"],
+] as const;
+
+const INSPECTION_STATUSES = [
+  ["scheduled", "Scheduled"],
+  ["in_progress", "In Progress"],
+  ["passed", "Passed"],
+  ["failed", "Failed"],
+  ["follow_up", "Follow-up Required"],
+] as const;
+
+const INSPECTION_SEVERITIES = [
+  ["none", "None"],
+  ["low", "Low"],
+  ["medium", "Medium"],
+  ["high", "High"],
+  ["critical", "Critical"],
+] as const;
+
+const CONTRACT_TYPES = [
+  ["maintenance", "Maintenance"],
+  ["cleaning", "Cleaning"],
+  ["security", "Security"],
+  ["landscaping", "Landscaping"],
+  ["it_support", "IT Support"],
+  ["hvac", "HVAC Service"],
+  ["pest_control", "Pest Control"],
+  ["electrical", "Electrical"],
+  ["plumbing", "Plumbing"],
+  ["other", "Other"],
+] as const;
+
+const CONTRACT_STATUSES = [
+  ["draft", "Draft"],
+  ["active", "Active"],
+  ["expired", "Expired"],
+  ["terminated", "Terminated"],
+  ["renewed", "Renewed"],
+] as const;
+
+const SPOT_TYPES = [
+  ["regular", "Regular"],
+  ["reserved", "Reserved"],
+  ["handicap", "Handicap"],
+  ["visitor", "Visitor"],
+] as const;
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   available: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   in_use: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   in_stock: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   completed: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  passed: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  renewed: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   occupied: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   reserved: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  scheduled: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   open: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   under_maintenance: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   under_repair: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   on_hold: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  follow_up: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  draft: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  expired: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   closed: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   cancelled: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   retired: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   disposed: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   demolished: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   unavailable: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  failed: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  terminated: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   poor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   damaged: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   written_off: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  none: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  low: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  high: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  critical: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -332,7 +500,12 @@ type TabType =
   | "assets"
   | "allocations"
   | "maintenance"
-  | "reservations";
+  | "reservations"
+  | "energy"
+  | "inspections"
+  | "vendors"
+  | "parking"
+  | "spots";
 
 const TABS: { key: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "buildings", label: "Buildings", icon: BuildingOffice2Icon },
@@ -342,6 +515,11 @@ const TABS: { key: TabType; label: string; icon: React.ComponentType<{ className
   { key: "allocations", label: "Room Allocations", icon: ClipboardDocumentCheckIcon },
   { key: "maintenance", label: "Maintenance", icon: WrenchScrewdriverIcon },
   { key: "reservations", label: "Reservations", icon: CalendarDaysIcon },
+  { key: "energy", label: "Energy", icon: BoltIcon },
+  { key: "inspections", label: "Inspections", icon: ShieldCheckIcon },
+  { key: "vendors", label: "Vendors", icon: DocumentTextIcon },
+  { key: "parking", label: "Parking Lots", icon: MapPinIcon },
+  { key: "spots", label: "Spot Assignments", icon: KeyIcon },
 ];
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -390,6 +568,16 @@ export default function InfrastructurePage() {
   const [editingMaintenance, setEditingMaintenance] = useState<PreventiveMaintenance | null>(null);
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [editingReservation, setEditingReservation] = useState<SpaceReservation | null>(null);
+  const [showMeterForm, setShowMeterForm] = useState(false);
+  const [editingMeter, setEditingMeter] = useState<EnergyMeter | null>(null);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [editingInspection, setEditingInspection] = useState<SafetyInspection | null>(null);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<VendorContract | null>(null);
+  const [showParkingLotForm, setShowParkingLotForm] = useState(false);
+  const [editingParkingLot, setEditingParkingLot] = useState<ParkingLot | null>(null);
+  const [showSpotForm, setShowSpotForm] = useState(false);
+  const [editingSpot, setEditingSpot] = useState<ParkingAssignment | null>(null);
 
   // ── Data fetching ───────────────────────────────────────────────────────
 
@@ -453,6 +641,50 @@ export default function InfrastructurePage() {
     },
   });
 
+  const { data: energyMeters = [], isLoading: energyLoading } = useQuery({
+    queryKey: ["infra-energy"],
+    queryFn: async () => {
+      const res = await api.get<{ results: EnergyMeter[] }>("/infrastructure/energy-meter/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: inspections = [], isLoading: inspectionsLoading } = useQuery({
+    queryKey: ["infra-inspections"],
+    queryFn: async () => {
+      const res = await api.get<{ results: SafetyInspection[] }>(
+        "/infrastructure/safety-inspections/",
+      );
+      return res.results ?? [];
+    },
+  });
+
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery({
+    queryKey: ["infra-vendors"],
+    queryFn: async () => {
+      const res = await api.get<{ results: VendorContract[] }>("/infrastructure/vendor-contracts/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: parkingLots = [], isLoading: parkingLoading } = useQuery({
+    queryKey: ["infra-parking"],
+    queryFn: async () => {
+      const res = await api.get<{ results: ParkingLot[] }>("/infrastructure/parking-lot/");
+      return res.results ?? [];
+    },
+  });
+
+  const { data: spotAssignments = [], isLoading: spotsLoading } = useQuery({
+    queryKey: ["infra-spots"],
+    queryFn: async () => {
+      const res = await api.get<{ results: ParkingAssignment[] }>(
+        "/infrastructure/parking-assignment/",
+      );
+      return res.results ?? [];
+    },
+  });
+
   // ── Mutations ───────────────────────────────────────────────────────────
 
   const deleteBuilding = useMutation({
@@ -502,6 +734,41 @@ export default function InfrastructurePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["infra-reservations"] });
       toast.success("Reservation deleted");
+    },
+  });
+  const deleteMeter = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/energy-meter/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-energy"] });
+      toast.success("Meter deleted");
+    },
+  });
+  const deleteInspection = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/safety-inspections/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-inspections"] });
+      toast.success("Inspection deleted");
+    },
+  });
+  const deleteVendor = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/vendor-contracts/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-vendors"] });
+      toast.success("Contract deleted");
+    },
+  });
+  const deleteParkingLot = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/parking-lot/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-parking"] });
+      toast.success("Parking lot deleted");
+    },
+  });
+  const deleteSpot = useMutation({
+    mutationFn: (id: string) => api.delete(`/infrastructure/parking-assignment/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["infra-spots"] });
+      toast.success("Assignment deleted");
     },
   });
 
@@ -584,6 +851,58 @@ export default function InfrastructurePage() {
     );
   }, [reservations, search]);
 
+  const filteredEnergy = useMemo(() => {
+    if (!search.trim()) return energyMeters;
+    const q = search.toLowerCase();
+    return energyMeters.filter(
+      (m) =>
+        m.meter_number.toLowerCase().includes(q) ||
+        m.meter_type.toLowerCase().includes(q) ||
+        (m.building_name || "").toLowerCase().includes(q),
+    );
+  }, [energyMeters, search]);
+
+  const filteredInspections = useMemo(() => {
+    if (!search.trim()) return inspections;
+    const q = search.toLowerCase();
+    return inspections.filter(
+      (i) =>
+        i.title.toLowerCase().includes(q) ||
+        i.inspection_type.toLowerCase().includes(q) ||
+        (i.building_name || "").toLowerCase().includes(q) ||
+        i.inspector_name.toLowerCase().includes(q),
+    );
+  }, [inspections, search]);
+
+  const filteredVendors = useMemo(() => {
+    if (!search.trim()) return vendors;
+    const q = search.toLowerCase();
+    return vendors.filter(
+      (v) =>
+        v.vendor_name.toLowerCase().includes(q) ||
+        v.title.toLowerCase().includes(q) ||
+        v.contract_type.toLowerCase().includes(q) ||
+        v.contract_number.toLowerCase().includes(q),
+    );
+  }, [vendors, search]);
+
+  const filteredParkingLots = useMemo(() => {
+    if (!search.trim()) return parkingLots;
+    const q = search.toLowerCase();
+    return parkingLots.filter((l) => l.name.toLowerCase().includes(q));
+  }, [parkingLots, search]);
+
+  const filteredSpots = useMemo(() => {
+    if (!search.trim()) return spotAssignments;
+    const q = search.toLowerCase();
+    return spotAssignments.filter(
+      (s) =>
+        s.spot_number.toLowerCase().includes(q) ||
+        s.vehicle_plate.toLowerCase().includes(q) ||
+        (s.parking_lot_name || "").toLowerCase().includes(q),
+    );
+  }, [spotAssignments, search]);
+
   const allFiltered =
     activeTab === "buildings"
       ? filteredBuildings
@@ -597,7 +916,17 @@ export default function InfrastructurePage() {
               ? filteredAllocations
               : activeTab === "maintenance"
                 ? filteredMaintenance
-                : filteredReservations;
+                : activeTab === "reservations"
+                  ? filteredReservations
+                  : activeTab === "energy"
+                    ? filteredEnergy
+                    : activeTab === "inspections"
+                      ? filteredInspections
+                      : activeTab === "vendors"
+                        ? filteredVendors
+                        : activeTab === "parking"
+                          ? filteredParkingLots
+                          : filteredSpots;
 
   const PAGE_SIZE = 12;
   const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE));
@@ -619,7 +948,12 @@ export default function InfrastructurePage() {
     deleteAsset.isPending ||
     deleteAllocation.isPending ||
     deleteMaintenance.isPending ||
-    deleteReservation.isPending;
+    deleteReservation.isPending ||
+    deleteMeter.isPending ||
+    deleteInspection.isPending ||
+    deleteVendor.isPending ||
+    deleteParkingLot.isPending ||
+    deleteSpot.isPending;
 
   const handleBulkDelete = async () => {
     if (bulk.selectedCount === 0) return;
@@ -640,7 +974,17 @@ export default function InfrastructurePage() {
                       ? "/infrastructure/room-allocations/"
                       : activeTab === "maintenance"
                         ? "/infrastructure/preventive-maintenance/"
-                        : "/infrastructure/space-reservations/";
+                        : activeTab === "reservations"
+                          ? "/infrastructure/space-reservations/"
+                          : activeTab === "energy"
+                            ? "/infrastructure/energy-meter/"
+                            : activeTab === "inspections"
+                              ? "/infrastructure/safety-inspections/"
+                              : activeTab === "vendors"
+                                ? "/infrastructure/vendor-contracts/"
+                                : activeTab === "parking"
+                                  ? "/infrastructure/parking-lot/"
+                                  : "/infrastructure/parking-assignment/";
           return api.delete(`${base}${id}/`);
         }),
       );
@@ -707,14 +1051,53 @@ export default function InfrastructurePage() {
                       building: m.building_name ?? "",
                       next_due: m.next_due ?? "",
                     }))
-                  : filteredReservations.map((r) => ({
-                      title: r.title,
-                      purpose: r.purpose,
-                      room: r.room_name ?? "",
-                      date: r.date ?? "",
-                      status: r.status,
-                      attendees: r.attendees_count,
-                    }));
+                  : activeTab === "reservations"
+                    ? filteredReservations.map((r) => ({
+                        title: r.title,
+                        purpose: r.purpose,
+                        room: r.room_name ?? "",
+                        date: r.date ?? "",
+                        status: r.status,
+                        attendees: r.attendees_count,
+                      }))
+                    : activeTab === "energy"
+                      ? filteredEnergy.map((m) => ({
+                          meter_number: m.meter_number,
+                          meter_type: m.meter_type,
+                          building: m.building_name ?? "",
+                          is_active: m.is_active,
+                        }))
+                      : activeTab === "inspections"
+                        ? filteredInspections.map((i) => ({
+                            title: i.title,
+                            inspection_type: i.inspection_type,
+                            status: i.status,
+                            building: i.building_name ?? "",
+                            scheduled_date: i.scheduled_date ?? "",
+                          }))
+                        : activeTab === "vendors"
+                          ? filteredVendors.map((v) => ({
+                              vendor_name: v.vendor_name,
+                              title: v.title,
+                              contract_type: v.contract_type,
+                              status: v.status,
+                              value: v.value ?? 0,
+                            }))
+                          : activeTab === "parking"
+                            ? filteredParkingLots.map((l) => ({
+                                name: l.name,
+                                total_spots: l.total_spots,
+                                available_spots: l.available_spots,
+                                is_covered: l.is_covered,
+                                is_active: l.is_active,
+                              }))
+                            : filteredSpots.map((s) => ({
+                                spot_number: s.spot_number,
+                                lot: s.parking_lot_name ?? "",
+                                spot_type: s.spot_type,
+                                vehicle_plate: s.vehicle_plate,
+                                is_active: s.is_active,
+                              }));
     const cols = Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
     downloadCsv(
       toCsv(rows, cols),
@@ -744,7 +1127,12 @@ export default function InfrastructurePage() {
       else if (activeTab === "assets") setShowAssetForm(true);
       else if (activeTab === "allocations") setShowAllocationForm(true);
       else if (activeTab === "maintenance") setShowMaintenanceForm(true);
-      else setShowReservationForm(true);
+      else if (activeTab === "reservations") setShowReservationForm(true);
+      else if (activeTab === "energy") setShowMeterForm(true);
+      else if (activeTab === "inspections") setShowInspectionForm(true);
+      else if (activeTab === "vendors") setShowVendorForm(true);
+      else if (activeTab === "parking") setShowParkingLotForm(true);
+      else setShowSpotForm(true);
     },
     onSearch: () => searchRef.current?.focus(),
     onExport: handleExport,
@@ -768,7 +1156,17 @@ export default function InfrastructurePage() {
               ? allocationsLoading
               : activeTab === "maintenance"
                 ? maintenanceLoading
-                : reservationsLoading;
+                : activeTab === "reservations"
+                  ? reservationsLoading
+                  : activeTab === "energy"
+                    ? energyLoading
+                    : activeTab === "inspections"
+                      ? inspectionsLoading
+                      : activeTab === "vendors"
+                        ? vendorsLoading
+                        : activeTab === "parking"
+                          ? parkingLoading
+                          : spotsLoading;
 
   const createButton =
     activeTab === "buildings"
@@ -819,13 +1217,53 @@ export default function InfrastructurePage() {
                       setShowMaintenanceForm(true);
                     },
                   }
-                : {
-                    label: "New Reservation",
-                    action: () => {
-                      setEditingReservation(null);
-                      setShowReservationForm(true);
-                    },
-                  };
+                : activeTab === "reservations"
+                  ? {
+                      label: "New Reservation",
+                      action: () => {
+                        setEditingReservation(null);
+                        setShowReservationForm(true);
+                      },
+                    }
+                  : activeTab === "energy"
+                    ? {
+                        label: "Add Meter",
+                        action: () => {
+                          setEditingMeter(null);
+                          setShowMeterForm(true);
+                        },
+                      }
+                    : activeTab === "inspections"
+                      ? {
+                          label: "New Inspection",
+                          action: () => {
+                            setEditingInspection(null);
+                            setShowInspectionForm(true);
+                          },
+                        }
+                      : activeTab === "vendors"
+                        ? {
+                            label: "New Contract",
+                            action: () => {
+                              setEditingVendor(null);
+                              setShowVendorForm(true);
+                            },
+                          }
+                        : activeTab === "parking"
+                          ? {
+                              label: "Add Parking Lot",
+                              action: () => {
+                                setEditingParkingLot(null);
+                                setShowParkingLotForm(true);
+                              },
+                            }
+                          : {
+                              label: "Assign Spot",
+                              action: () => {
+                                setEditingSpot(null);
+                                setShowSpotForm(true);
+                              },
+                            };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -836,7 +1274,7 @@ export default function InfrastructurePage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Infrastructure</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Buildings, rooms, work orders, assets and space management
+            Buildings, rooms, work orders, assets, energy, safety, vendors and parking
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -950,7 +1388,17 @@ export default function InfrastructurePage() {
                       ? ClipboardDocumentCheckIcon
                       : activeTab === "maintenance"
                         ? WrenchScrewdriverIcon
-                        : CalendarDaysIcon
+                        : activeTab === "reservations"
+                          ? CalendarDaysIcon
+                          : activeTab === "energy"
+                            ? BoltIcon
+                            : activeTab === "inspections"
+                              ? ShieldCheckIcon
+                              : activeTab === "vendors"
+                                ? DocumentTextIcon
+                                : activeTab === "parking"
+                                  ? MapPinIcon
+                                  : KeyIcon
           }
           title={`No ${
             activeTab === "workorders"
@@ -959,7 +1407,17 @@ export default function InfrastructurePage() {
                 ? "maintenance tasks"
                 : activeTab === "allocations"
                   ? "room allocations"
-                  : activeTab
+                  : activeTab === "reservations"
+                    ? "reservations"
+                    : activeTab === "energy"
+                      ? "energy meters"
+                      : activeTab === "inspections"
+                        ? "inspections"
+                        : activeTab === "vendors"
+                          ? "vendor contracts"
+                          : activeTab === "parking"
+                            ? "parking lots"
+                            : "spot assignments"
           }`}
           description={`Add your first ${
             activeTab === "workorders"
@@ -968,7 +1426,17 @@ export default function InfrastructurePage() {
                 ? "maintenance task"
                 : activeTab === "allocations"
                   ? "room allocation"
-                  : activeTab.slice(0, -1)
+                  : activeTab === "energy"
+                    ? "energy meter"
+                    : activeTab === "inspections"
+                      ? "inspection"
+                      : activeTab === "vendors"
+                        ? "vendor contract"
+                        : activeTab === "parking"
+                          ? "parking lot"
+                          : activeTab === "spots"
+                            ? "spot assignment"
+                            : activeTab.slice(0, -1)
           } to get started`}
         />
       ) : (
@@ -1001,9 +1469,24 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "maintenance") {
                       setEditingMaintenance(item as PreventiveMaintenance);
                       setShowMaintenanceForm(true);
-                    } else {
+                    } else if (activeTab === "reservations") {
                       setEditingReservation(item as SpaceReservation);
                       setShowReservationForm(true);
+                    } else if (activeTab === "energy") {
+                      setEditingMeter(item as EnergyMeter);
+                      setShowMeterForm(true);
+                    } else if (activeTab === "inspections") {
+                      setEditingInspection(item as SafetyInspection);
+                      setShowInspectionForm(true);
+                    } else if (activeTab === "vendors") {
+                      setEditingVendor(item as VendorContract);
+                      setShowVendorForm(true);
+                    } else if (activeTab === "parking") {
+                      setEditingParkingLot(item as ParkingLot);
+                      setShowParkingLotForm(true);
+                    } else {
+                      setEditingSpot(item as ParkingAssignment);
+                      setShowSpotForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -1014,7 +1497,12 @@ export default function InfrastructurePage() {
                     else if (activeTab === "assets") deleteAsset.mutate(item.id);
                     else if (activeTab === "allocations") deleteAllocation.mutate(item.id);
                     else if (activeTab === "maintenance") deleteMaintenance.mutate(item.id);
-                    else deleteReservation.mutate(item.id);
+                    else if (activeTab === "reservations") deleteReservation.mutate(item.id);
+                    else if (activeTab === "energy") deleteMeter.mutate(item.id);
+                    else if (activeTab === "inspections") deleteInspection.mutate(item.id);
+                    else if (activeTab === "vendors") deleteVendor.mutate(item.id);
+                    else if (activeTab === "parking") deleteParkingLot.mutate(item.id);
+                    else deleteSpot.mutate(item.id);
                   }}
                 />
               ))}
@@ -1052,9 +1540,24 @@ export default function InfrastructurePage() {
                     } else if (activeTab === "maintenance") {
                       setEditingMaintenance(item as PreventiveMaintenance);
                       setShowMaintenanceForm(true);
-                    } else {
+                    } else if (activeTab === "reservations") {
                       setEditingReservation(item as SpaceReservation);
                       setShowReservationForm(true);
+                    } else if (activeTab === "energy") {
+                      setEditingMeter(item as EnergyMeter);
+                      setShowMeterForm(true);
+                    } else if (activeTab === "inspections") {
+                      setEditingInspection(item as SafetyInspection);
+                      setShowInspectionForm(true);
+                    } else if (activeTab === "vendors") {
+                      setEditingVendor(item as VendorContract);
+                      setShowVendorForm(true);
+                    } else if (activeTab === "parking") {
+                      setEditingParkingLot(item as ParkingLot);
+                      setShowParkingLotForm(true);
+                    } else {
+                      setEditingSpot(item as ParkingAssignment);
+                      setShowSpotForm(true);
                     }
                   }}
                   onDelete={() => {
@@ -1065,7 +1568,12 @@ export default function InfrastructurePage() {
                     else if (activeTab === "assets") deleteAsset.mutate(item.id);
                     else if (activeTab === "allocations") deleteAllocation.mutate(item.id);
                     else if (activeTab === "maintenance") deleteMaintenance.mutate(item.id);
-                    else deleteReservation.mutate(item.id);
+                    else if (activeTab === "reservations") deleteReservation.mutate(item.id);
+                    else if (activeTab === "energy") deleteMeter.mutate(item.id);
+                    else if (activeTab === "inspections") deleteInspection.mutate(item.id);
+                    else if (activeTab === "vendors") deleteVendor.mutate(item.id);
+                    else if (activeTab === "parking") deleteParkingLot.mutate(item.id);
+                    else deleteSpot.mutate(item.id);
                   }}
                 />
               )}
@@ -1207,6 +1715,86 @@ export default function InfrastructurePage() {
           }}
         />
       )}
+      {activeTab === "energy" && (
+        <MeterFormModal
+          open={showMeterForm}
+          onClose={() => {
+            setShowMeterForm(false);
+            setEditingMeter(null);
+          }}
+          meter={editingMeter}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowMeterForm(false);
+            setEditingMeter(null);
+            qc.invalidateQueries({ queryKey: ["infra-energy"] });
+          }}
+        />
+      )}
+      {activeTab === "inspections" && (
+        <InspectionFormModal
+          open={showInspectionForm}
+          onClose={() => {
+            setShowInspectionForm(false);
+            setEditingInspection(null);
+          }}
+          inspection={editingInspection}
+          buildings={buildings}
+          rooms={rooms}
+          onSaved={() => {
+            setShowInspectionForm(false);
+            setEditingInspection(null);
+            qc.invalidateQueries({ queryKey: ["infra-inspections"] });
+          }}
+        />
+      )}
+      {activeTab === "vendors" && (
+        <VendorFormModal
+          open={showVendorForm}
+          onClose={() => {
+            setShowVendorForm(false);
+            setEditingVendor(null);
+          }}
+          contract={editingVendor}
+          onSaved={() => {
+            setShowVendorForm(false);
+            setEditingVendor(null);
+            qc.invalidateQueries({ queryKey: ["infra-vendors"] });
+          }}
+        />
+      )}
+      {activeTab === "parking" && (
+        <ParkingLotFormModal
+          open={showParkingLotForm}
+          onClose={() => {
+            setShowParkingLotForm(false);
+            setEditingParkingLot(null);
+          }}
+          lot={editingParkingLot}
+          onSaved={() => {
+            setShowParkingLotForm(false);
+            setEditingParkingLot(null);
+            qc.invalidateQueries({ queryKey: ["infra-parking"] });
+          }}
+        />
+      )}
+      {activeTab === "spots" && (
+        <SpotFormModal
+          open={showSpotForm}
+          onClose={() => {
+            setShowSpotForm(false);
+            setEditingSpot(null);
+          }}
+          assignment={editingSpot}
+          lots={parkingLots}
+          onSaved={() => {
+            setShowSpotForm(false);
+            setEditingSpot(null);
+            qc.invalidateQueries({ queryKey: ["infra-spots"] });
+          }}
+        />
+      )}
 
       {/* Shortcut help */}
       <KeyboardShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -1257,6 +1845,11 @@ function Card({
           {tab === "allocations" && <AllocationCard item={item as RoomAllocation} />}
           {tab === "maintenance" && <MaintenanceCard item={item as PreventiveMaintenance} />}
           {tab === "reservations" && <ReservationCard item={item as SpaceReservation} />}
+          {tab === "energy" && <MeterCard item={item as EnergyMeter} />}
+          {tab === "inspections" && <InspectionCard item={item as SafetyInspection} />}
+          {tab === "vendors" && <VendorCard item={item as VendorContract} />}
+          {tab === "parking" && <ParkingLotCard item={item as ParkingLot} />}
+          {tab === "spots" && <SpotCard item={item as ParkingAssignment} />}
         </div>
         <div className="flex gap-1">
           <button
@@ -1454,6 +2047,151 @@ function ReservationCard({ item }: { item: SpaceReservation }) {
         )}
         {item.requires_av && <span>🎤</span>}
         {item.requires_refreshments && <span>☕</span>}
+      </div>
+    </>
+  );
+}
+
+function MeterCard({ item }: { item: EnergyMeter }) {
+  const lastReading = item.last_reading_value != null ? Number(item.last_reading_value) : null;
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.meter_number}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.building_name || "—"}
+        {item.room_name && ` · ${item.room_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.meter_type} colors={{}} />
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            item.is_active
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          }`}
+        >
+          {item.is_active ? "Active" : "Inactive"}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-xs text-slate-400">
+        {item.last_reading_date
+          ? `📊 last reading ${item.last_reading_date}${
+              lastReading != null ? ` · ${lastReading.toLocaleString()}` : ""
+            }`
+          : "📊 no readings yet"}
+      </p>
+    </>
+  );
+}
+
+function InspectionCard({ item }: { item: SafetyInspection }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.title}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.inspection_type.replace(/_/g, " ")}
+        {item.building_name && ` · ${item.building_name}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.status} colors={STATUS_COLORS} />
+        <Badge value={item.overall_severity} colors={SEVERITY_COLORS} />
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.scheduled_date && <span>📅 {item.scheduled_date}</span>}
+        {item.inspector_name && <span>👷 {item.inspector_name}</span>}
+      </div>
+    </>
+  );
+}
+
+function VendorCard({ item }: { item: VendorContract }) {
+  const value = item.value != null ? Number(item.value) : null;
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.title}
+      </p>
+      <p className="truncate text-xs text-slate-400">
+        {item.vendor_name}
+        {item.contract_number && ` · ${item.contract_number}`}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.contract_type} colors={{}} />
+        <Badge value={item.status} colors={STATUS_COLORS} />
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.start_date && (
+          <span>
+            🗓 {item.start_date}
+            {item.end_date ? ` → ${item.end_date}` : ""}
+          </span>
+        )}
+        {value != null && value > 0 && (
+          <span>💲{value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+        )}
+        {item.auto_renew && <span>🔄 auto-renew</span>}
+      </div>
+    </>
+  );
+}
+
+function ParkingLotCard({ item }: { item: ParkingLot }) {
+  const occupied = Math.max(0, item.total_spots - item.available_spots);
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.name}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            item.is_active
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          }`}
+        >
+          {item.is_active ? "Active" : "Inactive"}
+        </span>
+        {item.is_covered && (
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+            Covered
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-slate-400">
+        🅿️ {item.available_spots}/{item.total_spots} spots free
+        {occupied > 0 ? ` (${occupied} used)` : ""}
+      </p>
+    </>
+  );
+}
+
+function SpotCard({ item }: { item: ParkingAssignment }) {
+  return (
+    <>
+      <p className="truncate font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400">
+        {item.spot_number}
+      </p>
+      <p className="truncate text-xs text-slate-400">{item.parking_lot_name || item.parking_lot}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Badge value={item.spot_type} colors={{}} />
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            item.is_active
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          }`}
+        >
+          {item.is_active ? "Active" : "Inactive"}
+        </span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+        {item.vehicle_plate && <span>🚗 {item.vehicle_plate}</span>}
+        {item.assigned_to_name && <span>👤 {item.assigned_to_name}</span>}
       </div>
     </>
   );
@@ -2628,6 +3366,864 @@ function ReservationFormModal({
             className={inputCls}
           />
         </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Energy Meter Form Modal ─────────────────────────────────────────────────
+
+function MeterFormModal({
+  open,
+  onClose,
+  meter,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  meter?: EnergyMeter | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    building: meter?.building ?? "",
+    room: meter?.room ?? "",
+    meter_number: meter?.meter_number ?? "",
+    meter_type: meter?.meter_type ?? "electric",
+    installation_date: meter?.installation_date ?? "",
+    is_active: meter?.is_active ?? true,
+    notes: meter?.notes ?? "",
+  });
+  const isEdit = !!meter;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/energy-meter/", data),
+    onSuccess: () => {
+      toast.success("Meter created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) => api.patch(`/infrastructure/energy-meter/${meter!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Meter updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.building) return toast.error("Select a building");
+    if (!f.meter_number.trim()) return toast.error("Meter number is required");
+    const data = {
+      ...f,
+      room: f.room || null,
+      installation_date: f.installation_date || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Meter" : "Add Energy Meter"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building *</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select building...</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Meter Number *</label>
+            <input
+              value={f.meter_number}
+              onChange={(e) => setF((p) => ({ ...p, meter_number: e.target.value }))}
+              className={`${inputCls} font-mono`}
+              placeholder="e.g. E-1001"
+              required
+            />
+          </div>
+          <SelectField
+            label="Meter Type"
+            value={f.meter_type}
+            options={METER_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, meter_type: v }))}
+          />
+          <div>
+            <label className={labelCls}>Installation Date</label>
+            <input
+              type="date"
+              value={f.installation_date}
+              onChange={(e) => setF((p) => ({ ...p, installation_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.is_active}
+            onChange={(e) => setF((p) => ({ ...p, is_active: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Meter is active
+        </label>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <textarea
+            value={f.notes}
+            onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Safety Inspection Form Modal ────────────────────────────────────────────
+
+function InspectionFormModal({
+  open,
+  onClose,
+  inspection,
+  buildings,
+  rooms,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  inspection?: SafetyInspection | null;
+  buildings: Building[];
+  rooms: Room[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    title: inspection?.title ?? "",
+    inspection_type: inspection?.inspection_type ?? "general",
+    building: inspection?.building ?? "",
+    room: inspection?.room ?? "",
+    scheduled_date: inspection?.scheduled_date ?? "",
+    completed_date: inspection?.completed_date ?? "",
+    inspector_name: inspection?.inspector_name ?? "",
+    inspector_organization: inspection?.inspector_organization ?? "",
+    status: inspection?.status ?? "scheduled",
+    overall_severity: inspection?.overall_severity ?? "none",
+    findings: inspection?.findings ?? "",
+    recommendations: inspection?.recommendations ?? "",
+    corrective_actions: inspection?.corrective_actions ?? "",
+    next_inspection_date: inspection?.next_inspection_date ?? "",
+  });
+  const isEdit = !!inspection;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/safety-inspections/", data),
+    onSuccess: () => {
+      toast.success("Inspection created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/safety-inspections/${inspection!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Inspection updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.title.trim()) return toast.error("Title is required");
+    if (!f.scheduled_date) return toast.error("Scheduled date is required");
+    const data = {
+      ...f,
+      building: f.building || null,
+      room: f.room || null,
+      completed_date: f.completed_date || null,
+      next_inspection_date: f.next_inspection_date || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  const buildingRooms = rooms.filter((r) => r.building === f.building);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "Edit Inspection" : "New Safety Inspection"}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Title *</label>
+          <input
+            value={f.title}
+            onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+            className={inputCls}
+            required
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <SelectField
+            label="Inspection Type"
+            value={f.inspection_type}
+            options={INSPECTION_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, inspection_type: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={INSPECTION_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+          <SelectField
+            label="Severity"
+            value={f.overall_severity}
+            options={INSPECTION_SEVERITIES}
+            onChange={(v) => setF((p) => ({ ...p, overall_severity: v }))}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Building</label>
+            <select
+              value={f.building}
+              onChange={(e) => setF((p) => ({ ...p, building: e.target.value, room: "" }))}
+              className={inputCls}
+            >
+              <option value="">None</option>
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Room</label>
+            <select
+              value={f.room}
+              onChange={(e) => setF((p) => ({ ...p, room: e.target.value }))}
+              className={inputCls}
+              disabled={!f.building}
+            >
+              <option value="">None</option>
+              {buildingRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.room_number})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Scheduled Date *</label>
+            <input
+              type="date"
+              value={f.scheduled_date}
+              onChange={(e) => setF((p) => ({ ...p, scheduled_date: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Completed Date</label>
+            <input
+              type="date"
+              value={f.completed_date}
+              onChange={(e) => setF((p) => ({ ...p, completed_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Next Inspection</label>
+            <input
+              type="date"
+              value={f.next_inspection_date}
+              onChange={(e) => setF((p) => ({ ...p, next_inspection_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Inspector Name</label>
+            <input
+              value={f.inspector_name}
+              onChange={(e) => setF((p) => ({ ...p, inspector_name: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Inspector Organization</label>
+            <input
+              value={f.inspector_organization}
+              onChange={(e) => setF((p) => ({ ...p, inspector_organization: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Findings</label>
+          <textarea
+            value={f.findings}
+            onChange={(e) => setF((p) => ({ ...p, findings: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Recommendations</label>
+          <textarea
+            value={f.recommendations}
+            onChange={(e) => setF((p) => ({ ...p, recommendations: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Vendor Contract Form Modal ──────────────────────────────────────────────
+
+function VendorFormModal({
+  open,
+  onClose,
+  contract,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contract?: VendorContract | null;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    vendor_name: contract?.vendor_name ?? "",
+    contract_type: contract?.contract_type ?? "other",
+    title: contract?.title ?? "",
+    description: contract?.description ?? "",
+    contract_number: contract?.contract_number ?? "",
+    start_date: contract?.start_date ?? "",
+    end_date: contract?.end_date ?? "",
+    renewal_date: contract?.renewal_date ?? "",
+    auto_renew: contract?.auto_renew ?? false,
+    value: contract?.value != null ? String(contract.value) : "",
+    payment_frequency: contract?.payment_frequency ?? "",
+    contact_person: contract?.contact_person ?? "",
+    contact_phone: contract?.contact_phone ?? "",
+    contact_email: contract?.contact_email ?? "",
+    sla_description: contract?.sla_description ?? "",
+    status: contract?.status ?? "draft",
+  });
+  const isEdit = !!contract;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/vendor-contracts/", data),
+    onSuccess: () => {
+      toast.success("Contract created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/vendor-contracts/${contract!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Contract updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.vendor_name.trim()) return toast.error("Vendor name is required");
+    if (!f.title.trim()) return toast.error("Title is required");
+    if (!f.start_date || !f.end_date) return toast.error("Start and end dates are required");
+    const data = {
+      ...f,
+      value: f.value ? Number(f.value) : 0,
+      renewal_date: f.renewal_date || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Contract" : "New Vendor Contract"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Vendor Name *</label>
+            <input
+              value={f.vendor_name}
+              onChange={(e) => setF((p) => ({ ...p, vendor_name: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Title *</label>
+            <input
+              value={f.title}
+              onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <SelectField
+            label="Contract Type"
+            value={f.contract_type}
+            options={CONTRACT_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, contract_type: v }))}
+          />
+          <SelectField
+            label="Status"
+            value={f.status}
+            options={CONTRACT_STATUSES}
+            onChange={(v) => setF((p) => ({ ...p, status: v }))}
+          />
+          <div>
+            <label className={labelCls}>Contract #</label>
+            <input
+              value={f.contract_number}
+              onChange={(e) => setF((p) => ({ ...p, contract_number: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. VC-2026-001"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Start Date *</label>
+            <input
+              type="date"
+              value={f.start_date}
+              onChange={(e) => setF((p) => ({ ...p, start_date: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>End Date *</label>
+            <input
+              type="date"
+              value={f.end_date}
+              onChange={(e) => setF((p) => ({ ...p, end_date: e.target.value }))}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Renewal Date</label>
+            <input
+              type="date"
+              value={f.renewal_date}
+              onChange={(e) => setF((p) => ({ ...p, renewal_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Value</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={f.value}
+              onChange={(e) => setF((p) => ({ ...p, value: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Payment Frequency</label>
+            <input
+              value={f.payment_frequency}
+              onChange={(e) => setF((p) => ({ ...p, payment_frequency: e.target.value }))}
+              className={inputCls}
+              placeholder="e.g. Monthly, Quarterly, Annual"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Contact Person</label>
+            <input
+              value={f.contact_person}
+              onChange={(e) => setF((p) => ({ ...p, contact_person: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Contact Phone</label>
+            <input
+              value={f.contact_phone}
+              onChange={(e) => setF((p) => ({ ...p, contact_phone: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Contact Email</label>
+            <input
+              type="email"
+              value={f.contact_email}
+              onChange={(e) => setF((p) => ({ ...p, contact_email: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.auto_renew}
+            onChange={(e) => setF((p) => ({ ...p, auto_renew: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Auto-renew
+        </label>
+        <div>
+          <label className={labelCls}>SLA Description</label>
+          <textarea
+            value={f.sla_description}
+            onChange={(e) => setF((p) => ({ ...p, sla_description: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea
+            value={f.description}
+            onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
+            rows={2}
+            className={inputCls}
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Parking Lot Form Modal ──────────────────────────────────────────────────
+
+function ParkingLotFormModal({
+  open,
+  onClose,
+  lot,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  lot?: ParkingLot | null;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    name: lot?.name ?? "",
+    total_spots: lot?.total_spots ?? 0,
+    available_spots: lot ? lot.available_spots : undefined,
+    is_covered: lot?.is_covered ?? false,
+    is_active: lot?.is_active ?? true,
+  });
+  const isEdit = !!lot;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/parking-lot/", data),
+    onSuccess: () => {
+      toast.success("Parking lot created");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) => api.patch(`/infrastructure/parking-lot/${lot!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Parking lot updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.name.trim()) return toast.error("Lot name is required");
+    const data = {
+      name: f.name,
+      total_spots: Number(f.total_spots) || 0,
+      available_spots:
+        f.available_spots === undefined
+          ? Number(f.total_spots) || 0
+          : Number(f.available_spots) || 0,
+      is_covered: f.is_covered,
+      is_active: f.is_active,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Parking Lot" : "Add Parking Lot"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Name *</label>
+          <input
+            value={f.name}
+            onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))}
+            className={inputCls}
+            required
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Total Spots</label>
+            <input
+              type="number"
+              min={0}
+              value={f.total_spots}
+              onChange={(e) => setF((p) => ({ ...p, total_spots: Number(e.target.value) }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Available Spots</label>
+            <input
+              type="number"
+              min={0}
+              value={f.available_spots ?? ""}
+              onChange={(e) =>
+                setF((p) => ({
+                  ...p,
+                  available_spots: e.target.value ? Number(e.target.value) : 0,
+                }))
+              }
+              className={inputCls}
+              placeholder="Defaults to total"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={f.is_covered}
+              onChange={(e) => setF((p) => ({ ...p, is_covered: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Covered lot
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={f.is_active}
+              onChange={(e) => setF((p) => ({ ...p, is_active: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Active
+          </label>
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={saving}>
+            {isEdit ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Parking Assignment Form Modal ───────────────────────────────────────────
+
+function SpotFormModal({
+  open,
+  onClose,
+  assignment,
+  lots,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  assignment?: ParkingAssignment | null;
+  lots: ParkingLot[];
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState({
+    parking_lot: assignment?.parking_lot ?? "",
+    spot_number: assignment?.spot_number ?? "",
+    spot_type: assignment?.spot_type ?? "regular",
+    vehicle_plate: assignment?.vehicle_plate ?? "",
+    is_active: assignment?.is_active ?? true,
+    start_date: assignment?.start_date ?? "",
+    end_date: assignment?.end_date ?? "",
+  });
+  const isEdit = !!assignment;
+  const createMut = useMutation({
+    mutationFn: (data: typeof f) => api.post("/infrastructure/parking-assignment/", data),
+    onSuccess: () => {
+      toast.success("Spot assigned");
+      onSaved();
+    },
+  });
+  const updateMut = useMutation({
+    mutationFn: (data: typeof f) =>
+      api.patch(`/infrastructure/parking-assignment/${assignment!.id}/`, data),
+    onSuccess: () => {
+      toast.success("Assignment updated");
+      onSaved();
+    },
+  });
+  const saving = createMut.isPending || updateMut.isPending;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!f.parking_lot) return toast.error("Select a parking lot");
+    if (!f.spot_number.trim()) return toast.error("Spot number is required");
+    const data = {
+      ...f,
+      start_date: f.start_date || null,
+      end_date: f.end_date || null,
+    } as any;
+    if (isEdit) updateMut.mutate(data);
+    else createMut.mutate(data);
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Assignment" : "Assign Spot"}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Parking Lot *</label>
+            <select
+              value={f.parking_lot}
+              onChange={(e) => setF((p) => ({ ...p, parking_lot: e.target.value }))}
+              className={inputCls}
+              required
+            >
+              <option value="">Select lot...</option>
+              {lots.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Spot Number *</label>
+            <input
+              value={f.spot_number}
+              onChange={(e) => setF((p) => ({ ...p, spot_number: e.target.value }))}
+              className={`${inputCls} font-mono`}
+              placeholder="e.g. A-01"
+              required
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="Spot Type"
+            value={f.spot_type}
+            options={SPOT_TYPES}
+            onChange={(v) => setF((p) => ({ ...p, spot_type: v }))}
+          />
+          <div>
+            <label className={labelCls}>Vehicle Plate</label>
+            <input
+              value={f.vehicle_plate}
+              onChange={(e) => setF((p) => ({ ...p, vehicle_plate: e.target.value }))}
+              className={`${inputCls} font-mono`}
+              placeholder="e.g. ABC-123"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Start Date</label>
+            <input
+              type="date"
+              value={f.start_date}
+              onChange={(e) => setF((p) => ({ ...p, start_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>End Date</label>
+            <input
+              type="date"
+              value={f.end_date}
+              onChange={(e) => setF((p) => ({ ...p, end_date: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={f.is_active}
+            onChange={(e) => setF((p) => ({ ...p, is_active: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Assignment is active
+        </label>
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
