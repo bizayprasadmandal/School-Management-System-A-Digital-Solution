@@ -62,6 +62,13 @@ class IsSchoolMember(permissions.BasePermission):
             "created_by",
             "generated_by",
             "verified_by",
+            "job_posting",
+            "department",
+            "plan",
+            "program",
+            "policy",
+            "cycle",
+            "reviewed_by",
         ):
             related = getattr(obj, attr, None)
             if related is not None:
