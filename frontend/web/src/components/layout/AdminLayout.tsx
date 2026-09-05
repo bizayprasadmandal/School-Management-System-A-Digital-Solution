@@ -36,6 +36,7 @@ import {
   HeartIcon,
   GlobeAltIcon,
   DocumentTextIcon,
+  ArrowsRightLeftIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import SchoolSwitcher from "../common/SchoolSwitcher";
@@ -83,6 +84,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     title: "Communication",
     icon: MegaphoneIcon,
     items: [
+      {
+        label: "Communication Center",
+        to: "/admin/communication",
+        icon: ArrowsRightLeftIcon,
+      },
       {
         label: "Announcements",
         to: "/admin/announcements",
