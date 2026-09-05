@@ -1011,7 +1011,7 @@ class UserSessionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return UserSession.objects.filter(school=self.request.user.school)
+        return UserSession.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1019,7 +1019,10 @@ class UserSessionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class PasswordResetTokenViewSet(viewsets.ModelViewSet):
@@ -1029,7 +1032,7 @@ class PasswordResetTokenViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return PasswordResetToken.objects.filter(school=self.request.user.school)
+        return PasswordResetToken.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1037,7 +1040,10 @@ class PasswordResetTokenViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class EmailVerificationTokenViewSet(viewsets.ModelViewSet):
@@ -1047,7 +1053,7 @@ class EmailVerificationTokenViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return EmailVerificationToken.objects.filter(school=self.request.user.school)
+        return EmailVerificationToken.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1055,7 +1061,10 @@ class EmailVerificationTokenViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class TwoFactorBackupCodeViewSet(viewsets.ModelViewSet):
@@ -1065,7 +1074,7 @@ class TwoFactorBackupCodeViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return TwoFactorBackupCode.objects.filter(school=self.request.user.school)
+        return TwoFactorBackupCode.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1073,18 +1082,29 @@ class TwoFactorBackupCodeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class AuditLogViewSet(viewsets.ModelViewSet):
     serializer_class = AuditLogSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
+    search_fields = [
+        "action",
+        "resource_type",
+        "resource_id",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "ip_address",
+    ]
+    filterset_fields = ["action", "resource_type", "user"]
 
     def get_queryset(self):
-        return AuditLog.objects.filter(school=self.request.user.school)
+        return AuditLog.objects.filter(school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1102,7 +1122,7 @@ class LoginHistoryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return LoginHistory.objects.filter(school=self.request.user.school)
+        return LoginHistory.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1110,18 +1130,21 @@ class LoginHistoryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class APIKeyViewSet(viewsets.ModelViewSet):
     serializer_class = APIKeySerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
-    filterset_fields = ["school"]
+    search_fields = ["name", "description"]
+    filterset_fields = ["status"]
 
     def get_queryset(self):
-        return APIKey.objects.filter(school=self.request.user.school)
+        return APIKey.objects.filter(school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1129,7 +1152,13 @@ class APIKeyViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        raw = secrets.token_urlsafe(24)
+        serializer.save(
+            school=self.request.user.school,
+            user=self.request.user,
+            key_prefix=raw[:8].upper(),
+            key_hash=hashlib.sha256(raw.encode()).hexdigest(),
+        )
 
 
 class DeviceManagementViewSet(viewsets.ModelViewSet):
@@ -1139,7 +1168,7 @@ class DeviceManagementViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return DeviceManagement.objects.filter(school=self.request.user.school)
+        return DeviceManagement.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1147,7 +1176,10 @@ class DeviceManagementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class PasswordPolicyViewSet(viewsets.ModelViewSet):
@@ -1214,7 +1246,7 @@ class UserActivityViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return UserActivity.objects.filter(school=self.request.user.school)
+        return UserActivity.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1222,7 +1254,10 @@ class UserActivityViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class SessionPolicyViewSet(viewsets.ModelViewSet):
@@ -1420,7 +1455,7 @@ class SessionTokenViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return SessionToken.objects.filter(school=self.request.user.school)
+        return SessionToken.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1428,7 +1463,10 @@ class SessionTokenViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class MFAMethodViewSet(viewsets.ModelViewSet):
@@ -1438,7 +1476,7 @@ class MFAMethodViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return MFAMethod.objects.filter(school=self.request.user.school)
+        return MFAMethod.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1446,7 +1484,10 @@ class MFAMethodViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class MFAVerificationViewSet(viewsets.ModelViewSet):
@@ -1456,7 +1497,9 @@ class MFAVerificationViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return MFAVerification.objects.filter(school=self.request.user.school)
+        return MFAVerification.objects.filter(mfa_method__user__school=self.request.user.school).select_related(
+            "mfa_method__user"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1464,7 +1507,10 @@ class MFAVerificationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class OAuthTokenViewSet(viewsets.ModelViewSet):
@@ -1474,7 +1520,7 @@ class OAuthTokenViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return OAuthToken.objects.filter(school=self.request.user.school)
+        return OAuthToken.objects.filter(user__school=self.request.user.school).select_related("user", "provider")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1482,7 +1528,10 @@ class OAuthTokenViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class UserSessionHistoryViewSet(viewsets.ModelViewSet):
@@ -1492,7 +1541,7 @@ class UserSessionHistoryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return UserSessionHistory.objects.filter(school=self.request.user.school)
+        return UserSessionHistory.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1500,7 +1549,10 @@ class UserSessionHistoryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        api_key = serializer.validated_data.get("api_key")
+        if api_key is not None and api_key.school_id != self.request.user.school_id:
+            raise PermissionDenied("API key does not belong to your school.")
+        serializer.save()
 
 
 class APIUsageLogViewSet(viewsets.ModelViewSet):
@@ -1510,7 +1562,7 @@ class APIUsageLogViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return APIUsageLog.objects.filter(school=self.request.user.school)
+        return APIUsageLog.objects.filter(api_key__school=self.request.user.school).select_related("api_key")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1518,7 +1570,10 @@ class APIUsageLogViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        api_key = serializer.validated_data.get("api_key")
+        if api_key is not None and api_key.school_id != self.request.user.school_id:
+            raise PermissionDenied("API key does not belong to your school.")
+        serializer.save()
 
 
 class ComplianceRecordViewSet(viewsets.ModelViewSet):
@@ -1547,7 +1602,7 @@ class PasswordHistoryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return PasswordHistory.objects.filter(school=self.request.user.school)
+        return PasswordHistory.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1555,7 +1610,10 @@ class PasswordHistoryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class UserTrustScoreViewSet(viewsets.ModelViewSet):
@@ -1565,7 +1623,7 @@ class UserTrustScoreViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return UserTrustScore.objects.filter(school=self.request.user.school)
+        return UserTrustScore.objects.filter(user__school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1573,7 +1631,10 @@ class UserTrustScoreViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class SecurityNotificationPreferenceViewSet(viewsets.ModelViewSet):
@@ -1583,7 +1644,9 @@ class SecurityNotificationPreferenceViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return SecurityNotificationPreference.objects.filter(school=self.request.user.school)
+        return SecurityNotificationPreference.objects.filter(user__school=self.request.user.school).select_related(
+            "user"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1591,7 +1654,10 @@ class SecurityNotificationPreferenceViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        serializer.save()
 
 
 class DataExportRequestViewSet(viewsets.ModelViewSet):
@@ -1658,7 +1724,7 @@ class WebhookDeliveryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return WebhookDelivery.objects.filter(school=self.request.user.school)
+        return WebhookDelivery.objects.filter(webhook__school=self.request.user.school).select_related("webhook")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1666,7 +1732,10 @@ class WebhookDeliveryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        webhook = serializer.validated_data.get("webhook")
+        if webhook is not None and webhook.school_id != self.request.user.school_id:
+            raise PermissionDenied("Webhook does not belong to your school.")
+        serializer.save()
 
 
 class SSOConfigurationViewSet(viewsets.ModelViewSet):
@@ -1714,7 +1783,7 @@ class IPGeolocationCacheViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return IPGeolocationCache.objects.filter(school=self.request.user.school)
+        return IPGeolocationCache.objects.all()
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1722,7 +1791,7 @@ class IPGeolocationCacheViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConsentRecordViewSet(viewsets.ModelViewSet):

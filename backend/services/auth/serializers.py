@@ -73,12 +73,16 @@ class SchoolSerializer(serializers.ModelSerializer):
 
 
 class UserSessionSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+
     class Meta:
         model = UserSession
         fields = [
             "id",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "refresh_token_jti",
             "device_info",
             "ip_address",
@@ -86,7 +90,7 @@ class UserSessionSerializer(serializers.ModelSerializer):
             "last_used",
             "is_active",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "refresh_token_jti"]
 
 
 class PasswordResetTokenSerializer(serializers.ModelSerializer):
@@ -111,13 +115,17 @@ class TwoFactorBackupCodeSerializer(serializers.ModelSerializer):
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+
     class Meta:
         model = AuditLog
         fields = [
             "id",
             "school",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "action",
             "resource_type",
             "resource_id",
@@ -128,17 +136,32 @@ class AuditLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def get_user_name(self, obj):
+        return obj.user.full_name if obj.user else None
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else None
+
 
 class LoginHistorySerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    login_type_display = serializers.CharField(source="get_login_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    def get_user_name(self, obj):
+        return obj.user.full_name if obj.user else obj.email
+
     class Meta:
         model = LoginHistory
         fields = [
             "id",
-            "id",
             "user",
+            "user_name",
             "email",
             "login_type",
+            "login_type_display",
             "status",
+            "status_display",
             "ip_address",
             "user_agent",
             "device_info",
@@ -153,13 +176,20 @@ class LoginHistorySerializer(serializers.ModelSerializer):
 
 
 class APIKeySerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = APIKey
         fields = [
             "id",
             "school",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "name",
             "description",
             "key_prefix",
@@ -167,27 +197,42 @@ class APIKeySerializer(serializers.ModelSerializer):
             "scopes",
             "rate_limit",
             "status",
+            "status_display",
             "expires_at",
             "last_used_at",
             "last_used_ip",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "key_prefix", "key_hash", "created_at"]
+
+    def get_user_name(self, obj):
+        return obj.user.full_name if obj.user else None
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else None
 
 
 class DeviceManagementSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    device_type_display = serializers.CharField(source="get_device_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = DeviceManagement
         fields = [
             "id",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "device_name",
             "device_type",
+            "device_type_display",
             "device_id",
             "fingerprint",
             "ip_address",
             "location",
             "status",
+            "status_display",
             "is_active",
             "last_seen",
             "created_at",
@@ -198,12 +243,13 @@ class DeviceManagementSerializer(serializers.ModelSerializer):
 
 
 class PasswordPolicySerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = PasswordPolicy
         fields = [
             "id",
             "school",
-            "id",
             "min_length",
             "max_length",
             "require_uppercase",
@@ -221,16 +267,19 @@ class PasswordPolicySerializer(serializers.ModelSerializer):
 
 
 class IPWhitelistSerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+    access_level_display = serializers.CharField(source="get_access_level_display", read_only=True)
+
     class Meta:
         model = IPWhitelist
         fields = [
             "id",
             "school",
-            "id",
             "ip_address",
             "ip_range",
             "description",
             "access_level",
+            "access_level_display",
             "is_active",
             "created_at",
             "updated_at",
@@ -259,13 +308,19 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
 
 
 class UserActivitySerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    activity_type_display = serializers.CharField(source="get_activity_type_display", read_only=True)
+
     class Meta:
         model = UserActivity
         fields = [
             "id",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "activity_type",
+            "activity_type_display",
             "description",
             "resource_type",
             "resource_id",
@@ -278,12 +333,13 @@ class UserActivitySerializer(serializers.ModelSerializer):
 
 
 class SessionPolicySerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = SessionPolicy
         fields = [
             "id",
             "school",
-            "id",
             "session_timeout_minutes",
             "absolute_timeout_hours",
             "idle_timeout_minutes",
@@ -425,14 +481,17 @@ class UserDirectorySerializer(serializers.ModelSerializer):
 
 
 class SecurityPolicySerializer(serializers.ModelSerializer):
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+    policy_type_display = serializers.CharField(source="get_policy_type_display", read_only=True)
+
     class Meta:
         model = SecurityPolicy
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "policy_type",
+            "policy_type_display",
             "description",
             "settings",
             "min_length",
@@ -470,14 +529,22 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
 
 
 class SessionTokenSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    token_type_display = serializers.CharField(source="get_token_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
     class Meta:
         model = SessionToken
         fields = [
             "id",
-            "id",
             "user",
+            "user_name",
+            "user_email",
             "token_type",
+            "token_type_display",
             "status",
+            "status_display",
             "token_hash",
             "issued_at",
             "expires_at",
@@ -488,7 +555,7 @@ class SessionTokenSerializer(serializers.ModelSerializer):
             "revocation_reason",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "token_hash"]
 
 
 class MFAMethodSerializer(serializers.ModelSerializer):
@@ -567,12 +634,14 @@ class UserSessionHistorySerializer(serializers.ModelSerializer):
 
 
 class APIUsageLogSerializer(serializers.ModelSerializer):
+    api_key_name = serializers.CharField(source="api_key.name", read_only=True)
+
     class Meta:
         model = APIUsageLog
         fields = [
             "id",
-            "id",
             "api_key",
+            "api_key_name",
             "endpoint",
             "method",
             "status_code",

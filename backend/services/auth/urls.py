@@ -73,6 +73,7 @@ router.register(r"password-reset-token", PasswordResetTokenViewSet, basename="pa
 router.register(r"email-verification-token", EmailVerificationTokenViewSet, basename="email-verification-token")
 router.register(r"two-factor-backup-code", TwoFactorBackupCodeViewSet, basename="two-factor-backup-code")
 router.register(r"audit-log", AuditLogViewSet, basename="audit-log")
+router.register(r"audit-logs", AuditLogViewSet, basename="audit-logs")
 router.register(r"login-history", LoginHistoryViewSet, basename="login-history")
 router.register(r"a-p-i-key", APIKeyViewSet, basename="a-p-i-key")
 router.register(r"device-management", DeviceManagementViewSet, basename="device-management")
