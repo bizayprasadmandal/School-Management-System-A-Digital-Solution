@@ -29,7 +29,6 @@ router.register("corrections", views.AttendanceCorrectionWorkflowViewSet, basena
 router.register("history", views.AttendanceHistoryViewViewSet, basename="attendance-history")
 router.register("patterns", views.AttendancePatternsViewSet, basename="attendance-patterns")
 router.register("realtime", views.RealTimeDashboardViewSet, basename="realtime-dashboard")
-router.register("", views.AttendanceViewSet, basename="attendance")
 
 
 # ── Additional registrations (module expansion) ──
@@ -56,5 +55,8 @@ router.register(
 )
 router.register(r"attendance-lockout", views.AttendanceLockoutViewSet, basename="attendance-lockout")
 router.register(r"attendance-comment", views.AttendanceCommentViewSet, basename="attendance-comment")
+# Empty-prefix viewset MUST be registered last so its `^{pk}/$` detail route
+# doesn't swallow the named registrations above (GET -> 404).
+router.register("", views.AttendanceViewSet, basename="attendance")
 
 urlpatterns = [path("", include(router.urls))]

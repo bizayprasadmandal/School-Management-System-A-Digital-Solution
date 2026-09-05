@@ -321,7 +321,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         Attendance dashboard analytics for admins.
         Returns today's stats, weekly trends, at-risk students, and class comparisons.
         """
-        from django.db.models import Avg, Count, Q
+        from django.db.models import Count, F, Q
         from services.students.models import Classroom
 
         school = request.user.school
@@ -372,7 +372,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 total_days=Count("id"),
                 present_days=Count("id", filter=Q(status__in=["P", "L"])),
             )
-            .annotate(attendance_pct=Avg("present_days") * 100.0 / Avg("total_days"))
+            .annotate(attendance_pct=F("present_days") * 100.0 / F("total_days"))
             .filter(attendance_pct__lt=75)
             .order_by("attendance_pct")
         )
@@ -501,7 +501,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         List students with attendance below threshold.
         Query params: threshold (default 75), days (default 30)
         """
-        from django.db.models import Avg, Count, Q
+        from django.db.models import Count, F, Q
 
         school = request.user.school
         threshold = float(request.query_params.get("threshold", 75))
@@ -525,7 +525,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 present_days=Count("id", filter=Q(status__in=["P", "L"])),
                 absent_days=Count("id", filter=Q(status="A")),
             )
-            .annotate(attendance_pct=Avg("present_days") * 100.0 / Avg("total_days"))
+            .annotate(attendance_pct=F("present_days") * 100.0 / F("total_days"))
             .filter(attendance_pct__lt=threshold)
             .order_by("attendance_pct")
         )
@@ -1402,7 +1402,10 @@ class BiometricCheckinViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return BiometricCheckin.objects.filter(student__school=user.school).order_by("-checked_in_at")
+        return BiometricCheckin.objects.filter(student__school=user.school).order_by("-checkin_time")
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1417,7 +1420,10 @@ class RFIDCheckinViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return RFIDCheckin.objects.filter(student__school=user.school).order_by("-checked_in_at")
+        return RFIDCheckin.objects.filter(student__school=user.school).order_by("-checkin_time")
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1432,7 +1438,10 @@ class GPSAttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return GPSAttendance.objects.filter(student__school=user.school).order_by("-checked_in_at")
+        return GPSAttendance.objects.filter(student__school=user.school).order_by("-checkin_time")
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1453,6 +1462,9 @@ class ParentNotificationViewSet(viewsets.ModelViewSet):
             return ParentNotification.objects.filter(parent=user).order_by("-sent_at")
         return ParentNotification.objects.none()
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
@@ -1467,7 +1479,7 @@ class AttendanceDashboardViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return AttendanceDashboard.objects.filter(school=user.school).order_by("-date")
+        return AttendanceDashboard.objects.filter(school=user.school).order_by("-created_at")
 
 
 class ChronicAbsenceTrackingViewSet(viewsets.ModelViewSet):
@@ -1478,6 +1490,9 @@ class ChronicAbsenceTrackingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return ChronicAbsenceTracking.objects.filter(student__school=user.school).order_by("-absence_percentage")
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1492,7 +1507,7 @@ class AttendanceReportViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return AttendanceReport.objects.filter(school=user.school).order_by("-generated_at")
+        return AttendanceReport.objects.filter(school=user.school).order_by("-created_at")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1529,11 +1544,11 @@ class AttendanceCorrectionWorkflowViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role in ["school_admin", "super_admin"]:
-            return AttendanceCorrectionWorkflow.objects.filter(original_record__classroom__school=user.school).order_by(
-                "-requested_at"
-            )
+            return AttendanceCorrectionWorkflow.objects.filter(
+                attendance_record__classroom__school=user.school
+            ).order_by("-created_at")
         if user.role == "teacher":
-            return AttendanceCorrectionWorkflow.objects.filter(requested_by=user).order_by("-requested_at")
+            return AttendanceCorrectionWorkflow.objects.filter(requested_by=user).order_by("-created_at")
         return AttendanceCorrectionWorkflow.objects.none()
 
     def get_permissions(self):
@@ -1575,7 +1590,7 @@ class RealTimeDashboardViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return RealTimeDashboard.objects.filter(school=user.school).order_by("-date")
+        return RealTimeDashboard.objects.filter(school=user.school).order_by("-created_at")
 
 
 # ── Additional ViewSets (module expansion) ──
@@ -1588,7 +1603,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return AttendanceRecord.objects.filter(school=self.request.user.school)
+        return AttendanceRecord.objects.filter(student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1596,7 +1611,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class LeaveApprovalLevelViewSet(viewsets.ModelViewSet):
@@ -1606,7 +1621,7 @@ class LeaveApprovalLevelViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return LeaveApprovalLevel.objects.filter(school=self.request.user.school)
+        return LeaveApprovalLevel.objects.filter(leave__student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1614,7 +1629,7 @@ class LeaveApprovalLevelViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class QRCodeCheckinViewSet(viewsets.ModelViewSet):
@@ -1624,7 +1639,7 @@ class QRCodeCheckinViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return QRCodeCheckin.objects.filter(school=self.request.user.school)
+        return QRCodeCheckin.objects.filter(session__classroom__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1632,7 +1647,7 @@ class QRCodeCheckinViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AttendanceIncentiveViewSet(viewsets.ModelViewSet):
@@ -1661,7 +1676,7 @@ class AttendanceIncentiveAwardViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return AttendanceIncentiveAward.objects.filter(school=self.request.user.school)
+        return AttendanceIncentiveAward.objects.filter(incentive__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1669,7 +1684,7 @@ class AttendanceIncentiveAwardViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AttendancePredictionViewSet(viewsets.ModelViewSet):
@@ -1717,7 +1732,7 @@ class FieldTripParticipantViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return FieldTripParticipant.objects.filter(school=self.request.user.school)
+        return FieldTripParticipant.objects.filter(field_trip__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1725,7 +1740,7 @@ class FieldTripParticipantViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AttendanceEscalationViewSet(viewsets.ModelViewSet):
@@ -1792,7 +1807,7 @@ class TardyRecordViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return TardyRecord.objects.filter(school=self.request.user.school)
+        return TardyRecord.objects.filter(student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1800,7 +1815,7 @@ class TardyRecordViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class EarlyDismissalViewSet(viewsets.ModelViewSet):
@@ -1889,13 +1904,13 @@ class StudentAttendanceSummaryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return StudentAttendanceSummary.objects.filter(school=self.request.user.school)
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class AttendanceLockoutViewSet(viewsets.ModelViewSet):

@@ -65,6 +65,12 @@ def log_attendance_change(attendance_type, record, change_type, user, old_values
 
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    recorded_by_name = serializers.CharField(source="recorded_by.get_full_name", read_only=True)
+    updated_by_name = serializers.CharField(source="updated_by.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceRecord
         fields = [
@@ -79,11 +85,21 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "updated_by",
             "updated_at",
             "remarks",
+            "student_name",
+            "classroom_name",
+            "academic_year_name",
+            "recorded_by_name",
+            "updated_by_name",
         ]
         read_only_fields = ["id", "updated_at"]
 
 
 class PeriodAttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    assignment_label = serializers.CharField(source="assignment.subject.name", read_only=True)
+    recorded_by_name = serializers.CharField(source="recorded_by.get_full_name", read_only=True)
+    updated_by_name = serializers.CharField(source="updated_by.get_full_name", read_only=True)
+
     class Meta:
         model = PeriodAttendance
         fields = [
@@ -97,11 +113,18 @@ class PeriodAttendanceSerializer(serializers.ModelSerializer):
             "recorded_at",
             "updated_by",
             "updated_at",
+            "student_name",
+            "assignment_label",
+            "recorded_by_name",
+            "updated_by_name",
         ]
         read_only_fields = ["id", "updated_at"]
 
 
 class AttendanceLeaveSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    reviewed_by_name = serializers.CharField(source="reviewed_by.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceLeave
         fields = [
@@ -117,11 +140,15 @@ class AttendanceLeaveSerializer(serializers.ModelSerializer):
             "review_remarks",
             "requested_at",
             "reviewed_at",
+            "student_name",
+            "reviewed_by_name",
         ]
         read_only_fields = ["id"]
 
 
 class AttendanceChangeLogSerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.CharField(source="changed_by.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceChangeLog
         fields = [
@@ -134,6 +161,7 @@ class AttendanceChangeLogSerializer(serializers.ModelSerializer):
             "changed_by",
             "changed_at",
             "reason",
+            "changed_by_name",
         ]
         read_only_fields = ["id"]
 
@@ -157,17 +185,29 @@ class AttendancePolicySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Holiday
         fields = ["id", "school", "name", "date", "holiday_type", "description", "academic_year", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class LeaveBalanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = LeaveBalance
         fields = [
@@ -182,6 +222,8 @@ class LeaveBalanceSerializer(serializers.ModelSerializer):
             "other_leave_used",
             "created_at",
             "updated_at",
+            "student_name",
+            "academic_year_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -194,6 +236,9 @@ class LeaveApprovalLevelSerializer(serializers.ModelSerializer):
 
 
 class QRCodeSessionSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+
     class Meta:
         model = QRCodeSession
         fields = [
@@ -207,6 +252,8 @@ class QRCodeSessionSerializer(serializers.ModelSerializer):
             "is_active",
             "expires_at",
             "created_at",
+            "classroom_name",
+            "teacher_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -219,6 +266,8 @@ class QRCodeCheckinSerializer(serializers.ModelSerializer):
 
 
 class SubstituteTeacherSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+
     class Meta:
         model = SubstituteTeacher
         fields = [
@@ -232,11 +281,14 @@ class SubstituteTeacherSerializer(serializers.ModelSerializer):
             "reason",
             "is_auto_assigned",
             "created_at",
+            "classroom_name",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class AttendanceDataArchiveSerializer(serializers.ModelSerializer):
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = AttendanceDataArchive
         fields = [
@@ -250,11 +302,17 @@ class AttendanceDataArchiveSerializer(serializers.ModelSerializer):
             "date_to",
             "archived_at",
             "is_purged",
+            "academic_year_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class BiometricCheckinSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = BiometricCheckin
         fields = [
@@ -271,11 +329,18 @@ class BiometricCheckinSerializer(serializers.ModelSerializer):
             "checkin_time",
             "notes",
             "created_at",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class RFIDCheckinSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = RFIDCheckin
         fields = [
@@ -292,11 +357,18 @@ class RFIDCheckinSerializer(serializers.ModelSerializer):
             "checkin_time",
             "notes",
             "created_at",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class GPSAttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = GPSAttendance
         fields = [
@@ -314,11 +386,18 @@ class GPSAttendanceSerializer(serializers.ModelSerializer):
             "device_id",
             "device_type",
             "checkin_time",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class ParentNotificationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = ParentNotification
         fields = [
@@ -336,8 +415,13 @@ class ParentNotificationSerializer(serializers.ModelSerializer):
             "sent_at",
             "delivered_at",
             "read_at",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class AttendanceDashboardSerializer(serializers.ModelSerializer):
@@ -360,10 +444,18 @@ class AttendanceDashboardSerializer(serializers.ModelSerializer):
             "attendance_trend",
             "daily_breakdown",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ChronicAbsenceTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = ChronicAbsenceTracking
         fields = [
@@ -379,11 +471,21 @@ class ChronicAbsenceTrackingSerializer(serializers.ModelSerializer):
             "days_late",
             "attendance_percentage",
             "absence_percentage",
+            "student_name",
+            "academic_year_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceReportSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceReport
         fields = [
@@ -399,11 +501,20 @@ class AttendanceReportSerializer(serializers.ModelSerializer):
             "student",
             "grade",
             "total_students",
+            "classroom_name",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class BulkAttendanceImportSerializer(serializers.ModelSerializer):
+    imported_by_name = serializers.CharField(source="imported_by.get_full_name", read_only=True)
+
     class Meta:
         model = BulkAttendanceImport
         fields = [
@@ -422,8 +533,13 @@ class BulkAttendanceImportSerializer(serializers.ModelSerializer):
             "status_column",
             "overwrite_existing",
             "imported_by",
+            "imported_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class AttendanceCorrectionWorkflowSerializer(serializers.ModelSerializer):
@@ -444,10 +560,18 @@ class AttendanceCorrectionWorkflowSerializer(serializers.ModelSerializer):
             "supporting_document",
             "status",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceHistoryViewSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = AttendanceHistoryView
         fields = [
@@ -464,11 +588,16 @@ class AttendanceHistoryViewSerializer(serializers.ModelSerializer):
             "attendance_percentage",
             "timeline_data",
             "monthly_trend",
+            "student_name",
+            "academic_year_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class AttendancePatternsSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = AttendancePatterns
         fields = [
@@ -485,8 +614,15 @@ class AttendancePatternsSerializer(serializers.ModelSerializer):
             "risk_level",
             "pattern_data",
             "affected_dates",
+            "student_name",
+            "academic_year_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class RealTimeDashboardSerializer(serializers.ModelSerializer):
@@ -509,7 +645,11 @@ class RealTimeDashboardSerializer(serializers.ModelSerializer):
             "recent_alerts",
             "last_refreshed",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class AttendanceIncentiveSerializer(serializers.ModelSerializer):
@@ -532,10 +672,19 @@ class AttendanceIncentiveSerializer(serializers.ModelSerializer):
             "total_awarded",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceIncentiveAwardSerializer(serializers.ModelSerializer):
+    incentive_name = serializers.CharField(source="incentive.name", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    awarded_by_name = serializers.CharField(source="awarded_by.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceIncentiveAward
         fields = [
@@ -550,11 +699,16 @@ class AttendanceIncentiveAwardSerializer(serializers.ModelSerializer):
             "notes",
             "points_earned",
             "total_points",
+            "incentive_name",
+            "student_name",
+            "awarded_by_name",
         ]
         read_only_fields = ["id"]
 
 
 class AttendancePredictionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = AttendancePrediction
         fields = [
@@ -572,11 +726,18 @@ class AttendancePredictionSerializer(serializers.ModelSerializer):
             "recommended_action",
             "priority_level",
             "reviewed",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class FieldTripSerializer(serializers.ModelSerializer):
+    organizer_name = serializers.CharField(source="organizer.get_full_name", read_only=True)
+
     class Meta:
         model = FieldTrip
         fields = [
@@ -594,11 +755,20 @@ class FieldTripSerializer(serializers.ModelSerializer):
             "organizer",
             "chaperones",
             "eligible_grades",
+            "organizer_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class FieldTripParticipantSerializer(serializers.ModelSerializer):
+    field_trip_title = serializers.CharField(source="field_trip.title", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = FieldTripParticipant
         fields = [
@@ -612,11 +782,16 @@ class FieldTripParticipantSerializer(serializers.ModelSerializer):
             "payment_status",
             "notes",
             "enrolled_at",
+            "field_trip_title",
+            "student_name",
         ]
         read_only_fields = ["id"]
 
 
 class AttendanceEscalationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    assigned_to_name = serializers.CharField(source="assigned_to.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceEscalation
         fields = [
@@ -633,8 +808,15 @@ class AttendanceEscalationSerializer(serializers.ModelSerializer):
             "assigned_to",
             "meeting_date",
             "meeting_notes",
+            "student_name",
+            "assigned_to_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceAlertConfigSerializer(serializers.ModelSerializer):
@@ -657,7 +839,12 @@ class AttendanceAlertConfigSerializer(serializers.ModelSerializer):
             "notify_teacher",
             "email_template",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TardyPolicySerializer(serializers.ModelSerializer):
@@ -678,10 +865,18 @@ class TardyPolicySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TardyRecordSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    policy_name = serializers.CharField(source="policy_applied.name", read_only=True)
+
     class Meta:
         model = TardyRecord
         fields = [
@@ -698,11 +893,16 @@ class TardyRecordSerializer(serializers.ModelSerializer):
             "consequence",
             "status",
             "parent_notified",
+            "student_name",
+            "policy_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class EarlyDismissalSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    requested_by_name = serializers.CharField(source="requested_by.get_full_name", read_only=True)
+
     class Meta:
         model = EarlyDismissal
         fields = [
@@ -719,11 +919,20 @@ class EarlyDismissalSerializer(serializers.ModelSerializer):
             "reason_detail",
             "pickup_person",
             "pickup_id_verified",
+            "student_name",
+            "requested_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceMakeUpSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceMakeUp
         fields = [
@@ -739,11 +948,20 @@ class AttendanceMakeUpSerializer(serializers.ModelSerializer):
             "location",
             "supervised_by",
             "reason",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class AttendanceAuditEntrySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    changed_by_name = serializers.CharField(source="changed_by.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceAuditEntry
         fields = [
@@ -760,8 +978,13 @@ class AttendanceAuditEntrySerializer(serializers.ModelSerializer):
             "reason",
             "change_date",
             "change_timestamp",
+            "student_name",
+            "changed_by_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class AttendanceConfigurationSerializer(serializers.ModelSerializer):
@@ -784,10 +1007,18 @@ class AttendanceConfigurationSerializer(serializers.ModelSerializer):
             "parent_real_time_view",
             "auto_apply_holidays",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class StudentAttendanceSummarySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+
     class Meta:
         model = StudentAttendanceSummary
         fields = [
@@ -805,8 +1036,14 @@ class StudentAttendanceSummarySerializer(serializers.ModelSerializer):
             "days_early_departure",
             "attendance_percentage",
             "tardiness_rate",
+            "student_name",
+            "academic_year_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class AttendanceLockoutSerializer(serializers.ModelSerializer):
@@ -826,10 +1063,15 @@ class AttendanceLockoutSerializer(serializers.ModelSerializer):
             "unlocked_at",
             "unlock_reason",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class AttendanceCommentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = AttendanceComment
         fields = [
@@ -846,8 +1088,14 @@ class AttendanceCommentSerializer(serializers.ModelSerializer):
             "is_visible_to_student",
             "created_at",
             "updated_at",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 # ── Serializers restored from original module (expansion regression fix) ──
