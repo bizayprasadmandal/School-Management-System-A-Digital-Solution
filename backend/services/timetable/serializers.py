@@ -65,6 +65,7 @@ class PeriodSerializer(serializers.ModelSerializer):
 
 
 class TimetableSlotSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source="room.name", read_only=True)
 
     subject_name = serializers.CharField(source="assignment.subject.name", read_only=True)
     subject_code = serializers.CharField(source="assignment.subject.code", read_only=True)
@@ -97,6 +98,7 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
             "academic_year",
             "effective_from",
             "effective_to",
+            "room_name",
         ]
 
     def get_classroom_name(self, obj):
@@ -130,6 +132,8 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
 
 
 class SchoolEventSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = SchoolEvent
         fields = [
@@ -147,11 +151,16 @@ class SchoolEventSerializer(serializers.ModelSerializer):
             "target_grades",
             "created_by",
             "created_at",
+            "created_by_name",
         ]
         read_only_fields = ["id", "school", "created_by", "created_at"]
 
 
 class TeacherTimetableSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
 
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
@@ -173,6 +182,10 @@ class TeacherTimetableSerializer(serializers.ModelSerializer):
             "period",
             "day_of_week",
             "total_hours_per_week",
+            "teacher_name",
+            "classroom_name",
+            "subject_name",
+            "period_name",
         ]
 
     def get_day_name(self, obj):
@@ -180,6 +193,7 @@ class TeacherTimetableSerializer(serializers.ModelSerializer):
 
 
 class SubstituteTeacherSerializer(serializers.ModelSerializer):
+    period_name = serializers.CharField(source="period.name", read_only=True)
 
     original_teacher_name = serializers.CharField(source="original_teacher.get_full_name", read_only=True)
     substitute_teacher_name = serializers.CharField(source="substitute_teacher.get_full_name", read_only=True)
@@ -200,10 +214,12 @@ class SubstituteTeacherSerializer(serializers.ModelSerializer):
             "reason",
             "status",
             "notes",
+            "period_name",
         ]
 
 
 class ConflictDetectionSerializer(serializers.ModelSerializer):
+    resolved_by_name = serializers.CharField(source="resolved_by.get_full_name", read_only=True)
 
     conflict_type_display = serializers.CharField(source="get_conflict_type_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -223,10 +239,13 @@ class ConflictDetectionSerializer(serializers.ModelSerializer):
             "resolution_notes",
             "resolved_by",
             "resolved_at",
+            "resolved_by_name",
         ]
 
 
 class ExamScheduleSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = ExamSchedule
         fields = [
@@ -243,11 +262,22 @@ class ExamScheduleSerializer(serializers.ModelSerializer):
             "published_at",
             "created_by",
             "created_at",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ExamScheduleEntrySerializer(serializers.ModelSerializer):
+    exam_schedule_title = serializers.CharField(source="exam_schedule.title", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    invigilator_name = serializers.CharField(source="invigilator.get_full_name", read_only=True)
 
     classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
@@ -269,6 +299,11 @@ class ExamScheduleEntrySerializer(serializers.ModelSerializer):
             "invigilator",
             "total_marks",
             "passing_marks",
+            "exam_schedule_title",
+            "classroom_name",
+            "subject_name",
+            "room_name",
+            "invigilator_name",
         ]
 
 
@@ -297,6 +332,8 @@ class AcademicCalendarSerializer(serializers.ModelSerializer):
 
 
 class RoomBookingSerializer(serializers.ModelSerializer):
+    booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
 
     booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
     booking_type_display = serializers.CharField(source="get_booking_type_display", read_only=True)
@@ -320,6 +357,8 @@ class RoomBookingSerializer(serializers.ModelSerializer):
             "status",
             "notes",
             "approved_by",
+            "booked_by_name",
+            "approved_by_name",
         ]
 
 
@@ -339,7 +378,12 @@ class TimetableTemplateSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TimetableTemplateSlotSerializer(serializers.ModelSerializer):
@@ -357,6 +401,8 @@ class TimetableTemplateSlotSerializer(serializers.ModelSerializer):
 
 
 class TeacherPreferenceSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
 
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
     preference_type_display = serializers.CharField(source="get_preference_type_display", read_only=True)
@@ -377,6 +423,8 @@ class TeacherPreferenceSerializer(serializers.ModelSerializer):
             "is_recurring",
             "effective_from",
             "effective_to",
+            "teacher_name",
+            "period_name",
         ]
 
     def get_day_name(self, obj):
@@ -386,6 +434,7 @@ class TeacherPreferenceSerializer(serializers.ModelSerializer):
 
 
 class TimetableApprovalSerializer(serializers.ModelSerializer):
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
 
     submitted_by_name = serializers.CharField(source="submitted_by.get_full_name", read_only=True)
     approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
@@ -407,6 +456,7 @@ class TimetableApprovalSerializer(serializers.ModelSerializer):
             "submitted_at",
             "approved_by",
             "approved_at",
+            "approved_by_name",
         ]
 
 
@@ -525,10 +575,18 @@ class BellScheduleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class BellScheduleEntrySerializer(serializers.ModelSerializer):
+    bell_schedule_name = serializers.CharField(source="bell_schedule.name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+
     class Meta:
         model = BellScheduleEntry
         fields = [
@@ -541,11 +599,15 @@ class BellScheduleEntrySerializer(serializers.ModelSerializer):
             "is_break",
             "break_name",
             "sort_order",
+            "bell_schedule_name",
+            "period_name",
         ]
         read_only_fields = ["id"]
 
 
 class ClassGroupSerializer(serializers.ModelSerializer):
+    class_teacher_name = serializers.CharField(source="class_teacher.get_full_name", read_only=True)
+
     class Meta:
         model = ClassGroup
         fields = [
@@ -562,18 +624,40 @@ class ClassGroupSerializer(serializers.ModelSerializer):
             "subjects",
             "is_active",
             "created_at",
+            "class_teacher_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ClassGroupEnrollmentSerializer(serializers.ModelSerializer):
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = ClassGroupEnrollment
-        fields = ["id", "id", "class_group", "student", "enrolled_date", "is_active", "created_at"]
+        fields = [
+            "id",
+            "id",
+            "class_group",
+            "student",
+            "enrolled_date",
+            "is_active",
+            "created_at" "class_group_label",
+            "student_name",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class SubjectTeacherAssignmentSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+
     class Meta:
         model = SubjectTeacherAssignment
         fields = [
@@ -590,11 +674,24 @@ class SubjectTeacherAssignmentSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
             "updated_at",
+            "teacher_name",
+            "subject_name",
+            "class_group_label",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class LessonPlanSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    period_name = serializers.CharField(source="period.name", read_only=True)
+
     class Meta:
         model = LessonPlan
         fields = [
@@ -609,11 +706,25 @@ class LessonPlanSerializer(serializers.ModelSerializer):
             "timetable_slot",
             "topic",
             "learning_objectives",
+            "teacher_name",
+            "class_group_label",
+            "subject_name",
+            "period_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ExamRoomAllocationSerializer(serializers.ModelSerializer):
+    exam_schedule_title = serializers.CharField(source="exam_schedule.title", read_only=True)
+    room_name = serializers.CharField(source="room.name", read_only=True)
+    invigilator_name = serializers.CharField(source="invigilator.get_full_name", read_only=True)
+    co_invigilator_name = serializers.CharField(source="co_invigilator.get_full_name", read_only=True)
+
     class Meta:
         model = ExamRoomAllocation
         fields = [
@@ -628,18 +739,41 @@ class ExamRoomAllocationSerializer(serializers.ModelSerializer):
             "co_invigilator",
             "seating_arrangement",
             "equipment_needed",
+            "exam_schedule_title",
+            "room_name",
+            "invigilator_name",
+            "co_invigilator_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class SeatingArrangementSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+
     class Meta:
         model = SeatingArrangement
-        fields = ["id", "id", "room_allocation", "student", "seat_number", "row", "column", "created_at"]
+        fields = [
+            "id",
+            "id",
+            "room_allocation",
+            "student",
+            "seat_number",
+            "row",
+            "column",
+            "created_at" "student_name",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class ExamAttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    recorded_by_name = serializers.CharField(source="recorded_by.get_full_name", read_only=True)
+
     class Meta:
         model = ExamAttendance
         fields = [
@@ -655,6 +789,8 @@ class ExamAttendanceSerializer(serializers.ModelSerializer):
             "invigilator_notes",
             "recorded_by",
             "created_at",
+            "student_name",
+            "recorded_by_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -679,10 +815,18 @@ class AcademicSessionSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class SubstituteScheduleSerializer(serializers.ModelSerializer):
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
     class Meta:
         model = SubstituteSchedule
         fields = [
@@ -697,11 +841,20 @@ class SubstituteScheduleSerializer(serializers.ModelSerializer):
             "subject",
             "status",
             "lesson_plan",
+            "class_group_label",
+            "subject_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class RoomUtilizationSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source="room.name", read_only=True)
+
     class Meta:
         model = RoomUtilization
         fields = [
@@ -718,6 +871,7 @@ class RoomUtilizationSerializer(serializers.ModelSerializer):
             "event_hours",
             "conflicts_detected",
             "created_at",
+            "room_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -741,10 +895,18 @@ class TimetableValidationRuleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TimetableValidationErrorSerializer(serializers.ModelSerializer):
+    rule_name = serializers.CharField(source="rule.name", read_only=True)
+    resolved_by_name = serializers.CharField(source="resolved_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableValidationError
         fields = [
@@ -760,11 +922,15 @@ class TimetableValidationErrorSerializer(serializers.ModelSerializer):
             "resolved_at",
             "resolution_notes",
             "created_at",
+            "rule_name",
+            "resolved_by_name",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class TimetableResourceSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source="room.name", read_only=True)
+
     class Meta:
         model = TimetableResource
         fields = [
@@ -780,11 +946,23 @@ class TimetableResourceSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
             "updated_at",
+            "room_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TimetableResourceBookingSerializer(serializers.ModelSerializer):
+    resource_name = serializers.CharField(source="resource.name", read_only=True)
+    booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+    event_title = serializers.CharField(source="event.title", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableResourceBooking
         fields = [
@@ -800,6 +978,11 @@ class TimetableResourceBookingSerializer(serializers.ModelSerializer):
             "event",
             "status",
             "approved_by",
+            "resource_name",
+            "booked_by_name",
+            "class_group_label",
+            "event_title",
+            "approved_by_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -824,10 +1007,16 @@ class TimetableAnalyticsSerializer(serializers.ModelSerializer):
             "avg_teacher_load",
             "max_teacher_load",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class TimetableChangeRequestSerializer(serializers.ModelSerializer):
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableChangeRequest
         fields = [
@@ -842,8 +1031,14 @@ class TimetableChangeRequestSerializer(serializers.ModelSerializer):
             "requested_slot",
             "approved_by",
             "approval_notes",
+            "approved_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class DailyScheduleSerializer(serializers.ModelSerializer):
@@ -866,10 +1061,17 @@ class DailyScheduleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class TeacherWorkloadSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+
     class Meta:
         model = TeacherWorkload
         fields = [
@@ -887,11 +1089,19 @@ class TeacherWorkloadSerializer(serializers.ModelSerializer):
             "max_periods_per_week",
             "workload_percentage",
             "duty_hours_per_week",
+            "teacher_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class ClassScheduleSerializer(serializers.ModelSerializer):
+    class_group_label = serializers.CharField(source="class_group.__str__", read_only=True)
+    finalized_by_name = serializers.CharField(source="finalized_by.get_full_name", read_only=True)
+
     class Meta:
         model = ClassSchedule
         fields = [
@@ -906,11 +1116,15 @@ class ClassScheduleSerializer(serializers.ModelSerializer):
             "finalized_by",
             "created_at",
             "updated_at",
+            "class_group_label",
+            "finalized_by_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class TimetableVersionSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = TimetableVersion
         fields = [
@@ -928,5 +1142,10 @@ class TimetableVersionSerializer(serializers.ModelSerializer):
             "published_at",
             "changes_from_previous",
             "created_by",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]

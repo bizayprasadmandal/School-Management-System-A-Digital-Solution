@@ -118,6 +118,9 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["classroom", "day_of_week", "academic_year", "assignment__teacher"]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         user = self.request.user
         qs = TimetableSlot.objects.filter(classroom__school=user.school).select_related(
@@ -246,6 +249,9 @@ class TeacherTimetableViewSet(viewsets.ModelViewSet):
     serializer_class = TeacherTimetableSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return TeacherTimetable.objects.filter(teacher=self.request.user)
 
@@ -253,6 +259,9 @@ class TeacherTimetableViewSet(viewsets.ModelViewSet):
 class SubstituteTeacherViewSet(viewsets.ModelViewSet):
     serializer_class = SubstituteTeacherSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return SubstituteTeacher.objects.filter(school=self.request.user.school)
@@ -262,6 +271,9 @@ class ConflictDetectionViewSet(viewsets.ModelViewSet):
     serializer_class = ConflictDetectionSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return ConflictDetection.objects.filter(school=self.request.user.school)
 
@@ -269,6 +281,9 @@ class ConflictDetectionViewSet(viewsets.ModelViewSet):
 class ExamScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = ExamScheduleSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return ExamSchedule.objects.filter(school=self.request.user.school)
@@ -278,6 +293,9 @@ class ExamScheduleEntryViewSet(viewsets.ModelViewSet):
     serializer_class = ExamScheduleEntrySerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return ExamScheduleEntry.objects.filter(exam_schedule__school=self.request.user.school)
 
@@ -285,6 +303,9 @@ class ExamScheduleEntryViewSet(viewsets.ModelViewSet):
 class AcademicCalendarViewSet(viewsets.ModelViewSet):
     serializer_class = AcademicCalendarSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return AcademicCalendar.objects.filter(school=self.request.user.school)
@@ -294,6 +315,9 @@ class RoomBookingViewSet(viewsets.ModelViewSet):
     serializer_class = RoomBookingSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return RoomBooking.objects.filter(school=self.request.user.school)
 
@@ -301,6 +325,9 @@ class RoomBookingViewSet(viewsets.ModelViewSet):
 class TimetableTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableTemplateSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return TimetableTemplate.objects.filter(school=self.request.user.school)
@@ -310,6 +337,9 @@ class TimetableTemplateSlotViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableTemplateSlotSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return TimetableTemplateSlot.objects.filter(template__school=self.request.user.school)
 
@@ -317,6 +347,9 @@ class TimetableTemplateSlotViewSet(viewsets.ModelViewSet):
 class TeacherPreferenceViewSet(viewsets.ModelViewSet):
     serializer_class = TeacherPreferenceSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return TeacherPreference.objects.filter(teacher=self.request.user)
@@ -326,6 +359,9 @@ class TimetableApprovalViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableApprovalSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return TimetableApproval.objects.filter(school=self.request.user.school)
 
@@ -333,6 +369,9 @@ class TimetableApprovalViewSet(viewsets.ModelViewSet):
 class TimetableChangeViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableChangeSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return TimetableChange.objects.filter(school=self.request.user.school)
@@ -342,6 +381,9 @@ class CoCurricularScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = CoCurricularScheduleSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return CoCurricularSchedule.objects.filter(school=self.request.user.school)
 
@@ -350,6 +392,9 @@ class TimetableReportViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableReportSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_queryset(self):
         return TimetableReport.objects.filter(school=self.request.user.school)
 
@@ -357,6 +402,9 @@ class TimetableReportViewSet(viewsets.ModelViewSet):
 class SchoolClosureViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolClosureSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
     def get_queryset(self):
         return SchoolClosure.objects.filter(school=self.request.user.school)
@@ -391,7 +439,7 @@ class BellScheduleEntryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return BellScheduleEntry.objects.filter(school=self.request.user.school)
+        return BellScheduleEntry.objects.filter(bell_schedule__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -399,7 +447,7 @@ class BellScheduleEntryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ClassGroupViewSet(viewsets.ModelViewSet):
@@ -428,7 +476,7 @@ class ClassGroupEnrollmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ClassGroupEnrollment.objects.filter(school=self.request.user.school)
+        return ClassGroupEnrollment.objects.filter(class_group__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -436,7 +484,7 @@ class ClassGroupEnrollmentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class SubjectTeacherAssignmentViewSet(viewsets.ModelViewSet):
@@ -503,7 +551,7 @@ class SeatingArrangementViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return SeatingArrangement.objects.filter(school=self.request.user.school)
+        return SeatingArrangement.objects.filter(room_allocation__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -511,7 +559,7 @@ class SeatingArrangementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ExamAttendanceViewSet(viewsets.ModelViewSet):
@@ -521,7 +569,7 @@ class ExamAttendanceViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ExamAttendance.objects.filter(school=self.request.user.school)
+        return ExamAttendance.objects.filter(exam_entry__exam_schedule__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -529,7 +577,7 @@ class ExamAttendanceViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AcademicSessionViewSet(viewsets.ModelViewSet):
@@ -577,7 +625,7 @@ class RoomUtilizationViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return RoomUtilization.objects.filter(school=self.request.user.school)
+        return RoomUtilization.objects.filter(room__building__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -585,7 +633,7 @@ class RoomUtilizationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class TimetableValidationRuleViewSet(viewsets.ModelViewSet):
@@ -614,7 +662,7 @@ class TimetableValidationErrorViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return TimetableValidationError.objects.filter(school=self.request.user.school)
+        return TimetableValidationError.objects.filter(rule__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -622,7 +670,7 @@ class TimetableValidationErrorViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class TimetableResourceViewSet(viewsets.ModelViewSet):
@@ -651,7 +699,7 @@ class TimetableResourceBookingViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return TimetableResourceBooking.objects.filter(school=self.request.user.school)
+        return TimetableResourceBooking.objects.filter(resource__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -659,7 +707,7 @@ class TimetableResourceBookingViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class TimetableAnalyticsViewSet(viewsets.ModelViewSet):
@@ -745,7 +793,7 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ClassSchedule.objects.filter(school=self.request.user.school)
+        return ClassSchedule.objects.filter(class_group__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -753,7 +801,7 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class TimetableVersionViewSet(viewsets.ModelViewSet):
