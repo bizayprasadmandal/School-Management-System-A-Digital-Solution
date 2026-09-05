@@ -717,7 +717,7 @@ class AnnouncementReadViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return AnnouncementRead.objects.filter(school=self.request.user.school)
+        return AnnouncementRead.objects.filter(announcement__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -725,7 +725,7 @@ class AnnouncementReadViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
@@ -754,7 +754,7 @@ class DeviceTokenViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return DeviceToken.objects.filter(school=self.request.user.school)
+        return DeviceToken.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -762,7 +762,7 @@ class DeviceTokenViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class GroupMembershipViewSet(viewsets.ModelViewSet):
@@ -772,7 +772,7 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return GroupMembership.objects.filter(school=self.request.user.school)
+        return GroupMembership.objects.filter(group__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -780,7 +780,7 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class SurveyViewSet(viewsets.ModelViewSet):
@@ -809,7 +809,7 @@ class SurveyResponseViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return SurveyResponse.objects.filter(school=self.request.user.school)
+        return SurveyResponse.objects.filter(survey__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -817,7 +817,7 @@ class SurveyResponseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class PollViewSet(viewsets.ModelViewSet):
@@ -846,7 +846,7 @@ class PollVoteViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return PollVote.objects.filter(school=self.request.user.school)
+        return PollVote.objects.filter(poll__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -854,7 +854,7 @@ class PollVoteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class EmailTemplateViewSet(viewsets.ModelViewSet):

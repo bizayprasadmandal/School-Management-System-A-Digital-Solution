@@ -45,6 +45,8 @@ from .models import (
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = Announcement
         fields = [
@@ -66,18 +68,31 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             "published_at",
             "expires_at",
             "created_at",
+            "created_by_name",
         ]
         read_only_fields = ["id", "school", "created_by", "created_at"]
 
 
 class AnnouncementReadSerializer(serializers.ModelSerializer):
+    announcement_title = serializers.CharField(source="announcement.title", read_only=True)
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = AnnouncementRead
-        fields = ["id", "announcement", "user", "read_at"]
+        fields = [
+            "id",
+            "announcement",
+            "user",
+            "read_at" "announcement_title",
+            "user_name",
+        ]
         read_only_fields = ["id"]
 
 
 class DirectMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
+    recipient_name = serializers.CharField(source="recipient.get_full_name", read_only=True)
+
     class Meta:
         model = DirectMessage
         fields = [
@@ -94,6 +109,8 @@ class DirectMessageSerializer(serializers.ModelSerializer):
             "sent_at",
             "delivered_at",
             "read_at",
+            "sender_name",
+            "recipient_name",
         ]
         read_only_fields = ["id", "sender", "status", "sent_at"]
 
@@ -126,10 +143,15 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
             "push_body",
             "is_active",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = Notification
         fields = [
@@ -146,11 +168,14 @@ class NotificationSerializer(serializers.ModelSerializer):
             "read_at",
             "failure_reason",
             "created_at",
+            "user_name",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class DeviceTokenSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = DeviceToken
         fields = [
@@ -164,11 +189,16 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
             "is_active",
             "registered_at",
             "last_used_at",
+            "user_name",
         ]
         read_only_fields = ["id"]
 
 
 class ChatGroupSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = ChatGroup
         fields = [
@@ -184,11 +214,22 @@ class ChatGroupSerializer(serializers.ModelSerializer):
             "avatar",
             "is_archived",
             "is_muted",
+            "classroom_name",
+            "subject_name",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = GroupMembership
         fields = [
@@ -204,11 +245,17 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
             "unread_count",
             "joined_at",
             "last_active_at",
+            "group_name",
+            "user_name",
         ]
         read_only_fields = ["id"]
 
 
 class GroupMessageSerializer(serializers.ModelSerializer):
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
+    reply_to_preview = serializers.CharField(source="reply_to.content", read_only=True)
+
     class Meta:
         model = GroupMessage
         fields = [
@@ -225,11 +272,19 @@ class GroupMessageSerializer(serializers.ModelSerializer):
             "is_deleted",
             "reactions",
             "sent_at",
+            "group_name",
+            "sender_name",
+            "reply_to_preview",
         ]
         read_only_fields = ["id", "updated_at"]
 
 
 class ParentTeacherChatSerializer(serializers.ModelSerializer):
+    parent_name = serializers.CharField(source="parent.get_full_name", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
     class Meta:
         model = ParentTeacherChat
         fields = [
@@ -245,11 +300,23 @@ class ParentTeacherChatSerializer(serializers.ModelSerializer):
             "is_archived_by_teacher",
             "last_message_at",
             "parent_unread_count",
+            "parent_name",
+            "teacher_name",
+            "student_name",
+            "subject_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ParentTeacherMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
+    reply_to_preview = serializers.CharField(source="reply_to.content", read_only=True)
+
     class Meta:
         model = ParentTeacherMessage
         fields = [
@@ -265,11 +332,15 @@ class ParentTeacherMessageSerializer(serializers.ModelSerializer):
             "is_read_by_teacher",
             "sent_at",
             "updated_at",
+            "sender_name",
+            "reply_to_preview",
         ]
         read_only_fields = ["id", "updated_at"]
 
 
 class VideoConferenceSerializer(serializers.ModelSerializer):
+    host_name = serializers.CharField(source="host.get_full_name", read_only=True)
+
     class Meta:
         model = VideoConference
         fields = [
@@ -287,18 +358,40 @@ class VideoConferenceSerializer(serializers.ModelSerializer):
             "duration_minutes",
             "status",
             "max_participants",
+            "host_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class ConferenceParticipantSerializer(serializers.ModelSerializer):
+    conference_title = serializers.CharField(source="conference.title", read_only=True)
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = ConferenceParticipant
-        fields = ["id", "id", "conference", "user", "status", "joined_at", "left_at", "duration_minutes", "invited_at"]
+        fields = [
+            "id",
+            "id",
+            "conference",
+            "user",
+            "status",
+            "joined_at",
+            "left_at",
+            "duration_minutes",
+            "invited_at" "conference_title",
+            "user_name",
+        ]
         read_only_fields = ["id"]
 
 
 class SMSIntegrationSerializer(serializers.ModelSerializer):
+    sent_by_name = serializers.CharField(source="sent_by.get_full_name", read_only=True)
+
     class Meta:
         model = SMSIntegration
         fields = [
@@ -316,11 +409,19 @@ class SMSIntegrationSerializer(serializers.ModelSerializer):
             "error_message",
             "sent_at",
             "delivered_at",
+            "sent_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class EmailIntegrationSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    sent_by_name = serializers.CharField(source="sent_by.get_full_name", read_only=True)
+
     class Meta:
         model = EmailIntegration
         fields = [
@@ -339,11 +440,19 @@ class EmailIntegrationSerializer(serializers.ModelSerializer):
             "provider_message_id",
             "attachment",
             "sent_by",
+            "subject_name",
+            "sent_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class FileAttachmentSerializer(serializers.ModelSerializer):
+    uploaded_by_name = serializers.CharField(source="uploaded_by.get_full_name", read_only=True)
+
     class Meta:
         model = FileAttachment
         fields = [
@@ -361,11 +470,18 @@ class FileAttachmentSerializer(serializers.ModelSerializer):
             "reference_id",
             "is_public",
             "download_count",
+            "uploaded_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class MessageThreadSerializer(serializers.ModelSerializer):
+    last_reply_by_name = serializers.CharField(source="last_reply_by.get_full_name", read_only=True)
+
     class Meta:
         model = MessageThread
         fields = [
@@ -377,32 +493,64 @@ class MessageThreadSerializer(serializers.ModelSerializer):
             "last_reply_by",
             "is_closed",
             "created_at",
+            "last_reply_by_name",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class ReadReceiptSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = ReadReceipt
-        fields = ["id", "id", "message", "user", "read_at"]
+        fields = [
+            "id",
+            "id",
+            "message",
+            "user",
+            "read_at" "user_name",
+        ]
         read_only_fields = ["id"]
 
 
 class TypingIndicatorSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = TypingIndicator
-        fields = ["id", "id", "user", "chat_type", "chat_id", "started_at", "expires_at"]
+        fields = [
+            "id",
+            "id",
+            "user",
+            "chat_type",
+            "chat_id",
+            "started_at",
+            "expires_at" "user_name",
+        ]
         read_only_fields = ["id"]
 
 
 class MessageReactionSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = MessageReaction
-        fields = ["id", "id", "message", "user", "emoji", "created_at"]
+        fields = [
+            "id",
+            "id",
+            "message",
+            "user",
+            "emoji",
+            "created_at" "user_name",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class VoiceMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    chat_subject = serializers.CharField(source="parent_teacher_chat.subject", read_only=True)
+
     class Meta:
         model = VoiceMessage
         fields = [
@@ -417,6 +565,9 @@ class VoiceMessageSerializer(serializers.ModelSerializer):
             "transcription",
             "is_transcribed",
             "sent_at",
+            "sender_name",
+            "group_name",
+            "chat_subject",
         ]
         read_only_fields = ["id"]
 
@@ -441,10 +592,19 @@ class BroadcastMessageSerializer(serializers.ModelSerializer):
             "total_recipients",
             "total_sent",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class CommunicationLogSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True)
+    recipient_name = serializers.CharField(source="recipient.get_full_name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
     class Meta:
         model = CommunicationLog
         fields = [
@@ -460,8 +620,14 @@ class CommunicationLogSerializer(serializers.ModelSerializer):
             "reference_type",
             "reference_id",
             "status",
+            "sender_name",
+            "recipient_name",
+            "subject_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class SurveySerializer(serializers.ModelSerializer):
@@ -484,10 +650,20 @@ class SurveySerializer(serializers.ModelSerializer):
             "end_date",
             "total_invited",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class SurveyResponseSerializer(serializers.ModelSerializer):
+    survey_title = serializers.CharField(source="survey.title", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    parent_name = serializers.CharField(source="parent.get_full_name", read_only=True)
+    staff_name = serializers.CharField(source="staff.get_full_name", read_only=True)
+
     class Meta:
         model = SurveyResponse
         fields = [
@@ -502,11 +678,17 @@ class SurveyResponseSerializer(serializers.ModelSerializer):
             "overall_rating",
             "comments",
             "submitted_at",
+            "survey_title",
+            "student_name",
+            "parent_name",
+            "staff_name",
         ]
         read_only_fields = ["id"]
 
 
 class PollSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = Poll
         fields = [
@@ -523,18 +705,44 @@ class PollSerializer(serializers.ModelSerializer):
             "is_anonymous",
             "allow_multiple_choices",
             "max_choices",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class PollVoteSerializer(serializers.ModelSerializer):
+    poll_title = serializers.CharField(source="poll.title", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    parent_name = serializers.CharField(source="parent.get_full_name", read_only=True)
+    staff_name = serializers.CharField(source="staff.get_full_name", read_only=True)
+
     class Meta:
         model = PollVote
-        fields = ["id", "id", "poll", "voter_type", "student", "parent", "staff", "selected_options", "voted_at"]
+        fields = [
+            "id",
+            "id",
+            "poll",
+            "voter_type",
+            "student",
+            "parent",
+            "staff",
+            "selected_options",
+            "voted_at" "poll_title",
+            "student_name",
+            "parent_name",
+            "staff_name",
+        ]
         read_only_fields = ["id"]
 
 
 class EmailTemplateSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = EmailTemplate
         fields = [
@@ -552,8 +760,15 @@ class EmailTemplateSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "subject_name",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class SMSGatewayConfigSerializer(serializers.ModelSerializer):
@@ -574,10 +789,17 @@ class SMSGatewayConfigSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class SMSLogSerializer(serializers.ModelSerializer):
+    sent_by_name = serializers.CharField(source="sent_by.get_full_name", read_only=True)
+
     class Meta:
         model = SMSLog
         fields = [
@@ -595,11 +817,17 @@ class SMSLogSerializer(serializers.ModelSerializer):
             "reference_id",
             "sent_by",
             "sent_at",
+            "sent_by_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class NewsletterSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
     class Meta:
         model = Newsletter
         fields = [
@@ -618,8 +846,14 @@ class NewsletterSerializer(serializers.ModelSerializer):
             "total_recipients",
             "total_opened",
             "total_clicked",
+            "subject_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class EmergencyAlertSerializer(serializers.ModelSerializer):
@@ -642,10 +876,16 @@ class EmergencyAlertSerializer(serializers.ModelSerializer):
             "total_delivered",
             "total_read",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "school",
+        ]
 
 
 class CommunicationPreferenceSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = CommunicationPreference
         fields = [
@@ -663,11 +903,20 @@ class CommunicationPreferenceSerializer(serializers.ModelSerializer):
             "emergency_alerts",
             "event_reminders",
             "quiet_hours_start",
+            "user_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class MessageTemplateSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = MessageTemplate
         fields = [
@@ -685,11 +934,21 @@ class MessageTemplateSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "subject_name",
+            "created_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class MessageDeliveryStatusSerializer(serializers.ModelSerializer):
+    notification_title = serializers.CharField(source="notification.title", read_only=True)
+    recipient_name = serializers.CharField(source="recipient.get_full_name", read_only=True)
+
     class Meta:
         model = MessageDeliveryStatus
         fields = [
@@ -705,11 +964,20 @@ class MessageDeliveryStatusSerializer(serializers.ModelSerializer):
             "delivered_at",
             "read_at",
             "error_message",
+            "notification_title",
+            "recipient_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
 
 
 class CommunicationBlacklistSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = CommunicationBlacklist
         fields = [
@@ -723,8 +991,12 @@ class CommunicationBlacklistSerializer(serializers.ModelSerializer):
             "blacklisted_at",
             "expires_at",
             "is_active",
+            "user_name",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class CommunicationAnalyticsSerializer(serializers.ModelSerializer):
@@ -747,10 +1019,16 @@ class CommunicationAnalyticsSerializer(serializers.ModelSerializer):
             "sms_failed",
             "push_sent",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "school",
+        ]
 
 
 class NotificationScheduleSerializer(serializers.ModelSerializer):
+    notification_title = serializers.CharField(source="notification.title", read_only=True)
+    announcement_title = serializers.CharField(source="announcement.title", read_only=True)
+
     class Meta:
         model = NotificationSchedule
         fields = [
@@ -767,5 +1045,12 @@ class NotificationScheduleSerializer(serializers.ModelSerializer):
             "last_executed",
             "next_execution",
             "execution_count",
+            "notification_title",
+            "announcement_title",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        ]
