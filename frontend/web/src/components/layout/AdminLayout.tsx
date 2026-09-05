@@ -26,6 +26,7 @@ import {
   VideoCameraIcon,
   PaperAirplaneIcon,
   ShieldExclamationIcon,
+  LockClosedIcon,
   BriefcaseIcon,
   TruckIcon,
   CubeIcon,
@@ -58,22 +59,46 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     items: [
       { label: "Students", to: "/admin/students", icon: UsersIcon },
       { label: "Teachers", to: "/admin/teachers", icon: AcademicCapIcon },
-      { label: "Classrooms", to: "/admin/classrooms", icon: BuildingLibraryIcon },
+      {
+        label: "Classrooms",
+        to: "/admin/classrooms",
+        icon: BuildingLibraryIcon,
+      },
       { label: "Timetable", to: "/admin/timetable", icon: CalendarDaysIcon },
-      { label: "Attendance", to: "/admin/attendance", icon: ClipboardDocumentCheckIcon },
+      {
+        label: "Attendance",
+        to: "/admin/attendance",
+        icon: ClipboardDocumentCheckIcon,
+      },
       { label: "Examinations", to: "/admin/exams", icon: BookOpenIcon },
-      { label: "Report Cards", to: "/admin/report-cards", icon: DocumentChartBarIcon },
+      {
+        label: "Report Cards",
+        to: "/admin/report-cards",
+        icon: DocumentChartBarIcon,
+      },
     ],
   },
   {
     title: "Communication",
     icon: MegaphoneIcon,
     items: [
-      { label: "Announcements", to: "/admin/announcements", icon: MegaphoneIcon },
-      { label: "Bulk Messages", to: "/admin/bulk-messages", icon: PaperAirplaneIcon },
+      {
+        label: "Announcements",
+        to: "/admin/announcements",
+        icon: MegaphoneIcon,
+      },
+      {
+        label: "Bulk Messages",
+        to: "/admin/bulk-messages",
+        icon: PaperAirplaneIcon,
+      },
       { label: "Event Calendar", to: "/admin/events", icon: CalendarDaysIcon },
       { label: "Conferences", to: "/admin/conferences", icon: VideoCameraIcon },
-      { label: "Zoom Integration", to: "/admin/zoom-integration", icon: VideoCameraIcon },
+      {
+        label: "Zoom Integration",
+        to: "/admin/zoom-integration",
+        icon: VideoCameraIcon,
+      },
     ],
   },
   {
@@ -84,7 +109,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
       { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
       { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
-      { label: "Infrastructure", to: "/admin/infrastructure", icon: BuildingOffice2Icon },
+      {
+        label: "Infrastructure",
+        to: "/admin/infrastructure",
+        icon: BuildingOffice2Icon,
+      },
       { label: "Hostel", to: "/admin/hostel", icon: BuildingOffice2Icon },
       { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
       { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
@@ -95,7 +124,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     icon: TrophyIcon,
     items: [
       { label: "Library", to: "/admin/library", icon: BookOpenIcon },
-      { label: "Behavior", to: "/admin/behavior", icon: ExclamationTriangleIcon },
+      {
+        label: "Behavior",
+        to: "/admin/behavior",
+        icon: ExclamationTriangleIcon,
+      },
       { label: "Sports", to: "/admin/sports", icon: TrophyIcon },
       { label: "Health", to: "/admin/health", icon: HeartIcon },
       { label: "Alumni", to: "/admin/alumni", icon: GlobeAltIcon },
@@ -106,7 +139,16 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     icon: ChartBarIcon,
     items: [
       { label: "Analytics", to: "/admin/reports", icon: ChartBarIcon },
-      { label: "Audit Log", to: "/admin/audit-logs", icon: ShieldExclamationIcon },
+      {
+        label: "Audit Log",
+        to: "/admin/audit-logs",
+        icon: ShieldExclamationIcon,
+      },
+      {
+        label: "Access Control",
+        to: "/admin/access-control",
+        icon: LockClosedIcon,
+      },
     ],
   },
   { label: "Settings", to: "/admin/settings", icon: Cog6ToothIcon },
@@ -117,7 +159,11 @@ const PLATFORM_SECTION: SidebarNavSection = {
   icon: BuildingOffice2Icon,
   items: [
     { label: "Platform Dashboard", to: "/admin/platform", icon: ChartBarIcon },
-    { label: "Schools", to: "/admin/platform/schools", icon: BuildingOffice2Icon },
+    {
+      label: "Schools",
+      to: "/admin/platform/schools",
+      icon: BuildingOffice2Icon,
+    },
   ],
 };
 

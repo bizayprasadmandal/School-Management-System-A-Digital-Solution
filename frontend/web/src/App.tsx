@@ -63,6 +63,7 @@ const AlumniPage = React.lazy(() => import("./pages/admin/AlumniPage"));
 const CafeteriaPage = React.lazy(() => import("./pages/admin/CafeteriaPage"));
 const AdmissionsPage = React.lazy(() => import("./pages/admin/AdmissionsPage"));
 const InfrastructurePage = React.lazy(() => import("./pages/admin/InfrastructurePage"));
+const AccessControlPage = React.lazy(() => import("./pages/admin/AccessControlPage"));
 
 // Teacher pages
 const TeacherDashboard = React.lazy(() => import("./pages/teacher/Dashboard"));
@@ -299,6 +300,7 @@ function App() {
                   <Route path="admissions" element={<AdmissionsPage />} />
                   <Route path="infrastructure" element={<InfrastructurePage />} />
                   <Route path="audit-logs" element={<AuditLogsPage />} />
+                  <Route path="access-control" element={<AccessControlPage />} />
                   <Route path="zoom-integration" element={<ZoomIntegrationPage />} />
                   {/* Platform Management (super admin only) */}
                   <Route path="platform" element={<PlatformDashboard />} />
