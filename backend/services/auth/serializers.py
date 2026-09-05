@@ -54,7 +54,6 @@ class SchoolSerializer(serializers.ModelSerializer):
         model = School
         fields = [
             "id",
-            "id",
             "name",
             "code",
             "subdomain",
@@ -301,43 +300,128 @@ class SessionPolicySerializer(serializers.ModelSerializer):
 
 
 class RoleSerializer(serializers.ModelSerializer):
+    """School-scoped dynamic roles. `school` is set from the request user."""
+
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+    permission_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Role
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "description",
             "parent_role",
             "level",
             "is_active",
             "is_system_role",
+            "permission_count",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_system_role", "created_at", "updated_at"]
+
+    def get_permission_count(self, obj):
+        return obj.role_permissions.count()
 
 
 class PermissionSerializer(serializers.ModelSerializer):
+    """Global permission catalog shared across schools."""
+
+    permission_type_display = serializers.CharField(source="get_permission_type_display", read_only=True)
+
     class Meta:
         model = Permission
-        fields = ["id", "id", "name", "codename", "description", "permission_type", "module", "is_active", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "codename",
+            "description",
+            "permission_type",
+            "permission_type_display",
+            "module",
+            "is_active",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
 class RolePermissionSerializer(serializers.ModelSerializer):
+    """Grant a catalog permission to a school role."""
+
+    role_name = serializers.CharField(source="role.name", read_only=True)
+    permission_name = serializers.CharField(source="permission.name", read_only=True)
+    permission_codename = serializers.CharField(source="permission.codename", read_only=True)
+    permission_module = serializers.CharField(source="permission.module", read_only=True)
+    permission_type_display = serializers.CharField(source="permission.get_permission_type_display", read_only=True)
+    granted_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = RolePermission
-        fields = ["id", "id", "role", "permission", "granted", "conditions", "granted_at", "granted_by"]
-        read_only_fields = ["id"]
+        fields = [
+            "id",
+            "role",
+            "role_name",
+            "permission",
+            "permission_name",
+            "permission_codename",
+            "permission_module",
+            "permission_type_display",
+            "granted",
+            "conditions",
+            "granted_at",
+            "granted_by",
+            "granted_by_name",
+        ]
+        read_only_fields = ["id", "granted_at", "granted_by"]
+
+    def get_granted_by_name(self, obj):
+        return obj.granted_by.full_name if obj.granted_by else None
 
 
 class UserRoleSerializer(serializers.ModelSerializer):
+    """Assign a school role to a user of the same school."""
+
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    role_name = serializers.CharField(source="role.name", read_only=True)
+    assigned_by_name = serializers.SerializerMethodField()
+
     class Meta:
         model = UserRoleAssignment
-        fields = ["id", "id", "user", "role", "scope", "is_active", "assigned_date", "expiry_date", "assigned_by"]
-        read_only_fields = ["id"]
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "user_email",
+            "role",
+            "role_name",
+            "scope",
+            "is_active",
+            "assigned_date",
+            "expiry_date",
+            "assigned_by",
+            "assigned_by_name",
+        ]
+        read_only_fields = ["id", "assigned_date", "assigned_by"]
+
+    def get_user_name(self, obj):
+        return obj.user.full_name if obj.user else None
+
+    def get_assigned_by_name(self, obj):
+        return obj.assigned_by.full_name if obj.assigned_by else None
+
+
+class UserDirectorySerializer(serializers.ModelSerializer):
+    """Lightweight school user record for role-assignment pickers."""
+
+    full_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "full_name", "role", "is_active", "avatar"]
+        read_only_fields = fields
 
 
 class SecurityPolicySerializer(serializers.ModelSerializer):

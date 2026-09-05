@@ -53,6 +53,7 @@ from .views import (
     TwoFactorBackupCodeViewSet,
     UploadAvatarView,
     UserActivityViewSet,
+    UserDirectoryViewSet,
     UserRoleViewSet,
     UserSessionHistoryViewSet,
     UserSessionViewSet,
@@ -66,7 +67,7 @@ from .views import (
 app_name = "auth_v1"
 
 router = DefaultRouter()
-router.register(r"school", SchoolViewSet, basename="school")
+router.register(r"schools", SchoolViewSet, basename="school")
 router.register(r"user-session", UserSessionViewSet, basename="user-session")
 router.register(r"password-reset-token", PasswordResetTokenViewSet, basename="password-reset-token")
 router.register(r"email-verification-token", EmailVerificationTokenViewSet, basename="email-verification-token")
@@ -84,6 +85,7 @@ router.register(r"role", RoleViewSet, basename="role")
 router.register(r"permission", PermissionViewSet, basename="permission")
 router.register(r"role-permission", RolePermissionViewSet, basename="role-permission")
 router.register(r"user-role", UserRoleViewSet, basename="user-role")
+router.register(r"user-directory", UserDirectoryViewSet, basename="user-directory")
 router.register(r"security-policy", SecurityPolicyViewSet, basename="security-policy")
 router.register(r"login-attempt", LoginAttemptViewSet, basename="login-attempt")
 router.register(r"session-token", SessionTokenViewSet, basename="session-token")

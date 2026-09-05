@@ -19,7 +19,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, parsers, status, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -64,6 +65,7 @@ from .models import (
     TwoFactorBackupCode,
     User,
     UserActivity,
+    UserRole,
     UserRoleAssignment,
     UserSession,
     UserSessionHistory,
@@ -99,6 +101,7 @@ from .serializers import (
     PlatformDashboardSerializer,
     RolePermissionSerializer,
     RoleSerializer,
+    SchoolAdminSerializer,
     SchoolFeatureFlagSerializer,
     SchoolSerializer,
     SecurityNotificationPreferenceSerializer,
@@ -108,6 +111,7 @@ from .serializers import (
     SSOConfigurationSerializer,
     TwoFactorBackupCodeSerializer,
     UserActivitySerializer,
+    UserDirectorySerializer,
     UserProfileSerializer,
     UserRoleSerializer,
     UserSessionHistorySerializer,
@@ -941,21 +945,63 @@ class PlatformDashboardView(APIView):
 
 
 class SchoolViewSet(viewsets.ModelViewSet):
+    """
+    School records. Super admins manage all schools (list/create/toggle/add
+    admins); school members can only read/update their own school.
+    """
+
     serializer_class = SchoolSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["is_active", "subscription_tier"]
+    search_fields = ["name", "code", "subdomain", "email"]
+    ordering_fields = ["name", "created_at"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
-        return School.objects.filter(school=self.request.user.school)
+        user = self.request.user
+        if user.is_authenticated and user.role == UserRole.SUPER_ADMIN:
+            return School.objects.all()
+        if user.is_authenticated and user.school_id:
+            return School.objects.filter(id=user.school_id)
+        return School.objects.none()
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
+        if self.action in ["create", "destroy", "toggle_active", "admins", "add_admin"]:
+            # platform management is super-admin only
+            return [IsAuthenticated(), IsSuperAdmin()]
+        # list/retrieve/update: super admins (platform) and school members
+        # (their own school only — enforced by get_queryset)
+        return [IsAuthenticated()]
 
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        """Activate or deactivate a school (super admin)."""
+        school = self.get_object()
+        school.is_active = not school.is_active
+        school.save(update_fields=["is_active"])
+        return Response({"id": school.id, "is_active": school.is_active})
+
+    @action(detail=True, methods=["get"])
+    def admins(self, request, pk=None):
+        """List school admin users for a given school."""
+        school = self.get_object()
+        admins = User.objects.filter(school=school, role=UserRole.SCHOOL_ADMIN)
+        page = self.paginate_queryset(admins)
+        if page is not None:
+            serializer = SchoolAdminSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = SchoolAdminSerializer(admins, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def add_admin(self, request, pk=None):
+        """Create a school admin user for a given school (super admin)."""
+        school = self.get_object()
+        serializer = SchoolAdminSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save(school=school, email_verified=True)
+        return Response(SchoolAdminSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class UserSessionViewSet(viewsets.ModelViewSet):
@@ -1218,31 +1264,42 @@ class RoleViewSet(viewsets.ModelViewSet):
 
 
 class PermissionViewSet(viewsets.ModelViewSet):
+    """
+    Global permission catalog — shared across schools, not tenant-scoped.
+    School members read it to build role grants; only super admins mutate it.
+    """
+
     serializer_class = PermissionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["name"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name", "codename", "module"]
+    filterset_fields = ["permission_type", "module", "is_active"]
+    ordering_fields = ["module", "name", "permission_type"]
+    ordering = ["module", "name"]
 
     def get_queryset(self):
-        return Permission.objects.filter(school=self.request.user.school)
+        return Permission.objects.all()
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
+            return [IsAuthenticated(), IsSuperAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class RolePermissionViewSet(viewsets.ModelViewSet):
+    """
+    Grant catalog permissions to a school's roles. Model has no `school` FK,
+    so all rows are scoped through `role__school`.
+    """
+
     serializer_class = RolePermissionSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["role__name", "permission__name", "permission__codename"]
+    filterset_fields = ["role", "permission", "granted"]
 
     def get_queryset(self):
-        return RolePermission.objects.filter(school=self.request.user.school)
+        return RolePermission.objects.filter(role__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1250,17 +1307,32 @@ class RolePermissionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        role = serializer.validated_data.get("role")
+        if role is None or role.school_id != self.request.user.school_id:
+            raise PermissionDenied("Role does not belong to your school.")
+        serializer.save(granted_by=self.request.user)
+
+    def perform_update(self, serializer):
+        role = serializer.validated_data.get("role")
+        if role is not None and role.school_id != self.request.user.school_id:
+            raise PermissionDenied("Role does not belong to your school.")
+        serializer.save()
 
 
 class UserRoleViewSet(viewsets.ModelViewSet):
+    """
+    Assign a school role to a user of the same school. Model has no `school`
+    FK, so rows are scoped through `user__school`.
+    """
+
     serializer_class = UserRoleSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
+    search_fields = ["user__email", "user__first_name", "user__last_name", "role__name"]
+    filterset_fields = ["user", "role", "is_active"]
 
     def get_queryset(self):
-        return UserRoleAssignment.objects.filter(school=self.request.user.school)
+        return UserRoleAssignment.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1268,7 +1340,39 @@ class UserRoleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        user = serializer.validated_data.get("user")
+        role = serializer.validated_data.get("role")
+        if user is None or user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        if role is None or role.school_id != self.request.user.school_id:
+            raise PermissionDenied("Role does not belong to your school.")
+        serializer.save(assigned_by=self.request.user)
+
+    def perform_update(self, serializer):
+        user = serializer.validated_data.get("user")
+        role = serializer.validated_data.get("role")
+        if user is not None and user.school_id != self.request.user.school_id:
+            raise PermissionDenied("User does not belong to your school.")
+        if role is not None and role.school_id != self.request.user.school_id:
+            raise PermissionDenied("Role does not belong to your school.")
+        serializer.save()
+
+
+class UserDirectoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only directory of the requesting user's school (role assignment
+    pickers). Searchable by name/email; never exposes credentials.
+    """
+
+    serializer_class = UserDirectorySerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    search_fields = ["email", "first_name", "last_name"]
+    filterset_fields = ["role", "is_active"]
+
+    def get_queryset(self):
+        return User.objects.filter(school=self.request.user.school).order_by("first_name", "last_name")
 
 
 class SecurityPolicyViewSet(viewsets.ModelViewSet):
