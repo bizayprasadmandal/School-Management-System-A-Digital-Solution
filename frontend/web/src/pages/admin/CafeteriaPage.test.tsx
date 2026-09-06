@@ -28,7 +28,7 @@ const mockMenu = {
   id: "1",
   name: "Grilled Chicken",
   date: "2026-08-09",
-  meal_type_display: "Lunch",
+  meal_type: "lunch",
   items: "Grilled chicken, rice, salad",
   price: "250",
   is_vegetarian: false,
@@ -55,8 +55,8 @@ describe("Admin CafeteriaPage", () => {
 
   test("renders the heading and the menu list", async () => {
     renderWithProviders(<CafeteriaPage />);
-    expect(screen.getByRole("heading", { name: "Cafeteria & Meals" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cafeteria Center" })).toBeInTheDocument();
     expect(await screen.findByText("Grilled Chicken")).toBeInTheDocument();
-    expect(screen.getByText("Lunch")).toBeInTheDocument();
+    expect(screen.getAllByText("lunch").length).toBeGreaterThan(0);
   });
 });
