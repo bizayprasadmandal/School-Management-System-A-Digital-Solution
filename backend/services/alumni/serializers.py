@@ -766,11 +766,14 @@ class AlumniPollSerializer(serializers.ModelSerializer):
 
 
 class AlumniPollOptionSerializer(serializers.ModelSerializer):
+    poll_title = serializers.CharField(source="poll.title", read_only=True)
+
     class Meta:
         model = AlumniPollOption
         fields = [
             "id",
             "poll",
+            "poll_title",
             "text",
             "vote_count",
             "order",
