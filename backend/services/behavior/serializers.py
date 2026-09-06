@@ -432,11 +432,15 @@ class BehaviorRubricSerializer(serializers.ModelSerializer):
 
 
 class BehaviorRubricLevelSerializer(serializers.ModelSerializer):
+
+    rubric_name = serializers.CharField(source="rubric.name", read_only=True)
+
     class Meta:
         model = BehaviorRubricLevel
         fields = [
             "id",
             "rubric",
+            "rubric_name",
             "score",
             "label",
             "description",
@@ -1534,4 +1538,4 @@ class BehaviorParentPortalSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "last_login_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "last_login_at", "created_at", "updated_at"]
