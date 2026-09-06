@@ -389,6 +389,9 @@ class FineManagementViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, IsSchoolAdmin]
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
     def get_queryset(self):
         return FineManagement.objects.filter(school=self.request.user.school)
 
@@ -596,6 +599,9 @@ class LibraryNotificationViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, IsSchoolMember]
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
     def get_queryset(self):
         user = self.request.user
         if user.role in ["school_admin", "super_admin", "librarian"]:
@@ -676,7 +682,9 @@ class BookConditionLogViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return BookConditionLog.objects.filter(school=self.request.user.school)
+        return BookConditionLog.objects.filter(book_copy__book__school=self.request.user.school).select_related(
+            "book_copy__book"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -808,7 +816,7 @@ class BookClubMembershipViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return BookClubMembership.objects.filter(school=self.request.user.school)
+        return BookClubMembership.objects.filter(book_club__school=self.request.user.school).select_related("book_club")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -864,7 +872,9 @@ class ReadingChallengeProgressViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReadingChallengeProgress.objects.filter(school=self.request.user.school)
+        return ReadingChallengeProgress.objects.filter(challenge__school=self.request.user.school).select_related(
+            "challenge"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

@@ -60,6 +60,9 @@ class BookSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+    checked_out_by_name = serializers.CharField(source="checked_out_by.get_full_name", read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
     days_overdue = serializers.IntegerField(read_only=True)
 
@@ -78,6 +81,9 @@ class CheckoutSerializer(serializers.ModelSerializer):
             "notes",
             "is_overdue",
             "days_overdue",
+            "book_title",
+            "student_name",
+            "checked_out_by_name",
         ]
         read_only_fields = ["id", "checked_out_by", "checked_out_at", "fine_amount"]
 
@@ -114,7 +120,12 @@ class LibrarianProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookCategorySerializer(serializers.ModelSerializer):
@@ -131,10 +142,17 @@ class BookCategorySerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "school",
+        )
 
 
 class BookReservationSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = BookReservation
         fields = [
@@ -148,6 +166,8 @@ class BookReservationSerializer(serializers.ModelSerializer):
             "notified",
             "notes",
             "created_at",
+            "book_title",
+            "student_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -169,10 +189,18 @@ class ReadingListSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class ReadingListItemSerializer(serializers.ModelSerializer):
+    reading_list_name = serializers.CharField(source="reading_list.name", read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = ReadingListItem
         fields = [
@@ -184,6 +212,8 @@ class ReadingListItemSerializer(serializers.ModelSerializer):
             "is_required",
             "notes",
             "added_at",
+            "reading_list_name",
+            "book_title",
         ]
         read_only_fields = ["id"]
 
@@ -207,7 +237,12 @@ class DigitalResourceSerializer(serializers.ModelSerializer):
             "publication_date",
             "duration_minutes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class InventoryManagementSerializer(serializers.ModelSerializer):
@@ -229,10 +264,18 @@ class InventoryManagementSerializer(serializers.ModelSerializer):
             "total_damaged",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class InventoryAuditItemSerializer(serializers.ModelSerializer):
+    audit_name = serializers.CharField(source="audit.name", read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = InventoryAuditItem
         fields = [
@@ -246,11 +289,15 @@ class InventoryAuditItemSerializer(serializers.ModelSerializer):
             "shelf_location",
             "notes",
             "checked_at",
+            "audit_name",
+            "book_title",
         ]
         read_only_fields = ["id"]
 
 
 class BarcodeTrackingSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = BarcodeTracking
         fields = [
@@ -264,11 +311,15 @@ class BarcodeTrackingSerializer(serializers.ModelSerializer):
             "assigned_at",
             "last_scanned_at",
             "created_at",
+            "book_title",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class FineManagementSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = FineManagement
         fields = [
@@ -284,11 +335,21 @@ class FineManagementSerializer(serializers.ModelSerializer):
             "status",
             "days_overdue",
             "reason",
+            "student_name",
+            "book_title",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class FinePaymentSerializer(serializers.ModelSerializer):
+    fine_reference = serializers.CharField(source="fine.__str__", read_only=True)
+    received_by_name = serializers.CharField(source="received_by.get_full_name", read_only=True)
+
     class Meta:
         model = FinePayment
         fields = [
@@ -301,6 +362,8 @@ class FinePaymentSerializer(serializers.ModelSerializer):
             "reference_number",
             "notes",
             "paid_at",
+            "fine_reference",
+            "received_by_name",
         ]
         read_only_fields = ["id"]
 
@@ -325,7 +388,10 @@ class LibraryAnalyticsSerializer(serializers.ModelSerializer):
             "books_damaged",
             "active_users",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = (
+            "id",
+            "school",
+        )
 
 
 class LibraryEventSerializer(serializers.ModelSerializer):
@@ -347,10 +413,18 @@ class LibraryEventSerializer(serializers.ModelSerializer):
             "organizer",
             "is_mandatory",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class EventRegistrationSerializer(serializers.ModelSerializer):
+    event_name = serializers.CharField(source="event.name", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = EventRegistration
         fields = [
@@ -362,11 +436,16 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
             "registered_at",
             "attended_at",
             "notes",
+            "event_name",
+            "student_name",
         ]
         read_only_fields = ["id"]
 
 
 class BookReviewSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = BookReview
         fields = [
@@ -382,6 +461,8 @@ class BookReviewSerializer(serializers.ModelSerializer):
             "helpful_count",
             "created_at",
             "updated_at",
+            "book_title",
+            "student_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
@@ -405,10 +486,18 @@ class InterLibraryLoanSerializer(serializers.ModelSerializer):
             "actual_arrival",
             "due_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookRecommendationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = BookRecommendation
         fields = [
@@ -422,11 +511,16 @@ class BookRecommendationSerializer(serializers.ModelSerializer):
             "is_dismissed",
             "is_read",
             "created_at",
+            "student_name",
+            "book_title",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class LibraryNotificationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = LibraryNotification
         fields = [
@@ -441,8 +535,14 @@ class LibraryNotificationSerializer(serializers.ModelSerializer):
             "book",
             "checkout",
             "event",
+            "student_name",
+            "book_title",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "school",
+        )
 
 
 class BookCopySerializer(serializers.ModelSerializer):
@@ -464,10 +564,18 @@ class BookCopySerializer(serializers.ModelSerializer):
             "purchase_price",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookConditionLogSerializer(serializers.ModelSerializer):
+    copy_label = serializers.CharField(source="book_copy.__str__", read_only=True)
+    reported_by_name = serializers.CharField(source="reported_by.get_full_name", read_only=True)
+
     class Meta:
         model = BookConditionLog
         fields = [
@@ -479,6 +587,8 @@ class BookConditionLogSerializer(serializers.ModelSerializer):
             "reason",
             "reported_by",
             "created_at",
+            "copy_label",
+            "reported_by_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -501,7 +611,12 @@ class BookRepairSerializer(serializers.ModelSerializer):
             "reported_by",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookDonationSerializer(serializers.ModelSerializer):
@@ -523,10 +638,16 @@ class BookDonationSerializer(serializers.ModelSerializer):
             "received_date",
             "received_by",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "school",
+        )
 
 
 class BookPurchaseSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = BookPurchase
         fields = [
@@ -544,11 +665,19 @@ class BookPurchaseSerializer(serializers.ModelSerializer):
             "order_date",
             "expected_date",
             "received_date",
+            "book_title",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class LibraryCardSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = LibraryCard
         fields = [
@@ -565,11 +694,20 @@ class LibraryCardSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
             "updated_at",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class AcquisitionRequestSerializer(serializers.ModelSerializer):
+    requested_by_name = serializers.CharField(source="requested_by.get_full_name", read_only=True)
+    approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
+
     class Meta:
         model = AcquisitionRequest
         fields = [
@@ -587,8 +725,15 @@ class AcquisitionRequestSerializer(serializers.ModelSerializer):
             "priority",
             "status",
             "approved_by",
+            "requested_by_name",
+            "approved_by_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookClubSerializer(serializers.ModelSerializer):
@@ -609,10 +754,18 @@ class BookClubSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class BookClubMembershipSerializer(serializers.ModelSerializer):
+    club_name = serializers.CharField(source="book_club.name", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = BookClubMembership
         fields = [
@@ -625,11 +778,15 @@ class BookClubMembershipSerializer(serializers.ModelSerializer):
             "end_date",
             "is_active",
             "created_at",
+            "club_name",
+            "student_name",
         ]
         read_only_fields = ["id", "created_at"]
 
 
 class StudentReadingLogSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = StudentReadingLog
         fields = [
@@ -646,8 +803,14 @@ class StudentReadingLogSerializer(serializers.ModelSerializer):
             "end_date",
             "rating",
             "review",
+            "student_name",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class ReadingChallengeSerializer(serializers.ModelSerializer):
@@ -669,10 +832,18 @@ class ReadingChallengeSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "school",
+        )
 
 
 class ReadingChallengeProgressSerializer(serializers.ModelSerializer):
+    challenge_name = serializers.CharField(source="challenge.name", read_only=True)
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+
     class Meta:
         model = ReadingChallengeProgress
         fields = [
@@ -686,11 +857,16 @@ class ReadingChallengeProgressSerializer(serializers.ModelSerializer):
             "completed_date",
             "created_at",
             "updated_at",
+            "challenge_name",
+            "student_name",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class LibraryFeedbackSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.__str__", read_only=True)
+    responded_by_name = serializers.CharField(source="responded_by.get_full_name", read_only=True)
+
     class Meta:
         model = LibraryFeedback
         fields = [
@@ -707,8 +883,14 @@ class LibraryFeedbackSerializer(serializers.ModelSerializer):
             "responded_by",
             "responded_at",
             "created_at",
+            "student_name",
+            "responded_by_name",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = (
+            "id",
+            "created_at",
+            "school",
+        )
 
 
 # ── Serializers restored from original module (expansion regression fix) ──
