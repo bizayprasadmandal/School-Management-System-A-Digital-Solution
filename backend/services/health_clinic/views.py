@@ -891,7 +891,9 @@ class EquipmentMaintenanceViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return EquipmentMaintenance.objects.filter(school=self.request.user.school)
+        return EquipmentMaintenance.objects.filter(equipment__school=self.request.user.school).select_related(
+            "equipment"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
