@@ -66,7 +66,7 @@ describe("Admin TimetablePage", () => {
 
   test("renders the heading and classroom selector options", () => {
     renderWithProviders(<TimetablePage />);
-    expect(screen.getByRole("heading", { name: "Timetable" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Timetable Center" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Grade 5 5A" })).toBeInTheDocument();
   });
 
