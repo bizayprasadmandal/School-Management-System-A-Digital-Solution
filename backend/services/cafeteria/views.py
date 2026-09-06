@@ -425,7 +425,9 @@ class OnlineOrderItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return OnlineOrderItem.objects.filter(school=self.request.user.school)
+        return OnlineOrderItem.objects.filter(order__school=self.request.user.school).select_related(
+            "order", "menu_item"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -433,7 +435,7 @@ class OnlineOrderItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class MealDeliveryViewSet(viewsets.ModelViewSet):
@@ -595,7 +597,7 @@ class NutritionAnalysisViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return NutritionAnalysis.objects.filter(school=self.request.user.school)
+        return NutritionAnalysis.objects.filter(menu_item__school=self.request.user.school).select_related("menu_item")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -603,7 +605,7 @@ class NutritionAnalysisViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(analyzed_by=self.request.user)
 
 
 class CafeteriaEquipmentViewSet(viewsets.ModelViewSet):
@@ -689,7 +691,9 @@ class SubscriptionUsageViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return SubscriptionUsage.objects.filter(school=self.request.user.school)
+        return SubscriptionUsage.objects.filter(subscription__school=self.request.user.school).select_related(
+            "subscription", "menu_item"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -697,7 +701,7 @@ class SubscriptionUsageViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class CafeteriaAnalyticsViewSet(viewsets.ModelViewSet):
@@ -745,7 +749,9 @@ class MenuItemRatingViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return MenuItemRating.objects.filter(school=self.request.user.school)
+        return MenuItemRating.objects.filter(menu_item__school=self.request.user.school).select_related(
+            "menu_item", "student"
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -753,7 +759,7 @@ class MenuItemRatingViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class CafeteriaHolidayScheduleViewSet(viewsets.ModelViewSet):
