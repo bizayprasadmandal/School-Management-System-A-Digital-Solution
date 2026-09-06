@@ -105,6 +105,8 @@ class CheckoutSerializer(serializers.ModelSerializer):
 
 
 class LibrarianProfileSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+
     class Meta:
         model = LibrarianProfile
         fields = [
@@ -119,6 +121,7 @@ class LibrarianProfileSerializer(serializers.ModelSerializer):
             "bio",
             "created_at",
             "updated_at",
+            "user_name",
         ]
         read_only_fields = (
             "id",
@@ -173,6 +176,8 @@ class BookReservationSerializer(serializers.ModelSerializer):
 
 
 class ReadingListSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
     class Meta:
         model = ReadingList
         fields = [
@@ -188,6 +193,7 @@ class ReadingListSerializer(serializers.ModelSerializer):
             "is_mandatory",
             "start_date",
             "end_date",
+            "created_by_name",
         ]
         read_only_fields = (
             "id",
@@ -246,6 +252,8 @@ class DigitalResourceSerializer(serializers.ModelSerializer):
 
 
 class InventoryManagementSerializer(serializers.ModelSerializer):
+    conducted_by_name = serializers.CharField(source="conducted_by.get_full_name", read_only=True)
+
     class Meta:
         model = InventoryManagement
         fields = [
@@ -263,6 +271,7 @@ class InventoryManagementSerializer(serializers.ModelSerializer):
             "total_missing",
             "total_damaged",
             "notes",
+            "conducted_by_name",
         ]
         read_only_fields = (
             "id",
@@ -395,6 +404,8 @@ class LibraryAnalyticsSerializer(serializers.ModelSerializer):
 
 
 class LibraryEventSerializer(serializers.ModelSerializer):
+    organizer_name = serializers.CharField(source="organizer.get_full_name", read_only=True)
+
     class Meta:
         model = LibraryEvent
         fields = [
@@ -412,6 +423,7 @@ class LibraryEventSerializer(serializers.ModelSerializer):
             "current_participants",
             "organizer",
             "is_mandatory",
+            "organizer_name",
         ]
         read_only_fields = (
             "id",
@@ -468,6 +480,8 @@ class BookReviewSerializer(serializers.ModelSerializer):
 
 
 class InterLibraryLoanSerializer(serializers.ModelSerializer):
+    requesting_student_name = serializers.CharField(source="requesting_student.__str__", read_only=True)
+
     class Meta:
         model = InterLibraryLoan
         fields = [
@@ -485,6 +499,7 @@ class InterLibraryLoanSerializer(serializers.ModelSerializer):
             "expected_arrival",
             "actual_arrival",
             "due_date",
+            "requesting_student_name",
         ]
         read_only_fields = (
             "id",
@@ -546,6 +561,8 @@ class LibraryNotificationSerializer(serializers.ModelSerializer):
 
 
 class BookCopySerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+
     class Meta:
         model = BookCopy
         fields = [
@@ -563,6 +580,7 @@ class BookCopySerializer(serializers.ModelSerializer):
             "purchase_date",
             "purchase_price",
             "notes",
+            "book_title",
         ]
         read_only_fields = (
             "id",
@@ -594,6 +612,9 @@ class BookConditionLogSerializer(serializers.ModelSerializer):
 
 
 class BookRepairSerializer(serializers.ModelSerializer):
+    copy_label = serializers.CharField(source="book_copy.__str__", read_only=True)
+    reported_by_name = serializers.CharField(source="reported_by.get_full_name", read_only=True)
+
     class Meta:
         model = BookRepair
         fields = [
@@ -610,6 +631,8 @@ class BookRepairSerializer(serializers.ModelSerializer):
             "completed_date",
             "reported_by",
             "notes",
+            "copy_label",
+            "reported_by_name",
         ]
         read_only_fields = (
             "id",
@@ -620,6 +643,8 @@ class BookRepairSerializer(serializers.ModelSerializer):
 
 
 class BookDonationSerializer(serializers.ModelSerializer):
+    received_by_name = serializers.CharField(source="received_by.get_full_name", read_only=True)
+
     class Meta:
         model = BookDonation
         fields = [
@@ -637,6 +662,7 @@ class BookDonationSerializer(serializers.ModelSerializer):
             "status",
             "received_date",
             "received_by",
+            "received_by_name",
         ]
         read_only_fields = (
             "id",
@@ -737,6 +763,9 @@ class AcquisitionRequestSerializer(serializers.ModelSerializer):
 
 
 class BookClubSerializer(serializers.ModelSerializer):
+    advisor_name = serializers.CharField(source="advisor.get_full_name", read_only=True)
+    current_book_title = serializers.CharField(source="current_book.title", read_only=True)
+
     class Meta:
         model = BookClub
         fields = [
@@ -753,6 +782,8 @@ class BookClubSerializer(serializers.ModelSerializer):
             "current_book",
             "is_active",
             "created_at",
+            "advisor_name",
+            "current_book_title",
         ]
         read_only_fields = (
             "id",
