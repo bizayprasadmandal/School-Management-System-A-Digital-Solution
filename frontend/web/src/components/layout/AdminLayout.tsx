@@ -66,6 +66,7 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         to: "/admin/classrooms",
         icon: BuildingLibraryIcon,
       },
+      { label: "Academics Hub", to: "/admin/academics", icon: BookOpenIcon },
       { label: "Timetable", to: "/admin/timetable", icon: CalendarDaysIcon },
       {
         label: "Attendance",

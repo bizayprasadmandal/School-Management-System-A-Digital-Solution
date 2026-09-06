@@ -42,6 +42,7 @@ const TimetablePage = React.lazy(() => import("./pages/admin/TimetablePage"));
 const AttendancePage = React.lazy(() => import("./pages/admin/AttendancePage"));
 const ExamsPage = React.lazy(() => import("./pages/admin/ExamsPage"));
 const ReportCardsPage = React.lazy(() => import("./pages/admin/ReportCardsPage"));
+const AcademicsPage = React.lazy(() => import("./pages/admin/AcademicsPage"));
 const AnnouncementsPage = React.lazy(() => import("./pages/admin/AnnouncementsPage"));
 const FeesPage = React.lazy(() => import("./pages/admin/FeesPage"));
 const SettingsPage = React.lazy(() => import("./pages/admin/SettingsPage"));
@@ -281,6 +282,7 @@ function App() {
                   <Route path="exams" element={<ExamsPage />} />
                   <Route path="assignments" element={<TeacherAssignments />} />
                   <Route path="report-cards" element={<ReportCardsPage />} />
+                  <Route path="academics" element={<AcademicsPage />} />
                   <Route path="announcements" element={<AnnouncementsPage />} />
                   <Route path="fees" element={<FeesPage />} />
                   <Route path="reports" element={<ReportsPage />} />
