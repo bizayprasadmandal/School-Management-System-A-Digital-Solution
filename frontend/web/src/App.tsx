@@ -61,6 +61,7 @@ const HostelPage = React.lazy(() => import("./pages/admin/HostelPage"));
 const SportsPage = React.lazy(() => import("./pages/admin/SportsPage"));
 const HealthPage = React.lazy(() => import("./pages/admin/HealthPage"));
 const AlumniPage = React.lazy(() => import("./pages/admin/AlumniPage"));
+const CounselingCenterPage = React.lazy(() => import("./pages/admin/CounselingCenterPage"));
 const CafeteriaPage = React.lazy(() => import("./pages/admin/CafeteriaPage"));
 const AdmissionsPage = React.lazy(() => import("./pages/admin/AdmissionsPage"));
 const InfrastructurePage = React.lazy(() => import("./pages/admin/InfrastructurePage"));
@@ -300,6 +301,7 @@ function App() {
                   <Route path="sports" element={<SportsPage />} />
                   <Route path="health" element={<HealthPage />} />
                   <Route path="alumni" element={<AlumniPage />} />
+                  <Route path="counseling" element={<CounselingCenterPage />} />
                   <Route path="cafeteria" element={<CafeteriaPage />} />
                   <Route path="admissions" element={<AdmissionsPage />} />
                   <Route path="infrastructure" element={<InfrastructurePage />} />

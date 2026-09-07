@@ -140,6 +140,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       { label: "Sports", to: "/admin/sports", icon: TrophyIcon },
       { label: "Health", to: "/admin/health", icon: HeartIcon },
       { label: "Alumni", to: "/admin/alumni", icon: GlobeAltIcon },
+      {
+        label: "Counseling",
+        to: "/admin/counseling",
+        icon: AcademicCapIcon,
+      },
     ],
   },
   {
