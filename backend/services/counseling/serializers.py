@@ -269,6 +269,8 @@ class CounselingSessionSerializer(serializers.ModelSerializer):
 
 
 class InterventionGoalSerializer(serializers.ModelSerializer):
+    plan_title = serializers.CharField(source="intervention_plan.title", read_only=True)
+
     class Meta:
         model = InterventionGoal
         fields = [
@@ -283,6 +285,7 @@ class InterventionGoalSerializer(serializers.ModelSerializer):
             "notes",
             "order",
             "created_at",
+            "plan_title",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -327,6 +330,8 @@ class InterventionPlanSerializer(serializers.ModelSerializer):
 
 
 class ScreeningResponseSerializer(serializers.ModelSerializer):
+    screening_title = serializers.CharField(source="screening.screening_type", read_only=True)
+
     class Meta:
         model = ScreeningResponse
         fields = [
@@ -337,6 +342,7 @@ class ScreeningResponseSerializer(serializers.ModelSerializer):
             "response_value",
             "response_text",
             "created_at",
+            "screening_title",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -444,9 +450,21 @@ class CrisisInterventionSerializer(serializers.ModelSerializer):
 
 
 class ProgressMilestoneSerializer(serializers.ModelSerializer):
+    progress_domain = serializers.CharField(source="progress.domain", read_only=True)
+
     class Meta:
         model = ProgressMilestone
-        fields = ["id", "progress", "description", "target_date", "achieved", "achieved_date", "notes", "created_at"]
+        fields = [
+            "id",
+            "progress",
+            "description",
+            "target_date",
+            "achieved",
+            "achieved_date",
+            "notes",
+            "created_at",
+            "progress_domain",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -807,12 +825,17 @@ class CounselingFeedbackSerializer(serializers.ModelSerializer):
 
 
 class CourseRecommendationSerializer(serializers.ModelSerializer):
+    advising_type = serializers.CharField(source="advising.advising_type", read_only=True)
     advising_student = serializers.CharField(source="advising.student.user.full_name", read_only=True)
 
     class Meta:
         model = CourseRecommendation
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "advising_type",
+        ]
 
 
 class AcademicAdvisingSerializer(serializers.ModelSerializer):
@@ -900,7 +923,7 @@ class CounselingWorkshopSerializer(serializers.ModelSerializer):
     class Meta:
         model = CounselingWorkshop
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 # =============================================================================
@@ -949,7 +972,7 @@ class ExternalReferralProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExternalReferralProvider
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReferralTrackingSerializer(serializers.ModelSerializer):
@@ -968,10 +991,16 @@ class ReferralTrackingSerializer(serializers.ModelSerializer):
 
 
 class BullyingFollowUpSerializer(serializers.ModelSerializer):
+    report_type = serializers.CharField(source="report.report_type", read_only=True)
+
     class Meta:
         model = BullyingFollowUp
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "report_type",
+        ]
 
 
 class BullyingReportSerializer(serializers.ModelSerializer):
@@ -1043,7 +1072,7 @@ class CounselingSurveySerializer(serializers.ModelSerializer):
     class Meta:
         model = CounselingSurvey
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 # =============================================================================
@@ -1052,10 +1081,18 @@ class CounselingSurveySerializer(serializers.ModelSerializer):
 
 
 class CounselorCoverageSerializer(serializers.ModelSerializer):
+    absent_counselor_name = serializers.CharField(source="absent_counselor.full_name", read_only=True)
+    covering_counselor_name = serializers.CharField(source="covering_counselor.full_name", read_only=True)
+
     class Meta:
         model = CounselorCoverage
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "absent_counselor_name",
+            "covering_counselor_name",
+        ]
 
 
 class SpecialEducationReferralSerializer(serializers.ModelSerializer):

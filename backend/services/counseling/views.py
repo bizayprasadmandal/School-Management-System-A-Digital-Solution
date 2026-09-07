@@ -416,7 +416,7 @@ class CounselingSessionViewSet(viewsets.ModelViewSet):
     serializer_class = CounselingSessionSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["session_type", "counselor", "student", "status"]
+    filterset_fields = ["session_type", "counselor", "student"]
     search_fields = ["notes", "student__user__first_name", "student__user__last_name"]
     ordering_fields = ["session_date", "created_at"]
     ordering = ["-session_date"]
@@ -439,9 +439,9 @@ class InterventionPlanViewSet(viewsets.ModelViewSet):
     serializer_class = InterventionPlanSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["status", "category", "counselor", "student"]
+    filterset_fields = ["status", "counselor", "student"]
     search_fields = ["title", "description", "student__user__first_name"]
-    ordering_fields = ["start_date", "target_date", "created_at"]
+    ordering_fields = ["start_date", "created_at"]
     ordering = ["-created_at"]
 
     def get_queryset(self):
@@ -459,10 +459,10 @@ class InterventionGoalViewSet(viewsets.ModelViewSet):
     serializer_class = InterventionGoalSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["plan", "status"]
+    filterset_fields = ["status"]
 
     def get_queryset(self):
-        return InterventionGoal.objects.filter(plan__school=self.request.user.school)
+        return InterventionGoal.objects.filter(intervention_plan__school=self.request.user.school)
 
 
 # ─── Mental Health Screening ViewSet ────────────────────────────────────
@@ -476,7 +476,7 @@ class MentalHealthScreeningViewSet(viewsets.ModelViewSet):
     serializer_class = MentalHealthScreeningSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["screening_type", "is_active"]
+    filterset_fields = ["screening_type"]
     search_fields = ["title", "description"]
 
     def get_queryset(self):
@@ -494,10 +494,10 @@ class ScreeningResponseViewSet(viewsets.ModelViewSet):
     serializer_class = ScreeningResponseSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["screening", "student"]
+    filterset_fields = ["screening"]
 
     def get_queryset(self):
-        return ScreeningResponse.objects.filter(school=self.request.user.school)
+        return ScreeningResponse.objects.filter(screening__school=self.request.user.school)
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, completed_by=self.request.user)
@@ -514,10 +514,10 @@ class CrisisInterventionViewSet(viewsets.ModelViewSet):
     serializer_class = CrisisInterventionSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["severity", "status", "student"]
+    filterset_fields = ["status", "student"]
     search_fields = ["description", "student__user__first_name"]
-    ordering_fields = ["incident_date", "created_at"]
-    ordering = ["-incident_date"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         return CrisisIntervention.objects.filter(school=self.request.user.school)
@@ -534,10 +534,10 @@ class CrisisFollowUpViewSet(viewsets.ModelViewSet):
     serializer_class = CrisisFollowUpSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["intervention", "completed"]
+    filterset_fields = []
 
     def get_queryset(self):
-        return CrisisFollowUp.objects.filter(intervention__school=self.request.user.school)
+        return CrisisFollowUp.objects.filter(crisis__school=self.request.user.school)
 
 
 # ─── Progress Tracking ViewSet ──────────────────────────────────────────
@@ -551,7 +551,7 @@ class ProgressTrackingViewSet(viewsets.ModelViewSet):
     serializer_class = ProgressTrackingSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["student", "status", "goal_category"]
+    filterset_fields = ["student"]
     search_fields = ["title", "student__user__first_name"]
 
     def get_queryset(self):
@@ -569,10 +569,10 @@ class ProgressMilestoneViewSet(viewsets.ModelViewSet):
     serializer_class = ProgressMilestoneSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["tracking", "status"]
+    filterset_fields = []
 
     def get_queryset(self):
-        return ProgressMilestone.objects.filter(tracking__school=self.request.user.school)
+        return ProgressMilestone.objects.filter(progress__school=self.request.user.school)
 
 
 # ─── Parent Consent ViewSet ─────────────────────────────────────────────
@@ -607,7 +607,7 @@ class GroupSessionViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSessionSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["counselor", "session_type", "status"]
+    filterset_fields = ["counselor", "status"]
     search_fields = ["title", "description"]
 
     def get_queryset(self):
@@ -625,7 +625,7 @@ class GroupSessionAttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSessionAttendanceSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["group_session", "student", "attended"]
+    filterset_fields = ["group_session", "student"]
 
     def get_queryset(self):
         return GroupSessionAttendance.objects.filter(group_session__school=self.request.user.school)
@@ -642,7 +642,7 @@ class CaseManagementViewSet(viewsets.ModelViewSet):
     serializer_class = CaseManagementSerializer
     permission_classes = [IsAuthenticated, IsSchoolMember]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["status", "priority", "case_worker", "student"]
+    filterset_fields = ["status", "priority", "student"]
     search_fields = ["case_number", "student__user__first_name", "title"]
     ordering_fields = ["created_at", "updated_at"]
     ordering = ["-created_at"]
@@ -741,6 +741,12 @@ class AcademicAdvisingViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return AcademicAdvising.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class BullyingFollowUpViewSet(viewsets.ModelViewSet):
     queryset = BullyingFollowUp.objects.all()
@@ -748,6 +754,9 @@ class BullyingFollowUpViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return BullyingFollowUp.objects.filter(report__school=self.request.user.school)
 
 
 class BullyingReportViewSet(viewsets.ModelViewSet):
@@ -757,6 +766,12 @@ class BullyingReportViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return BullyingReport.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CareerAssessmentViewSet(viewsets.ModelViewSet):
     queryset = CareerAssessment.objects.all()
@@ -764,6 +779,12 @@ class CareerAssessmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CareerAssessment.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class CareerGoalViewSet(viewsets.ModelViewSet):
@@ -773,6 +794,12 @@ class CareerGoalViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CareerGoal.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CaseNoteViewSet(viewsets.ModelViewSet):
     queryset = CaseNote.objects.all()
@@ -780,6 +807,9 @@ class CaseNoteViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CaseNote.objects.filter(case__school=self.request.user.school)
 
 
 class CollegeApplicationViewSet(viewsets.ModelViewSet):
@@ -789,6 +819,12 @@ class CollegeApplicationViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CollegeApplication.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselingContractViewSet(viewsets.ModelViewSet):
     queryset = CounselingContract.objects.all()
@@ -796,6 +832,12 @@ class CounselingContractViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CounselingContract.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class CounselingGoalTrackingViewSet(viewsets.ModelViewSet):
@@ -805,6 +847,12 @@ class CounselingGoalTrackingViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselingGoalTracking.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselingNotificationViewSet(viewsets.ModelViewSet):
     queryset = CounselingNotification.objects.all()
@@ -813,13 +861,25 @@ class CounselingNotificationViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselingNotification.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselingSessionLogViewSet(viewsets.ModelViewSet):
     queryset = CounselingSessionLog.objects.all()
     serializer_class = CounselingSessionLogSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = []
+    ordering = ["-timestamp"]
+
+    def get_queryset(self):
+        return CounselingSessionLog.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class CounselingSurveyViewSet(viewsets.ModelViewSet):
@@ -829,13 +889,22 @@ class CounselingSurveyViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselingSurvey.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselingSurveyResponseViewSet(viewsets.ModelViewSet):
     queryset = CounselingSurveyResponse.objects.all()
     serializer_class = CounselingSurveyResponseSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = []
+    ordering = ["-id"]
+
+    def get_queryset(self):
+        return CounselingSurveyResponse.objects.filter(survey__school=self.request.user.school)
 
 
 class CounselingWaitlistViewSet(viewsets.ModelViewSet):
@@ -845,6 +914,12 @@ class CounselingWaitlistViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselingWaitlist.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselingWorkshopViewSet(viewsets.ModelViewSet):
     queryset = CounselingWorkshop.objects.all()
@@ -852,6 +927,12 @@ class CounselingWorkshopViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CounselingWorkshop.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class CounselorAbsenceViewSet(viewsets.ModelViewSet):
@@ -861,6 +942,12 @@ class CounselorAbsenceViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselorAbsence.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CounselorCoverageViewSet(viewsets.ModelViewSet):
     queryset = CounselorCoverage.objects.all()
@@ -868,6 +955,12 @@ class CounselorCoverageViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CounselorCoverage.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class CounselorProfileViewSet(viewsets.ModelViewSet):
@@ -877,6 +970,12 @@ class CounselorProfileViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return CounselorProfile.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class CourseRecommendationViewSet(viewsets.ModelViewSet):
     queryset = CourseRecommendation.objects.all()
@@ -884,6 +983,9 @@ class CourseRecommendationViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return CourseRecommendation.objects.filter(advising__school=self.request.user.school)
 
 
 class ExternalReferralProviderViewSet(viewsets.ModelViewSet):
@@ -893,13 +995,22 @@ class ExternalReferralProviderViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return ExternalReferralProvider.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class GroupSessionMemberViewSet(viewsets.ModelViewSet):
     queryset = GroupSessionMember.objects.all()
     serializer_class = GroupSessionMemberSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = []
+    ordering = ["-id"]
+
+    def get_queryset(self):
+        return GroupSessionMember.objects.filter(group_session__school=self.request.user.school)
 
 
 class PeerMentorViewSet(viewsets.ModelViewSet):
@@ -909,6 +1020,12 @@ class PeerMentorViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return PeerMentor.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class PeerMentoringSessionViewSet(viewsets.ModelViewSet):
     queryset = PeerMentoringSession.objects.all()
@@ -916,6 +1033,9 @@ class PeerMentoringSessionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return PeerMentoringSession.objects.filter(mentor__school=self.request.user.school)
 
 
 class ReferralTrackingViewSet(viewsets.ModelViewSet):
@@ -925,6 +1045,12 @@ class ReferralTrackingViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return ReferralTracking.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class RestorativeCommitmentViewSet(viewsets.ModelViewSet):
     queryset = RestorativeCommitment.objects.all()
@@ -932,6 +1058,9 @@ class RestorativeCommitmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return RestorativeCommitment.objects.filter(session__school=self.request.user.school)
 
 
 class RestorativeJusticeSessionViewSet(viewsets.ModelViewSet):
@@ -941,6 +1070,12 @@ class RestorativeJusticeSessionViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return RestorativeJusticeSession.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class SELAssessmentViewSet(viewsets.ModelViewSet):
     queryset = SELAssessment.objects.all()
@@ -948,6 +1083,12 @@ class SELAssessmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return SELAssessment.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class SELGoalViewSet(viewsets.ModelViewSet):
@@ -957,6 +1098,12 @@ class SELGoalViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return SELGoal.objects.filter(student__school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
 
 class SessionAttachmentViewSet(viewsets.ModelViewSet):
     queryset = SessionAttachment.objects.all()
@@ -964,6 +1111,9 @@ class SessionAttachmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return SessionAttachment.objects.filter(session__school=self.request.user.school)
 
 
 class SpecialEducationReferralViewSet(viewsets.ModelViewSet):
@@ -973,10 +1123,19 @@ class SpecialEducationReferralViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return SpecialEducationReferral.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class WorkshopRegistrationViewSet(viewsets.ModelViewSet):
     queryset = WorkshopRegistration.objects.all()
     serializer_class = WorkshopRegistrationSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = []
+    ordering = ["-id"]
+
+    def get_queryset(self):
+        return WorkshopRegistration.objects.filter(workshop__school=self.request.user.school)
