@@ -9,6 +9,7 @@ import {
   UsersIcon,
   AcademicCapIcon,
   ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
   CalendarDaysIcon,
   BookOpenIcon,
   ChartBarIcon,
@@ -60,6 +61,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     icon: AcademicCapIcon,
     items: [
       { label: "Students", to: "/admin/students", icon: UsersIcon },
+      {
+        label: "Student Records",
+        to: "/admin/student-records",
+        icon: ClipboardDocumentListIcon,
+      },
       { label: "Teachers", to: "/admin/teachers", icon: AcademicCapIcon },
       {
         label: "Classrooms",
