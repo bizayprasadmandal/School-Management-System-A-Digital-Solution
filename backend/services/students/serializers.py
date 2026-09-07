@@ -58,21 +58,21 @@ class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicYear
         fields = ["id", "school", "name", "start_date", "end_date", "is_current"]
-        read_only_fields = ["id"]
+        read_only_fields = ["school", "id"]
 
 
 class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = ["id", "school", "name", "level", "description"]
-        read_only_fields = ["id"]
+        read_only_fields = ["school", "id"]
 
 
 class ClassroomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Classroom
         fields = ["id", "school", "grade", "name", "capacity", "room_number", "class_teacher", "academic_year"]
-        read_only_fields = ["id"]
+        read_only_fields = ["school", "id"]
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -94,7 +94,7 @@ class StudentSerializer(serializers.ModelSerializer):
             "city",
             "state",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class GuardianSerializer(serializers.ModelSerializer):
@@ -118,9 +118,14 @@ class GuardianSerializer(serializers.ModelSerializer):
 
 
 class StudentGuardianSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    guardian_name = serializers.CharField(source="guardian.full_name", read_only=True)
+
     class Meta:
         model = StudentGuardian
         fields = [
+            "student_name",
+            "guardian_name",
             "id",
             "student",
             "guardian",
@@ -133,9 +138,14 @@ class StudentGuardianSerializer(serializers.ModelSerializer):
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+
     class Meta:
         model = Enrollment
         fields = [
+            "student_name",
+            "classroom_name",
             "id",
             "student",
             "classroom",
@@ -166,20 +176,35 @@ class ParentProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class DocumentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = Document
-        fields = ["id", "student", "document_type", "title", "file", "uploaded_by", "uploaded_at", "notes"]
+        fields = [
+            "student_name",
+            "id",
+            "student",
+            "document_type",
+            "title",
+            "file",
+            "uploaded_by",
+            "uploaded_at",
+            "notes",
+        ]
         read_only_fields = ["id", "student", "uploaded_by", "uploaded_at"]
 
 
 class StudentContactSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentContact
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -200,9 +225,12 @@ class StudentContactSerializer(serializers.ModelSerializer):
 
 
 class StudentMedicalRecordSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentMedicalRecord
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -241,13 +269,18 @@ class StudentCustomFieldSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentCustomFieldValueSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    field_name = serializers.CharField(source="field.name", read_only=True)
+
     class Meta:
         model = StudentCustomFieldValue
         fields = [
+            "student_name",
+            "field_name",
             "id",
             "id",
             "student",
@@ -264,9 +297,12 @@ class StudentCustomFieldValueSerializer(serializers.ModelSerializer):
 
 
 class StudentPhotoSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentPhoto
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -286,9 +322,12 @@ class StudentPhotoSerializer(serializers.ModelSerializer):
 
 
 class StudentIDCardSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentIDCard
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -308,9 +347,12 @@ class StudentIDCardSerializer(serializers.ModelSerializer):
 
 
 class StudentStatusHistorySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentStatusHistory
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -328,9 +370,22 @@ class StudentStatusHistorySerializer(serializers.ModelSerializer):
 
 
 class SiblingTrackingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    sibling_name = serializers.CharField(source="sibling.full_name", read_only=True)
+
     class Meta:
         model = SiblingTracking
-        fields = ["id", "id", "student", "sibling", "relationship", "notes", "created_at"]
+        fields = [
+            "student_name",
+            "sibling_name",
+            "id",
+            "id",
+            "student",
+            "sibling",
+            "relationship",
+            "notes",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -349,13 +404,28 @@ class StudentCategorySerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentCategoryMembershipSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
     class Meta:
         model = StudentCategoryMembership
-        fields = ["id", "id", "student", "category", "start_date", "end_date", "is_active", "notes", "created_at"]
+        fields = [
+            "student_name",
+            "category_name",
+            "id",
+            "id",
+            "student",
+            "category",
+            "start_date",
+            "end_date",
+            "is_active",
+            "notes",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -363,20 +433,26 @@ class StudentTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentTag
         fields = ["id", "school", "id", "name", "color", "usage_count", "is_active", "notes", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentTagAssignmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    tag_name = serializers.CharField(source="tag.name", read_only=True)
+
     class Meta:
         model = StudentTagAssignment
-        fields = ["id", "id", "student", "tag", "assigned_by", "notes", "created_at"]
+        fields = ["student_name", "tag_name", "id", "id", "student", "tag", "assigned_by", "notes", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
 class StudentNoteSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentNote
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -394,9 +470,12 @@ class StudentNoteSerializer(serializers.ModelSerializer):
 
 
 class StudentArchiveSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentArchive
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -409,13 +488,16 @@ class StudentArchiveSerializer(serializers.ModelSerializer):
             "gpa",
             "rank_in_class",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentSocialMediaSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentSocialMedia
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -432,9 +514,12 @@ class StudentSocialMediaSerializer(serializers.ModelSerializer):
 
 
 class StudentPortfolioSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentPortfolio
         fields = [
+            "student_name",
             "id",
             "id",
             "student",
@@ -455,9 +540,12 @@ class StudentPortfolioSerializer(serializers.ModelSerializer):
 
 
 class StudentWellnessSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentWellness
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -472,13 +560,16 @@ class StudentWellnessSerializer(serializers.ModelSerializer):
             "follow_up_required",
             "follow_up_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentLearningStyleSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentLearningStyle
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -494,13 +585,16 @@ class StudentLearningStyleSerializer(serializers.ModelSerializer):
             "assessed_date",
             "assessed_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentAchievementSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentAchievement
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -514,13 +608,16 @@ class StudentAchievementSerializer(serializers.ModelSerializer):
             "is_public",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentClubSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentClub
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -535,13 +632,16 @@ class StudentClubSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentActivitySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentActivity
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -556,13 +656,16 @@ class StudentActivitySerializer(serializers.ModelSerializer):
             "instructor",
             "notes",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentAwardSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentAward
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -576,13 +679,16 @@ class StudentAwardSerializer(serializers.ModelSerializer):
             "certificate_url",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentDisciplineSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentDiscipline
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -598,13 +704,16 @@ class StudentDisciplineSerializer(serializers.ModelSerializer):
             "follow_up_date",
             "parent_notified",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentTutoringSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentTutoring
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -618,13 +727,16 @@ class StudentTutoringSerializer(serializers.ModelSerializer):
             "topics_covered",
             "homework_assigned",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentMentorSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentMentor
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -639,13 +751,16 @@ class StudentMentorSerializer(serializers.ModelSerializer):
             "progress_notes",
             "outcome",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentCareerGuidanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentCareerGuidance
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -661,13 +776,16 @@ class StudentCareerGuidanceSerializer(serializers.ModelSerializer):
             "guidance_date",
             "guided_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentParentCommunicationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentParentCommunication
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -682,13 +800,16 @@ class StudentParentCommunicationSerializer(serializers.ModelSerializer):
             "teacher",
             "follow_up_required",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentAcademicAdvisorSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentAcademicAdvisor
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -703,13 +824,16 @@ class StudentAcademicAdvisorSerializer(serializers.ModelSerializer):
             "next_advising_date",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentTransferSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentTransfer
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -723,13 +847,16 @@ class StudentTransferSerializer(serializers.ModelSerializer):
             "reason",
             "status",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentGraduationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentGraduation
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -745,13 +872,16 @@ class StudentGraduationSerializer(serializers.ModelSerializer):
             "honors",
             "college_acceptance",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentVolunteerSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentVolunteer
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -767,13 +897,16 @@ class StudentVolunteerSerializer(serializers.ModelSerializer):
             "verified",
             "verified_by",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class StudentInternshipSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentInternship
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -789,13 +922,16 @@ class StudentInternshipSerializer(serializers.ModelSerializer):
             "hours_per_week",
             "is_paid",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentScholarshipSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentScholarship
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -811,13 +947,16 @@ class StudentScholarshipSerializer(serializers.ModelSerializer):
             "renewal_required",
             "renewal_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentFinancialAidSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentFinancialAid
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -833,13 +972,16 @@ class StudentFinancialAidSerializer(serializers.ModelSerializer):
             "academic_requirement",
             "documents",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentTransportAssignmentSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentTransportAssignment
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -853,13 +995,16 @@ class StudentTransportAssignmentSerializer(serializers.ModelSerializer):
             "effective_from",
             "effective_to",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentMealPlanSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentMealPlan
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -875,13 +1020,16 @@ class StudentMealPlanSerializer(serializers.ModelSerializer):
             "cost",
             "dietary_restrictions",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentParkingSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentParking
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -897,13 +1045,16 @@ class StudentParkingSerializer(serializers.ModelSerializer):
             "end_date",
             "status",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class StudentIDActivitySerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentIDActivity
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -915,13 +1066,16 @@ class StudentIDActivitySerializer(serializers.ModelSerializer):
             "device",
             "notes",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["school", "id"]
 
 
 class StudentFeedbackSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+
     class Meta:
         model = StudentFeedback
         fields = [
+            "student_name",
             "id",
             "school",
             "id",
@@ -936,7 +1090,7 @@ class StudentFeedbackSerializer(serializers.ModelSerializer):
             "responded_by",
             "responded_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 # ── Serializers restored from original module (expansion regression fix) ──

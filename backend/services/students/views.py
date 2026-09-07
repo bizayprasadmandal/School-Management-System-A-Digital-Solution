@@ -612,6 +612,9 @@ class ClassroomViewSet(viewsets.ModelViewSet):
 
         return Response({"imported": imported, "errors": errors[:20]})
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class GradeViewSet(viewsets.ModelViewSet):
     serializer_class = GradeSerializer
@@ -635,6 +638,9 @@ class GradeViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class GuardianViewSet(viewsets.ModelViewSet):
@@ -976,7 +982,7 @@ class StudentGuardianViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return StudentGuardian.objects.filter(school=self.request.user.school)
+        return StudentGuardian.objects.filter(student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -984,7 +990,7 @@ class StudentGuardianViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
@@ -994,7 +1000,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return Enrollment.objects.filter(school=self.request.user.school)
+        return Enrollment.objects.filter(student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1002,7 +1008,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ParentProfileViewSet(viewsets.ModelViewSet):
@@ -1031,7 +1037,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return Document.objects.filter(school=self.request.user.school)
+        return Document.objects.filter(student__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

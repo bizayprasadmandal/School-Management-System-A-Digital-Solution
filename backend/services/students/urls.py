@@ -39,8 +39,6 @@ router.register(r"social-media", views.StudentSocialMediaViewSet, basename="stud
 router.register(r"portfolio", views.StudentPortfolioViewSet, basename="student-portfolio")
 # Wellness
 router.register(r"wellness", views.StudentWellnessViewSet, basename="student-wellness")
-# Students (MUST be last as it's a catch-all)
-router.register(r"", views.StudentViewSet, basename="student")
 
 
 # ── Additional registrations (module expansion) ──
@@ -74,6 +72,9 @@ router.register(r"student-meal-plan", views.StudentMealPlanViewSet, basename="st
 router.register(r"student-parking", views.StudentParkingViewSet, basename="student-parking")
 router.register(r"student-i-d-activity", views.StudentIDActivityViewSet, basename="student-i-d-activity")
 router.register(r"student-feedback", views.StudentFeedbackViewSet, basename="student-feedback")
+
+# Students (MUST be last as it's a catch-all)
+router.register(r"", views.StudentViewSet, basename="student")
 
 urlpatterns = [
     path("", include(router.urls)),
