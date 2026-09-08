@@ -275,14 +275,14 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
             "is_default",
             "visible_to_roles",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class DashboardConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = DashboardConfiguration
         fields = ["id", "id", "user", "name", "is_default", "is_public", "columns", "theme", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "user"]
 
 
 class DashboardWidgetPlacementSerializer(serializers.ModelSerializer):
@@ -312,7 +312,7 @@ class ReportScheduleSerializer(serializers.ModelSerializer):
             "filters",
             "last_generated",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ReportHistorySerializer(serializers.ModelSerializer):
@@ -334,7 +334,7 @@ class ReportHistorySerializer(serializers.ModelSerializer):
             "record_count",
             "generated_by",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class CustomReportSerializer(serializers.ModelSerializer):
@@ -357,7 +357,7 @@ class CustomReportSerializer(serializers.ModelSerializer):
             "chart_config",
             "created_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class CustomReportExecutionSerializer(serializers.ModelSerializer):
@@ -400,7 +400,7 @@ class ChartConfigurationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class KPIDefinitionSerializer(serializers.ModelSerializer):
@@ -423,7 +423,7 @@ class KPIDefinitionSerializer(serializers.ModelSerializer):
             "data_source",
             "is_active",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class KPIValueSerializer(serializers.ModelSerializer):
@@ -437,14 +437,14 @@ class ReportAccessLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportAccessLog
         fields = ["id", "id", "report_history", "user", "access_type", "ip_address", "accessed_at"]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "user"]
 
 
 class ReportCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportComment
         fields = ["id", "id", "report_history", "user", "comment", "parent", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "user"]
 
 
 class ReportDataSourceSerializer(serializers.ModelSerializer):
@@ -466,7 +466,7 @@ class ReportDataSourceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ReportBookmarkSerializer(serializers.ModelSerializer):
@@ -484,7 +484,7 @@ class ReportBookmarkSerializer(serializers.ModelSerializer):
             "sort_order",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 class ReportEmailDeliverySerializer(serializers.ModelSerializer):
@@ -526,14 +526,14 @@ class AnalyticsSnapshotSerializer(serializers.ModelSerializer):
             "new_enrollments",
             "dropouts",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportFavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportFavorite
         fields = ["id", "id", "user", "report_type", "report_name", "report_config", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 class ReportTemplateParameterSerializer(serializers.ModelSerializer):
@@ -572,7 +572,7 @@ class ReportAlertSerializer(serializers.ModelSerializer):
             "trigger_count",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportExportSerializer(serializers.ModelSerializer):
@@ -594,7 +594,7 @@ class ReportExportSerializer(serializers.ModelSerializer):
             "requested_at",
             "completed_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class ReportInsightSerializer(serializers.ModelSerializer):
@@ -614,7 +614,7 @@ class ReportInsightSerializer(serializers.ModelSerializer):
             "is_read",
             "generated_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class ReportVersionSerializer(serializers.ModelSerializer):
@@ -638,7 +638,7 @@ class ReportFolderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportFolder
         fields = ["id", "school", "id", "name", "parent", "description", "owner", "is_shared", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportFolderItemSerializer(serializers.ModelSerializer):
@@ -663,7 +663,7 @@ class ReportAccessControlSerializer(serializers.ModelSerializer):
             "granted_by",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 class ReportAnalyticsSerializer(serializers.ModelSerializer):
@@ -683,7 +683,7 @@ class ReportAnalyticsSerializer(serializers.ModelSerializer):
             "avg_generation_time",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportScheduleDeliverySerializer(serializers.ModelSerializer):
@@ -719,7 +719,7 @@ class ReportDataCacheSerializer(serializers.ModelSerializer):
             "hit_count",
             "last_hit_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportComparisonSerializer(serializers.ModelSerializer):
@@ -740,14 +740,14 @@ class ReportComparisonSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ReportSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportSubscription
         fields = ["id", "id", "user", "report_type", "update_type", "is_active", "last_notified_at", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 # ── Serializers restored from original module (expansion regression fix) ──

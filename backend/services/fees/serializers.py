@@ -134,8 +134,8 @@ class ScholarshipSerializer(serializers.ModelSerializer):
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentGatewayConfig
-        fields = ["id", "school", "stripe_enabled", "khalti_enabled", "esewa_enabled", "updated_at"]
-        read_only_fields = ["id", "updated_at"]
+        fields = ["school", "stripe_enabled", "khalti_enabled", "esewa_enabled", "updated_at"]
+        read_only_fields = ["updated_at", "school"]
 
 
 class InstallmentPlanSerializer(serializers.ModelSerializer):
@@ -156,7 +156,7 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
             "late_fee_per_installment",
             "grace_period_days",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class InstallmentPaymentSerializer(serializers.ModelSerializer):
@@ -197,7 +197,7 @@ class SiblingDiscountSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class PaymentReminderSerializer(serializers.ModelSerializer):
@@ -218,7 +218,7 @@ class PaymentReminderSerializer(serializers.ModelSerializer):
             "sent_at",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class FeeConcessionSerializer(serializers.ModelSerializer):
@@ -239,7 +239,7 @@ class FeeConcessionSerializer(serializers.ModelSerializer):
             "status",
             "approved_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class RevenueReportSerializer(serializers.ModelSerializer):
@@ -262,7 +262,7 @@ class RevenueReportSerializer(serializers.ModelSerializer):
             "total_refunded",
             "total_scholarships",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
@@ -285,7 +285,7 @@ class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
             "monthly_collection",
             "total_defaulters",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class FeeAdjustmentSerializer(serializers.ModelSerializer):
@@ -305,7 +305,7 @@ class FeeAdjustmentSerializer(serializers.ModelSerializer):
             "adjustment_date",
             "notes",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class AdvancePaymentSerializer(serializers.ModelSerializer):
@@ -325,7 +325,7 @@ class AdvancePaymentSerializer(serializers.ModelSerializer):
             "applied_date",
             "expiry_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class FeeWaiverSerializer(serializers.ModelSerializer):
@@ -345,7 +345,7 @@ class FeeWaiverSerializer(serializers.ModelSerializer):
             "approved_at",
             "rejection_reason",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class StudentLedgerSerializer(serializers.ModelSerializer):
@@ -364,7 +364,7 @@ class StudentLedgerSerializer(serializers.ModelSerializer):
             "payment",
             "description",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class FeeTemplateSerializer(serializers.ModelSerializer):
@@ -386,7 +386,7 @@ class FeeTemplateSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class BulkInvoiceGenerationSerializer(serializers.ModelSerializer):
@@ -408,7 +408,7 @@ class BulkInvoiceGenerationSerializer(serializers.ModelSerializer):
             "errors",
             "initiated_by",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class PaymentReconciliationSerializer(serializers.ModelSerializer):
@@ -430,7 +430,7 @@ class PaymentReconciliationSerializer(serializers.ModelSerializer):
             "discrepancy_count",
             "initiated_by",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class BudgetPlanSerializer(serializers.ModelSerializer):
@@ -451,7 +451,7 @@ class BudgetPlanSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class BudgetLineItemSerializer(serializers.ModelSerializer):
@@ -490,7 +490,7 @@ class ExpenseTrackingSerializer(serializers.ModelSerializer):
             "status",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class RefundRecordSerializer(serializers.ModelSerializer):
@@ -510,7 +510,7 @@ class RefundRecordSerializer(serializers.ModelSerializer):
             "refund_method",
             "approved_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class LateFeeRuleSerializer(serializers.ModelSerializer):
@@ -531,7 +531,7 @@ class LateFeeRuleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class FeeDiscountSerializer(serializers.ModelSerializer):
@@ -552,7 +552,7 @@ class FeeDiscountSerializer(serializers.ModelSerializer):
             "is_active",
             "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class FeeExemptionSerializer(serializers.ModelSerializer):
@@ -572,7 +572,7 @@ class FeeExemptionSerializer(serializers.ModelSerializer):
             "valid_from",
             "valid_to",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class InvoiceTemplateSerializer(serializers.ModelSerializer):
@@ -593,7 +593,7 @@ class InvoiceTemplateSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ReceiptTemplateSerializer(serializers.ModelSerializer):
@@ -612,7 +612,7 @@ class ReceiptTemplateSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class AccountingEntrySerializer(serializers.ModelSerializer):
@@ -634,7 +634,7 @@ class AccountingEntrySerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class FinancialAuditSerializer(serializers.ModelSerializer):
@@ -657,7 +657,7 @@ class FinancialAuditSerializer(serializers.ModelSerializer):
             "total_expenses",
             "net_income",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class StudentFinancialAccountSerializer(serializers.ModelSerializer):
@@ -678,7 +678,7 @@ class StudentFinancialAccountSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ParentAccountSerializer(serializers.ModelSerializer):
@@ -698,7 +698,7 @@ class ParentAccountSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class BankReconciliationSerializer(serializers.ModelSerializer):
@@ -720,7 +720,7 @@ class BankReconciliationSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
@@ -739,7 +739,7 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class TransactionLogSerializer(serializers.ModelSerializer):
@@ -760,7 +760,7 @@ class TransactionLogSerializer(serializers.ModelSerializer):
             "metadata",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):
@@ -780,7 +780,7 @@ class CreditNoteSerializer(serializers.ModelSerializer):
             "applied_date",
             "issued_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class DebitNoteSerializer(serializers.ModelSerializer):
@@ -800,7 +800,7 @@ class DebitNoteSerializer(serializers.ModelSerializer):
             "applied_date",
             "issued_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class FinancialYearSerializer(serializers.ModelSerializer):
@@ -821,7 +821,7 @@ class FinancialYearSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class FeeWaiverApprovalSerializer(serializers.ModelSerializer):
@@ -839,4 +839,4 @@ class FeeWaiverApprovalSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]

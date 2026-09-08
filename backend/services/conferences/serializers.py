@@ -63,7 +63,7 @@ class ConferenceSlotSerializer(serializers.ModelSerializer):
             "zoom_meeting_id",
             "zoom_join_url",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ConferenceTypeSerializer(serializers.ModelSerializer):
@@ -85,7 +85,7 @@ class ConferenceTypeSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ConferenceBookingSerializer(serializers.ModelSerializer):
@@ -187,7 +187,7 @@ class ConferenceAvailabilitySerializer(serializers.ModelSerializer):
             "is_recurring",
             "is_active",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ConferenceReportSerializer(serializers.ModelSerializer):
@@ -210,7 +210,7 @@ class ConferenceReportSerializer(serializers.ModelSerializer):
             "total_no_show",
             "attendance_rate",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceFeedbackSerializer(serializers.ModelSerializer):
@@ -249,7 +249,7 @@ class ConferenceHistorySerializer(serializers.ModelSerializer):
             "conference_type",
             "was_virtual",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class VirtualConferenceSerializer(serializers.ModelSerializer):
@@ -294,7 +294,7 @@ class ConferenceTemplateSerializer(serializers.ModelSerializer):
             "is_active",
             "created_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class WaitlistManagementSerializer(serializers.ModelSerializer):
@@ -334,7 +334,7 @@ class ConferenceWaitingListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class RecurringConferenceSerializer(serializers.ModelSerializer):
@@ -356,14 +356,14 @@ class RecurringConferenceSerializer(serializers.ModelSerializer):
             "end_date",
             "last_occurrence",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class RecurringConferenceParticipantSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecurringConferenceParticipant
         fields = ["id", "id", "recurring_conference", "user", "role", "is_active", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 class ConferenceSettingsSerializer(serializers.ModelSerializer):
@@ -385,7 +385,7 @@ class ConferenceSettingsSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class ConferenceAnalyticsSerializer(serializers.ModelSerializer):
@@ -408,7 +408,7 @@ class ConferenceAnalyticsSerializer(serializers.ModelSerializer):
             "by_type_breakdown",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceBookingRuleSerializer(serializers.ModelSerializer):
@@ -426,7 +426,7 @@ class ConferenceBookingRuleSerializer(serializers.ModelSerializer):
             "priority",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceSystemNotificationSerializer(serializers.ModelSerializer):
@@ -445,7 +445,7 @@ class ConferenceSystemNotificationSerializer(serializers.ModelSerializer):
             "sent_at",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceExportSerializer(serializers.ModelSerializer):
@@ -466,7 +466,7 @@ class ConferenceExportSerializer(serializers.ModelSerializer):
             "requested_at",
             "completed_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class ConferenceLocationSerializer(serializers.ModelSerializer):
@@ -485,7 +485,7 @@ class ConferenceLocationSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceBlockedSlotSerializer(serializers.ModelSerializer):
@@ -504,14 +504,14 @@ class ConferenceBlockedSlotSerializer(serializers.ModelSerializer):
             "is_recurring",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceScheduleOverrideSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceScheduleOverride
         fields = ["id", "school", "id", "date", "override_type", "start_time", "end_time", "reason", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceReminderScheduleSerializer(serializers.ModelSerializer):
@@ -528,7 +528,7 @@ class ConferenceReminderScheduleSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceAccessibilityRequirementSerializer(serializers.ModelSerializer):
@@ -542,7 +542,7 @@ class ConferenceNoteTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceNoteTemplate
         fields = ["id", "school", "id", "name", "description", "sections", "is_active", "is_default", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceApprovalSerializer(serializers.ModelSerializer):
@@ -563,7 +563,7 @@ class ConferenceSurveySerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceSurvey
         fields = ["id", "school", "id", "title", "questions", "status", "total_responses", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceSurveyResponseSerializer(serializers.ModelSerializer):
@@ -590,7 +590,7 @@ class ConferenceCalendarSyncSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "user"]
 
 
 class ConferenceHistoryDetailSerializer(serializers.ModelSerializer):
@@ -610,7 +610,7 @@ class ConferenceHistoryDetailSerializer(serializers.ModelSerializer):
             "recommendations",
             "recorded_by",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceTimeSlotSerializer(serializers.ModelSerializer):
@@ -629,14 +629,14 @@ class ConferenceTimeSlotSerializer(serializers.ModelSerializer):
             "location",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceFeedbackTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceFeedbackTemplate
         fields = ["id", "school", "id", "name", "questions", "target_audience", "is_active", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class ConferenceFollowUpSerializer(serializers.ModelSerializer):
@@ -697,7 +697,7 @@ class ConferenceNoShowSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConferenceNoShow
         fields = ["id", "id", "booking", "user", "rescheduled", "rescheduled_to", "reason", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "user"]
 
 
 class ConferenceConferenceTypeSerializer(serializers.ModelSerializer):

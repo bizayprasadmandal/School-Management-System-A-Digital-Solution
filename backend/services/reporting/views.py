@@ -915,7 +915,7 @@ class DashboardConfigurationViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return DashboardConfiguration.objects.filter(school=self.request.user.school)
+        return DashboardConfiguration.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -923,7 +923,7 @@ class DashboardConfigurationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class DashboardWidgetPlacementViewSet(viewsets.ModelViewSet):
@@ -933,7 +933,7 @@ class DashboardWidgetPlacementViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return DashboardWidgetPlacement.objects.filter(school=self.request.user.school)
+        return DashboardWidgetPlacement.objects.filter(dashboard__user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -941,7 +941,7 @@ class DashboardWidgetPlacementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportScheduleViewSet(viewsets.ModelViewSet):
@@ -1008,7 +1008,7 @@ class CustomReportExecutionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return CustomReportExecution.objects.filter(school=self.request.user.school)
+        return CustomReportExecution.objects.filter(report__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1016,7 +1016,7 @@ class CustomReportExecutionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ChartConfigurationViewSet(viewsets.ModelViewSet):
@@ -1064,7 +1064,7 @@ class KPIValueViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return KPIValue.objects.filter(school=self.request.user.school)
+        return KPIValue.objects.filter(kpi__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1072,7 +1072,7 @@ class KPIValueViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportAccessLogViewSet(viewsets.ModelViewSet):
@@ -1082,7 +1082,7 @@ class ReportAccessLogViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportAccessLog.objects.filter(school=self.request.user.school)
+        return ReportAccessLog.objects.filter(report_history__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1090,7 +1090,7 @@ class ReportAccessLogViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ReportCommentViewSet(viewsets.ModelViewSet):
@@ -1100,7 +1100,7 @@ class ReportCommentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportComment.objects.filter(school=self.request.user.school)
+        return ReportComment.objects.filter(report_history__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1108,7 +1108,7 @@ class ReportCommentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ReportDataSourceViewSet(viewsets.ModelViewSet):
@@ -1137,7 +1137,7 @@ class ReportBookmarkViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return ReportBookmark.objects.filter(school=self.request.user.school)
+        return ReportBookmark.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1145,7 +1145,7 @@ class ReportBookmarkViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ReportEmailDeliveryViewSet(viewsets.ModelViewSet):
@@ -1155,7 +1155,7 @@ class ReportEmailDeliveryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportEmailDelivery.objects.filter(school=self.request.user.school)
+        return ReportEmailDelivery.objects.filter(report_history__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1163,7 +1163,7 @@ class ReportEmailDeliveryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AnalyticsSnapshotViewSet(viewsets.ModelViewSet):
@@ -1192,7 +1192,7 @@ class ReportFavoriteViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportFavorite.objects.filter(school=self.request.user.school)
+        return ReportFavorite.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1200,7 +1200,7 @@ class ReportFavoriteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ReportTemplateParameterViewSet(viewsets.ModelViewSet):
@@ -1210,7 +1210,7 @@ class ReportTemplateParameterViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return ReportTemplateParameter.objects.filter(school=self.request.user.school)
+        return ReportTemplateParameter.objects.filter(template__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1218,7 +1218,7 @@ class ReportTemplateParameterViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportAlertViewSet(viewsets.ModelViewSet):
@@ -1285,7 +1285,7 @@ class ReportVersionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportVersion.objects.filter(school=self.request.user.school)
+        return ReportVersion.objects.filter(template__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1293,7 +1293,7 @@ class ReportVersionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportFolderViewSet(viewsets.ModelViewSet):
@@ -1322,7 +1322,7 @@ class ReportFolderItemViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return ReportFolderItem.objects.filter(school=self.request.user.school)
+        return ReportFolderItem.objects.filter(folder__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1330,7 +1330,7 @@ class ReportFolderItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportAccessControlViewSet(viewsets.ModelViewSet):
@@ -1340,7 +1340,7 @@ class ReportAccessControlViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportAccessControl.objects.filter(school=self.request.user.school)
+        return ReportAccessControl.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1348,7 +1348,7 @@ class ReportAccessControlViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ReportAnalyticsViewSet(viewsets.ModelViewSet):
@@ -1377,7 +1377,7 @@ class ReportScheduleDeliveryViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportScheduleDelivery.objects.filter(school=self.request.user.school)
+        return ReportScheduleDelivery.objects.filter(schedule__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1385,7 +1385,7 @@ class ReportScheduleDeliveryViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ReportDataCacheViewSet(viewsets.ModelViewSet):
@@ -1433,7 +1433,7 @@ class ReportSubscriptionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ReportSubscription.objects.filter(school=self.request.user.school)
+        return ReportSubscription.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1441,4 +1441,4 @@ class ReportSubscriptionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)

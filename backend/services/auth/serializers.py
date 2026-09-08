@@ -134,7 +134,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "user_agent",
             "timestamp",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
     def get_user_name(self, obj):
         return obj.user.full_name if obj.user else None
@@ -263,7 +263,7 @@ class PasswordPolicySerializer(serializers.ModelSerializer):
             "lockout_duration_minutes",
             "is_active",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class IPWhitelistSerializer(serializers.ModelSerializer):
@@ -284,7 +284,7 @@ class IPWhitelistSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class OAuthProviderSerializer(serializers.ModelSerializer):
@@ -304,7 +304,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class UserActivitySerializer(serializers.ModelSerializer):
@@ -352,7 +352,7 @@ class SessionPolicySerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -376,7 +376,7 @@ class RoleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "is_system_role", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_system_role", "created_at", "updated_at", "school"]
 
     def get_permission_count(self, obj):
         return obj.role_permissions.count()
@@ -503,7 +503,7 @@ class SecurityPolicySerializer(serializers.ModelSerializer):
             "history_count",
             "session_timeout_minutes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class LoginAttemptSerializer(serializers.ModelSerializer):
@@ -525,7 +525,7 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
             "attempted_at",
             "user",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class SessionTokenSerializer(serializers.ModelSerializer):
@@ -675,7 +675,7 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
             "responsible_person",
             "evidence_file",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class PasswordHistorySerializer(serializers.ModelSerializer):
@@ -744,7 +744,7 @@ class DataExportRequestSerializer(serializers.ModelSerializer):
             "error_message",
             "processed_by",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class DataDeletionRequestSerializer(serializers.ModelSerializer):
@@ -765,7 +765,7 @@ class DataDeletionRequestSerializer(serializers.ModelSerializer):
             "completed_at",
             "denial_reason",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class AuthWebhookSerializer(serializers.ModelSerializer):
@@ -788,7 +788,7 @@ class AuthWebhookSerializer(serializers.ModelSerializer):
             "failed_deliveries",
             "last_triggered_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):
@@ -834,7 +834,7 @@ class SSOConfigurationSerializer(serializers.ModelSerializer):
             "attribute_mapping",
             "is_default",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class DomainVerificationSerializer(serializers.ModelSerializer):
@@ -855,7 +855,7 @@ class DomainVerificationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class IPGeolocationCacheSerializer(serializers.ModelSerializer):
@@ -899,7 +899,7 @@ class ConsentRecordSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class SchoolFeatureFlagSerializer(serializers.ModelSerializer):
@@ -918,7 +918,7 @@ class SchoolFeatureFlagSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class AuditReportScheduleSerializer(serializers.ModelSerializer):
@@ -941,7 +941,7 @@ class AuditReportScheduleSerializer(serializers.ModelSerializer):
             "next_generation",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 def serialize_login_user(user):

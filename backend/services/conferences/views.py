@@ -839,7 +839,7 @@ class RecurringConferenceParticipantViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return RecurringConferenceParticipant.objects.filter(school=self.request.user.school)
+        return RecurringConferenceParticipant.objects.filter(recurring_conference__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -847,7 +847,7 @@ class RecurringConferenceParticipantViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ConferenceSettingsViewSet(viewsets.ModelViewSet):
@@ -1028,7 +1028,7 @@ class ConferenceAccessibilityRequirementViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceAccessibilityRequirement.objects.filter(school=self.request.user.school)
+        return ConferenceAccessibilityRequirement.objects.filter(booking__slot__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1036,7 +1036,7 @@ class ConferenceAccessibilityRequirementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceNoteTemplateViewSet(viewsets.ModelViewSet):
@@ -1065,7 +1065,7 @@ class ConferenceApprovalViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceApproval.objects.filter(school=self.request.user.school)
+        return ConferenceApproval.objects.filter(booking__slot__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1073,7 +1073,7 @@ class ConferenceApprovalViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceResourceViewSet(viewsets.ModelViewSet):
@@ -1083,7 +1083,7 @@ class ConferenceResourceViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return ConferenceResource.objects.filter(school=self.request.user.school)
+        return ConferenceResource.objects.filter(booking__slot__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1091,7 +1091,7 @@ class ConferenceResourceViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceSurveyViewSet(viewsets.ModelViewSet):
@@ -1120,7 +1120,7 @@ class ConferenceSurveyResponseViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceSurveyResponse.objects.filter(school=self.request.user.school)
+        return ConferenceSurveyResponse.objects.filter(survey__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1128,7 +1128,7 @@ class ConferenceSurveyResponseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceCalendarSyncViewSet(viewsets.ModelViewSet):
@@ -1138,7 +1138,7 @@ class ConferenceCalendarSyncViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceCalendarSync.objects.filter(school=self.request.user.school)
+        return ConferenceCalendarSync.objects.filter(user__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1146,7 +1146,7 @@ class ConferenceCalendarSyncViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ConferenceHistoryDetailViewSet(viewsets.ModelViewSet):
@@ -1213,7 +1213,7 @@ class ConferenceFollowUpViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceFollowUp.objects.filter(school=self.request.user.school)
+        return ConferenceFollowUp.objects.filter(booking__slot__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1221,7 +1221,7 @@ class ConferenceFollowUpViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceRoomBookingViewSet(viewsets.ModelViewSet):
@@ -1231,7 +1231,7 @@ class ConferenceRoomBookingViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceRoomBooking.objects.filter(school=self.request.user.school)
+        return ConferenceRoomBooking.objects.filter(location__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1239,7 +1239,7 @@ class ConferenceRoomBookingViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceTemplateSectionViewSet(viewsets.ModelViewSet):
@@ -1249,7 +1249,7 @@ class ConferenceTemplateSectionViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceTemplateSection.objects.filter(school=self.request.user.school)
+        return ConferenceTemplateSection.objects.filter(template__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1257,7 +1257,7 @@ class ConferenceTemplateSectionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ConferenceNoShowViewSet(viewsets.ModelViewSet):
@@ -1267,7 +1267,7 @@ class ConferenceNoShowViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceNoShow.objects.filter(school=self.request.user.school)
+        return ConferenceNoShow.objects.filter(booking__slot__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1275,7 +1275,7 @@ class ConferenceNoShowViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(user=self.request.user)
 
 
 class ConferenceConferenceTypeViewSet(viewsets.ModelViewSet):
@@ -1285,7 +1285,7 @@ class ConferenceConferenceTypeViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return ConferenceConferenceType.objects.filter(school=self.request.user.school)
+        return ConferenceConferenceType.objects.filter(conference_type__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -1293,4 +1293,4 @@ class ConferenceConferenceTypeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()

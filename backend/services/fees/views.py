@@ -899,7 +899,7 @@ class BudgetLineItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return BudgetLineItem.objects.filter(school=self.request.user.school)
+        return BudgetLineItem.objects.filter(budget_plan__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -907,7 +907,7 @@ class BudgetLineItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class ExpenseTrackingViewSet(viewsets.ModelViewSet):
