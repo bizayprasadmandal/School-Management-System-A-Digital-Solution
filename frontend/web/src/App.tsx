@@ -64,6 +64,7 @@ const AlumniPage = React.lazy(() => import("./pages/admin/AlumniPage"));
 const CounselingCenterPage = React.lazy(() => import("./pages/admin/CounselingCenterPage"));
 const StudentRecordsPage = React.lazy(() => import("./pages/admin/StudentRecordsPage"));
 const ReportingCenterPage = React.lazy(() => import("./pages/admin/ReportingCenterPage"));
+const HRCenterPage = React.lazy(() => import("./pages/admin/HRCenterPage"));
 const ConferencesCenterPage = React.lazy(() => import("./pages/admin/ConferencesCenterPage"));
 const AuthCenterPage = React.lazy(() => import("./pages/admin/AuthCenterPage"));
 const FeesCenterPage = React.lazy(() => import("./pages/admin/FeesCenterPage"));
@@ -305,6 +306,7 @@ function App() {
                   <Route path="conferences" element={<AdminConferences />} />
                   <Route path="bulk-messages" element={<BulkMessagesPage />} />
                   <Route path="hr" element={<HRPage />} />
+                  <Route path="hr-center" element={<HRCenterPage />} />
                   <Route path="transport" element={<TransportationPage />} />
                   <Route path="inventory" element={<InventoryPage />} />
                   <Route path="hostel" element={<HostelPage />} />

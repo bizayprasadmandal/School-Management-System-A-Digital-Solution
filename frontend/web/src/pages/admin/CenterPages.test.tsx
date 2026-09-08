@@ -10,6 +10,7 @@ import ReportingCenterPage from "./ReportingCenterPage";
 import ConferencesCenterPage from "./ConferencesCenterPage";
 import AuthCenterPage from "./AuthCenterPage";
 import FeesCenterPage from "./FeesCenterPage";
+import HRCenterPage from "./HRCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -79,6 +80,19 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("accountant-profiles")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "5",
+              user_name: "Jane Doe",
+              qualification: "CPA",
+              experience_years: 8,
+            },
+          ],
+        });
+      }
       return ok({ count: 0, results: [] });
     });
   });
@@ -105,5 +119,11 @@ describe("Admin center pages", () => {
     renderWithProviders(<FeesCenterPage />);
     expect(screen.getByRole("heading", { name: "Finance Center" })).toBeInTheDocument();
     expect(await screen.findByText("debit")).toBeInTheDocument();
+  });
+
+  test("HRCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<HRCenterPage />);
+    expect(screen.getByRole("heading", { name: "HR Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
   });
 });
