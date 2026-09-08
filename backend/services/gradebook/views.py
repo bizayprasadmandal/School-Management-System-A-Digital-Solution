@@ -1116,46 +1116,82 @@ class ReportCardCommentViewSet(viewsets.ModelViewSet):
 class ExamScheduleViewSet(viewsets.ModelViewSet):
     queryset = ExamSchedule.objects.all()
     serializer_class = ExamScheduleSerializer
+
+    def get_queryset(self):
+        return ExamSchedule.objects.filter(exam__school=self.request.user.school).select_related(
+            "exam__exam_type", "exam__academic_year", "subject", "classroom"
+        )
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["date"]
+    ordering = ["-date"]
 
 
 class ExamTypeViewSet(viewsets.ModelViewSet):
     queryset = ExamType.objects.all()
     serializer_class = ExamTypeSerializer
+
+    def get_queryset(self):
+        return ExamType.objects.filter(school=self.request.user.school)
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["id"]
+    ordering = ["-id"]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class GradeChangeLogViewSet(viewsets.ModelViewSet):
     queryset = GradeChangeLog.objects.all()
     serializer_class = GradeChangeLogSerializer
+
+    def get_queryset(self):
+        return GradeChangeLog.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user", "exam_schedule", "changed_by"
+        )
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["changed_at"]
+    ordering = ["-changed_at"]
 
 
 class GradingScaleViewSet(viewsets.ModelViewSet):
     queryset = GradingScale.objects.all()
     serializer_class = GradingScaleSerializer
+
+    def get_queryset(self):
+        return GradingScale.objects.filter(school=self.request.user.school)
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["id"]
+    ordering = ["-id"]
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class GradingScaleEntryViewSet(viewsets.ModelViewSet):
     queryset = GradingScaleEntry.objects.all()
     serializer_class = GradingScaleEntrySerializer
+
+    def get_queryset(self):
+        return GradingScaleEntry.objects.filter(scale__school=self.request.user.school).select_related("scale")
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["id"]
+    ordering = ["-id"]
 
 
 class RubricScoreViewSet(viewsets.ModelViewSet):
     queryset = RubricScore.objects.all()
     serializer_class = RubricScoreSerializer
+
+    def get_queryset(self):
+        return RubricScore.objects.filter(
+            rubric_assessment__assessment__assignment__teacher__school=self.request.user.school
+        ).select_related("rubric_assessment__student__user", "criterion", "selected_level")
+
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["id"]
+    ordering = ["-id"]

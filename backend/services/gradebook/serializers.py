@@ -49,7 +49,7 @@ class GradingScaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = GradingScale
         fields = ["id", "name", "school", "is_default", "entries"]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
     def get_entries(self, obj):
         return GradingScaleEntrySerializer(obj.entries.all(), many=True).data
@@ -788,7 +788,7 @@ class ExamTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamType
         fields = "__all__"
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class GradeChangeLogSerializer(serializers.ModelSerializer):

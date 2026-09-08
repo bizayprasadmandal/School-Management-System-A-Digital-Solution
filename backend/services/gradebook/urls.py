@@ -54,4 +54,12 @@ router.register("extra-credit-submissions", views.ExtraCreditSubmissionViewSet, 
 router.register("comments", views.GradeCommentViewSet, basename="grade-comment")
 router.register("report-card-comments", views.ReportCardCommentViewSet, basename="report-card-comment")
 
+# Expanded: exam scheduling & grading config
+router.register("exam-schedules", views.ExamScheduleViewSet, basename="exam-schedule")
+router.register("exam-types", views.ExamTypeViewSet, basename="exam-type")
+router.register("grading-scales", views.GradingScaleViewSet, basename="grading-scale")
+router.register("grading-scale-entries", views.GradingScaleEntryViewSet, basename="grading-scale-entry")
+router.register("grade-change-logs", views.GradeChangeLogViewSet, basename="grade-change-log")
+router.register("rubric-scores", views.RubricScoreViewSet, basename="rubric-score")
+
 urlpatterns = [path("", include(router.urls))]
