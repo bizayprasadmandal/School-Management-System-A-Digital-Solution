@@ -438,15 +438,12 @@ class VehicleGPSLogViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return VehicleGPSLog.objects.filter(school=self.request.user.school)
+        return VehicleGPSLog.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class GeofenceZoneViewSet(viewsets.ModelViewSet):
@@ -475,15 +472,12 @@ class GeofenceAlertViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return GeofenceAlert.objects.filter(school=self.request.user.school)
+        return GeofenceAlert.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class BusTrackingViewSet(viewsets.ModelViewSet):
@@ -493,15 +487,12 @@ class BusTrackingViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return BusTracking.objects.filter(school=self.request.user.school)
+        return BusTracking.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class StopETAViewSet(viewsets.ModelViewSet):
@@ -511,15 +502,12 @@ class StopETAViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return StopETA.objects.filter(school=self.request.user.school)
+        return StopETA.objects.filter(tracking__vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class DriverLicenseViewSet(viewsets.ModelViewSet):
@@ -529,15 +517,12 @@ class DriverLicenseViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return DriverLicense.objects.filter(school=self.request.user.school)
+        return DriverLicense.objects.filter(driver__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class DriverPerformanceViewSet(viewsets.ModelViewSet):
@@ -547,15 +532,12 @@ class DriverPerformanceViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return DriverPerformance.objects.filter(school=self.request.user.school)
+        return DriverPerformance.objects.filter(driver__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class VehicleConditionReportViewSet(viewsets.ModelViewSet):
@@ -565,15 +547,12 @@ class VehicleConditionReportViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return VehicleConditionReport.objects.filter(school=self.request.user.school)
+        return VehicleConditionReport.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class RouteOptimizationViewSet(viewsets.ModelViewSet):
@@ -849,15 +828,12 @@ class VehicleAssignmentLogViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return VehicleAssignmentLog.objects.filter(school=self.request.user.school)
+        return VehicleAssignmentLog.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class TransportDriverScheduleViewSet(viewsets.ModelViewSet):

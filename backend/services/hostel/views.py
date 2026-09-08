@@ -657,15 +657,12 @@ class RoommateAssignmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return RoommateAssignment.objects.filter(school=self.request.user.school)
+        return RoommateAssignment.objects.filter(room__hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class RoomKeyViewSet(viewsets.ModelViewSet):
@@ -675,15 +672,12 @@ class RoomKeyViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return RoomKey.objects.filter(school=self.request.user.school)
+        return RoomKey.objects.filter(room__hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class LaundryServiceViewSet(viewsets.ModelViewSet):
@@ -712,15 +706,12 @@ class CommonAreaBookingViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return CommonAreaBooking.objects.filter(school=self.request.user.school)
+        return CommonAreaBooking.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class WellnessCheckViewSet(viewsets.ModelViewSet):
@@ -768,15 +759,12 @@ class RoommateMatchRequestViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return RoommateMatchRequest.objects.filter(school=self.request.user.school)
+        return RoommateMatchRequest.objects.filter(requester__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class MessMenuPlanViewSet(viewsets.ModelViewSet):
@@ -786,15 +774,12 @@ class MessMenuPlanViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return MessMenuPlan.objects.filter(school=self.request.user.school)
+        return MessMenuPlan.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class MessDietaryRequestViewSet(viewsets.ModelViewSet):
@@ -823,15 +808,12 @@ class HostelAssetViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelAsset.objects.filter(school=self.request.user.school)
+        return HostelAsset.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelAssetTransferViewSet(viewsets.ModelViewSet):
@@ -841,15 +823,12 @@ class HostelAssetTransferViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelAssetTransfer.objects.filter(school=self.request.user.school)
+        return HostelAssetTransfer.objects.filter(asset__hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelEventViewSet(viewsets.ModelViewSet):
@@ -859,15 +838,12 @@ class HostelEventViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelEvent.objects.filter(school=self.request.user.school)
+        return HostelEvent.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelEventParticipantViewSet(viewsets.ModelViewSet):
@@ -877,15 +853,12 @@ class HostelEventParticipantViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelEventParticipant.objects.filter(school=self.request.user.school)
+        return HostelEventParticipant.objects.filter(event__hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelEmergencyProtocolViewSet(viewsets.ModelViewSet):
@@ -895,15 +868,12 @@ class HostelEmergencyProtocolViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelEmergencyProtocol.objects.filter(school=self.request.user.school)
+        return HostelEmergencyProtocol.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelEmergencyDrillViewSet(viewsets.ModelViewSet):
@@ -913,15 +883,12 @@ class HostelEmergencyDrillViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelEmergencyDrill.objects.filter(school=self.request.user.school)
+        return HostelEmergencyDrill.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelFeePaymentViewSet(viewsets.ModelViewSet):
@@ -950,15 +917,12 @@ class HostelInspectionScheduleViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return HostelInspectionSchedule.objects.filter(school=self.request.user.school)
+        return HostelInspectionSchedule.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class MessFeedbackViewSet(viewsets.ModelViewSet):
@@ -968,15 +932,12 @@ class MessFeedbackViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return MessFeedback.objects.filter(school=self.request.user.school)
+        return MessFeedback.objects.filter(hostel__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
-
-    def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
 
 
 class HostelAttendanceAlertViewSet(viewsets.ModelViewSet):
