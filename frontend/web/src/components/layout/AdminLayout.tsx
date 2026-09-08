@@ -81,6 +81,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       },
       { label: "Examinations", to: "/admin/exams", icon: BookOpenIcon },
       {
+        label: "Gradebook Center",
+        to: "/admin/gradebook-center",
+        icon: BookOpenIcon,
+      },
+      {
         label: "Report Cards",
         to: "/admin/report-cards",
         icon: DocumentChartBarIcon,

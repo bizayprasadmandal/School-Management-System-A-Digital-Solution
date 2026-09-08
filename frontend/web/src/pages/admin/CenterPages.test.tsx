@@ -11,6 +11,7 @@ import ConferencesCenterPage from "./ConferencesCenterPage";
 import AuthCenterPage from "./AuthCenterPage";
 import FeesCenterPage from "./FeesCenterPage";
 import HRCenterPage from "./HRCenterPage";
+import GradebookCenterPage from "./GradebookCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -93,6 +94,19 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/assessments")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "6",
+              title: "Algebra Quiz 3",
+              assessment_type: "quiz",
+              max_marks: 20,
+            },
+          ],
+        });
+      }
       return ok({ count: 0, results: [] });
     });
   });
@@ -125,5 +139,11 @@ describe("Admin center pages", () => {
     renderWithProviders(<HRCenterPage />);
     expect(screen.getByRole("heading", { name: "HR Center" })).toBeInTheDocument();
     expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
+  });
+
+  test("GradebookCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<GradebookCenterPage />);
+    expect(screen.getByRole("heading", { name: "Gradebook Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Algebra Quiz 3")).toBeInTheDocument();
   });
 });
