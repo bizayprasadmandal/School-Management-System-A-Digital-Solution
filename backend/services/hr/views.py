@@ -1101,6 +1101,9 @@ class HRAuditLogViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
 
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class AccountantProfileViewSet(viewsets.ModelViewSet):
     queryset = AccountantProfile.objects.all()
@@ -1108,6 +1111,12 @@ class AccountantProfileViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AccountantProfile.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class DataRetentionPolicyViewSet(viewsets.ModelViewSet):
@@ -1117,13 +1126,25 @@ class DataRetentionPolicyViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return DataRetentionPolicy.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class HRDashboardMetricsViewSet(viewsets.ModelViewSet):
     queryset = HRDashboardMetrics.objects.all()
     serializer_class = HRDashboardMetricsSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["calculated_at"]
+    ordering = ["-calculated_at"]
+
+    def get_queryset(self):
+        return HRDashboardMetrics.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
 
 
 class OnboardingChecklistViewSet(viewsets.ModelViewSet):
@@ -1133,6 +1154,12 @@ class OnboardingChecklistViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return OnboardingChecklist.objects.filter(school=self.request.user.school)
+
+    def perform_create(self, serializer):
+        serializer.save(school=self.request.user.school)
+
 
 class OnboardingProgressViewSet(viewsets.ModelViewSet):
     queryset = OnboardingProgress.objects.all()
@@ -1140,6 +1167,11 @@ class OnboardingProgressViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return OnboardingProgress.objects.filter(employee__school=self.request.user.school).select_related(
+            "employee", "task"
+        )
 
 
 class OnboardingTaskViewSet(viewsets.ModelViewSet):
@@ -1149,10 +1181,20 @@ class OnboardingTaskViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        return OnboardingTask.objects.filter(checklist__school=self.request.user.school).select_related(
+            "checklist", "assigned_to"
+        )
+
 
 class PayslipViewLogViewSet(viewsets.ModelViewSet):
     queryset = PayslipViewLog.objects.all()
     serializer_class = PayslipViewLogSerializer
     search_fields = ["id"]
-    ordering_fields = ["created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["viewed_at"]
+    ordering = ["-viewed_at"]
+
+    def get_queryset(self):
+        return PayslipViewLog.objects.filter(employee__school=self.request.user.school).select_related(
+            "employee", "payslip"
+        )

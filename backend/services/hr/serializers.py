@@ -240,7 +240,7 @@ class AccountantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountantProfile
         fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class AccountantSelfProfileSerializer(serializers.ModelSerializer):
@@ -510,7 +510,7 @@ class OnboardingChecklistSerializer(serializers.ModelSerializer):
             "task_count",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
     def get_task_count(self, obj):
         return obj.tasks.count()
@@ -872,7 +872,7 @@ class HRDashboardMetricsSerializer(serializers.ModelSerializer):
             "employment_type_breakdown",
             "calculated_at",
         ]
-        read_only_fields = ["id", "calculated_at"]
+        read_only_fields = ["id", "calculated_at", "school"]
 
 
 class TurnoverReportSerializer(serializers.ModelSerializer):
@@ -1019,11 +1019,11 @@ class HRAuditLogSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "school"]
 
 
 class DataRetentionPolicySerializer(serializers.ModelSerializer):
     class Meta:
         model = DataRetentionPolicy
         fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]

@@ -5,9 +5,11 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AccountantProfileView,
+    AccountantProfileViewSet,
     ApplicantViewSet,
     BenefitPlanViewSet,
     CertificationViewSet,
+    DataRetentionPolicyViewSet,
     DepartmentViewSet,
     EmployeeBenefitViewSet,
     EmployeeDocumentViewSet,
@@ -15,12 +17,17 @@ from .views import (
     EmployeeSalaryViewSet,
     EmployeeViewSet,
     HRAuditLogViewSet,
+    HRDashboardMetricsViewSet,
     HRDashboardViewSet,
     InterviewScheduleViewSet,
     JobPostingViewSet,
     LeaveBalanceHRViewSet,
     LeaveRequestViewSet,
+    OnboardingChecklistViewSet,
+    OnboardingProgressViewSet,
+    OnboardingTaskViewSet,
     OvertimeRequestViewSet,
+    PayslipViewLogViewSet,
     PayslipViewSet,
     PeerFeedbackViewSet,
     PerformanceGoalViewSet,
@@ -80,6 +87,14 @@ router.register(r"policies", PolicyDocumentViewSet, basename="policy")
 router.register(r"policy-acknowledgments", PolicyAcknowledgmentViewSet, basename="policy-acknowledgment")
 # P9: Compliance
 router.register(r"audit-logs", HRAuditLogViewSet, basename="audit-log")
+# P10: Expanded HR
+router.register(r"accountant-profiles", AccountantProfileViewSet, basename="accountant-profile")
+router.register(r"data-retention-policies", DataRetentionPolicyViewSet, basename="data-retention-policy")
+router.register(r"hr-dashboard-metrics", HRDashboardMetricsViewSet, basename="hr-dashboard-metrics")
+router.register(r"onboarding-checklists", OnboardingChecklistViewSet, basename="onboarding-checklist")
+router.register(r"onboarding-progress", OnboardingProgressViewSet, basename="onboarding-progress")
+router.register(r"onboarding-tasks", OnboardingTaskViewSet, basename="onboarding-task")
+router.register(r"payslip-view-logs", PayslipViewLogViewSet, basename="payslip-view-log")
 
 urlpatterns = [
     path("", include(router.urls)),
