@@ -109,6 +109,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       { label: "Event Calendar", to: "/admin/events", icon: CalendarDaysIcon },
       { label: "Conferences", to: "/admin/conferences", icon: VideoCameraIcon },
       {
+        label: "Conferences Center",
+        to: "/admin/conferences-center",
+        icon: VideoCameraIcon,
+      },
+      {
         label: "Zoom Integration",
         to: "/admin/zoom-integration",
         icon: VideoCameraIcon,
@@ -120,6 +125,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     icon: BanknotesIcon,
     items: [
       { label: "Fee Management", to: "/admin/fees", icon: BanknotesIcon },
+      {
+        label: "Finance Center",
+        to: "/admin/finance-center",
+        icon: BanknotesIcon,
+      },
       { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
       { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
       { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
@@ -159,6 +169,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     items: [
       { label: "Analytics", to: "/admin/reports", icon: ChartBarIcon },
       {
+        label: "Reporting Center",
+        to: "/admin/reporting-center",
+        icon: ChartBarIcon,
+      },
+      {
         label: "Audit Log",
         to: "/admin/audit-logs",
         icon: ShieldExclamationIcon,
@@ -167,6 +182,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         label: "Access Control",
         to: "/admin/access-control",
         icon: LockClosedIcon,
+      },
+      {
+        label: "Security Center",
+        to: "/admin/security-center",
+        icon: ShieldCheckIcon,
       },
       {
         label: "Account Security",

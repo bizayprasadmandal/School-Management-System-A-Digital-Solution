@@ -63,6 +63,10 @@ const HealthPage = React.lazy(() => import("./pages/admin/HealthPage"));
 const AlumniPage = React.lazy(() => import("./pages/admin/AlumniPage"));
 const CounselingCenterPage = React.lazy(() => import("./pages/admin/CounselingCenterPage"));
 const StudentRecordsPage = React.lazy(() => import("./pages/admin/StudentRecordsPage"));
+const ReportingCenterPage = React.lazy(() => import("./pages/admin/ReportingCenterPage"));
+const ConferencesCenterPage = React.lazy(() => import("./pages/admin/ConferencesCenterPage"));
+const AuthCenterPage = React.lazy(() => import("./pages/admin/AuthCenterPage"));
+const FeesCenterPage = React.lazy(() => import("./pages/admin/FeesCenterPage"));
 const CafeteriaPage = React.lazy(() => import("./pages/admin/CafeteriaPage"));
 const AdmissionsPage = React.lazy(() => import("./pages/admin/AdmissionsPage"));
 const InfrastructurePage = React.lazy(() => import("./pages/admin/InfrastructurePage"));
@@ -277,6 +281,10 @@ function App() {
                   <Route index element={<AdminIndex />} />
                   <Route path="students" element={<StudentsPage />} />
                   <Route path="student-records" element={<StudentRecordsPage />} />
+                  <Route path="reporting-center" element={<ReportingCenterPage />} />
+                  <Route path="conferences-center" element={<ConferencesCenterPage />} />
+                  <Route path="security-center" element={<AuthCenterPage />} />
+                  <Route path="finance-center" element={<FeesCenterPage />} />
                   <Route path="students/:id" element={<StudentDetailPage />} />
                   <Route path="teachers" element={<TeachersPage />} />
                   <Route path="classrooms" element={<ClassroomsPage />} />
