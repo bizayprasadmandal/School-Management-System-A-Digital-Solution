@@ -61,7 +61,12 @@ const MOCK_ITEMS = {
 const MOCK_SPORTS = {
   count: 2,
   results: [
-    { id: "1", name: "Basketball", coach_name: "Coach Williams", total_members: 12 },
+    {
+      id: "1",
+      name: "Basketball",
+      coach_name: "Coach Williams",
+      total_members: 12,
+    },
     { id: "2", name: "Soccer", coach_name: "Coach Garcia", total_members: 18 },
   ],
 };
@@ -89,8 +94,20 @@ const MOCK_HEALTH = {
 const MOCK_HOSTELS = {
   count: 2,
   results: [
-    { id: "1", name: "Boys Hostel A", capacity: 100, occupied: 85, warden_name: "Mr. Brown" },
-    { id: "2", name: "Girls Hostel B", capacity: 80, occupied: 72, warden_name: "Ms. Taylor" },
+    {
+      id: "1",
+      name: "Boys Hostel A",
+      capacity: 100,
+      occupied: 85,
+      warden_name: "Mr. Brown",
+    },
+    {
+      id: "2",
+      name: "Girls Hostel B",
+      capacity: 80,
+      occupied: 72,
+      warden_name: "Ms. Taylor",
+    },
   ],
 };
 
@@ -233,7 +250,7 @@ test.describe("Admin — Inventory Page", () => {
 test.describe("Admin — Sports Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/sports/sports/`, async (route) => {
+    await page.route(`${API_BASE}/sports/sports/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -257,7 +274,7 @@ test.describe("Admin — Sports Page", () => {
 test.describe("Admin — Health Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/health/records/`, async (route) => {
+    await page.route(`${API_BASE}/health/records/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -304,21 +321,21 @@ test.describe("Admin — Hostel Page", () => {
 test.describe("Admin — Cafeteria Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/cafeteria/menus/`, async (route) => {
+    await page.route(`${API_BASE}/cafeteria/menus/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(MOCK_MENUS),
       });
     });
-    await page.route(`${API_BASE}/cafeteria/plans/`, async (route) => {
+    await page.route(`${API_BASE}/cafeteria/plans/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ count: 0, results: [] }),
       });
     });
-    await page.route(`${API_BASE}/cafeteria/bookings/`, async (route) => {
+    await page.route(`${API_BASE}/cafeteria/bookings/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -341,14 +358,14 @@ test.describe("Admin — Cafeteria Page", () => {
 test.describe("Admin — Admissions Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/admissions/intakes/`, async (route) => {
+    await page.route(`${API_BASE}/admissions/intakes/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(MOCK_INTAKES),
       });
     });
-    await page.route(`${API_BASE}/admissions/applications/`, async (route) => {
+    await page.route(`${API_BASE}/admissions/applications/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -364,7 +381,9 @@ test.describe("Admin — Admissions Page", () => {
     });
     // Intakes only render in the "Intake Periods" tab (default tab is Applications)
     await page.getByRole("button", { name: /Intake Periods/i }).click();
-    await expect(page.getByText("2024 Fall Intake")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("2024 Fall Intake")).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });
 
@@ -373,7 +392,7 @@ test.describe("Admin — Admissions Page", () => {
 test.describe("Admin — Alumni Page", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.route(`${API_BASE}/alumni/profiles/`, async (route) => {
+    await page.route(`${API_BASE}/alumni/profiles/**`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -385,10 +404,10 @@ test.describe("Admin — Alumni Page", () => {
   test("renders alumni page", async ({ page }) => {
     await gotoAdminPage(page, "alumni");
     // Page also has section headings containing "Alumni" — pin the exact h1
-    await expect(page.getByRole("heading", { name: "Alumni Management" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Alumni Center" })).toBeVisible({
       timeout: 5_000,
     });
     await expect(page.getByText("John Anderson")).toBeVisible();
-    await expect(page.getByText("Software Engineer")).toBeVisible();
+    await expect(page.getByText("Software Engineer").first()).toBeVisible();
   });
 });

@@ -90,6 +90,9 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME}
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      # Keep the anon login throttle out of the way during local e2e runs
+      # (matches the e2e-test job in .github/workflows/ci-full.yml).
+      - AUTH_LOGIN_THROTTLE_RATE=${AUTH_LOGIN_THROTTLE_RATE:-10000/minute}
       - CORS_ALLOWED_ORIGINS=http://localhost:5173
       - FRONTEND_URL=http://localhost:5173
       - TWILIO_ACCOUNT_SID=

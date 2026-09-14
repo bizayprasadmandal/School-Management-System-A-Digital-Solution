@@ -41,7 +41,9 @@ const MOCK_INCIDENTS = {
   results: [
     {
       id: "1",
+      title: "Classroom Disruption",
       student_name: "Bob Smith",
+      category_name: "disruption",
       incident_type: "disruption",
       severity: "medium",
       date: "2024-06-10",
@@ -49,7 +51,9 @@ const MOCK_INCIDENTS = {
     },
     {
       id: "2",
+      title: "Repeated Tardiness",
       student_name: "Charlie Brown",
+      category_name: "tardy",
       incident_type: "tardy",
       severity: "low",
       date: "2024-06-11",
@@ -137,12 +141,14 @@ test.describe("Admin — Library Page", () => {
       timeout: 5_000,
     });
     await expect(page.getByText("To Kill a Mockingbird")).toBeVisible();
-    await expect(page.getByText("Harper Lee")).toBeVisible();
+    await expect(page.getByText("Harper Lee").first()).toBeVisible();
   });
 
   test("shows available copies info", async ({ page }) => {
     await gotoAdminPage(page, "library");
-    await expect(page.getByText(/Available|Copies|3|2/i).first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/Available|Copies|3|2/i).first()).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("has search input", async ({ page }) => {
@@ -169,8 +175,10 @@ test.describe("Admin — Behavior Page", () => {
     await expect(page.getByRole("heading", { name: /Behavior|Incident/i })).toBeVisible({
       timeout: 5_000,
     });
-    await expect(page.getByText("Bob Smith")).toBeVisible();
-    await expect(page.getByText("disruption")).toBeVisible();
+    // Incidents live on the "Incident" tab — the default tab is "Category"
+    await page.getByRole("button", { name: /^Incident$/ }).click();
+    await expect(page.getByText("Bob Smith")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("disruption").first()).toBeVisible();
   });
 
   test("shows severity and status badges", async ({ page }) => {
@@ -238,6 +246,8 @@ test.describe("Admin — HR Page", () => {
     // "Administration" alone is ambiguous: the sidebar group "Insights &
     // Administration" also matches. Scope to the employee row's department
     // suffix, rendered as "Accountant · Administration".
-    await expect(page.getByText(/· Administration/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/· Administration/)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

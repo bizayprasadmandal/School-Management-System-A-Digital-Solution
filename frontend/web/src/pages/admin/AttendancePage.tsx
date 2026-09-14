@@ -101,8 +101,10 @@ function OverviewTab() {
   const { data: classroomsData } = useClassrooms();
   const classrooms = classroomsData?.results ?? [];
 
-  // Dashboard analytics
-  const { data: dashboard, isLoading: dashboardLoading } = useAttendanceDashboard();
+  // Dashboard analytics. The endpoint returns a rich object; degrade to "no
+  // dashboard" instead of crashing if the payload is unexpectedly shaped.
+  const { data: dashboardRaw, isLoading: dashboardLoading } = useAttendanceDashboard();
+  const dashboard = dashboardRaw?.today ? dashboardRaw : undefined;
   const { data: atRiskData } = useAtRiskAttendanceStudents(75, 30);
 
   // Fetch attendance for each classroom on the selected date
@@ -113,7 +115,10 @@ function OverviewTab() {
       const results = await Promise.allSettled(
         classrooms.map((c) =>
           api
-            .get<any>("/attendance/classroom-summary/", { classroom_id: c.id, date: selectedDate })
+            .get<any>("/attendance/classroom-summary/", {
+              classroom_id: c.id,
+              date: selectedDate,
+            })
             .then((d) => ({ ...d, classroom: c })),
         ),
       );
@@ -244,7 +249,6 @@ function OverviewTab() {
           />
         </div>
       </div>
-
       {/* Dashboard Toggle */}
       <div className="flex items-center gap-2">
         <button
@@ -259,36 +263,41 @@ function OverviewTab() {
           Dashboard View
         </button>
       </div>
-
-      {/* Dashboard Analytics Section */}
+      {/* Dashboard Analytics Section */}{" "}
       {showDashboard && dashboard && !dashboardLoading && (
         <div className="space-y-6">
           {/* Today's Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4 text-center">
-              <p className="text-2xl font-bold text-indigo-600">{dashboard.today.recorded}</p>
+              <p className="text-2xl font-bold text-indigo-600">{dashboard.today?.recorded ?? 0}</p>
               <p className="text-xs text-slate-500 mt-1">Recorded Today</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{dashboard.today.present}</p>
+              {" "}
+              <p className="text-2xl font-bold text-green-600">{dashboard.today?.present ?? 0}</p>
               <p className="text-xs text-slate-500 mt-1">Present</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{dashboard.today.absent}</p>
+              {" "}
+              <p className="text-2xl font-bold text-red-600">{dashboard.today?.absent ?? 0}</p>
               <p className="text-xs text-slate-500 mt-1">Absent</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4 text-center">
-              <p className="text-2xl font-bold text-amber-600">{dashboard.today.late}</p>
+              {" "}
+              <p className="text-2xl font-bold text-amber-600">{dashboard.today?.late ?? 0}</p>
               <p className="text-xs text-slate-500 mt-1">Late</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">{dashboard.today.percentage}%</p>
+              {" "}
+              <p className="text-2xl font-bold text-blue-600">
+                {dashboard.today?.percentage ?? 0}%
+              </p>
               <p className="text-xs text-slate-500 mt-1">Attendance Rate</p>
             </div>
           </div>
 
           {/* Weekly Trend Chart */}
-          {dashboard.weekly_trend.length > 0 && (
+          {(dashboard?.weekly_trend ?? []).length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700">
               <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
                 <h2 className="text-base font-semibold flex items-center gap-2">
@@ -299,7 +308,7 @@ function OverviewTab() {
               <div className="p-5">
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart
-                    data={dashboard.weekly_trend}
+                    data={dashboard?.weekly_trend ?? []}
                     margin={{ top: 4, right: 8, left: -20, bottom: 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -320,12 +329,12 @@ function OverviewTab() {
           )}
 
           {/* At-Risk Students */}
-          {dashboard.at_risk_students.length > 0 && (
+          {(dashboard?.at_risk_students ?? []).length > 0 && (
             <div className="bg-white rounded-2xl border border-red-100 shadow-sm dark:bg-slate-800 dark:border-red-900">
               <div className="px-5 py-4 border-b border-red-100 dark:border-red-900 flex items-center justify-between">
                 <h2 className="text-base font-semibold flex items-center gap-2 text-red-700 dark:text-red-400">
                   <ExclamationTriangleIcon className="h-5 w-5" />
-                  At-Risk Students ({dashboard.at_risk_students.length})
+                  At-Risk Students ({(dashboard?.at_risk_students ?? []).length})
                 </h2>
                 <span className="text-xs text-slate-500">Attendance below 75%</span>
               </div>
@@ -341,7 +350,7 @@ function OverviewTab() {
                       </tr>
                     </thead>
                     <tbody>
-                      {dashboard.at_risk_students.map((student) => (
+                      {(dashboard?.at_risk_students ?? []).map((student) => (
                         <tr
                           key={student.student_id}
                           className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
@@ -367,23 +376,30 @@ function OverviewTab() {
           )}
 
           {/* Pending Leaves */}
-          {dashboard.pending_leaves > 0 && (
+          {(dashboard?.pending_leaves ?? 0) > 0 && (
             <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-center gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 text-amber-600" />
               <p className="text-sm text-amber-800">
-                <span className="font-semibold">{dashboard.pending_leaves}</span> pending leave
-                request(s) need your review
+                <span className="font-semibold">{dashboard?.pending_leaves ?? 0}</span> pending
+                leave request(s) need your review
               </p>
             </div>
           )}
         </div>
       )}
-
       {/* School summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "School Avg", value: percent(schoolAvg), color: attendanceColor(schoolAvg) },
-          { label: "Total Classes", value: classrooms.length, color: "text-indigo-600" },
+          {
+            label: "School Avg",
+            value: percent(schoolAvg),
+            color: attendanceColor(schoolAvg),
+          },
+          {
+            label: "Total Classes",
+            value: classrooms.length,
+            color: "text-indigo-600",
+          },
           {
             label: "Total Present",
             value: chartData.reduce((s, d) => s + d.present, 0),
@@ -404,7 +420,6 @@ function OverviewTab() {
           </div>
         ))}
       </div>
-
       {/* Bar chart */}
       {isLoading ? (
         <SkeletonChart className="m-4" />
@@ -443,7 +458,6 @@ function OverviewTab() {
           </div>
         )
       )}
-
       {/* Classroom drill-down */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between dark:border-slate-700">
@@ -452,7 +466,10 @@ function OverviewTab() {
             placeholder="Select a classroom…"
             value={selectedClassroom ?? ""}
             onChange={(e) => setSelectedClassroom(Number(e.target.value) || undefined)}
-            options={classrooms.map((c) => ({ value: c.id, label: `${c.grade_name} ${c.name}` }))}
+            options={classrooms.map((c) => ({
+              value: c.id,
+              label: `${c.grade_name} ${c.name}`,
+            }))}
             className="w-48"
           />
         </div>
@@ -469,17 +486,21 @@ function OverviewTab() {
                   render: (r) => {
                     const s =
                       (
-                        { P: "Present", A: "Absent", L: "Late", E: "Excused" } as Record<
-                          string,
-                          string
-                        >
+                        {
+                          P: "Present",
+                          A: "Absent",
+                          L: "Late",
+                          E: "Excused",
+                        } as Record<string, string>
                       )[r.status] ?? r.status;
                     const c =
                       (
-                        { P: "green", A: "red", L: "amber", E: "blue" } as Record<
-                          string,
-                          BadgeColor
-                        >
+                        {
+                          P: "green",
+                          A: "red",
+                          L: "amber",
+                          E: "blue",
+                        } as Record<string, BadgeColor>
                       )[r.status] ?? "slate";
                     return (
                       <Badge color={c} dot>
@@ -511,7 +532,6 @@ function OverviewTab() {
           </div>
         )}
       </div>
-
       {/* CSV import wizard */}
       <ImportCsvModal
         open={showImportModal}
@@ -853,7 +873,9 @@ function EntitySection({
 
   const toggle = useMutation({
     mutationFn: ({ id, value }: { id: string | number; value: boolean }) =>
-      api.patch(`/attendance/${cfg.endpoint}/${id}/`, { [cfg.toggleField!]: value }),
+      api.patch(`/attendance/${cfg.endpoint}/${id}/`, {
+        [cfg.toggleField!]: value,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey }),
   });
 
@@ -918,7 +940,10 @@ function EntitySection({
   };
 
   useEffect(() => {
-    registerActions?.({ add: cfg.readOnly ? undefined : openCreate, export: handleExport });
+    registerActions?.({
+      add: cfg.readOnly ? undefined : openCreate,
+      export: handleExport,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg, filtered]);
 
@@ -987,7 +1012,10 @@ function EntitySection({
                       <Toggle
                         checked={!!row[cfg.toggleField as string]}
                         onChange={() =>
-                          toggle.mutate({ id: row.id, value: !row[cfg.toggleField as string] })
+                          toggle.mutate({
+                            id: row.id,
+                            value: !row[cfg.toggleField as string],
+                          })
                         }
                       />
                     )}
@@ -1170,13 +1198,40 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: "student_name", label: "Student", main: true, skipForm: true },
       { key: "student", label: "Student ID", type: "number", card: true },
-      { key: "classroom_name", label: "Classroom", subtitle: true, skipForm: true },
+      {
+        key: "classroom_name",
+        label: "Classroom",
+        subtitle: true,
+        skipForm: true,
+      },
       { key: "classroom", label: "Classroom ID", type: "number", card: true },
-      { key: "academic_year", label: "Academic Year ID", type: "number", card: true },
+      {
+        key: "academic_year",
+        label: "Academic Year ID",
+        type: "number",
+        card: true,
+      },
       { key: "date", label: "Date", type: "date", card: true },
-      { key: "status", label: "Status", type: "select", options: STATUS_ATT, badge: true },
-      { key: "recorded_by_name", label: "Recorded By", card: true, skipForm: true },
-      { key: "remarks", label: "Remarks", type: "textarea", full: true, card: true },
+      {
+        key: "status",
+        label: "Status",
+        type: "select",
+        options: STATUS_ATT,
+        badge: true,
+      },
+      {
+        key: "recorded_by_name",
+        label: "Recorded By",
+        card: true,
+        skipForm: true,
+      },
+      {
+        key: "remarks",
+        label: "Remarks",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
     ],
     searchKeys: ["student_name", "classroom_name", "status", "date"],
   },
@@ -1190,12 +1245,28 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: "student_name", label: "Student", main: true, skipForm: true },
       { key: "student", label: "Student ID", type: "number", card: true },
-      { key: "assignment_label", label: "Assignment", subtitle: true, skipForm: true },
+      {
+        key: "assignment_label",
+        label: "Assignment",
+        subtitle: true,
+        skipForm: true,
+      },
       { key: "assignment", label: "Assignment ID", type: "number", card: true },
       { key: "date", label: "Date", type: "date", card: true },
       { key: "period_number", label: "Period", type: "number", card: true },
-      { key: "status", label: "Status", type: "select", options: STATUS_ATT, badge: true },
-      { key: "recorded_by_name", label: "Recorded By", card: true, skipForm: true },
+      {
+        key: "status",
+        label: "Status",
+        type: "select",
+        options: STATUS_ATT,
+        badge: true,
+      },
+      {
+        key: "recorded_by_name",
+        label: "Recorded By",
+        card: true,
+        skipForm: true,
+      },
     ],
     searchKeys: ["student_name", "assignment_label", "status"],
   },
@@ -1221,10 +1292,32 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       },
       { key: "from_date", label: "From", type: "date", card: true },
       { key: "to_date", label: "To", type: "date", card: true },
-      { key: "reason", label: "Reason", type: "textarea", full: true, card: true },
-      { key: "status", label: "Status", type: "select", options: STATUS_FLOW, badge: true },
-      { key: "requested_at", label: "Requested", type: "datetime", skipForm: true },
-      { key: "review_remarks", label: "Review Remarks", type: "textarea", full: true },
+      {
+        key: "reason",
+        label: "Reason",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
+      {
+        key: "status",
+        label: "Status",
+        type: "select",
+        options: STATUS_FLOW,
+        badge: true,
+      },
+      {
+        key: "requested_at",
+        label: "Requested",
+        type: "datetime",
+        skipForm: true,
+      },
+      {
+        key: "review_remarks",
+        label: "Review Remarks",
+        type: "textarea",
+        full: true,
+      },
     ],
     actions: [
       {
@@ -1252,14 +1345,49 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: "student_name", label: "Student", main: true, skipForm: true },
       { key: "student", label: "Student ID", type: "number" },
-      { key: "academic_year_name", label: "Year", subtitle: true, skipForm: true },
+      {
+        key: "academic_year_name",
+        label: "Year",
+        subtitle: true,
+        skipForm: true,
+      },
       { key: "academic_year", label: "Academic Year ID", type: "number" },
-      { key: "sick_leave_total", label: "Sick Total", type: "number", card: true },
-      { key: "sick_leave_used", label: "Sick Used", type: "number", card: true },
-      { key: "casual_leave_total", label: "Casual Total", type: "number", card: true },
-      { key: "casual_leave_used", label: "Casual Used", type: "number", card: true },
-      { key: "other_leave_total", label: "Other Total", type: "number", card: true },
-      { key: "other_leave_used", label: "Other Used", type: "number", card: true },
+      {
+        key: "sick_leave_total",
+        label: "Sick Total",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "sick_leave_used",
+        label: "Sick Used",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "casual_leave_total",
+        label: "Casual Total",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "casual_leave_used",
+        label: "Casual Used",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "other_leave_total",
+        label: "Other Total",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "other_leave_used",
+        label: "Other Used",
+        type: "number",
+        card: true,
+      },
     ],
     searchKeys: ["student_name"],
   },
@@ -1270,12 +1398,29 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     endpoint: "leave-approval-level",
     titleField: "leave_student_name",
     fields: [
-      { key: "leave_student_name", label: "Student", main: true, skipForm: true },
+      {
+        key: "leave_student_name",
+        label: "Student",
+        main: true,
+        skipForm: true,
+      },
       { key: "leave", label: "Leave ID", type: "number", card: true },
       { key: "level", label: "Level", type: "number", card: true },
       { key: "approver", label: "Approver ID", type: "number", card: true },
-      { key: "status", label: "Status", type: "select", options: STATUS_FLOW, badge: true },
-      { key: "remarks", label: "Remarks", type: "textarea", full: true, card: true },
+      {
+        key: "status",
+        label: "Status",
+        type: "select",
+        options: STATUS_FLOW,
+        badge: true,
+      },
+      {
+        key: "remarks",
+        label: "Remarks",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
       { key: "decided_at", label: "Decided", type: "datetime", skipForm: true },
     ],
     searchKeys: ["leave_student_name", "status"],
@@ -1301,8 +1446,19 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         badge: true,
       },
-      { key: "description", label: "Description", type: "textarea", full: true, card: true },
-      { key: "academic_year", label: "Academic Year ID", type: "number", card: true },
+      {
+        key: "description",
+        label: "Description",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
+      {
+        key: "academic_year",
+        label: "Academic Year ID",
+        type: "number",
+        card: true,
+      },
     ],
     searchKeys: ["name", "holiday_type"],
   },
@@ -1316,11 +1472,36 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: "name", label: "Name", main: true },
       { key: "min_attendance_pct", label: "Min %", type: "number", card: true },
-      { key: "auto_fail_below", label: "Auto-fail Below", type: "number", card: true },
-      { key: "notify_parent_below_pct", label: "Notify Parent < %", type: "number", card: true },
-      { key: "notify_admin_below_pct", label: "Notify Admin < %", type: "number", card: true },
-      { key: "edit_window_days", label: "Edit Window (days)", type: "number", card: true },
-      { key: "escalation_enabled", label: "Escalation", type: "bool", card: true },
+      {
+        key: "auto_fail_below",
+        label: "Auto-fail Below",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "notify_parent_below_pct",
+        label: "Notify Parent < %",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "notify_admin_below_pct",
+        label: "Notify Admin < %",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "edit_window_days",
+        label: "Edit Window (days)",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "escalation_enabled",
+        label: "Escalation",
+        type: "bool",
+        card: true,
+      },
       {
         key: "escalation_after_minutes",
         label: "Escalate After (min)",
@@ -1339,14 +1520,35 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     titleField: "classroom_name",
     fields: [
       { key: "classroom_name", label: "Classroom", main: true, skipForm: true },
-      { key: "original_teacher", label: "Original Teacher ID", type: "number", card: true },
-      { key: "substitute_teacher", label: "Substitute ID", type: "number", card: true },
+      {
+        key: "original_teacher",
+        label: "Original Teacher ID",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "substitute_teacher",
+        label: "Substitute ID",
+        type: "number",
+        card: true,
+      },
       { key: "classroom", label: "Classroom ID", type: "number" },
       { key: "subject", label: "Subject ID", type: "number", card: true },
       { key: "date", label: "Date", type: "date", card: true },
       { key: "period_number", label: "Period", type: "number", card: true },
-      { key: "reason", label: "Reason", type: "textarea", full: true, card: true },
-      { key: "is_auto_assigned", label: "Auto Assigned", type: "bool", card: true },
+      {
+        key: "reason",
+        label: "Reason",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
+      {
+        key: "is_auto_assigned",
+        label: "Auto Assigned",
+        type: "bool",
+        card: true,
+      },
     ],
     searchKeys: ["classroom_name", "reason"],
   },
@@ -1366,7 +1568,13 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "date", label: "Date", type: "date", card: true },
       { key: "period_number", label: "Period", type: "number", card: true },
       { key: "is_active", label: "Active", type: "bool", card: true },
-      { key: "expires_at", label: "Expires", type: "datetime", card: true, skipForm: true },
+      {
+        key: "expires_at",
+        label: "Expires",
+        type: "datetime",
+        card: true,
+        skipForm: true,
+      },
       { key: "created_at", label: "Created", type: "datetime", skipForm: true },
     ],
     searchKeys: ["classroom_name", "teacher_name"],
@@ -1404,7 +1612,12 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         badge: true,
       },
-      { key: "confidence_score", label: "Confidence", type: "number", card: true },
+      {
+        key: "confidence_score",
+        label: "Confidence",
+        type: "number",
+        card: true,
+      },
       { key: "checkin_time", label: "Check-in", type: "datetime", card: true },
       { key: "latitude", label: "Latitude", type: "number" },
       { key: "longitude", label: "Longitude", type: "number" },
@@ -1452,8 +1665,18 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "student_name", label: "Student", main: true, skipForm: true },
       { key: "student", label: "Student ID", type: "number" },
       { key: "geofence_name", label: "Geofence", card: true },
-      { key: "geofence_radius", label: "Radius (m)", type: "number", card: true },
-      { key: "distance_from_school", label: "Distance (m)", type: "number", card: true },
+      {
+        key: "geofence_radius",
+        label: "Radius (m)",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "distance_from_school",
+        label: "Distance (m)",
+        type: "number",
+        card: true,
+      },
       {
         key: "status",
         label: "Status",
@@ -1504,7 +1727,13 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "organizer_name", label: "Organizer", card: true, skipForm: true },
       { key: "chaperones", label: "Chaperones", card: true },
       { key: "eligible_grades", label: "Eligible Grades", card: true },
-      { key: "description", label: "Description", type: "textarea", full: true, card: true },
+      {
+        key: "description",
+        label: "Description",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
     ],
     searchKeys: ["title", "destination", "status"],
   },
@@ -1529,15 +1758,35 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         badge: true,
       },
-      { key: "required_streak_days", label: "Streak Days", type: "number", card: true },
-      { key: "required_percentage", label: "Required %", type: "number", card: true },
+      {
+        key: "required_streak_days",
+        label: "Streak Days",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "required_percentage",
+        label: "Required %",
+        type: "number",
+        card: true,
+      },
       { key: "points_value", label: "Points", type: "number", card: true },
-      { key: "total_available", label: "Available", type: "number", card: true },
+      {
+        key: "total_available",
+        label: "Available",
+        type: "number",
+        card: true,
+      },
       { key: "total_awarded", label: "Awarded", type: "number", card: true },
       { key: "start_date", label: "Start", type: "date", card: true },
       { key: "end_date", label: "End", type: "date", card: true },
       { key: "is_active", label: "Active", type: "bool", card: true },
-      { key: "description", label: "Description", type: "textarea", full: true },
+      {
+        key: "description",
+        label: "Description",
+        type: "textarea",
+        full: true,
+      },
     ],
     searchKeys: ["name", "incentive_type"],
   },
@@ -1552,7 +1801,12 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "student", label: "Student ID", type: "number" },
       { key: "tardy_date", label: "Date", type: "date", card: true },
       { key: "arrival_time", label: "Arrival", card: true },
-      { key: "minutes_late", label: "Minutes Late", type: "number", card: true },
+      {
+        key: "minutes_late",
+        label: "Minutes Late",
+        type: "number",
+        card: true,
+      },
       { key: "policy_applied", label: "Policy ID", type: "number", card: true },
       { key: "policy_name", label: "Policy", card: true, skipForm: true },
       {
@@ -1568,7 +1822,12 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         badge: true,
       },
       { key: "excuse", label: "Excused", type: "bool", card: true },
-      { key: "parent_notified", label: "Parent Notified", type: "bool", card: true },
+      {
+        key: "parent_notified",
+        label: "Parent Notified",
+        type: "bool",
+        card: true,
+      },
       { key: "consequence", label: "Consequence", card: true },
       { key: "reason", label: "Reason", type: "textarea", full: true },
     ],
@@ -1594,10 +1853,32 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         main: true,
       },
-      { key: "attendance_record", label: "Record ID", type: "number", card: true },
-      { key: "period_attendance", label: "Period ID", type: "number", card: true },
-      { key: "old_status", label: "Old Status", type: "select", options: STATUS_ATT, card: true },
-      { key: "new_status", label: "New Status", type: "select", options: STATUS_ATT, card: true },
+      {
+        key: "attendance_record",
+        label: "Record ID",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "period_attendance",
+        label: "Period ID",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "old_status",
+        label: "Old Status",
+        type: "select",
+        options: STATUS_ATT,
+        card: true,
+      },
+      {
+        key: "new_status",
+        label: "New Status",
+        type: "select",
+        options: STATUS_ATT,
+        card: true,
+      },
       { key: "old_time", label: "Old Time" },
       { key: "new_time", label: "New Time" },
       {
@@ -1612,7 +1893,13 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         badge: true,
       },
-      { key: "reason", label: "Reason", type: "textarea", full: true, card: true },
+      {
+        key: "reason",
+        label: "Reason",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
     ],
     searchKeys: ["correction_type", "status", "reason"],
   },
@@ -1626,11 +1913,26 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: "student_name", label: "Student", main: true, skipForm: true },
       { key: "student", label: "Student ID", type: "number" },
-      { key: "academic_year_name", label: "Year", subtitle: true, skipForm: true },
+      {
+        key: "academic_year_name",
+        label: "Year",
+        subtitle: true,
+        skipForm: true,
+      },
       { key: "academic_year", label: "Academic Year ID", type: "number" },
       { key: "term", label: "Term", card: true },
-      { key: "absence_percentage", label: "Absence %", type: "number", card: true },
-      { key: "attendance_percentage", label: "Attendance %", type: "number", card: true },
+      {
+        key: "absence_percentage",
+        label: "Absence %",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "attendance_percentage",
+        label: "Attendance %",
+        type: "number",
+        card: true,
+      },
       {
         key: "severity_level",
         label: "Severity",
@@ -1708,7 +2010,13 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         card: true,
       },
-      { key: "description", label: "Description", type: "textarea", full: true, card: true },
+      {
+        key: "description",
+        label: "Description",
+        type: "textarea",
+        full: true,
+        card: true,
+      },
     ],
     searchKeys: ["title", "report_type"],
   },
@@ -1744,7 +2052,12 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         ],
         card: true,
       },
-      { key: "grace_period_minutes", label: "Grace (min)", type: "number", card: true },
+      {
+        key: "grace_period_minutes",
+        label: "Grace (min)",
+        type: "number",
+        card: true,
+      },
       {
         key: "tardy_threshold_minutes",
         label: "Tardy Threshold (min)",
@@ -1763,20 +2076,58 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         type: "number",
         card: true,
       },
-      { key: "auto_notify_absent", label: "Auto-notify Absent", type: "bool", card: true },
-      { key: "auto_notify_tardy", label: "Auto-notify Tardy", type: "bool", card: true },
-      { key: "notify_after_minutes", label: "Notify After (min)", type: "number", card: true },
-      { key: "parent_portal_enabled", label: "Parent Portal", type: "bool", card: true },
-      { key: "parent_real_time_view", label: "Parent Real-time", type: "bool", card: true },
-      { key: "auto_apply_holidays", label: "Auto Holidays", type: "bool", card: true },
+      {
+        key: "auto_notify_absent",
+        label: "Auto-notify Absent",
+        type: "bool",
+        card: true,
+      },
+      {
+        key: "auto_notify_tardy",
+        label: "Auto-notify Tardy",
+        type: "bool",
+        card: true,
+      },
+      {
+        key: "notify_after_minutes",
+        label: "Notify After (min)",
+        type: "number",
+        card: true,
+      },
+      {
+        key: "parent_portal_enabled",
+        label: "Parent Portal",
+        type: "bool",
+        card: true,
+      },
+      {
+        key: "parent_real_time_view",
+        label: "Parent Real-time",
+        type: "bool",
+        card: true,
+      },
+      {
+        key: "auto_apply_holidays",
+        label: "Auto Holidays",
+        type: "bool",
+        card: true,
+      },
     ],
     searchKeys: ["attendance_mode", "check_in_method"],
   },
 };
 
-const TABS: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const TABS: {
+  key: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
   { key: "overview", label: "Overview", icon: ChartBarIcon },
-  ...Object.values(ENTITY_CONFIGS).map((c) => ({ key: c.key, label: c.label, icon: c.icon })),
+  ...Object.values(ENTITY_CONFIGS).map((c) => ({
+    key: c.key,
+    label: c.label,
+    icon: c.icon,
+  })),
 ];
 
 // ─── Page shell ────────────────────────────────────────────────────────────────
@@ -1927,8 +2278,16 @@ export default function AdminAttendancePage() {
           { keys: ["N"], label: "New", description: "Open create form" },
           { keys: ["/"], label: "Search", description: "Focus search input" },
           { keys: ["E"], label: "Export", description: "Export data to CSV" },
-          { keys: ["P"], label: "View Mode", description: "Toggle pagination / infinite scroll" },
-          { keys: ["?"], label: "Help", description: "Show this shortcut help" },
+          {
+            keys: ["P"],
+            label: "View Mode",
+            description: "Toggle pagination / infinite scroll",
+          },
+          {
+            keys: ["?"],
+            label: "Help",
+            description: "Show this shortcut help",
+          },
         ]}
       />
     </div>

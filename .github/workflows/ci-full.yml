@@ -95,7 +95,9 @@ jobs:
 
   e2e-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Migrate + seed took 15m42s on CI (≈500 migrations × ≈930 models) and the
+    # Playwright suite needs ~8-12m — 45 leaves headroom for npm/pip installs.
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16-alpine
