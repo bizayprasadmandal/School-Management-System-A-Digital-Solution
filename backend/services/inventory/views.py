@@ -144,7 +144,11 @@ class SupplierViewSet(viewsets.ModelViewSet):
 class InventoryItemViewSet(viewsets.ModelViewSet):
     serializer_class = InventoryItemSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     search_fields = ["name", "sku", "description", "barcode"]
     filterset_fields = ["category", "supplier", "is_active"]
     ordering_fields = ["name", "current_stock", "unit_price"]
@@ -316,7 +320,10 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
         items_data = request.data.get("items", [])
         if not items_data:
-            return Response({"error": "items array required with {item_id, quantity_received}"}, status=400)
+            return Response(
+                {"error": "items array required with {item_id, quantity_received}"},
+                status=400,
+            )
 
         with db_transaction.atomic():
             for entry in items_data:
@@ -372,7 +379,7 @@ class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return PurchaseOrderItem.objects.filter(school=self.request.user.school)
+        return PurchaseOrderItem.objects.filter(purchase_order__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -380,7 +387,7 @@ class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class WarehouseViewSet(viewsets.ModelViewSet):
@@ -409,7 +416,7 @@ class WarehouseZoneViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return WarehouseZone.objects.filter(school=self.request.user.school)
+        return WarehouseZone.objects.filter(warehouse__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -417,7 +424,7 @@ class WarehouseZoneViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class WarehouseLocationViewSet(viewsets.ModelViewSet):
@@ -427,7 +434,7 @@ class WarehouseLocationViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return WarehouseLocation.objects.filter(school=self.request.user.school)
+        return WarehouseLocation.objects.filter(zone__warehouse__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -435,7 +442,7 @@ class WarehouseLocationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class StockLevelViewSet(viewsets.ModelViewSet):
@@ -445,7 +452,7 @@ class StockLevelViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return StockLevel.objects.filter(school=self.request.user.school)
+        return StockLevel.objects.filter(item__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -453,7 +460,7 @@ class StockLevelViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class StockAdjustmentViewSet(viewsets.ModelViewSet):
@@ -463,7 +470,7 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return StockAdjustment.objects.filter(school=self.request.user.school)
+        return StockAdjustment.objects.filter(item__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -471,7 +478,7 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(adjusted_by=self.request.user)
 
 
 class StockCountScheduleViewSet(viewsets.ModelViewSet):
@@ -519,7 +526,7 @@ class StockTransferItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return StockTransferItem.objects.filter(school=self.request.user.school)
+        return StockTransferItem.objects.filter(transfer__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -527,7 +534,7 @@ class StockTransferItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
@@ -556,7 +563,7 @@ class PurchaseRequisitionItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return PurchaseRequisitionItem.objects.filter(school=self.request.user.school)
+        return PurchaseRequisitionItem.objects.filter(requisition__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -564,7 +571,7 @@ class PurchaseRequisitionItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class InvoiceViewSet(viewsets.ModelViewSet):
@@ -593,7 +600,7 @@ class InvoicePaymentViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return InvoicePayment.objects.filter(school=self.request.user.school)
+        return InvoicePayment.objects.filter(invoice__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -601,7 +608,7 @@ class InvoicePaymentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(created_by=self.request.user)
 
 
 class ReturnRequestViewSet(viewsets.ModelViewSet):
@@ -649,7 +656,7 @@ class BarcodeViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return Barcode.objects.filter(school=self.request.user.school)
+        return Barcode.objects.filter(item__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -657,7 +664,7 @@ class BarcodeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class AssetTagViewSet(viewsets.ModelViewSet):
@@ -895,7 +902,7 @@ class InventoryCatalogItemViewSet(viewsets.ModelViewSet):
     search_fields = ["id"]
 
     def get_queryset(self):
-        return InventoryCatalogItem.objects.filter(school=self.request.user.school)
+        return InventoryCatalogItem.objects.filter(catalog__school=self.request.user.school)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -903,7 +910,7 @@ class InventoryCatalogItemViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save()
 
 
 class InventoryPartsViewSet(viewsets.ModelViewSet):
