@@ -39,7 +39,7 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
       deployed: ${{ steps.deploy.outputs.deployed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GHCR rejects uppercase characters in image names — slug the repo name.
       - name: Slug GHCR image base (lowercase)
@@ -144,7 +144,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ── Determine test target ───────────────────────────────────────────
       # Priority: 1) manual input, 2) deployed staging, 3) local backend
