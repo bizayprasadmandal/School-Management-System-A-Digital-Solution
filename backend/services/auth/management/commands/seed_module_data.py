@@ -42,6 +42,17 @@ MODULES = [
     "inventory",
     "infrastructure",
     "reporting",
+    # Modules whose older seeders left their long-tail models empty — the
+    # generic filler pass covers them (UI browse confirmed the gaps).
+    "sports",
+    "health_clinic",
+    "counseling",
+    "communication",
+    "admissions",
+    "conferences",
+    "fees",
+    "attendance",
+    "hr",
 ]
 
 ANCHOR_COUNT = 12
@@ -577,7 +588,7 @@ class Command(BaseCommand):
         self.attempted = set()
         # Preload existing rows so FK resolution can use them — including
         # cross-module targets (students, users) that child models point at.
-        POOL_APPS = list(modules) + ["students", "auth"]
+        POOL_APPS = list(modules) + ["students"]
         for app_label in dict.fromkeys(POOL_APPS):
             try:
                 for m in apps.get_app_config(app_label).get_models():
@@ -589,6 +600,15 @@ class Command(BaseCommand):
                         self.row_pool[m] = rows
             except LookupError:
                 continue
+        # Pool the User model explicitly: it does not live in the built-in
+        # "auth" app config, and User-FK models (Employee, counselor, teacher
+        # availability…) silently fail to seed without it.
+        user_qs = User.objects.all()
+        if self.model_has_school(User):
+            user_qs = user_qs.filter(school=school)
+        user_rows = list(user_qs[:50])
+        if user_rows:
+            self.row_pool[User] = user_rows
 
         self.stdout.write(f"Seeding {len(modules)} modules for {school}…")
         for mod in modules:
