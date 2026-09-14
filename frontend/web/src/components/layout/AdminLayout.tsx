@@ -162,6 +162,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       },
       { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
       { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
+      {
+        label: "Admissions Center",
+        to: "/admin/admissions-center",
+        icon: DocumentTextIcon,
+      },
     ],
   },
   {

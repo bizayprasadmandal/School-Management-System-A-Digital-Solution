@@ -15,6 +15,7 @@ import GradebookCenterPage from "./GradebookCenterPage";
 import TransportationCenterPage from "./TransportationCenterPage";
 import HostelCenterPage from "./HostelCenterPage";
 import InventoryCenterPage from "./InventoryCenterPage";
+import AdmissionsCenterPage from "./AdmissionsCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -137,6 +138,18 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/admissions/admission-agreement")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "10",
+              name: "Enrollment Agreement 2026",
+              status: "active",
+            },
+          ],
+        });
+      }
       if (url.includes("/assessments")) {
         return ok({
           count: 1,
@@ -206,5 +219,11 @@ describe("Admin center pages", () => {
     renderWithProviders(<InventoryCenterPage />);
     expect(screen.getByRole("heading", { name: "Inventory Center" })).toBeInTheDocument();
     expect(await screen.findByText("Projector P-77")).toBeInTheDocument();
+  });
+
+  test("AdmissionsCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<AdmissionsCenterPage />);
+    expect(screen.getByRole("heading", { name: "Admissions Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Enrollment Agreement 2026")).toBeInTheDocument();
   });
 });
