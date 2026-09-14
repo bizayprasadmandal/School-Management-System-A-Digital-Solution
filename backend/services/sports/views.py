@@ -130,7 +130,9 @@ class SportViewSet(viewsets.ModelViewSet):
     filterset_fields = ["category", "is_active"]
 
     def get_queryset(self):
-        return Sport.objects.filter(school=self.request.user.school).annotate(team_count=Count("teams"))
+        return (
+            Sport.objects.filter(school=self.request.user.school).order_by("name").annotate(team_count=Count("teams"))
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -154,7 +156,7 @@ class TeamViewSet(viewsets.ModelViewSet):
             .select_related("sport", "coach")
             .prefetch_related("members__student__user")
             .annotate(member_count=Count("members", filter=Q(members__status="active")))
-        )
+        ).order_by("sport", "name")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -244,7 +246,11 @@ class SportsRegistrationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def approve(self, request, pk=None):
         """Approve a registration."""
         registration = self.get_object()

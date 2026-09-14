@@ -116,7 +116,12 @@ class PeriodViewSet(viewsets.ModelViewSet):
 class TimetableSlotViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableSlotSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["classroom", "day_of_week", "academic_year", "assignment__teacher"]
+    filterset_fields = [
+        "classroom",
+        "day_of_week",
+        "academic_year",
+        "assignment__teacher",
+    ]
 
     def perform_create(self, serializer):
         serializer.save()
@@ -132,7 +137,7 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
         )
         if user.role == "teacher":
             qs = qs.filter(assignment__teacher=user)
-        return qs
+        return qs.order_by("day_of_week", "period")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -214,7 +219,11 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
 class SchoolEventViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolEventSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["event_type", "is_school_wide"]
     search_fields = ["title", "description"]
     ordering_fields = ["start_date"]

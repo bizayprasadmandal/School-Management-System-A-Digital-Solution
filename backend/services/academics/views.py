@@ -94,7 +94,11 @@ from .serializers import (
 class SubjectViewSet(viewsets.ModelViewSet):
     serializer_class = SubjectSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["grade", "is_core", "is_elective", "is_active"]
     search_fields = ["name", "code"]
     ordering_fields = ["name", "grade__level"]
@@ -125,7 +129,7 @@ class TeacherAssignmentViewSet(viewsets.ModelViewSet):
         )
         if user.role == "teacher":
             qs = qs.filter(teacher=user)
-        return qs
+        return qs.order_by("id")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -188,7 +192,13 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
         return Response(TeacherProfileSerializer(profile).data)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "import_csv"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "import_csv",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -278,7 +288,13 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     errors.append(f"Row {row_num}: {str(e)[:100]}")
 
-        return Response({"imported": imported, "errors": errors[:20], "generated_passwords": generated_passwords})
+        return Response(
+            {
+                "imported": imported,
+                "errors": errors[:20],
+                "generated_passwords": generated_passwords,
+            }
+        )
 
 
 class LessonPlanViewSet(viewsets.ModelViewSet):
@@ -295,7 +311,7 @@ class LessonPlanViewSet(viewsets.ModelViewSet):
         )
         if user.role == "teacher":
             qs = qs.filter(assignment__teacher=user)
-        return qs
+        return qs.order_by("-created_at")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy", "approve"]:
@@ -322,7 +338,11 @@ class StudentSubjectEnrollmentViewSet(viewsets.ModelViewSet):
 
     serializer_class = StudentSubjectEnrollmentSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["student", "subject", "academic_year", "status"]
     search_fields = [
         "student__user__first_name",
@@ -346,7 +366,13 @@ class StudentSubjectEnrollmentViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_enroll"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "bulk_enroll",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -420,7 +446,11 @@ class StudentSubjectEnrollmentViewSet(viewsets.ModelViewSet):
         )
         return Response(StudentSubjectEnrollmentSerializer(qs, many=True).data)
 
-    @action(detail=False, methods=["get"], url_path="subject-students/(?P<subject_id>[^/.]+)")
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="subject-students/(?P<subject_id>[^/.]+)",
+    )
     def subject_students(self, request, subject_id=None):
         """Return all active students enrolled in a specific subject."""
         qs = self.get_queryset().filter(
@@ -439,7 +469,11 @@ class CurriculumStandardViewSet(viewsets.ModelViewSet):
 
     serializer_class = CurriculumStandardSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["framework", "grade", "subject", "domain", "is_active"]
     search_fields = ["code", "name", "description", "domain", "cluster"]
     ordering_fields = ["code", "name", "created_at"]
@@ -449,7 +483,13 @@ class CurriculumStandardViewSet(viewsets.ModelViewSet):
         return CurriculumStandard.objects.filter(school=self.request.user.school).select_related("grade", "subject")
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_create"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "bulk_create",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -538,7 +578,11 @@ class SubjectStandardMappingViewSet(viewsets.ModelViewSet):
 
     serializer_class = SubjectStandardMappingSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "standard", "academic_year", "coverage_level"]
     search_fields = [
         "subject__name",
@@ -617,7 +661,11 @@ class SubjectStandardMappingViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=False, methods=["get"], url_path="subject-coverage/(?P<subject_id>[^/.]+)")
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="subject-coverage/(?P<subject_id>[^/.]+)",
+    )
     def subject_coverage(self, request, subject_id=None):
         """Return all standards mapped to a subject for a given academic year."""
         academic_year = request.query_params.get("academic_year")
@@ -664,7 +712,11 @@ class SyllabusViewSet(viewsets.ModelViewSet):
 
     serializer_class = SyllabusSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "academic_year", "term", "status"]
     search_fields = ["title", "description", "subject__name", "subject__code"]
     ordering_fields = ["created_at", "updated_at", "title"]
@@ -829,7 +881,7 @@ class TeacherWorkloadConfigViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
-        return TeacherWorkloadConfig.objects.filter(school=self.request.user.school)
+        return TeacherWorkloadConfig.objects.filter(school=self.request.user.school).order_by("-updated_at")
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
@@ -873,7 +925,14 @@ class TeacherWorkloadViewSet(viewsets.GenericViewSet):
         ).select_related("period", "assignment__subject", "classroom")
 
         # Count periods per day
-        day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday"}
+        day_names = {
+            0: "Monday",
+            1: "Tuesday",
+            2: "Wednesday",
+            3: "Thursday",
+            4: "Friday",
+            5: "Saturday",
+        }
         periods_per_day = {}
         for slot in slots:
             day = day_names.get(slot.day_of_week, f"Day {slot.day_of_week}")
@@ -1148,9 +1207,18 @@ class TeacherEvaluationViewSet(viewsets.ModelViewSet):
 
     serializer_class = TeacherEvaluationSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["teacher", "academic_year", "status", "template"]
-    search_fields = ["title", "description", "teacher__first_name", "teacher__last_name"]
+    search_fields = [
+        "title",
+        "description",
+        "teacher__first_name",
+        "teacher__last_name",
+    ]
     ordering_fields = ["created_at", "overall_score", "review_date"]
     ordering = ["-created_at"]
 
@@ -1353,7 +1421,11 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
 
     serializer_class = AcademicTranscriptSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["student", "academic_year", "status"]
     search_fields = [
         "student__user__first_name",
@@ -1377,7 +1449,13 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "bulk_generate",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -1425,7 +1503,10 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
         existing = AcademicTranscript.objects.filter(student_id=student_id, academic_year_id=academic_year_id).first()
         if existing:
             return Response(
-                {"error": "Transcript already exists.", "transcript_id": str(existing.id)},
+                {
+                    "error": "Transcript already exists.",
+                    "transcript_id": str(existing.id),
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -1455,7 +1536,14 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
         from collections import defaultdict
         from decimal import Decimal as D
 
-        subject_totals = defaultdict(lambda: {"total_max": D("0"), "total_obtained": D("0"), "name": "", "code": ""})
+        subject_totals = defaultdict(
+            lambda: {
+                "total_max": D("0"),
+                "total_obtained": D("0"),
+                "name": "",
+                "code": "",
+            }
+        )
         for gr in grade_records:
             subj = gr.exam_schedule.subject
             key = str(subj.id)
@@ -1589,7 +1677,14 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
         subjects_data = []
         total_marks = D("0")
         obtained_marks = D("0")
-        subject_totals = defaultdict(lambda: {"total_max": D("0"), "total_obtained": D("0"), "name": "", "code": ""})
+        subject_totals = defaultdict(
+            lambda: {
+                "total_max": D("0"),
+                "total_obtained": D("0"),
+                "name": "",
+                "code": "",
+            }
+        )
 
         for gr in grade_records:
             subj = gr.exam_schedule.subject
@@ -1637,7 +1732,7 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
             grade_letter=_calculate_grade_letter(percentage),
             attendance_days=present_days,
             total_school_days=total_days,
-            attendance_percentage=round((present_days / total_days * 100), 2) if total_days > 0 else 0,
+            attendance_percentage=(round((present_days / total_days * 100), 2) if total_days > 0 else 0),
             subjects_data=subjects_data,
             generated_by=user,
         )
@@ -1721,8 +1816,18 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
 
         # Student info table
         info_data = [
-            ["Student Name:", str(transcript.student), "Transcript #:", transcript.transcript_number],
-            ["Admission #:", transcript.student.admission_number, "Academic Year:", str(transcript.academic_year)],
+            [
+                "Student Name:",
+                str(transcript.student),
+                "Transcript #:",
+                transcript.transcript_number,
+            ],
+            [
+                "Admission #:",
+                transcript.student.admission_number,
+                "Academic Year:",
+                str(transcript.academic_year),
+            ],
             [
                 "Date of Birth:",
                 str(transcript.student.date_of_birth or ""),
@@ -1761,7 +1866,17 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
             )
 
         if len(grade_data) > 1:
-            grade_table = Table(grade_data, colWidths=[2 * inch, 1 * inch, 1 * inch, 1 * inch, 1 * inch, 0.8 * inch])
+            grade_table = Table(
+                grade_data,
+                colWidths=[
+                    2 * inch,
+                    1 * inch,
+                    1 * inch,
+                    1 * inch,
+                    1 * inch,
+                    0.8 * inch,
+                ],
+            )
             grade_table.setStyle(
                 TableStyle(
                     [
@@ -1772,7 +1887,12 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
                         ("FONTSIZE", (0, 0), (-1, -1), 9),
                         ("ALIGN", (2, 0), (-1, -1), "CENTER"),
                         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [colors.white, colors.HexColor("#F2F2F2")],
+                        ),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ]
@@ -1818,7 +1938,11 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
         # Signatures
         sig_data = [
             ["_____________________", "", "_____________________"],
-            [f"{transcript.principal_name or 'Principal'}", "", f"{transcript.class_teacher_name or 'Class Teacher'}"],
+            [
+                f"{transcript.principal_name or 'Principal'}",
+                "",
+                f"{transcript.class_teacher_name or 'Class Teacher'}",
+            ],
             ["Signature & Seal", "", "Signature"],
         ]
         sig_table = Table(sig_data, colWidths=[3 * inch, 1 * inch, 3 * inch])
@@ -1856,14 +1980,21 @@ class AcademicTranscriptViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(AcademicTranscriptSerializer(page, many=True).data)
         return Response(AcademicTranscriptSerializer(qs, many=True).data)
 
-    @action(detail=False, methods=["get"], url_path="class-rankings/(?P<academic_year_id>[^/.]+)")
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="class-rankings/(?P<academic_year_id>[^/.]+)",
+    )
     def class_rankings(self, request, academic_year_id=None):
         """Get rankings of students by class based on transcript percentages."""
         transcripts = (
             AcademicTranscript.objects.filter(
                 academic_year_id=academic_year_id,
                 student__school=request.user.school,
-                status__in=[AcademicTranscript.Status.GENERATED, AcademicTranscript.Status.VERIFIED],
+                status__in=[
+                    AcademicTranscript.Status.GENERATED,
+                    AcademicTranscript.Status.VERIFIED,
+                ],
             )
             .select_related("student__user")
             .order_by("-percentage")
@@ -1924,7 +2055,11 @@ class AcademicTermViewSet(viewsets.ModelViewSet):
 
     serializer_class = AcademicTermSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["academic_year", "term_type", "is_current"]
     search_fields = ["name"]
     ordering_fields = ["start_date", "end_date"]
@@ -1972,7 +2107,11 @@ class AcademicEventViewSet(viewsets.ModelViewSet):
 
     serializer_class = AcademicEventSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["academic_year", "term", "event_type", "is_published"]
     search_fields = ["title", "description"]
     ordering_fields = ["start_date", "end_date", "created_at"]
@@ -2024,7 +2163,11 @@ class AcademicHolidayViewSet(viewsets.ModelViewSet):
 
     serializer_class = AcademicHolidaySerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["academic_year", "holiday_type"]
     search_fields = ["name"]
     ordering_fields = ["date"]
@@ -2052,7 +2195,11 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
     serializer_class = AssignmentSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["assignment", "assignment_type", "status", "due_date"]
     search_fields = ["title", "description"]
     ordering_fields = ["due_date", "created_at"]
@@ -2156,7 +2303,11 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
 
     serializer_class = AssignmentSubmissionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["assignment", "student", "status"]
     search_fields = [
         "student__user__first_name",
@@ -2251,7 +2402,11 @@ class HomeworkTrackerViewSet(viewsets.ModelViewSet):
 
     serializer_class = HomeworkTrackerSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["classroom", "subject", "date", "is_completed"]
     search_fields = ["description"]
     ordering_fields = ["date", "due_date"]
@@ -2285,7 +2440,11 @@ class QuestionBankViewSet(viewsets.ModelViewSet):
 
     serializer_class = QuestionBankSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "question_type", "difficulty", "is_active"]
     search_fields = ["question_text", "tags"]
     ordering_fields = ["created_at", "usage_count", "difficulty"]
@@ -2351,7 +2510,11 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
 
     serializer_class = ExamPaperSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "academic_year", "status"]
     search_fields = ["title"]
     ordering_fields = ["created_at", "total_marks"]
@@ -2413,7 +2576,11 @@ class AcademicNotificationViewSet(viewsets.ModelViewSet):
 
     serializer_class = AcademicNotificationSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["notification_type", "priority", "is_read"]
     search_fields = ["title", "message"]
     ordering_fields = ["created_at", "priority"]
@@ -2467,7 +2634,11 @@ class SubjectPerformanceViewSet(viewsets.ModelViewSet):
 
     serializer_class = SubjectPerformanceSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "academic_year", "term"]
     search_fields = ["subject__name", "subject__code"]
     ordering_fields = ["average_score", "pass_rate", "calculated_at"]
@@ -2547,7 +2718,11 @@ class StudentProgressViewSet(viewsets.ModelViewSet):
 
     serializer_class = StudentProgressReportSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["student", "academic_year", "term", "subject", "trend"]
     search_fields = [
         "student__user__first_name",
@@ -2567,7 +2742,13 @@ class StudentProgressViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "calculate"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "calculate",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -2588,7 +2769,11 @@ class TeacherEffectivenessViewSet(viewsets.ModelViewSet):
 
     serializer_class = TeacherEffectivenessSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["teacher", "academic_year", "term", "subject"]
     search_fields = [
         "teacher__first_name",
@@ -2640,7 +2825,11 @@ class SubjectVersionViewSet(viewsets.ModelViewSet):
 
     serializer_class = SubjectVersionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject", "academic_year"]
     search_fields = ["name", "code", "change_summary"]
     ordering_fields = ["version_number", "created_at"]
@@ -2706,7 +2895,11 @@ class LessonPlanVersionViewSet(viewsets.ModelViewSet):
 
     serializer_class = LessonPlanVersionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["lesson_plan"]
     search_fields = ["title", "topic", "change_summary"]
     ordering_fields = ["version_number", "created_at"]
@@ -2766,7 +2959,11 @@ class AssignmentVersionViewSet(viewsets.ModelViewSet):
 
     serializer_class = AssignmentVersionSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["assignment"]
     search_fields = ["title", "description", "change_summary"]
     ordering_fields = ["version_number", "created_at"]
@@ -2831,7 +3028,11 @@ class CourseCatalogViewSet(viewsets.ModelViewSet):
 
     serializer_class = CourseCatalogEntrySerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["subject__grade", "difficulty_level", "is_published"]
     search_fields = [
         "subject__name",
@@ -2894,7 +3095,11 @@ class EnrollmentIntentViewSet(viewsets.ModelViewSet):
 
     serializer_class = EnrollmentIntentSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["catalog_entry", "student", "academic_year", "status"]
     search_fields = [
         "student__user__first_name",

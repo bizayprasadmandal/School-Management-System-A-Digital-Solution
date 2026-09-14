@@ -111,7 +111,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
-        return Category.objects.filter(school=self.request.user.school).annotate(item_count=Count("items"))
+        return (
+            Category.objects.filter(school=self.request.user.school)
+            .order_by("name")
+            .annotate(item_count=Count("items"))
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

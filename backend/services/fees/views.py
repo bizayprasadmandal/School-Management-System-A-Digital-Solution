@@ -113,7 +113,7 @@ class FeeCategoryViewSet(viewsets.ModelViewSet):
     serializer_class = FeeCategorySerializer
 
     def get_queryset(self):
-        return FeeCategory.objects.filter(school=self.request.user.school)
+        return FeeCategory.objects.filter(school=self.request.user.school).order_by("name")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -130,8 +130,10 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
     filterset_fields = ["grade", "academic_year", "fee_category", "is_active"]
 
     def get_queryset(self):
-        return FeeStructure.objects.filter(school=self.request.user.school).select_related(
-            "grade", "fee_category", "academic_year"
+        return (
+            FeeStructure.objects.filter(school=self.request.user.school)
+            .order_by("id")
+            .select_related("grade", "fee_category", "academic_year")
         )
 
     def get_permissions(self):
@@ -146,9 +148,17 @@ class FeeStructureViewSet(viewsets.ModelViewSet):
 class FeeInvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = FeeInvoiceSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["status", "student", "academic_year"]
-    search_fields = ["invoice_number", "student__user__first_name", "student__user__last_name"]
+    search_fields = [
+        "invoice_number",
+        "student__user__first_name",
+        "student__user__last_name",
+    ]
     ordering_fields = ["due_date", "total_amount", "status"]
     ordering = ["-due_date"]
 
@@ -164,7 +174,15 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_generate", "waive", "import_csv"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "bulk_generate",
+            "waive",
+            "import_csv",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -275,7 +293,13 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 errors.append(f"Row {row_num}: {str(e)[:100]}")
 
-        return Response({"imported": imported, "invoice_numbers": invoice_numbers, "errors": errors[:20]})
+        return Response(
+            {
+                "imported": imported,
+                "invoice_numbers": invoice_numbers,
+                "errors": errors[:20],
+            }
+        )
 
     @action(detail=False, methods=["post"], url_path="bulk-generate")
     def bulk_generate(self, request):
@@ -405,7 +429,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
             ["Admission No.", student.admission_number],
             ["Amount", f"${payment.amount:,.2f}"],
             ["Payment Method", payment.get_payment_method_display()],
-            ["Date", payment.paid_at.strftime("%B %d, %Y, %H:%M %p") if payment.paid_at else "—"],
+            [
+                "Date",
+                (payment.paid_at.strftime("%B %d, %Y, %H:%M %p") if payment.paid_at else "—"),
+            ],
             ["Status", "Paid"],
         ]
         detail_table = Table(details, colWidths=[5 * cm, 10 * cm])
@@ -415,7 +442,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
                     ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
                     ("FONTSIZE", (0, 0), (-1, -1), 10),
-                    ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 0),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f8fafc")],
+                    ),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                     ("PADDING", (0, 0), (-1, -1), 6),
@@ -446,8 +478,10 @@ class ScholarshipViewSet(viewsets.ModelViewSet):
     filterset_fields = ["student", "academic_year", "is_active"]
 
     def get_queryset(self):
-        return Scholarship.objects.filter(school=self.request.user.school).select_related(
-            "student__user", "academic_year", "approved_by"
+        return (
+            Scholarship.objects.filter(school=self.request.user.school)
+            .order_by("name")
+            .select_related("student__user", "academic_year", "approved_by")
         )
 
     def get_permissions(self):
@@ -487,7 +521,10 @@ class GatewayConfigView(viewsets.ViewSet):
         Method name 'create' maps to POST via DefaultRouter.
         """
         if request.user.role not in ("school_admin", "super_admin"):
-            return Response({"detail": "Only school administrators can update gateway settings."}, status=403)
+            return Response(
+                {"detail": "Only school administrators can update gateway settings."},
+                status=403,
+            )
 
         config = self.get_config(request)
         serializer = PaymentGatewayConfigSerializer(config, data=request.data, partial=True)
@@ -523,7 +560,12 @@ class GatewayConfigView(viewsets.ViewSet):
             )
         if config.esewa_enabled:
             gateways.append(
-                {"id": "esewa", "name": "eSewa", "description": "eSewa wallet or connected bank accounts", "icon": "🏦"}
+                {
+                    "id": "esewa",
+                    "name": "eSewa",
+                    "description": "eSewa wallet or connected bank accounts",
+                    "icon": "🏦",
+                }
             )
         return Response(gateways)
 
@@ -688,7 +730,11 @@ class FeeAdjustmentViewSet(viewsets.ModelViewSet):
     serializer_class = FeeAdjustmentSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "description"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "description",
+    ]
     filterset_fields = ["student", "adjustment_type", "invoice"]
 
     def get_queryset(self):
@@ -760,7 +806,11 @@ class StudentLedgerViewSet(viewsets.ModelViewSet):
     serializer_class = StudentLedgerSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "reference_number"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "reference_number",
+    ]
     filterset_fields = ["student", "transaction_type", "academic_year"]
 
     def get_queryset(self):

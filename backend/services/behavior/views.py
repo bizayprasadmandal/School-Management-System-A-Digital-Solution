@@ -145,7 +145,11 @@ class BehaviorCategoryViewSet(viewsets.ModelViewSet):
 class IncidentViewSet(viewsets.ModelViewSet):
     serializer_class = IncidentSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = ["severity", "status", "incident_type", "student", "category"]
     search_fields = ["description", "incident_type"]
     ordering_fields = ["occurred_at", "created_at"]
@@ -166,7 +170,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, reported_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def resolve(self, request, pk=None):
         """Mark an incident as resolved."""
         incident = self.get_object()
@@ -176,7 +184,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         return Response({"status": "resolved"})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def notify_parents(self, request, pk=None):
         """Notify parents about the incident."""
         incident = self.get_object()
@@ -206,8 +218,10 @@ class ReferralViewSet(viewsets.ModelViewSet):
     search_fields = ["reason", "action_taken"]
 
     def get_queryset(self):
-        return Referral.objects.filter(incident__school=self.request.user.school).select_related(
-            "referred_to", "referred_by", "incident"
+        return (
+            Referral.objects.filter(incident__school=self.request.user.school)
+            .order_by("-created_at")
+            .select_related("referred_to", "referred_by", "incident")
         )
 
     def get_permissions(self):
@@ -220,7 +234,11 @@ class ReferralViewSet(viewsets.ModelViewSet):
 class BehaviorPointViewSet(viewsets.ModelViewSet):
     serializer_class = BehaviorPointSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     search_fields = ["student__user__full_name", "reason"]
     filterset_fields = ["student", "category", "point_type", "is_redeemed"]
     ordering_fields = ["created_at", "points"]
@@ -242,7 +260,11 @@ class BehaviorPointViewSet(viewsets.ModelViewSet):
         balance, _ = BehaviorPointBalance.objects.get_or_create(student=point.student)
         balance.update_balance(point.points, point.point_type)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolMember])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolMember],
+    )
     def redeem(self, request, pk=None):
         """Mark points as redeemed."""
         point = self.get_object()
@@ -324,7 +346,11 @@ class DetentionTrackingViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def check_in(self, request, pk=None):
         """Mark detention as attended."""
         detention = self.get_object()
@@ -371,7 +397,11 @@ class BehaviorContractViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, created_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def sign_student(self, request, pk=None):
         """Mark contract as signed by student."""
         contract = self.get_object()
@@ -380,7 +410,11 @@ class BehaviorContractViewSet(viewsets.ModelViewSet):
         contract.save()
         return Response({"status": "student_signed"})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def sign_parent(self, request, pk=None):
         """Mark contract as signed by parent."""
         contract = self.get_object()
@@ -472,7 +506,11 @@ class DigitalHallPassViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, approved_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def return_pass(self, request, pk=None):
         """Mark hall pass as returned."""
         hall_pass = self.get_object()
@@ -524,7 +562,11 @@ class BehaviorGoalViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, created_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def update_progress(self, request, pk=None):
         """Update goal progress."""
         goal = self.get_object()
@@ -533,7 +575,12 @@ class BehaviorGoalViewSet(viewsets.ModelViewSet):
         if goal.current_value >= goal.target_value:
             goal.status = BehaviorGoal.Status.ACHIEVED
         goal.save()
-        return Response({"current_value": goal.current_value, "progress_percentage": goal.progress_percentage})
+        return Response(
+            {
+                "current_value": goal.current_value,
+                "progress_percentage": goal.progress_percentage,
+            }
+        )
 
 
 class BehaviorStreakViewSet(viewsets.ModelViewSet):
@@ -564,7 +611,11 @@ class BehaviorAlertViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def acknowledge(self, request, pk=None):
         """Acknowledge an alert."""
         alert = self.get_object()
@@ -574,7 +625,11 @@ class BehaviorAlertViewSet(viewsets.ModelViewSet):
         alert.save()
         return Response({"status": "acknowledged"})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def resolve(self, request, pk=None):
         """Resolve an alert."""
         alert = self.get_object()
@@ -604,7 +659,11 @@ class BehaviorAppealViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def review(self, request, pk=None):
         """Review and decide on an appeal."""
         appeal = self.get_object()
@@ -667,7 +726,11 @@ class BehaviorAnalyticsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, generated_by=self.request.user)
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def generate_report(self, request):
         """Generate a behavior analytics report."""
         start_date = request.data.get("start_date")
@@ -675,7 +738,10 @@ class BehaviorAnalyticsViewSet(viewsets.ModelViewSet):
         report_type = request.data.get("report_type", "custom")
 
         if not start_date or not end_date:
-            return Response({"error": "start_date and end_date required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "start_date and end_date required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from datetime import date
 
@@ -797,7 +863,11 @@ class BehaviorPointsRedemptionViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolMember()]
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def approve(self, request, pk=None):
         """Approve a redemption request."""
         redemption = self.get_object()
@@ -807,7 +877,11 @@ class BehaviorPointsRedemptionViewSet(viewsets.ModelViewSet):
         redemption.save()
         return Response({"status": "approved"})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def fulfill(self, request, pk=None):
         """Mark redemption as fulfilled."""
         redemption = self.get_object()
@@ -869,7 +943,11 @@ class BehaviorLeaderboardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, created_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def generate(self, request, pk=None):
         """Generate leaderboard data."""
         leaderboard = self.get_object()
@@ -897,7 +975,11 @@ class BehaviorReportCardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school, created_by=self.request.user)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def generate(self, request, pk=None):
         """Generate report card data."""
         report = self.get_object()
@@ -905,7 +987,11 @@ class BehaviorReportCardViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(report)
         return Response({"behavior_score": score, "report": serializer.data})
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def send_to_parent(self, request, pk=None):
         """Mark report card as sent to parent."""
         report = self.get_object()
@@ -970,7 +1056,11 @@ class SELCheckInViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsSchoolMember()]
         return [IsAuthenticated(), IsSchoolAdmin()]
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def respond(self, request, pk=None):
         """Staff respond to a check-in."""
         check_in = self.get_object()
@@ -1015,7 +1105,11 @@ class BehaviorStaffDashboardViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolMember()]
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsSchoolMember])
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[IsAuthenticated, IsSchoolMember],
+    )
     def my_dashboard(self, request):
         """Get current user's dashboard."""
         dashboard, _ = BehaviorStaffDashboard.objects.get_or_create(
@@ -1026,7 +1120,11 @@ class BehaviorStaffDashboardViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(dashboard)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolMember])
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolMember],
+    )
     def refresh(self, request):
         """Refresh dashboard data."""
         dashboard, _ = BehaviorStaffDashboard.objects.get_or_create(
@@ -1188,7 +1286,11 @@ class BehaviorPredictiveAnalyticsViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolAdmin()]
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsSchoolAdmin])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsSchoolAdmin],
+    )
     def review(self, request, pk=None):
         """Review a prediction."""
         prediction = self.get_object()

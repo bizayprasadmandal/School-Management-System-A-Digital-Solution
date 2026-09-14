@@ -109,7 +109,11 @@ class HealthRecordViewSet(viewsets.ModelViewSet):
     filterset_fields = ["blood_type"]
 
     def get_queryset(self):
-        return HealthRecord.objects.filter(school=self.request.user.school).select_related("student__user")
+        return (
+            HealthRecord.objects.filter(school=self.request.user.school)
+            .order_by("-created_at")
+            .select_related("student__user")
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -147,7 +151,11 @@ class ImmunizationViewSet(viewsets.ModelViewSet):
     serializer_class = ImmunizationSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "vaccine_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "vaccine_name",
+    ]
     filterset_fields = ["student", "vaccine_name"]
 
     def get_queryset(self):
@@ -166,7 +174,11 @@ class MedicationLogViewSet(viewsets.ModelViewSet):
     serializer_class = MedicationLogSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "medication_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "medication_name",
+    ]
     filterset_fields = ["student", "medication_name"]
 
     def get_queryset(self):
@@ -229,7 +241,11 @@ class AllergyManagementViewSet(viewsets.ModelViewSet):
     serializer_class = AllergyManagementSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "allergen_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "allergen_name",
+    ]
     filterset_fields = ["student", "allergy_type", "severity", "is_active"]
 
     def get_queryset(self):
@@ -251,7 +267,11 @@ class ChronicConditionTrackingViewSet(viewsets.ModelViewSet):
     serializer_class = ChronicConditionTrackingSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "condition_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "condition_name",
+    ]
     filterset_fields = ["student", "condition_type", "severity", "is_active"]
 
     def get_queryset(self):
@@ -290,7 +310,11 @@ class EmergencyContactViewSet(viewsets.ModelViewSet):
     serializer_class = EmergencyContactSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "contact_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "contact_name",
+    ]
     filterset_fields = ["student", "relationship", "is_primary", "can_pickup"]
 
     def get_queryset(self):
@@ -367,7 +391,11 @@ class MedicationPrescriptionViewSet(viewsets.ModelViewSet):
     serializer_class = MedicationPrescriptionSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "medication_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "medication_name",
+    ]
     filterset_fields = ["student", "status", "frequency"]
 
     def get_queryset(self):
@@ -411,7 +439,11 @@ class HealthComplianceViewSet(viewsets.ModelViewSet):
     serializer_class = HealthComplianceSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "requirement"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "requirement",
+    ]
     filterset_fields = ["student", "compliance_type", "status"]
 
     def get_queryset(self):
@@ -454,7 +486,11 @@ class IncidentReportViewSet(viewsets.ModelViewSet):
     serializer_class = IncidentReportSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "description"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "description",
+    ]
     filterset_fields = ["student", "incident_type", "severity", "action_taken"]
 
     def get_queryset(self):
@@ -476,7 +512,11 @@ class MedicalReferralViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalReferralSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "provider_name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "provider_name",
+    ]
     filterset_fields = ["student", "referral_reason", "status"]
 
     def get_queryset(self):
@@ -520,7 +560,11 @@ class HealthAlertViewSet(viewsets.ModelViewSet):
     serializer_class = HealthAlertSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "alert_message"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "alert_message",
+    ]
     filterset_fields = ["student", "alert_type", "urgency_level", "is_active"]
 
     def get_queryset(self):

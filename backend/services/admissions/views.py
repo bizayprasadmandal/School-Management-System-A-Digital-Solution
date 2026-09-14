@@ -119,8 +119,10 @@ class EnrollmentIntakeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["status"]
 
     def get_queryset(self):
-        return EnrollmentIntake.objects.filter(school=self.request.user.school).annotate(
-            application_count=Count("applications")
+        return (
+            EnrollmentIntake.objects.filter(school=self.request.user.school)
+            .order_by("-application_start")
+            .annotate(application_count=Count("applications"))
         )
 
     def get_permissions(self):

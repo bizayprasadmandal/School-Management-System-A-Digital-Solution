@@ -101,7 +101,11 @@ logger = logging.getLogger(__name__)
 class VehicleViewSet(viewsets.ModelViewSet):
     serializer_class = VehicleSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     search_fields = ["plate_number", "model_name", "chassis_number"]
     filterset_fields = ["vehicle_type", "status", "is_active"]
     ordering_fields = ["plate_number", "year", "capacity"]
@@ -154,7 +158,7 @@ class RouteViewSet(viewsets.ModelViewSet):
             .select_related("vehicle", "driver")
             .prefetch_related("stops")
             .annotate(student_count=Count("student_assignments", filter=Q(student_assignments__is_active=True)))
-        )
+        ).order_by("name")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -184,7 +188,11 @@ class StudentRouteViewSet(viewsets.ModelViewSet):
     serializer_class = StudentRouteSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["student__user__first_name", "student__user__last_name", "route__name"]
+    search_fields = [
+        "student__user__first_name",
+        "student__user__last_name",
+        "route__name",
+    ]
     filterset_fields = ["route", "student", "is_active"]
 
     def get_queryset(self):

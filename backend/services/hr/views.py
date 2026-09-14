@@ -105,7 +105,11 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
-        return Department.objects.filter(school=self.request.user.school).annotate(employee_count=Count("employees"))
+        return (
+            Department.objects.filter(school=self.request.user.school)
+            .order_by("name")
+            .annotate(employee_count=Count("employees"))
+        )
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -119,7 +123,11 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 class EmployeeViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeSerializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     search_fields = [
         "user__first_name",
         "user__last_name",
@@ -256,7 +264,14 @@ class PayslipViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "approve", "mark_paid"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "approve",
+            "mark_paid",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -290,7 +305,11 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["employee__user__first_name", "employee__user__last_name", "reason"]
+    search_fields = [
+        "employee__user__first_name",
+        "employee__user__last_name",
+        "reason",
+    ]
     filterset_fields = ["employee", "leave_type", "status"]
 
     def get_queryset(self):
@@ -299,7 +318,14 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "approve", "reject"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "approve",
+            "reject",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -733,7 +759,7 @@ class TrainingProgramViewSet(viewsets.ModelViewSet):
             TrainingProgram.objects.filter(school=self.request.user.school)
             .select_related("created_by")
             .annotate(enrollment_count=Count("enrollments"))
-        )
+        ).order_by("-start_date")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -772,7 +798,15 @@ class TrainingEnrollmentViewSet(viewsets.ModelViewSet):
         enrollment.completed_date = timezone.now().date()
         enrollment.score = request.data.get("score", enrollment.score)
         enrollment.feedback = request.data.get("feedback", "")
-        enrollment.save(update_fields=["status", "completed_date", "score", "feedback", "updated_at"])
+        enrollment.save(
+            update_fields=[
+                "status",
+                "completed_date",
+                "score",
+                "feedback",
+                "updated_at",
+            ]
+        )
         return Response(TrainingEnrollmentSerializer(enrollment).data)
 
     @action(detail=False, methods=["get"], url_path="my-trainings")

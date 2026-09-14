@@ -99,10 +99,17 @@ class ExamViewSet(viewsets.ModelViewSet):
         academic_year = self.request.query_params.get("academic_year")
         if academic_year:
             qs = qs.filter(academic_year_id=academic_year)
-        return qs.annotate(schedule_count=Count("schedules"))
+        return qs.annotate(schedule_count=Count("schedules")).order_by("-start_date")
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "generate_report_cards", "publish_results"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "generate_report_cards",
+            "publish_results",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
@@ -207,10 +214,16 @@ class GradeViewSet(viewsets.ModelViewSet):
         student_id = self.request.query_params.get("student_id")
         if student_id:
             qs = qs.filter(student_id=student_id)
-        return qs
+        return qs.order_by("-updated_at")
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "bulk_submit"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "bulk_submit",
+        ]:
             return [IsAuthenticated(), IsTeacher()]
         if self.action == "history":
             return [IsAuthenticated(), IsSchoolAdmin()]
@@ -295,7 +308,7 @@ class GradeViewSet(viewsets.ModelViewSet):
                 action="delete",
                 grade=instance,
                 proposed_by=request.user,
-                reason=request.data.get("reason", "") if isinstance(request.data, dict) else "",
+                reason=(request.data.get("reason", "") if isinstance(request.data, dict) else ""),
             )
             return Response(
                 {
@@ -362,8 +375,12 @@ class GradeViewSet(viewsets.ModelViewSet):
                 "admission_number": entry.student.admission_number,
                 "subject": entry.exam_schedule.subject.name,
                 "action": entry.action,
-                "marks_obtained_old": float(entry.marks_obtained_old) if entry.marks_obtained_old is not None else None,
-                "marks_obtained_new": float(entry.marks_obtained_new) if entry.marks_obtained_new is not None else None,
+                "marks_obtained_old": (
+                    float(entry.marks_obtained_old) if entry.marks_obtained_old is not None else None
+                ),
+                "marks_obtained_new": (
+                    float(entry.marks_obtained_new) if entry.marks_obtained_new is not None else None
+                ),
                 "is_absent_old": entry.is_absent_old,
                 "is_absent_new": entry.is_absent_new,
                 "changed_by": entry.changed_by.full_name if entry.changed_by else None,
@@ -421,7 +438,7 @@ class GradeViewSet(viewsets.ModelViewSet):
                     student=student,
                     exam_schedule=schedule,
                     defaults={
-                        "marks_obtained": Decimal(str(marks)) if marks is not None else None,
+                        "marks_obtained": (Decimal(str(marks)) if marks is not None else None),
                         "is_absent": new_values["is_absent"],
                         "remarks": new_values["remarks"] or "",
                         "graded_by": request.user,
@@ -535,7 +552,11 @@ class GradeViewSet(viewsets.ModelViewSet):
                     continue
 
                 marks_obtained = Decimal(marks_raw) if marks_raw else None
-                is_absent = row.get("is_absent", "").strip().lower() in ("yes", "true", "1")
+                is_absent = row.get("is_absent", "").strip().lower() in (
+                    "yes",
+                    "true",
+                    "1",
+                )
 
                 existing = Grade.objects.filter(student=student, exam_schedule=schedule).first()
 
@@ -602,7 +623,12 @@ class GradeChangeProposalViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = GradeChangeProposal.objects.filter(student__school=self.request.user.school).select_related(
-            "student__user", "exam_schedule__subject", "exam_schedule__exam", "grade", "proposed_by", "reviewed_by"
+            "student__user",
+            "exam_schedule__subject",
+            "exam_schedule__exam",
+            "grade",
+            "proposed_by",
+            "reviewed_by",
         )
         status_filter = self.request.query_params.get("status")
         if status_filter:
@@ -627,7 +653,8 @@ class GradeChangeProposalViewSet(viewsets.ReadOnlyModelViewSet):
         proposal = self.get_object()
         if proposal.status != GradeChangeProposal.Status.PROPOSED:
             return Response(
-                {"detail": f"Proposal is already {proposal.get_status_display()}."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Proposal is already {proposal.get_status_display()}."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         with transaction.atomic():
@@ -673,7 +700,8 @@ class GradeChangeProposalViewSet(viewsets.ReadOnlyModelViewSet):
         proposal = self.get_object()
         if proposal.status != GradeChangeProposal.Status.PROPOSED:
             return Response(
-                {"detail": f"Proposal is already {proposal.get_status_display()}."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": f"Proposal is already {proposal.get_status_display()}."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         proposal.status = GradeChangeProposal.Status.REJECTED
@@ -694,7 +722,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         qs = Assessment.objects.filter(assignment__teacher__school=user.school)
         if user.role == "teacher":
             qs = qs.filter(assignment__teacher=user)
-        return qs.select_related("assignment__subject", "assignment__classroom")
+        return qs.select_related("assignment__subject", "assignment__classroom").order_by("-created_at")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -762,7 +790,7 @@ class ReportCardViewSet(viewsets.ReadOnlyModelViewSet):
                 qs = qs.filter(student_id=student_id)
             except (ValueError, AttributeError):
                 pass  # silently ignore invalid UUID strings
-        return qs.select_related("student__user", "exam")
+        return qs.select_related("student__user", "exam").order_by("id")
 
     @action(detail=True, methods=["get"], url_path="download-pdf")
     def download_pdf(self, request, pk=None):
