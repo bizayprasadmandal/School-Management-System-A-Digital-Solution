@@ -137,7 +137,15 @@ class ApplicationSerializer(serializers.ModelSerializer):
 class ApplicationTimelineEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApplicationTimelineEvent
-        fields = ["id", "id", "application", "stage", "note", "created_by", "created_at"]
+        fields = [
+            "id",
+            "id",
+            "application",
+            "stage",
+            "note",
+            "created_by",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 
@@ -262,7 +270,7 @@ class MeritListSerializer(serializers.ModelSerializer):
             "published_at",
             "published_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class MeritListEntrySerializer(serializers.ModelSerializer):
@@ -352,7 +360,7 @@ class AdmissionsReportSerializer(serializers.ModelSerializer):
             "total_applications",
             "total_enrolled",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class AdmissionsEmailNotificationSerializer(serializers.ModelSerializer):
@@ -411,7 +419,7 @@ class ReEnrollmentSerializer(serializers.ModelSerializer):
             "completed_at",
             "decline_reason",
         ]
-        read_only_fields = ["id", "updated_at"]
+        read_only_fields = ["school", "id", "updated_at"]
 
 
 class AdmissionsPipelineSerializer(serializers.ModelSerializer):
@@ -433,7 +441,7 @@ class AdmissionsPipelineSerializer(serializers.ModelSerializer):
             "enrollment_date",
             "onboarded_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class ApplicationTemplateSerializer(serializers.ModelSerializer):
@@ -455,7 +463,7 @@ class ApplicationTemplateSerializer(serializers.ModelSerializer):
             "late_fee_deadline_days",
             "max_applications_per_student",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class BulkApplicationImportSerializer(serializers.ModelSerializer):
@@ -477,7 +485,7 @@ class BulkApplicationImportSerializer(serializers.ModelSerializer):
             "initiated_at",
             "completed_at",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["school", "id"]
 
 
 class CampusVisitSerializer(serializers.ModelSerializer):
@@ -498,7 +506,7 @@ class CampusVisitSerializer(serializers.ModelSerializer):
             "duration_minutes",
             "tour_guide",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class OpenHouseEventSerializer(serializers.ModelSerializer):
@@ -521,7 +529,7 @@ class OpenHouseEventSerializer(serializers.ModelSerializer):
             "registration_deadline",
             "registration_url",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class OpenHouseRegistrationSerializer(serializers.ModelSerializer):
@@ -567,7 +575,7 @@ class ScholarshipSerializer(serializers.ModelSerializer):
             "eligible_grades",
             "eligible_intakes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class ScholarshipApplicationSerializer(serializers.ModelSerializer):
@@ -612,7 +620,7 @@ class AdmissionPolicySerializer(serializers.ModelSerializer):
             "policy_document",
             "created_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class AdmissionAgreementSerializer(serializers.ModelSerializer):
@@ -634,7 +642,7 @@ class AdmissionAgreementSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class AgreementSignatureSerializer(serializers.ModelSerializer):
@@ -672,7 +680,7 @@ class AdmissionCommunicationLogSerializer(serializers.ModelSerializer):
             "delivered",
             "opened",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class AdmissionReminderSerializer(serializers.ModelSerializer):
@@ -693,7 +701,7 @@ class AdmissionReminderSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 class GradeLevelCapacitySerializer(serializers.ModelSerializer):
@@ -760,7 +768,7 @@ class TransferStudentSerializer(serializers.ModelSerializer):
             "previous_gpa",
             "class_rank",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class SiblingGroupSerializer(serializers.ModelSerializer):
@@ -780,7 +788,7 @@ class SiblingGroupSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class SiblingRecordSerializer(serializers.ModelSerializer):
@@ -901,7 +909,7 @@ class AdmissionMarketingSourceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["school", "id", "created_at", "updated_at"]
 
 
 class AdmissionTrendAnalysisSerializer(serializers.ModelSerializer):
@@ -923,7 +931,7 @@ class AdmissionTrendAnalysisSerializer(serializers.ModelSerializer):
             "total_tuition_revenue",
             "total_scholarships_awarded",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["school", "id", "created_at"]
 
 
 # ── Serializers restored from original module (expansion regression fix) ──
@@ -935,7 +943,15 @@ class ApplicationTimelineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApplicationTimelineEvent
-        fields = ["id", "stage", "stage_display", "note", "created_by", "created_by_name", "created_at"]
+        fields = [
+            "id",
+            "stage",
+            "stage_display",
+            "note",
+            "created_by",
+            "created_by_name",
+            "created_at",
+        ]
         read_only_fields = fields
 
 
