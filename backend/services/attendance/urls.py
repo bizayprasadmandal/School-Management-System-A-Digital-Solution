@@ -55,6 +55,8 @@ router.register(
 )
 router.register(r"attendance-lockout", views.AttendanceLockoutViewSet, basename="attendance-lockout")
 router.register(r"attendance-comment", views.AttendanceCommentViewSet, basename="attendance-comment")
+# Named alias for the root records viewset (must precede the empty prefix).
+router.register(r"records", views.AttendanceViewSet, basename="attendance-records")
 # Empty-prefix viewset MUST be registered last so its `^{pk}/$` detail route
 # doesn't swallow the named registrations above (GET -> 404).
 router.register("", views.AttendanceViewSet, basename="attendance")
