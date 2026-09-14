@@ -40,7 +40,7 @@ firebase-admin==6.4.0
 # Reporting & Docs
 reportlab==4.2.0
 openpyxl==3.1.2
-pandas==2.2.1
+pandas==3.0.5
 matplotlib==3.8.3
 
 # Monitoring
