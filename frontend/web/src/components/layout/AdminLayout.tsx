@@ -145,6 +145,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       },
       { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
       {
+        label: "Inventory Center",
+        to: "/admin/inventory-center",
+        icon: CubeIcon,
+      },
+      {
         label: "Infrastructure",
         to: "/admin/infrastructure",
         icon: BuildingOffice2Icon,

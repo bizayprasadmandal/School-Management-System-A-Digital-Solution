@@ -14,6 +14,7 @@ import HRCenterPage from "./HRCenterPage";
 import GradebookCenterPage from "./GradebookCenterPage";
 import TransportationCenterPage from "./TransportationCenterPage";
 import HostelCenterPage from "./HostelCenterPage";
+import InventoryCenterPage from "./InventoryCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -123,6 +124,19 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/inventory/asset-tag")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "9",
+              item: "Projector P-77",
+              tag_number: "TAG-0091",
+              status: "active",
+            },
+          ],
+        });
+      }
       if (url.includes("/assessments")) {
         return ok({
           count: 1,
@@ -186,5 +200,11 @@ describe("Admin center pages", () => {
     renderWithProviders(<HostelCenterPage />);
     expect(screen.getByRole("heading", { name: "Hostel Center" })).toBeInTheDocument();
     expect(await screen.findByText("Jamie Fox")).toBeInTheDocument();
+  });
+
+  test("InventoryCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<InventoryCenterPage />);
+    expect(screen.getByRole("heading", { name: "Inventory Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Projector P-77")).toBeInTheDocument();
   });
 });
