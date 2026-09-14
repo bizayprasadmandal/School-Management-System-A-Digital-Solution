@@ -79,6 +79,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         to: "/admin/attendance",
         icon: ClipboardDocumentCheckIcon,
       },
+      {
+        label: "Attendance Center",
+        to: "/admin/attendance-center",
+        icon: ClipboardDocumentCheckIcon,
+      },
       { label: "Examinations", to: "/admin/exams", icon: BookOpenIcon },
       {
         label: "Gradebook Center",

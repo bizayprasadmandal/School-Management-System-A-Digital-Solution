@@ -16,6 +16,7 @@ import TransportationCenterPage from "./TransportationCenterPage";
 import HostelCenterPage from "./HostelCenterPage";
 import InventoryCenterPage from "./InventoryCenterPage";
 import AdmissionsCenterPage from "./AdmissionsCenterPage";
+import AttendanceCenterPage from "./AttendanceCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -150,6 +151,19 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/attendance/archives")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "11",
+              academic_year: "2025/2026",
+              archive_type: "daily",
+              record_count: 1240,
+            },
+          ],
+        });
+      }
       if (url.includes("/assessments")) {
         return ok({
           count: 1,
@@ -225,5 +239,11 @@ describe("Admin center pages", () => {
     renderWithProviders(<AdmissionsCenterPage />);
     expect(screen.getByRole("heading", { name: "Admissions Center" })).toBeInTheDocument();
     expect(await screen.findByText("Enrollment Agreement 2026")).toBeInTheDocument();
+  });
+
+  test("AttendanceCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<AttendanceCenterPage />);
+    expect(screen.getByRole("heading", { name: "Attendance Center" })).toBeInTheDocument();
+    expect(await screen.findByText("2025/2026")).toBeInTheDocument();
   });
 });

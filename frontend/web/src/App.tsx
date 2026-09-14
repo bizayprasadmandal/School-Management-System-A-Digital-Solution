@@ -70,6 +70,7 @@ const TransportationCenterPage = React.lazy(() => import("./pages/admin/Transpor
 const HostelCenterPage = React.lazy(() => import("./pages/admin/HostelCenterPage"));
 const InventoryCenterPage = React.lazy(() => import("./pages/admin/InventoryCenterPage"));
 const AdmissionsCenterPage = React.lazy(() => import("./pages/admin/AdmissionsCenterPage"));
+const AttendanceCenterPage = React.lazy(() => import("./pages/admin/AttendanceCenterPage"));
 const ConferencesCenterPage = React.lazy(() => import("./pages/admin/ConferencesCenterPage"));
 const AuthCenterPage = React.lazy(() => import("./pages/admin/AuthCenterPage"));
 const FeesCenterPage = React.lazy(() => import("./pages/admin/FeesCenterPage"));
@@ -317,6 +318,7 @@ function App() {
                   <Route path="hostel-center" element={<HostelCenterPage />} />
                   <Route path="inventory-center" element={<InventoryCenterPage />} />
                   <Route path="admissions-center" element={<AdmissionsCenterPage />} />
+                  <Route path="attendance-center" element={<AttendanceCenterPage />} />
                   <Route path="transport" element={<TransportationPage />} />
                   <Route path="inventory" element={<InventoryPage />} />
                   <Route path="hostel" element={<HostelPage />} />
