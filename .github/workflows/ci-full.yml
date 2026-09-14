@@ -113,6 +113,10 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: ci-test-secret-key
       DEBUG: "True"
+      # The dev server serves the SPA from :5173 and the app talks to the API
+      # directly on :8000 (REACT_APP_API_URL unset) — the browser blocks those
+      # requests unless this origin is allowed (matches docker-compose.yml).
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
       # e2e suites fire many sequential logins from one IP — keep the anon
       # login throttle out of the way (production default remains 10/minute).
       AUTH_LOGIN_THROTTLE_RATE: "10000/minute"
