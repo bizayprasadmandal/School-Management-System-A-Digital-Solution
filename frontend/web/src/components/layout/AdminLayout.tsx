@@ -138,6 +138,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
       { label: "HR & Payroll", to: "/admin/hr", icon: BriefcaseIcon },
       { label: "HR Center", to: "/admin/hr-center", icon: BriefcaseIcon },
       { label: "Transportation", to: "/admin/transport", icon: TruckIcon },
+      {
+        label: "Transportation Center",
+        to: "/admin/transportation-center",
+        icon: TruckIcon,
+      },
       { label: "Inventory & Store", to: "/admin/inventory", icon: CubeIcon },
       {
         label: "Infrastructure",
@@ -145,6 +150,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         icon: BuildingOffice2Icon,
       },
       { label: "Hostel", to: "/admin/hostel", icon: BuildingOffice2Icon },
+      {
+        label: "Hostel Center",
+        to: "/admin/hostel-center",
+        icon: BuildingOffice2Icon,
+      },
       { label: "Cafeteria", to: "/admin/cafeteria", icon: BookOpenIcon },
       { label: "Admissions", to: "/admin/admissions", icon: DocumentTextIcon },
     ],

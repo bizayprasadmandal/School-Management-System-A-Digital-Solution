@@ -12,6 +12,8 @@ import AuthCenterPage from "./AuthCenterPage";
 import FeesCenterPage from "./FeesCenterPage";
 import HRCenterPage from "./HRCenterPage";
 import GradebookCenterPage from "./GradebookCenterPage";
+import TransportationCenterPage from "./TransportationCenterPage";
+import HostelCenterPage from "./HostelCenterPage";
 import { api } from "../../api/client";
 import { queryClient, renderWithProviders } from "../../testUtils";
 
@@ -94,6 +96,33 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/transport/attendance")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "7",
+              student: "Alex Mercer",
+              route: "Route 12",
+              vehicle: "BUS-07",
+              status: "present",
+            },
+          ],
+        });
+      }
+      if (url.includes("/hostel/allocations")) {
+        return ok({
+          count: 1,
+          results: [
+            {
+              id: "8",
+              student: "Jamie Fox",
+              room: "B-204",
+              status: "active",
+            },
+          ],
+        });
+      }
       if (url.includes("/assessments")) {
         return ok({
           count: 1,
@@ -145,5 +174,17 @@ describe("Admin center pages", () => {
     renderWithProviders(<GradebookCenterPage />);
     expect(screen.getByRole("heading", { name: "Gradebook Center" })).toBeInTheDocument();
     expect(await screen.findByText("Algebra Quiz 3")).toBeInTheDocument();
+  });
+
+  test("TransportationCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<TransportationCenterPage />);
+    expect(screen.getByRole("heading", { name: "Transportation Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Alex Mercer")).toBeInTheDocument();
+  });
+
+  test("HostelCenterPage renders heading and first-tab data", async () => {
+    renderWithProviders(<HostelCenterPage />);
+    expect(screen.getByRole("heading", { name: "Hostel Center" })).toBeInTheDocument();
+    expect(await screen.findByText("Jamie Fox")).toBeInTheDocument();
   });
 });
