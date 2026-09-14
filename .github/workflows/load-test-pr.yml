@@ -249,8 +249,14 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq gnupg bc
-          sudo gpg --no-tty -k 0x4A5A5C08C0A6F87E 2>/dev/null || \
-            sudo gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys 0x4A5A5C08C0A6F87E
+          # keyserver.ubuntu.com is periodically unreachable from runners —
+          # retry a few times before giving up.
+          for i in 1 2 3 4 5; do
+            sudo gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys 0x4A5A5C08C0A6F87E && break
+            echo "key fetch attempt $i failed; retrying in 10s…"
+            sleep 10
+          done
+          sudo gpg --no-tty -k 0x4A5A5C08C0A6F87E || { echo "GPG key unreachable after retries"; exit 1; }
           echo 'deb https://dl.k6.io/deb stable main' | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update -qq
           sudo apt-get install -y -qq k6
