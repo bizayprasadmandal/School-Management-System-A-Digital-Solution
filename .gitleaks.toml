@@ -40,3 +40,10 @@ useDefault = true
     # CI workflow test credentials (e.g. postgres service password)
     '''\.github/workflows/.*''',
   ]
+
+  # UI field-config objects like { key: "milestone_180", label: "180 Milestone" }
+  # are EntitySection field definitions, not credentials — generic-api-key
+  # rule false positive.
+  regexes = [
+    '''^milestone_\d+$''',
+  ]

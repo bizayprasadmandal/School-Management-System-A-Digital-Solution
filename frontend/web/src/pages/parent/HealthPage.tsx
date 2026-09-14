@@ -64,7 +64,7 @@ export default function ParentHealthPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Child Health</h1>
-        <p className="text-sm text-slate-500 mt-1">View your children's health records</p>
+        <p className="text-sm text-slate-500 mt-1">View your children&apos;s health records</p>
       </div>
       <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
         {[

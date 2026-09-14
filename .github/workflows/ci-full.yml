@@ -44,9 +44,13 @@ jobs:
         working-directory: backend
         run: python manage.py makemigrations --check
       # Coverage gate: floor measured at 70% (last green run) — 68 leaves headroom.
+      # --no-migrations builds the test schema directly from models instead of
+      # replaying ~500 migrations (~930 models) — replay exceeds the per-test
+      # timeout on CI hardware. Schema drift is still gated by the
+      # `makemigrations --check` step above and by real `migrate` in e2e-test.
       - name: Run tests
         working-directory: backend
-        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --cov=services --cov=core --cov-fail-under=68 --cov-report=xml -q
+        run: pytest tests/ --tb=short --timeout=120 -m "not slow" --no-migrations --cov=services --cov=core --cov-fail-under=68 --cov-report=xml -q
       # Publish coverage to Codecov. The token secret is optional (public
       # repos work without it); fail_ci_if_error keeps a Codecov hiccup from
       # ever failing the build; `if: always()` lets the badge track the trend
@@ -87,7 +91,7 @@ jobs:
       # indefinitely.
       - name: Run slow tests
         working-directory: backend
-        run: pytest tests/ --tb=short --timeout=300 -m "slow" -q
+        run: pytest tests/ --tb=short --timeout=300 -m "slow" --no-migrations -q
 
   e2e-test:
     runs-on: ubuntu-latest

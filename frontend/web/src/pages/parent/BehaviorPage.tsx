@@ -47,7 +47,7 @@ export default function ParentBehaviorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Behavior</h1>
-        <p className="text-sm text-slate-500 mt-1">Your children's behavior records</p>
+        <p className="text-sm text-slate-500 mt-1">Your children&apos;s behavior records</p>
       </div>
       <TabBar tab={tab} setTab={setTab} />
 

@@ -61,7 +61,7 @@ export default function ParentSportsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sports</h1>
-        <p className="text-sm text-slate-500 mt-1">Your children's sports activities</p>
+        <p className="text-sm text-slate-500 mt-1">Your children&apos;s sports activities</p>
       </div>
       <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
         <button
