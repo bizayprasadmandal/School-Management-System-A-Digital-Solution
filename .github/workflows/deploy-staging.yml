@@ -92,7 +92,7 @@ jobs:
         with: { method: kubeconfig, kubeconfig: "${{ secrets.KUBE_CONFIG_STAGING }}" }
 
       - name: Build & push backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: backend
           file: infrastructure/docker/backend/Dockerfile
@@ -130,7 +130,7 @@ jobs:
           VITE_WS_URL_STAGING: ${{ secrets.VITE_WS_URL_STAGING }}
           VITE_SENTRY_DSN_STAGING: ${{ secrets.VITE_SENTRY_DSN_STAGING }}
       - name: Build & push frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           # Build from the repo root so the Dockerfile can COPY the nginx
           # config and entrypoint that live under infrastructure/.
