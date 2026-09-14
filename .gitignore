@@ -13,7 +13,20 @@ htmlcov/
 celerybeat-schedule
 celerybeat.pid
 
-# ── Artifacts ──────────────────────────────────────────────────────────────
+# ── Artifacts ────────────────────────────────────────────────────────
+
+# Regenerable dev/audit artifacts (fields/choices/routes dumps, generated configs)
+backend/scripts/*_choices.json
+backend/scripts/*_fields.json
+backend/scripts/*_map.json
+backend/scripts/*_routes.json
+backend/scripts/routes_dump.txt
+backend/scripts/ui_configs_*.txt
+backend/scripts/cluster_*.json
+backend/scripts/gb_*.json
+backend/scripts/th_*.json
+backend/scripts/transport_routes.json
+backend/scripts/route_serializer_map.json──────
 
 # ── Playwright ────────────────────────────────────────────────────────────
 test-results/
