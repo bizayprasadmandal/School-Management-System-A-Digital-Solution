@@ -305,7 +305,7 @@ def _handle_payment_success(payment_intent):
 
         from .ledger import credit_invoice
 
-        invoice = credit_invoice(invoice, locked.amount)
+        invoice = credit_invoice(invoice, locked.amount, payment=locked)
 
         # Dispatch receipt notification task
         from .tasks import send_payment_receipt_notification
@@ -413,7 +413,13 @@ def refund_payment(request):
         from .ledger import debit_invoice
 
         with db_transaction.atomic():
-            invoice = debit_invoice(payment.invoice, payment.amount)
+            invoice = debit_invoice(
+                payment.invoice,
+                payment.amount,
+                payment=payment,
+                reason=reason,
+                user=request.user,
+            )
 
             # Update the payment record
             payment.status = Payment.Status.REFUNDED

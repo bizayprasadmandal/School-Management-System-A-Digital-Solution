@@ -770,7 +770,13 @@ def refund_nepali_payment(request):
 
         from .ledger import debit_invoice
 
-        invoice = debit_invoice(payment.invoice, payment.amount)
+        invoice = debit_invoice(
+            payment.invoice,
+            payment.amount,
+            payment=payment,
+            reason=reason,
+            user=request.user,
+        )
 
     logger.info(
         "Nepali payment refunded: %s (%s) on invoice %s",
@@ -827,7 +833,7 @@ def _mark_payment_successful(payment: Payment, gateway_data: dict) -> bool:
 
         from .ledger import credit_invoice
 
-        credit_invoice(invoice, locked.amount)
+        invoice = credit_invoice(invoice, locked.amount, payment=locked)
 
         # Dispatch receipt notification task
         from .tasks import send_payment_receipt_notification

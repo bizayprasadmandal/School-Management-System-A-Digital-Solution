@@ -600,7 +600,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         from .ledger import credit_invoice
 
-        invoice = credit_invoice(invoice, payment.amount)
+        invoice = credit_invoice(invoice, payment.amount, payment=payment, user=request.user)
 
         # Dispatch receipt notification for successful cash/manual payments
         if payment.status == Payment.Status.SUCCESSFUL:
@@ -785,7 +785,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
                     from .ledger import credit_invoice
 
-                    credit_invoice(invoice, payment.amount)
+                    credit_invoice(invoice, payment.amount, payment=payment, user=request.user)
 
                     created.append(
                         {
@@ -842,6 +842,27 @@ class PaymentViewSet(viewsets.ModelViewSet):
             locked.status = Payment.Status.FAILED
             locked.notes = f"Voided by {request.user.full_name}: {request.data.get('reason', 'No reason provided')}"
             locked.save(update_fields=["status", "notes"])
+
+            # Audit trail: record the void as a failed transaction so finance
+            # has a permanent record of who voided what and why.
+            TransactionLog.objects.get_or_create(
+                transaction_id=f"VOID-{locked.id}",
+                defaults={
+                    "school_id": locked.invoice.student.school_id,
+                    "student_id": locked.invoice.student_id,
+                    "transaction_type": TransactionLog.TransactionType.OTHER,
+                    "amount": locked.amount,
+                    "payment_method": locked.payment_method,
+                    "reference_number": locked.receipt_number,
+                    "status": "failed",
+                    "description": (
+                        f"Payment {locked.receipt_number} voided by "
+                        f"{request.user.full_name}: "
+                        f"{request.data.get('reason', 'No reason provided')}"
+                    ),
+                    "metadata": {"payment_id": str(locked.id), "action": "void"},
+                },
+            )
 
         return Response({"detail": "Payment voided successfully.", "payment_id": str(payment.id)})
 

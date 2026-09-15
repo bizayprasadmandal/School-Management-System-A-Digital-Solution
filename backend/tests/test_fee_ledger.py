@@ -9,9 +9,10 @@ in one path cannot silently break another.
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 from services.fees.ledger import credit_invoice, debit_invoice
-from services.fees.models import FeeInvoice
-from tests.factories import FeeInvoiceFactory
+from services.fees.models import AccountingEntry, FeeInvoice, RefundRecord, TransactionLog
+from tests.factories import AdminUserFactory, FeeInvoiceFactory, PaymentFactory
 
 
 @pytest.mark.django_db
@@ -75,6 +76,73 @@ class TestDebitInvoice:
 
         assert locked.paid_amount == Decimal("500.00")
         assert locked.status == FeeInvoice.Status.PAID
+
+
+@pytest.mark.django_db
+class TestAuditTrail:
+    def test_credit_with_payment_writes_transaction_log_and_revenue_entry(self):
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"))
+        payment = PaymentFactory(invoice=invoice, amount=Decimal("500.00"))
+        user = AdminUserFactory(school=invoice.student.school)
+
+        credit_invoice(invoice, payment.amount, payment=payment, user=user)
+
+        log = TransactionLog.objects.get(transaction_id=f"PAY-{payment.id}")
+        assert log.transaction_type == TransactionLog.TransactionType.PAYMENT
+        assert log.amount == payment.amount
+        assert log.school_id == invoice.student.school_id
+        assert log.student_id == invoice.student_id
+        assert log.reference_number == payment.receipt_number
+
+        entry = AccountingEntry.objects.get(reference_type="payment", reference_id=str(payment.id))
+        assert entry.entry_type == AccountingEntry.EntryType.CREDIT
+        assert entry.amount == payment.amount
+        assert entry.account_code == "4000"
+        assert entry.created_by == user
+
+    def test_debit_with_payment_writes_refund_record_and_reversal(self):
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"), paid_amount=Decimal("500.00"))
+        payment = PaymentFactory(invoice=invoice, amount=Decimal("500.00"))
+        user = AdminUserFactory(school=invoice.student.school)
+
+        debit_invoice(invoice, payment.amount, payment=payment, reason="Duplicate payment", user=user)
+
+        log = TransactionLog.objects.get(transaction_id=f"RFD-{payment.id}")
+        assert log.transaction_type == TransactionLog.TransactionType.REFUND
+        assert log.amount == payment.amount
+
+        refund = RefundRecord.objects.get(payment=payment)
+        assert refund.amount == payment.amount
+        assert refund.status == RefundRecord.Status.PROCESSED
+        assert refund.student == invoice.student
+        assert refund.approved_by == user
+        assert refund.processed_date == timezone.now().date()
+
+        entry = AccountingEntry.objects.get(reference_type="refund", reference_id=str(payment.id))
+        assert entry.entry_type == AccountingEntry.EntryType.DEBIT
+        assert entry.amount == payment.amount
+
+    def test_audit_writes_are_idempotent_on_repeat(self):
+        """Webhook retries / duplicate verifies must not double-log."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"))
+        payment = PaymentFactory(invoice=invoice, amount=Decimal("200.00"))
+
+        credit_invoice(invoice, Decimal("200.00"), payment=payment)
+        credit_invoice(invoice, Decimal("200.00"), payment=payment)
+
+        assert TransactionLog.objects.filter(transaction_id=f"PAY-{payment.id}").count() == 1
+        assert AccountingEntry.objects.filter(reference_type="payment", reference_id=str(payment.id)).count() == 1
+
+    def test_ledger_without_payment_skips_audit_writes(self):
+        """Seeders call the ledger without a payment — no audit rows."""
+        invoice = FeeInvoiceFactory(total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"))
+
+        credit_invoice(invoice, Decimal("100.00"))
+        debit_invoice(invoice, Decimal("50.00"))
+
+        assert TransactionLog.objects.count() == 0
+        assert AccountingEntry.objects.count() == 0
+        assert RefundRecord.objects.count() == 0
 
 
 @pytest.mark.django_db(transaction=True)

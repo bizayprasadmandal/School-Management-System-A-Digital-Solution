@@ -10,6 +10,7 @@ from decimal import Decimal
 import factory
 import factory.django
 import factory.fuzzy  # noqa: F401 — load-bearing: enables `factory.fuzzy` attribute access
+from django.utils import timezone
 from factory import SubFactory
 
 
@@ -263,6 +264,18 @@ class FeeInvoiceFactory(factory.django.DjangoModelFactory):
     total_amount = Decimal("500.00")
     paid_amount = Decimal("0.00")
     status = "unpaid"
+
+
+class PaymentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "fees.Payment"
+
+    invoice = SubFactory(FeeInvoiceFactory)
+    amount = Decimal("500.00")
+    payment_method = "cash"
+    status = "successful"
+    paid_at = factory.LazyFunction(timezone.now)
+    collected_by = SubFactory(AdminUserFactory)
 
 
 class EnrollmentIntakeFactory(factory.django.DjangoModelFactory):
