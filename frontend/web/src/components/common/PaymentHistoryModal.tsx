@@ -6,13 +6,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Modal, Button, Badge, EmptyState } from "./index";
 import type { Payment, PaginatedResponse } from "../../types";
-import { currency, fmt } from "../../utils";
+import { currency, fmt, downloadFromUrl } from "../../utils";
+import { useAuthStore } from "../../store/authStore";
 import toast from "react-hot-toast";
 import {
   BanknotesIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   ShieldCheckIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
 interface PaymentHistoryModalProps {
@@ -250,17 +252,37 @@ export default function PaymentHistoryModal({
                     )}
                   </div>
 
-                  {/* Refund button */}
+                  {/* Actions */}
                   {payment.status === "successful" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setRefundingPayment(payment)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
-                      leftIcon={<ArrowPathIcon className="h-4 w-4" />}
-                    >
-                      Refund
-                    </Button>
+                    <div className="flex flex-shrink-0 gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const token = useAuthStore.getState().tokens?.access ?? "";
+                          const baseURL =
+                            process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+                          downloadFromUrl(
+                            `${baseURL}/fees/payments/${payment.id}/receipt-pdf/`,
+                            `receipt_${payment.receipt_number}.pdf`,
+                            token,
+                          ).catch(() => toast.error("Failed to download receipt"));
+                        }}
+                        className="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                        leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+                      >
+                        Receipt
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRefundingPayment(payment)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        leftIcon={<ArrowPathIcon className="h-4 w-4" />}
+                      >
+                        Refund
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
