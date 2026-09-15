@@ -278,6 +278,21 @@ class PaymentFactory(factory.django.DjangoModelFactory):
     collected_by = SubFactory(AdminUserFactory)
 
 
+class LateFeeRuleFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "fees.LateFeeRule"
+
+    school = SubFactory(SchoolFactory)
+    name = factory.Sequence(lambda n: f"Late Fee Rule {n+1}")
+    days_after_due = 7
+    fee_amount = Decimal("50.00")
+    fee_type = "fixed"
+    percentage = Decimal("0")
+    max_late_fee = Decimal("0")
+    applies_to = "all"
+    is_active = True
+
+
 class EnrollmentIntakeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "admissions.EnrollmentIntake"

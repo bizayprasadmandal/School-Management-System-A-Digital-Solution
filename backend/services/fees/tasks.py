@@ -12,16 +12,39 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+def _compute_rule_late_fee(invoice, rule) -> Decimal:
+    """Late fee from a LateFeeRule: fixed amount or percentage of base, capped."""
+    if rule.fee_type == "percentage":
+        fee = (invoice.base_amount * rule.percentage / Decimal("100")).quantize(Decimal("0.01"))
+    else:
+        fee = rule.fee_amount
+    if rule.max_late_fee > 0:
+        fee = min(fee, rule.max_late_fee)
+    return fee
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def mark_overdue_invoices(self):
     """
     Mark unpaid AND partially-paid invoices as overdue when past due date,
     applying late fees and sending Expo push + in-app notifications to
     students and parents.
+
+    Late-fee source, per school:
+    - Active LateFeeRule rows take precedence: the most severe rule whose
+      ``days_after_due`` has already elapsed applies (fixed amount or
+      percentage of the invoice base, capped by ``max_late_fee`` when set).
+    - Schools without any rules fall back to the legacy per-day amount on
+      the fee structure (``late_fee_per_day × days overdue``).
+
+    The fee is computed once at the unpaid/partial → overdue transition,
+    using the rule applicable on that day; an already-overdue invoice is
+    never re-processed, so students get exactly one notification and the
+    audit trail records the fee exactly once.
     """
     from services.communication.services import send_expo_push_notification, send_in_app_notification
 
-    from .models import FeeInvoice
+    from .models import FeeInvoice, LateFeeRule, TransactionLog
 
     today = timezone.now().date()
 
@@ -34,7 +57,7 @@ def mark_overdue_invoices(self):
                 status__in=["unpaid", "partial"],
                 due_date__lt=today,
             )
-            .select_related("fee_structure", "student__user")
+            .select_related("fee_structure", "student__user", "student__school")
             .prefetch_related(
                 Prefetch(
                     "student__studentguardian_set",
@@ -46,18 +69,55 @@ def mark_overdue_invoices(self):
             )
         )
 
+        # Active rules grouped per school, most severe (largest
+        # days_after_due) first — 1 query instead of one per invoice.
+        rules_by_school: dict[int, list] = {}
+        for rule in LateFeeRule.objects.filter(is_active=True).order_by("school_id", "-days_after_due"):
+            rules_by_school.setdefault(rule.school_id, []).append(rule)
+
         updated = 0
         for invoice in overdue:
             days_overdue = (today - invoice.due_date).days
-            late_fee = (
-                invoice.fee_structure.late_fee_per_day * Decimal(str(days_overdue))
-                if invoice.fee_structure and invoice.fee_structure.late_fee_per_day
-                else Decimal("0")
-            )
+
+            school_rules = rules_by_school.get(invoice.student.school_id, [])
+            if school_rules:
+                late_fee = Decimal("0")
+                for rule in school_rules:
+                    if days_overdue >= rule.days_after_due:
+                        late_fee = _compute_rule_late_fee(invoice, rule)
+                        break
+            else:
+                late_fee = (
+                    invoice.fee_structure.late_fee_per_day * Decimal(str(days_overdue))
+                    if invoice.fee_structure and invoice.fee_structure.late_fee_per_day
+                    else Decimal("0")
+                )
+
             invoice.status = "overdue"
             invoice.late_fee = late_fee
             invoice.total_amount = invoice.base_amount + late_fee - invoice.discount_amount
             invoice.save(update_fields=["status", "late_fee", "total_amount"])
+
+            # Audit trail: record the late fee exactly once per invoice.
+            if late_fee > 0:
+                TransactionLog.objects.get_or_create(
+                    transaction_id=f"LATE-{invoice.id}",
+                    defaults={
+                        "school_id": invoice.student.school_id,
+                        "student_id": invoice.student_id,
+                        "transaction_type": TransactionLog.TransactionType.LATE_FEE,
+                        "amount": late_fee,
+                        "reference_number": invoice.invoice_number,
+                        "description": (
+                            f"Late fee of {late_fee} applied to invoice "
+                            f"{invoice.invoice_number} ({days_overdue} days overdue)"
+                        ),
+                        "metadata": {
+                            "invoice_id": str(invoice.id),
+                            "days_overdue": days_overdue,
+                        },
+                    },
+                )
 
             # ── Send notifications ────────────────────────────────────────────
             student = invoice.student
