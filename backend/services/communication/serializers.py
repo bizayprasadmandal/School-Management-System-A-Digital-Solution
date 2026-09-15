@@ -83,7 +83,8 @@ class AnnouncementReadSerializer(serializers.ModelSerializer):
             "id",
             "announcement",
             "user",
-            "read_at" "announcement_title",
+            "read_at",
+            "announcement_title",
             "user_name",
         ]
         read_only_fields = ["id"]
@@ -96,7 +97,6 @@ class DirectMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = DirectMessage
         fields = [
-            "id",
             "id",
             "sender",
             "recipient",
