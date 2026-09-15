@@ -5,6 +5,7 @@ Fees Service — Views for invoicing, payments, scholarships
 import csv
 import io
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
@@ -321,6 +322,104 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         response = FileResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="invoice_{invoice.invoice_number}.pdf"'
         return response
+
+    @action(detail=False, methods=["get"], url_path="aging-report")
+    def aging_report(self, request):
+        """
+        Generate an overdue invoice aging report with buckets:
+        0-30 days, 31-60 days, 61-90 days, 90+ days.
+
+        Query params:
+            academic_year (optional) — filter by academic year ID
+        """
+        from django.db.models import DateField, ExpressionWrapper, F
+        from django.db.models.functions import Greatest
+
+        today = timezone.now().date()
+        qs = FeeInvoice.objects.filter(
+            student__school=request.user.school,
+            status__in=["unpaid", "overdue", "partial"],
+            due_date__lt=today,
+        ).select_related("student__user", "student__classroom__grade")
+
+        academic_year = request.query_params.get("academic_year")
+        if academic_year:
+            qs = qs.filter(academic_year_id=academic_year)
+
+        # Annotate days overdue
+        qs = qs.annotate(
+            days_overdue_expr=Greatest(
+                ExpressionWrapper(
+                    today - F("due_date"),
+                    output_field=DateField(),
+                ),
+                0,
+            )
+        )
+
+        # Build aging buckets
+        buckets = {
+            "0-30": {"label": "0-30 days", "count": 0, "total": 0, "invoices": []},
+            "31-60": {"label": "31-60 days", "count": 0, "total": 0, "invoices": []},
+            "61-90": {"label": "61-90 days", "count": 0, "total": 0, "invoices": []},
+            "90+": {"label": "90+ days", "count": 0, "total": 0, "invoices": []},
+        }
+
+        for inv in qs:
+            days = inv.days_overdue_expr.days if inv.days_overdue_expr else 0
+            outstanding = float(inv.total_amount - inv.paid_amount)
+            student_name = inv.student.user.full_name
+
+            invoice_data = {
+                "id": str(inv.id),
+                "invoice_number": inv.invoice_number,
+                "student_name": student_name,
+                "grade": (
+                    inv.student.classroom.grade.name if inv.student.classroom and inv.student.classroom.grade else "—"
+                ),
+                "total_amount": float(inv.total_amount),
+                "paid_amount": float(inv.paid_amount),
+                "outstanding_amount": outstanding,
+                "due_date": inv.due_date.isoformat(),
+                "days_overdue": days,
+                "status": inv.status,
+            }
+
+            if days <= 30:
+                bucket_key = "0-30"
+            elif days <= 60:
+                bucket_key = "31-60"
+            elif days <= 90:
+                bucket_key = "61-90"
+            else:
+                bucket_key = "90+"
+
+            buckets[bucket_key]["count"] += 1
+            buckets[bucket_key]["total"] += outstanding
+            buckets[bucket_key]["invoices"].append(invoice_data)
+
+        # Summary
+        total_overdue_count = sum(b["count"] for b in buckets.values())
+        total_overdue_amount = sum(b["total"] for b in buckets.values())
+
+        return Response(
+            {
+                "summary": {
+                    "total_overdue_count": total_overdue_count,
+                    "total_overdue_amount": total_overdue_amount,
+                    "as_of_date": today.isoformat(),
+                },
+                "buckets": {
+                    k: {
+                        "label": v["label"],
+                        "count": v["count"],
+                        "total": v["total"],
+                        "invoices": sorted(v["invoices"], key=lambda x: -x["days_overdue"]),
+                    }
+                    for k, v in buckets.items()
+                },
+            }
+        )
 
     @action(detail=False, methods=["post"], url_path="import-csv")
     def import_csv(self, request):
@@ -996,6 +1095,240 @@ class FeeCollectionDashboardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+    @action(detail=False, methods=["get"], url_path="realtime")
+    def realtime(self, request):
+        """
+        Compute live fee collection stats for the current academic year.
+        Returns real-time data without relying on the snapshot model.
+        """
+        from django.db.models import Count, Q, Sum
+        from services.students.models import AcademicYear, Enrollment
+
+        school = request.user.school
+        academic_year = AcademicYear.objects.filter(school=school, is_current=True).first()
+
+        if not academic_year:
+            return Response(
+                {
+                    "error": "No current academic year set",
+                    "total_expected": 0,
+                    "total_collected": 0,
+                    "total_outstanding": 0,
+                    "collection_percentage": 0,
+                    "total_invoices": 0,
+                    "paid_invoices": 0,
+                    "unpaid_invoices": 0,
+                    "overdue_invoices": 0,
+                    "partial_invoices": 0,
+                    "total_students": 0,
+                    "total_defaulters": 0,
+                    "overdue_amount": 0,
+                    "by_status": [],
+                    "by_category": [],
+                    "by_grade": [],
+                    "by_payment_method": [],
+                    "daily_collection": [],
+                    "recent_payments": [],
+                }
+            )
+
+        today = timezone.now().date()
+
+        # Aggregate invoice stats
+        invoice_stats = FeeInvoice.objects.filter(
+            student__school=school,
+            academic_year=academic_year,
+        ).aggregate(
+            total_expected=Sum("total_amount"),
+            total_collected=Sum("paid_amount"),
+            total_invoices=Count("id"),
+            paid_invoices=Count("id", filter=Q(status="paid")),
+            unpaid_invoices=Count("id", filter=Q(status="unpaid")),
+            overdue_invoices=Count("id", filter=Q(status="overdue")),
+            partial_invoices=Count("id", filter=Q(status="partial")),
+        )
+
+        total_expected = invoice_stats["total_expected"] or 0
+        total_collected = invoice_stats["total_collected"] or 0
+        total_outstanding = total_expected - total_collected
+
+        # Count defaulters (students with any unpaid/overdue/partial invoice)
+        defaulter_ids = (
+            FeeInvoice.objects.filter(
+                student__school=school,
+                academic_year=academic_year,
+                status__in=["unpaid", "overdue", "partial"],
+            )
+            .values_list("student_id", flat=True)
+            .distinct()
+        )
+        total_defaulters = len(list(defaulter_ids))
+
+        # Overdue amount
+        overdue_amount = (
+            FeeInvoice.objects.filter(
+                student__school=school,
+                academic_year=academic_year,
+                status__in=["unpaid", "overdue", "partial"],
+                due_date__lt=today,
+            ).aggregate(total=Sum("total_amount"))["total"]
+            or 0
+        )
+
+        # Stats by status
+        by_status = list(
+            FeeInvoice.objects.filter(
+                student__school=school,
+                academic_year=academic_year,
+            )
+            .values("status")
+            .annotate(total=Sum("total_amount"), count=Count("id"))
+            .order_by("status")
+        )
+
+        # Stats by category
+        by_category = list(
+            FeeInvoice.objects.filter(
+                student__school=school,
+                academic_year=academic_year,
+            )
+            .values("fee_structure__fee_category__name")
+            .annotate(
+                total=Sum("total_amount"),
+                collected=Sum("paid_amount"),
+                count=Count("id"),
+            )
+            .order_by("-total")
+        )
+
+        # Stats by grade
+        by_grade = list(
+            FeeInvoice.objects.filter(
+                student__school=school,
+                academic_year=academic_year,
+            )
+            .values("student__classroom__grade__name")
+            .annotate(
+                total=Sum("total_amount"),
+                collected=Sum("paid_amount"),
+                count=Count("id"),
+            )
+            .order_by("-total")
+        )
+
+        # Stats by payment method
+        by_payment_method = list(
+            Payment.objects.filter(
+                invoice__student__school=school,
+                invoice__academic_year=academic_year,
+                status="successful",
+            )
+            .values("payment_method")
+            .annotate(total=Sum("amount"), count=Count("id"))
+            .order_by("-total")
+        )
+
+        # Last 30 days collection
+        daily_collection = []
+        for i in range(29, -1, -1):
+            day = today - timedelta(days=i)
+            day_total = (
+                Payment.objects.filter(
+                    invoice__student__school=school,
+                    invoice__academic_year=academic_year,
+                    status="successful",
+                    paid_at__date=day,
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+            daily_collection.append(
+                {
+                    "date": day.isoformat(),
+                    "collected": float(day_total),
+                }
+            )
+
+        # Recent payments
+        recent_payments = list(
+            Payment.objects.filter(
+                invoice__student__school=school,
+                status="successful",
+            )
+            .select_related("invoice__student__user")
+            .order_by("-paid_at")[:10]
+            .values(
+                "id",
+                "receipt_number",
+                "amount",
+                "payment_method",
+                "status",
+                "paid_at",
+                "invoice__invoice_number",
+                "invoice__student__user__first_name",
+                "invoice__student__user__last_name",
+            )
+        )
+
+        # Format recent payments
+        for p in recent_payments:
+            p["invoice_number"] = p.pop("invoice__invoice_number")
+            first = p.pop("invoice__student__user__first_name", "")
+            last = p.pop("invoice__student__user__last_name", "")
+            p["student_name"] = f"{first} {last}".strip()
+            p["id"] = str(p["id"])
+
+        collection_pct = (total_collected / total_expected * 100) if total_expected > 0 else 0
+
+        return Response(
+            {
+                "total_expected": float(total_expected),
+                "total_collected": float(total_collected),
+                "total_outstanding": float(total_outstanding),
+                "collection_percentage": round(collection_pct, 2),
+                "total_invoices": invoice_stats["total_invoices"],
+                "paid_invoices": invoice_stats["paid_invoices"],
+                "unpaid_invoices": invoice_stats["unpaid_invoices"],
+                "overdue_invoices": invoice_stats["overdue_invoices"],
+                "partial_invoices": invoice_stats["partial_invoices"],
+                "total_students": Enrollment.objects.filter(
+                    classroom__school=school,
+                    academic_year=academic_year,
+                    is_active=True,
+                ).count(),
+                "total_defaulters": total_defaulters,
+                "overdue_amount": float(overdue_amount),
+                "by_status": by_status,
+                "by_category": [
+                    {
+                        "category": c["fee_structure__fee_category__name"] or "Unknown",
+                        "total": float(c["total"] or 0),
+                        "collected": float(c["collected"] or 0),
+                        "count": c["count"],
+                    }
+                    for c in by_category
+                ],
+                "by_grade": [
+                    {
+                        "grade": g["student__classroom__grade__name"] or "Unknown",
+                        "total": float(g["total"] or 0),
+                        "collected": float(g["collected"] or 0),
+                        "count": g["count"],
+                    }
+                    for g in by_grade
+                ],
+                "by_payment_method": [
+                    {
+                        "method": m["payment_method"],
+                        "total": float(m["total"] or 0),
+                        "count": m["count"],
+                    }
+                    for m in by_payment_method
+                ],
+                "daily_collection": daily_collection,
+                "recent_payments": recent_payments,
+            }
+        )
 
 
 # =============================================================================
