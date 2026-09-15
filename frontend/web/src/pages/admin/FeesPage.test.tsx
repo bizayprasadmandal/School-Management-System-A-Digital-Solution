@@ -175,16 +175,16 @@ describe("summary cards", () => {
   test("shows total invoiced amount", async () => {
     renderPage();
     await waitFor(() => {
-      // Total: 5000 x 4 = 20000 => 20.0K
-      expect(screen.getByText("$20.0K")).toBeInTheDocument();
+      // Total: 5000 x 4 = 20000 => Rs. 20.0K
+      expect(screen.getByText("Rs. 20.0K")).toBeInTheDocument();
     });
   });
 
   test("shows collected amount", async () => {
     renderPage();
     await waitFor(() => {
-      // Collected: 5000 + 2000 = 7000 => 7.0K
-      expect(screen.getByText("$7.0K")).toBeInTheDocument();
+      // Collected: 5000 + 2000 = 7000 => Rs. 7.0K
+      expect(screen.getByText("Rs. 7.0K")).toBeInTheDocument();
     });
   });
 
