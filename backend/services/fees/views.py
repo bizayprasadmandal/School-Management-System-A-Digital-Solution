@@ -2,7 +2,10 @@
 Fees Service — Views for invoicing, payments, scholarships
 """
 
+import csv
 import io
+import uuid
+from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
@@ -20,6 +23,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.students.models import AcademicYear
 
 from .models import (
     AccountingEntry,
@@ -329,14 +333,6 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         from the student's active enrollment; missing structures are
         reported as row errors instead of being created implicitly.
         """
-        import csv
-        import io
-        import uuid
-
-        from services.students.models import AcademicYear
-
-        from .models import FeeStructure
-
         csv_text = request.data.get("csv_data", "")
         if not csv_text:
             return Response({"error": "csv_data field is required."}, status=400)
@@ -617,6 +613,106 @@ class PaymentViewSet(viewsets.ModelViewSet):
         response = FileResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
         return response
+
+    @action(detail=False, methods=["post"], url_path="batch")
+    def batch_create(self, request):
+        """
+        Create multiple payments at once for cash/bank collections.
+
+        Accepts:
+            payments: [
+                {
+                    "invoice": "<uuid>",
+                    "amount": 5000.00,
+                    "payment_method": "cash",
+                    "notes": "optional"
+                },
+                ...
+            ]
+
+        Returns:
+            { created: [...], errors: [...] }
+        """
+        payments_data = request.data.get("payments", [])
+        if not payments_data:
+            return Response(
+                {"detail": "No payments provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        errors = []
+
+        for idx, payment_data in enumerate(payments_data):
+            invoice_id = payment_data.get("invoice")
+            amount = payment_data.get("amount")
+            payment_method = payment_data.get("payment_method", "cash")
+            notes = payment_data.get("notes", "")
+
+            if not invoice_id or not amount:
+                errors.append({"index": idx, "error": "invoice and amount are required"})
+                continue
+
+            try:
+                with transaction.atomic():
+                    invoice = FeeInvoice.objects.select_for_update().get(id=invoice_id)
+
+                    # Tenant check
+                    if invoice.student.school_id != request.user.school_id:
+                        errors.append({"index": idx, "invoice": invoice_id, "error": "Wrong school"})
+                        continue
+
+                    # Check outstanding
+                    outstanding = invoice.total_amount - invoice.paid_amount
+                    if Decimal(str(amount)) > outstanding:
+                        errors.append(
+                            {
+                                "index": idx,
+                                "invoice": invoice_id,
+                                "error": f"Amount {amount} exceeds outstanding {outstanding}",
+                            }
+                        )
+                        continue
+
+                    payment = Payment.objects.create(
+                        invoice=invoice,
+                        amount=Decimal(str(amount)),
+                        payment_method=payment_method,
+                        status=Payment.Status.SUCCESSFUL,
+                        paid_at=timezone.now(),
+                        collected_by=request.user,
+                        notes=notes,
+                    )
+
+                    from .ledger import credit_invoice
+
+                    credit_invoice(invoice, payment.amount)
+
+                    created.append(
+                        {
+                            "id": str(payment.id),
+                            "receipt_number": payment.receipt_number,
+                            "invoice_number": invoice.invoice_number,
+                            "amount": str(payment.amount),
+                        }
+                    )
+
+            except FeeInvoice.DoesNotExist:
+                errors.append({"index": idx, "invoice": invoice_id, "error": "Invoice not found"})
+            except Exception as e:
+                errors.append({"index": idx, "invoice": invoice_id, "error": str(e)})
+
+        # Dispatch receipt notifications for all successful payments
+        if created:
+            from .tasks import send_payment_receipt_notification
+
+            for p in created:
+                send_payment_receipt_notification.delay(p["id"])
+
+        return Response(
+            {"created": created, "errors": errors, "total_created": len(created), "total_errors": len(errors)},
+            status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class ScholarshipViewSet(viewsets.ModelViewSet):

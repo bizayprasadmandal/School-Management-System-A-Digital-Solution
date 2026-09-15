@@ -17,6 +17,7 @@ import {
   useShortcutHelp,
 } from "../../components/common/KeyboardShortcutHelp";
 import { BulkActionBar } from "../../components/common/BulkActionBar";
+import BatchPaymentModal from "../../components/common/BatchPaymentModal";
 import {
   DocumentTextIcon,
   PlusIcon,
@@ -26,6 +27,7 @@ import {
   CheckIcon,
   ArrowDownTrayIcon,
   Bars3Icon,
+  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 
 interface Invoice {
@@ -68,6 +70,7 @@ export default function InvoicesPage() {
   const [viewMode, setViewMode] = useState<"pagination" | "infinite">("pagination");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
+  const [showBatchPayment, setShowBatchPayment] = useState(false);
 
   const { data: allInvoices = [], isLoading } = useQuery({
     queryKey: ["accountant-invoices"],
@@ -240,6 +243,10 @@ export default function InvoicesPage() {
           <PlusIcon className="mr-1.5 h-4 w-4" />
           Create Invoice
         </Button>
+        <Button onClick={() => setShowBatchPayment(true)} variant="secondary">
+          <BanknotesIcon className="mr-1.5 h-4 w-4" />
+          Batch Payment
+        </Button>
       </div>
 
       {/* Search + Filters */}
@@ -382,6 +389,18 @@ export default function InvoicesPage() {
           }}
         />
       </Modal>
+
+      {showBatchPayment && (
+        <BatchPaymentModal
+          invoices={invoices}
+          open={showBatchPayment}
+          onClose={() => setShowBatchPayment(false)}
+          onSuccess={() => {
+            setShowBatchPayment(false);
+            qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
+          }}
+        />
+      )}
     </div>
   );
 }
