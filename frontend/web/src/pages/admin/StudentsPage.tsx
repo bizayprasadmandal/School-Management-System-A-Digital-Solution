@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -26,6 +26,8 @@ const GENDER_LABELS: Record<string, string> = { M: "Male", F: "Female", O: "Othe
 
 export default function StudentsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const classroomFromUrl = searchParams.get("classroom");
   const { tokens } = useAuthStore();
   const [search, setSearch] = useState("");
   const [gender, setGender] = useState("");
@@ -35,7 +37,9 @@ export default function StudentsPage() {
   const [showImport, setShowImport] = useState(false);
 
   const { data: gradesData } = useGradeLevels();
-  const [grade, setGrade] = useState<number | undefined>();
+  const [grade, setGrade] = useState<number | undefined>(
+    classroomFromUrl ? Number(classroomFromUrl) : undefined,
+  );
 
   const { data, isLoading } = useStudents({
     search: search || undefined,
