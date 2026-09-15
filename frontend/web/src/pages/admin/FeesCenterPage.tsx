@@ -11,12 +11,46 @@ import {
 import { EntitySection, type EntityConfig } from "../../components/common/EntitySection";
 import { Button } from "../../components/common";
 import { useTitle } from "../../hooks";
-import { MagnifyingGlassIcon, BanknotesIcon } from "@heroicons/react/24/outline";
+import {
+  MagnifyingGlassIcon,
+  BanknotesIcon,
+  DocumentTextIcon,
+  CurrencyDollarIcon,
+  CalculatorIcon,
+  ChartBarIcon,
+  ClipboardDocumentListIcon,
+  ReceiptPercentIcon,
+  TicketIcon,
+  GiftIcon,
+  ArrowUturnLeftIcon,
+  NoSymbolIcon,
+  CheckBadgeIcon,
+  BuildingLibraryIcon,
+  AcademicCapIcon,
+  CalendarDaysIcon,
+  CreditCardIcon,
+  CurrencyRupeeIcon,
+  DocumentDuplicateIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  FolderOpenIcon,
+  HandRaisedIcon,
+  KeyIcon,
+  ListBulletIcon,
+  MagnifyingGlassCircleIcon,
+  PencilSquareIcon,
+  QueueListIcon,
+  ShieldCheckIcon,
+  SwatchIcon,
+  TagIcon,
+  TrophyIcon,
+  WalletIcon,
+} from "@heroicons/react/24/outline";
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   "accounting-entry": {
     key: "accounting-entry",
-    icon: BanknotesIcon,
+    icon: CalculatorIcon,
     label: "Accounting Entry",
     endpoint: "accounting-entry",
     titleField: "entry_type",
@@ -43,7 +77,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   adjustments: {
     key: "adjustments",
-    icon: BanknotesIcon,
+    icon: CurrencyRupeeIcon,
     label: "Fee Adjustment",
     endpoint: "adjustments",
     titleField: "student",
@@ -73,7 +107,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "advance-payments": {
     key: "advance-payments",
-    icon: BanknotesIcon,
+    icon: WalletIcon,
     label: "Advance Payment",
     endpoint: "advance-payments",
     titleField: "student",
@@ -102,7 +136,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "bank-reconciliation": {
     key: "bank-reconciliation",
-    icon: BanknotesIcon,
+    icon: BuildingLibraryIcon,
     label: "Bank Reconciliation",
     endpoint: "bank-reconciliation",
     titleField: "bank_statement_date",
@@ -136,7 +170,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "budget-line-item": {
     key: "budget-line-item",
-    icon: BanknotesIcon,
+    icon: ClipboardDocumentListIcon,
     label: "Budget Line Item",
     endpoint: "budget-line-item",
     titleField: "budget_plan",
@@ -153,7 +187,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "budget-plan": {
     key: "budget-plan",
-    icon: BanknotesIcon,
+    icon: ChartBarIcon,
     label: "Budget Plan",
     endpoint: "budget-plan",
     titleField: "title",
@@ -182,7 +216,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "bulk-invoices": {
     key: "bulk-invoices",
-    icon: BanknotesIcon,
+    icon: DocumentDuplicateIcon,
     label: "Bulk Invoice Generation",
     endpoint: "bulk-invoices",
     titleField: "batch_name",
@@ -214,7 +248,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   categories: {
     key: "categories",
-    icon: BanknotesIcon,
+    icon: TagIcon,
     label: "Fee Category",
     endpoint: "categories",
     titleField: "name",
@@ -238,7 +272,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   concessions: {
     key: "concessions",
-    icon: BanknotesIcon,
+    icon: GiftIcon,
     label: "Fee Concession",
     endpoint: "concessions",
     titleField: "name",
@@ -290,7 +324,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "credit-note": {
     key: "credit-note",
-    icon: BanknotesIcon,
+    icon: ArrowUturnLeftIcon,
     label: "Credit Note",
     endpoint: "credit-note",
     titleField: "note_number",
@@ -319,7 +353,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   dashboard: {
     key: "dashboard",
-    icon: BanknotesIcon,
+    icon: SwatchIcon,
     label: "Fee Collection Dashboard",
     endpoint: "dashboard",
     titleField: "total_expected",
@@ -340,7 +374,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "debit-note": {
     key: "debit-note",
-    icon: BanknotesIcon,
+    icon: ExclamationTriangleIcon,
     label: "Debit Note",
     endpoint: "debit-note",
     titleField: "note_number",
@@ -369,7 +403,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "expense-tracking": {
     key: "expense-tracking",
-    icon: BanknotesIcon,
+    icon: ReceiptPercentIcon,
     label: "Expense Tracking",
     endpoint: "expense-tracking",
     titleField: "expense_type",
@@ -411,7 +445,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "fee-discount": {
     key: "fee-discount",
-    icon: BanknotesIcon,
+    icon: TicketIcon,
     label: "Fee Discount",
     endpoint: "fee-discount",
     titleField: "name",
@@ -448,7 +482,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "fee-exemption": {
     key: "fee-exemption",
-    icon: BanknotesIcon,
+    icon: NoSymbolIcon,
     label: "Fee Exemption",
     endpoint: "fee-exemption",
     titleField: "student",
@@ -474,7 +508,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "fee-waiver-approval": {
     key: "fee-waiver-approval",
-    icon: BanknotesIcon,
+    icon: CheckBadgeIcon,
     label: "Fee Waiver Approval",
     endpoint: "fee-waiver-approval",
     titleField: "waiver",
@@ -498,7 +532,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "financial-audit": {
     key: "financial-audit",
-    icon: BanknotesIcon,
+    icon: ShieldCheckIcon,
     label: "Financial Audit",
     endpoint: "financial-audit",
     titleField: "title",
@@ -540,7 +574,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "financial-year": {
     key: "financial-year",
-    icon: BanknotesIcon,
+    icon: CalendarDaysIcon,
     label: "Financial Year",
     endpoint: "financial-year",
     titleField: "name",
@@ -557,7 +591,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "installment-payments": {
     key: "installment-payments",
-    icon: BanknotesIcon,
+    icon: CreditCardIcon,
     label: "Installment Payment",
     endpoint: "installment-payments",
     titleField: "installment_plan",
@@ -586,7 +620,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "installment-plans": {
     key: "installment-plans",
-    icon: BanknotesIcon,
+    icon: ListBulletIcon,
     label: "Installment Plan",
     endpoint: "installment-plans",
     titleField: "student",
@@ -616,7 +650,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "invoice-template": {
     key: "invoice-template",
-    icon: BanknotesIcon,
+    icon: DocumentTextIcon,
     label: "Invoice Template",
     endpoint: "invoice-template",
     titleField: "name",
@@ -667,7 +701,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "late-fee-rule": {
     key: "late-fee-rule",
-    icon: BanknotesIcon,
+    icon: PencilSquareIcon,
     label: "Late Fee Rule",
     endpoint: "late-fee-rule",
     titleField: "name",
@@ -700,7 +734,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   ledger: {
     key: "ledger",
-    icon: BanknotesIcon,
+    icon: FolderOpenIcon,
     label: "Student Ledger",
     endpoint: "ledger",
     titleField: "student",
@@ -732,7 +766,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "parent-account": {
     key: "parent-account",
-    icon: BanknotesIcon,
+    icon: AcademicCapIcon,
     label: "Parent Account",
     endpoint: "parent-account",
     titleField: "parent",
@@ -748,7 +782,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "payment-gateway-config": {
     key: "payment-gateway-config",
-    icon: BanknotesIcon,
+    icon: KeyIcon,
     label: "Payment Gateway Config",
     endpoint: "payment-gateway-config",
     titleField: "stripe_enabled",
@@ -760,7 +794,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "payment-method": {
     key: "payment-method",
-    icon: BanknotesIcon,
+    icon: CurrencyDollarIcon,
     label: "Payment Method",
     endpoint: "payment-method",
     titleField: "name",
@@ -789,7 +823,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "payment-reminders": {
     key: "payment-reminders",
-    icon: BanknotesIcon,
+    icon: EnvelopeIcon,
     label: "Payment Reminder",
     endpoint: "payment-reminders",
     titleField: "subject",
@@ -829,7 +863,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   payments: {
     key: "payments",
-    icon: BanknotesIcon,
+    icon: QueueListIcon,
     label: "Payment",
     endpoint: "payments",
     titleField: "invoice",
@@ -874,7 +908,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "receipt-template": {
     key: "receipt-template",
-    icon: BanknotesIcon,
+    icon: HandRaisedIcon,
     label: "Receipt Template",
     endpoint: "receipt-template",
     titleField: "name",
@@ -889,7 +923,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   reconciliation: {
     key: "reconciliation",
-    icon: BanknotesIcon,
+    icon: MagnifyingGlassCircleIcon,
     label: "Payment Reconciliation",
     endpoint: "reconciliation",
     titleField: "reconciliation_type",
@@ -931,7 +965,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "refund-record": {
     key: "refund-record",
-    icon: BanknotesIcon,
+    icon: ArrowUturnLeftIcon,
     label: "Refund Record",
     endpoint: "refund-record",
     titleField: "student",
@@ -960,7 +994,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "revenue-reports": {
     key: "revenue-reports",
-    icon: BanknotesIcon,
+    icon: ChartBarIcon,
     label: "Revenue Report",
     endpoint: "revenue-reports",
     titleField: "title",
@@ -1010,7 +1044,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   scholarships: {
     key: "scholarships",
-    icon: BanknotesIcon,
+    icon: TrophyIcon,
     label: "Scholarship",
     endpoint: "scholarships",
     titleField: "name",
@@ -1036,7 +1070,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "sibling-discounts": {
     key: "sibling-discounts",
-    icon: BanknotesIcon,
+    icon: TagIcon,
     label: "Sibling Discount",
     endpoint: "sibling-discounts",
     titleField: "name",
@@ -1062,7 +1096,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   structures: {
     key: "structures",
-    icon: BanknotesIcon,
+    icon: DocumentTextIcon,
     label: "Fee Structure",
     endpoint: "structures",
     titleField: "academic_year",
@@ -1078,7 +1112,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   templates: {
     key: "templates",
-    icon: BanknotesIcon,
+    icon: ClipboardDocumentListIcon,
     label: "Fee Template",
     endpoint: "templates",
     titleField: "name",
@@ -1121,7 +1155,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   "transaction-log": {
     key: "transaction-log",
-    icon: BanknotesIcon,
+    icon: ListBulletIcon,
     label: "Transaction Log",
     endpoint: "transaction-log",
     titleField: "transaction_type",
@@ -1161,7 +1195,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
   waivers: {
     key: "waivers",
-    icon: BanknotesIcon,
+    icon: HandRaisedIcon,
     label: "Fee Waiver",
     endpoint: "waivers",
     titleField: "student",
