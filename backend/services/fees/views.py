@@ -1873,7 +1873,88 @@ class CreditNoteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(school=self.request.user.school, issued_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def apply(self, request, pk=None):
+        """
+        Apply an issued credit note to its invoice: reduces the invoice's
+        total_amount (and therefore the outstanding balance) by the note
+        amount and records the adjustment in the audit trail.
+
+        Only draft/issued notes can be applied, and only once — applied and
+        cancelled notes are rejected. The invoice may not go negative.
+        """
+        note = self.get_object()
+
+        if note.status not in (CreditNote.Status.DRAFT, CreditNote.Status.ISSUED):
+            return Response(
+                {"detail": f"Cannot apply a note with status '{note.status}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not note.invoice_id:
+            return Response(
+                {"detail": "This credit note is not linked to an invoice."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            locked_note = CreditNote.objects.select_for_update().get(pk=note.pk)
+            if locked_note.status not in (CreditNote.Status.DRAFT, CreditNote.Status.ISSUED):
+                return Response(
+                    {"detail": "Note was modified by another request."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            invoice = FeeInvoice.objects.select_for_update().get(id=locked_note.invoice_id)
+            new_total = invoice.total_amount - locked_note.amount
+            if new_total < 0:
+                return Response(
+                    {
+                        "detail": (
+                            f"Credit of {locked_note.amount} would take invoice "
+                            f"{invoice.invoice_number} below zero "
+                            f"(current total {invoice.total_amount})."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            invoice.total_amount = new_total
+            invoice.save(update_fields=["total_amount"])
+
+            locked_note.status = CreditNote.Status.APPLIED
+            locked_note.applied_date = timezone.now().date()
+            locked_note.save(update_fields=["status", "applied_date"])
+
+            TransactionLog.objects.get_or_create(
+                transaction_id=f"CN-{locked_note.id}",
+                defaults={
+                    "school_id": locked_note.school_id,
+                    "student_id": locked_note.student_id,
+                    "transaction_type": TransactionLog.TransactionType.ADJUSTMENT,
+                    "amount": locked_note.amount,
+                    "reference_number": locked_note.note_number,
+                    "description": (
+                        f"Credit note {locked_note.note_number} applied to invoice "
+                        f"{invoice.invoice_number}: {locked_note.reason}"
+                    ),
+                    "metadata": {
+                        "invoice_id": str(invoice.id),
+                        "note_id": str(locked_note.id),
+                        "note_type": "credit",
+                        "applied_by": request.user.full_name,
+                    },
+                },
+            )
+
+        return Response(
+            {
+                "detail": f"Credit note {locked_note.note_number} applied.",
+                "invoice_total": str(invoice.total_amount),
+                "invoice_outstanding": str(invoice.outstanding_amount),
+            }
+        )
 
 
 class DebitNoteViewSet(viewsets.ModelViewSet):
@@ -1892,7 +1973,74 @@ class DebitNoteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        serializer.save(school=self.request.user.school, issued_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def apply(self, request, pk=None):
+        """
+        Apply an issued debit note to its invoice: increases the invoice's
+        total_amount (e.g. for late penalties or missed charges) and records
+        the adjustment in the audit trail.
+
+        Only draft/issued notes can be applied, and only once.
+        """
+        note = self.get_object()
+
+        if note.status not in (DebitNote.Status.DRAFT, DebitNote.Status.ISSUED):
+            return Response(
+                {"detail": f"Cannot apply a note with status '{note.status}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not note.invoice_id:
+            return Response(
+                {"detail": "This debit note is not linked to an invoice."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            locked_note = DebitNote.objects.select_for_update().get(pk=note.pk)
+            if locked_note.status not in (DebitNote.Status.DRAFT, DebitNote.Status.ISSUED):
+                return Response(
+                    {"detail": "Note was modified by another request."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            invoice = FeeInvoice.objects.select_for_update().get(id=locked_note.invoice_id)
+            invoice.total_amount += locked_note.amount
+            invoice.save(update_fields=["total_amount"])
+
+            locked_note.status = DebitNote.Status.APPLIED
+            locked_note.applied_date = timezone.now().date()
+            locked_note.save(update_fields=["status", "applied_date"])
+
+            TransactionLog.objects.get_or_create(
+                transaction_id=f"DN-{locked_note.id}",
+                defaults={
+                    "school_id": locked_note.school_id,
+                    "student_id": locked_note.student_id,
+                    "transaction_type": TransactionLog.TransactionType.ADJUSTMENT,
+                    "amount": locked_note.amount,
+                    "reference_number": locked_note.note_number,
+                    "description": (
+                        f"Debit note {locked_note.note_number} applied to invoice "
+                        f"{invoice.invoice_number}: {locked_note.reason}"
+                    ),
+                    "metadata": {
+                        "invoice_id": str(invoice.id),
+                        "note_id": str(locked_note.id),
+                        "note_type": "debit",
+                        "applied_by": request.user.full_name,
+                    },
+                },
+            )
+
+        return Response(
+            {
+                "detail": f"Debit note {locked_note.note_number} applied.",
+                "invoice_total": str(invoice.total_amount),
+                "invoice_outstanding": str(invoice.outstanding_amount),
+            }
+        )
 
 
 class FinancialYearViewSet(viewsets.ModelViewSet):
