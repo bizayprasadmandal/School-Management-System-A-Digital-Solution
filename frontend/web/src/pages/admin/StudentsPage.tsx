@@ -2,7 +2,7 @@
  * Admin Students Page — searchable, filterable, paginated student list
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   MagnifyingGlassIcon,
@@ -40,6 +40,10 @@ export default function StudentsPage() {
   const [grade, setGrade] = useState<number | undefined>(
     classroomFromUrl ? Number(classroomFromUrl) : undefined,
   );
+
+  useEffect(() => {
+    setGrade(classroomFromUrl ? Number(classroomFromUrl) : undefined);
+  }, [classroomFromUrl]);
 
   const { data, isLoading } = useStudents({
     search: search || undefined,
