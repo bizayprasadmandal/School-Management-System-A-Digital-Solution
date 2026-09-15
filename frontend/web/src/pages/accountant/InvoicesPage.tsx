@@ -18,6 +18,7 @@ import {
 } from "../../components/common/KeyboardShortcutHelp";
 import { BulkActionBar } from "../../components/common/BulkActionBar";
 import BatchPaymentModal from "../../components/common/BatchPaymentModal";
+import BatchInvoiceModal from "../../components/common/BatchInvoiceModal";
 import {
   DocumentTextIcon,
   PlusIcon,
@@ -28,6 +29,7 @@ import {
   ArrowDownTrayIcon,
   Bars3Icon,
   BanknotesIcon,
+  DocumentDuplicateIcon,
 } from "@heroicons/react/24/outline";
 
 interface Invoice {
@@ -71,6 +73,7 @@ export default function InvoicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
   const [showBatchPayment, setShowBatchPayment] = useState(false);
+  const [showBatchInvoice, setShowBatchInvoice] = useState(false);
 
   const { data: allInvoices = [], isLoading } = useQuery({
     queryKey: ["accountant-invoices"],
@@ -247,6 +250,10 @@ export default function InvoicesPage() {
           <BanknotesIcon className="mr-1.5 h-4 w-4" />
           Batch Payment
         </Button>
+        <Button onClick={() => setShowBatchInvoice(true)} variant="secondary">
+          <DocumentDuplicateIcon className="mr-1.5 h-4 w-4" />
+          Batch Generate
+        </Button>
       </div>
 
       {/* Search + Filters */}
@@ -397,6 +404,17 @@ export default function InvoicesPage() {
           onClose={() => setShowBatchPayment(false)}
           onSuccess={() => {
             setShowBatchPayment(false);
+            qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
+          }}
+        />
+      )}
+
+      {showBatchInvoice && (
+        <BatchInvoiceModal
+          open={showBatchInvoice}
+          onClose={() => setShowBatchInvoice(false)}
+          onSuccess={() => {
+            setShowBatchInvoice(false);
             qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
           }}
         />
