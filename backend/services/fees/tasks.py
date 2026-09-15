@@ -3,7 +3,7 @@ Fees Service — Celery tasks for invoicing, fee reminders, overdue processing.
 """
 
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from celery import shared_task
@@ -181,6 +181,151 @@ def mark_overdue_invoices(self):
         return {"marked_overdue": updated}
     except Exception as exc:
         logger.error("mark_overdue_invoices failed: %s", exc)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def generate_monthly_revenue_report(self, year: int = None, month: int = None):
+    """
+    Generate a monthly RevenueReport snapshot per school for the previous
+    calendar month (or the explicit year/month when given).
+
+    Idempotent: one report per (school, monthly period) — re-running tops
+    up nothing, it simply skips periods that already have a report.
+
+    Sources: successful payments (collected totals + category/grade/method
+    breakdowns), TransactionLog refund entries (refund totals), open
+    invoices due by period end (outstanding), and StudentLedger
+    scholarship/concession entries where present.
+    """
+    from datetime import datetime, time
+
+    from django.db.models import Sum
+    from services.auth.models import School
+
+    from .models import FeeInvoice, Payment, RevenueReport, StudentLedger, TransactionLog
+
+    try:
+        today = timezone.now().date()
+        if year is None or month is None:
+            # Previous calendar month
+            last_month_end = today.replace(day=1) - timedelta(days=1)
+            year, month = last_month_end.year, last_month_end.month
+        period_start = date(year, month, 1)
+        period_end = (period_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+        start_dt = timezone.make_aware(datetime.combine(period_start, time.min))
+        end_dt = timezone.make_aware(datetime.combine(period_end + timedelta(days=1), time.min))
+
+        created_count = 0
+        for school in School.objects.filter(is_active=True):
+            # Idempotency: one monthly report per school per period.
+            _, created = RevenueReport.objects.get_or_create(
+                school=school,
+                report_type=RevenueReport.ReportType.MONTHLY,
+                period_start=period_start,
+                defaults={
+                    "title": f"Monthly Revenue Report — {period_start.strftime('%B %Y')}",
+                    "status": RevenueReport.Status.GENERATED,
+                    "period_end": period_end,
+                },
+            )
+            if not created:
+                continue
+
+            payments = Payment.objects.filter(
+                invoice__student__school=school,
+                status=Payment.Status.SUCCESSFUL,
+                paid_at__gte=start_dt,
+                paid_at__lt=end_dt,
+            )
+            total_collected = payments.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+            collection_by_category = {
+                (row["invoice__fee_structure__fee_category__name"] or "Unknown"): float(row["total"])
+                for row in payments.values("invoice__fee_structure__fee_category__name")
+                .annotate(total=Sum("amount"))
+                .order_by("-total")
+            }
+            collection_by_grade = {
+                (row["invoice__fee_structure__grade__name"] or "Unknown"): float(row["total"])
+                for row in payments.values("invoice__fee_structure__grade__name")
+                .annotate(total=Sum("amount"))
+                .order_by("-total")
+            }
+            collection_by_method = {
+                (row["payment_method"] or "unknown"): float(row["total"])
+                for row in payments.values("payment_method").annotate(total=Sum("amount")).order_by("-total")
+            }
+
+            # Refunds come from the audit trail written by the ledger.
+            total_refunded = TransactionLog.objects.filter(
+                school=school,
+                transaction_type=TransactionLog.TransactionType.REFUND,
+                created_at__gte=start_dt,
+                created_at__lt=end_dt,
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+            # Outstanding: open invoices that were due on or before period end.
+            total_outstanding = FeeInvoice.objects.filter(
+                student__school=school,
+                status__in=[FeeInvoice.Status.UNPAID, FeeInvoice.Status.PARTIAL, FeeInvoice.Status.OVERDUE],
+                due_date__lte=period_end,
+            ).aggregate(total=Sum("total_amount") - Sum("paid_amount"))["total"] or Decimal("0")
+
+            # Scholarships/concessions applied in the period, where ledger
+            # entries exist for them.
+            total_scholarships = StudentLedger.objects.filter(
+                school=school,
+                transaction_type=StudentLedger.TransactionType.SCHOLARSHIP,
+                transaction_date__range=[period_start, period_end],
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+            total_concessions = StudentLedger.objects.filter(
+                school=school,
+                transaction_type=StudentLedger.TransactionType.CONCESSION,
+                transaction_date__range=[period_start, period_end],
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+            report = RevenueReport.objects.filter(
+                school=school,
+                report_type=RevenueReport.ReportType.MONTHLY,
+                period_start=period_start,
+            ).first()
+            report.total_collected = total_collected
+            report.total_outstanding = total_outstanding
+            report.total_refunded = total_refunded
+            report.total_scholarships = total_scholarships
+            report.total_concessions = total_concessions
+            report.collection_by_category = collection_by_category
+            report.collection_by_grade = collection_by_grade
+            report.collection_by_payment_method = collection_by_method
+            report.summary = (
+                f"Collected {total_collected:,.2f} across "
+                f"{payments.count()} payments; refunded {total_refunded:,.2f}; "
+                f"outstanding {total_outstanding:,.2f} as of {period_end}."
+            )
+            report.save(
+                update_fields=[
+                    "total_collected",
+                    "total_outstanding",
+                    "total_refunded",
+                    "total_scholarships",
+                    "total_concessions",
+                    "collection_by_category",
+                    "collection_by_grade",
+                    "collection_by_payment_method",
+                    "summary",
+                ]
+            )
+            created_count += 1
+
+        logger.info(
+            "generate_monthly_revenue_report completed",
+            extra={"period": f"{year}-{month:02d}", "reports_created": created_count},
+        )
+        return {"period": f"{year}-{month:02d}", "reports_created": created_count}
+    except Exception as exc:
+        logger.error("generate_monthly_revenue_report failed: %s", exc)
         raise self.retry(exc=exc)
 
 
