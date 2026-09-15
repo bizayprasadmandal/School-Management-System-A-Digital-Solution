@@ -1,13 +1,15 @@
 /**
- * Accountant Purchase Orders Page — manage POs
+ * Accountant Purchase Orders Page — manage POs.
+ *
+ * Backed by the real inventory API: /inventory/purchase-orders/. Suppliers
+ * come from /inventory/suppliers/ for the form's FK select; order numbers
+ * are auto-generated server-side when omitted.
  */
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Reorder } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
-import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import dayjs from "dayjs";
 import { toCsv, downloadCsv } from "../../utils";
 import { Button, EmptyState, Modal, Pagination } from "../../components/common";
@@ -30,14 +32,32 @@ import {
 
 interface PurchaseOrder {
   id: string;
-  po_number: string;
-  vendor: string;
-  description: string;
-  total_amount: number;
+  order_number: string;
+  supplier: string | null;
+  supplier_name?: string;
+  order_date: string;
+  expected_date: string | null;
   status: string;
-  requested_by: string;
-  created_at: string;
+  subtotal: string | number;
+  tax_amount: string | number;
+  total_amount: string | number;
+  notes: string;
+  ordered_by?: string | number | null;
 }
+
+interface SupplierOption {
+  id: string;
+  name: string;
+}
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "partially_received", label: "Partially Received" },
+  { value: "received", label: "Fully Received" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 function POSkeleton() {
   return (
@@ -57,6 +77,10 @@ function POSkeleton() {
   );
 }
 
+const num = (v: string | number | undefined | null) => Number(v ?? 0);
+const fmtRs = (v: string | number | undefined | null) =>
+  `Rs. ${num(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
 export default function PurchaseOrdersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -65,19 +89,38 @@ export default function PurchaseOrdersPage() {
   const [viewMode, setViewMode] = useState<"pagination" | "infinite">("pagination");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
+  const shortcut = useShortcutHelp();
 
-  const { data: allOrders = [], isLoading } = useQuery({
+  const { data: ordersPage, isLoading } = useQuery({
     queryKey: ["accountant-pos"],
     queryFn: async () => {
-      const r = await api.get<{ results: PurchaseOrder[] }>("/fees/purchase-orders/");
+      const r = await api.get<{ count: number; results: PurchaseOrder[] }>(
+        "/inventory/purchase-orders/",
+        { page_size: 200 },
+      );
       return r.results ?? [];
     },
-
     refetchInterval: 60000,
   });
+  const allOrders = React.useMemo(() => ordersPage ?? [], [ordersPage]);
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["supplier-options"],
+    queryFn: async () => {
+      const r = await api.get<{ results: SupplierOption[] }>("/inventory/suppliers/", {
+        page_size: 200,
+      });
+      return r.results ?? [];
+    },
+  });
+  const supplierName = React.useMemo(() => {
+    const m = new Map<string, string>();
+    suppliers.forEach((s) => m.set(s.id, s.name));
+    return (id: string | null) => (id ? m.get(id) ?? "—" : "—");
+  }, [suppliers]);
 
   const createPO = useMutation({
-    mutationFn: (data: Partial<PurchaseOrder>) => api.post("/fees/purchase-orders/", data),
+    mutationFn: (data: Partial<PurchaseOrder>) => api.post("/inventory/purchase-orders/", data),
     onSuccess: () => {
       toast.success("PO created");
       qc.invalidateQueries({ queryKey: ["accountant-pos"] });
@@ -87,7 +130,7 @@ export default function PurchaseOrdersPage() {
 
   const updatePO = useMutation({
     mutationFn: (data: Partial<PurchaseOrder>) =>
-      api.patch(`/fees/purchase-orders/${editing!.id}/`, data),
+      api.patch(`/inventory/purchase-orders/${editing!.id}/`, data),
     onSuccess: () => {
       toast.success("PO updated");
       qc.invalidateQueries({ queryKey: ["accountant-pos"] });
@@ -97,7 +140,7 @@ export default function PurchaseOrdersPage() {
   });
 
   const deletePO = useMutation({
-    mutationFn: (id: string) => api.delete(`/fees/purchase-orders/${id}/`),
+    mutationFn: (id: string) => api.delete(`/inventory/purchase-orders/${id}/`),
     onSuccess: () => {
       toast.success("PO deleted");
       qc.invalidateQueries({ queryKey: ["accountant-pos"] });
@@ -110,15 +153,16 @@ export default function PurchaseOrdersPage() {
       const q = search.toLowerCase();
       items = items.filter(
         (o) =>
-          (o as any).vendor?.toLowerCase().includes(q) ||
-          (o as any).description?.toLowerCase().includes(q),
+          o.order_number?.toLowerCase().includes(q) ||
+          supplierName(o.supplier)?.toLowerCase().includes(q) ||
+          o.notes?.toLowerCase().includes(q),
       );
     }
     if (statusFilter !== "all") {
-      items = items.filter((o) => (o as any).status === statusFilter);
+      items = items.filter((o) => o.status === statusFilter);
     }
     return items;
-  }, [allOrders, search, statusFilter]);
+  }, [allOrders, search, statusFilter, supplierName]);
 
   const paginatedOrders = React.useMemo(() => {
     const start = (page - 1) * 12;
@@ -137,14 +181,18 @@ export default function PurchaseOrdersPage() {
 
   const handleExport = () => {
     const cols = [
-      { key: "po_number", label: "PO Number" },
-      { key: "vendor", label: "Vendor" },
+      { key: "order_number", label: "PO Number" },
+      { key: "supplier", label: "Supplier" },
+      { key: "order_date", label: "Order Date" },
+      { key: "expected_date", label: "Expected" },
       { key: "total_amount", label: "Amount" },
       { key: "status", label: "Status" },
     ];
     const rows = orders.map((row) => ({
-      po_number: row.po_number ?? "",
-      vendor: row.vendor ?? "",
+      order_number: row.order_number ?? "",
+      supplier: supplierName(row.supplier),
+      order_date: row.order_date ?? "",
+      expected_date: row.expected_date ?? "",
       total_amount: row.total_amount ?? "",
       status: row.status ?? "",
     }));
@@ -156,7 +204,7 @@ export default function PurchaseOrdersPage() {
     if (!confirm(`Delete ${bulk.selectedCount} items?`)) return;
     try {
       await Promise.all(
-        bulk.selectedArray.map((id) => api.delete("/fees/purchase-orders//" + id + "/")),
+        bulk.selectedArray.map((id) => api.delete("/inventory/purchase-orders/" + id + "/")),
       );
       toast.success(`${bulk.selectedCount} items deleted`);
       bulk.clear();
@@ -172,8 +220,10 @@ export default function PurchaseOrdersPage() {
     const csv = toCsv(rows, cols);
     downloadCsv(csv, "bulk-export-" + new Date().toISOString().slice(0, 10) + ".csv");
   };
+
   return (
     <div className="space-y-6">
+      <KeyboardShortcutHelp open={shortcut.open} onClose={() => shortcut.setOpen(false)} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Purchase Orders</h1>
@@ -241,6 +291,15 @@ export default function PurchaseOrdersPage() {
         </Button>
       </div>
 
+      {bulk.selectedCount > 0 && (
+        <BulkActionBar
+          selectedCount={bulk.selectedCount}
+          onExport={handleBulkExport}
+          onDelete={handleBulkDelete}
+          onClear={bulk.clear}
+        />
+      )}
+
       {/* Search + Filters */}
       <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 space-y-3">
         <div className="flex gap-3">
@@ -266,10 +325,11 @@ export default function PurchaseOrdersPage() {
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
           >
             <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="completed">Completed</option>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
           {(search || statusFilter !== "all") && (
             <button
@@ -296,74 +356,73 @@ export default function PurchaseOrdersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {
-            /* Drag-and-drop: Use Reorder.Group with orderedItems for full DnD */
-            paginatedOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-              >
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    {order.po_number}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {order.vendor || "—"} · {order.description || "—"}
+          {(viewMode === "infinite" ? orders.slice(0, 12 * 3) : paginatedOrders).map((order) => (
+            <div
+              key={order.id}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+            >
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  {order.order_number}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {supplierName(order.supplier)} · {order.notes || "—"}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Ordered {order.order_date ? dayjs(order.order_date).format("MMM D, YYYY") : "—"}
+                  {order.expected_date
+                    ? ` · Expected ${dayjs(order.expected_date).format("MMM D, YYYY")}`
+                    : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {fmtRs(order.total_amount)}
                   </p>
-                  <p className="text-xs text-slate-400">
-                    {order.requested_by || "—"} ·{" "}
-                    {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
-                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      order.status === "received"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : order.status === "cancelled"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : order.status === "confirmed" || order.status === "partially_received"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    {(order.status || "draft").replace(/_/g, " ")}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">
-                      ${(order.total_amount ?? 0).toLocaleString()}
-                    </p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        order.status === "approved" || order.status === "received"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : order.status === "pending_approval"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                            : order.status === "cancelled"
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      }`}
-                    >
-                      {(order.status || "draft").replace(/_/g, " ")}
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => {
-                        setEditing(order);
-                        setShowForm(true);
-                      }}
-                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
-                      aria-label="Edit"
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm("Delete this PO?")) deletePO.mutate(order.id);
-                      }}
-                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                      aria-label="Delete"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setEditing(order);
+                      setShowForm(true);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700"
+                    aria-label="Edit"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this PO?")) deletePO.mutate(order.id);
+                    }}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    aria-label="Delete"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-            ))
-          }
+            </div>
+          ))}
         </div>
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {viewMode === "pagination" && totalPages > 1 && (
         <Pagination page={page} total={orders.length} pageSize={12} onChange={setPage} />
       )}
       <Modal
@@ -376,6 +435,7 @@ export default function PurchaseOrdersPage() {
       >
         <POForm
           po={editing}
+          suppliers={suppliers}
           saving={createPO.isPending || updatePO.isPending}
           onSave={(data) => {
             if (editing) updatePO.mutate(data);
@@ -393,29 +453,40 @@ export default function PurchaseOrdersPage() {
 
 function POForm({
   po,
+  suppliers,
   saving,
   onSave,
   onCancel,
 }: {
   po: PurchaseOrder | null;
+  suppliers: SupplierOption[];
   saving: boolean;
   onSave: (data: Partial<PurchaseOrder>) => void;
   onCancel: () => void;
 }) {
   const [f, setF] = useState({
-    po_number: po?.po_number ?? "",
-    vendor: po?.vendor ?? "",
-    description: po?.description ?? "",
-    total_amount: po?.total_amount ?? 0,
-    requested_by: po?.requested_by ?? "",
+    order_number: po?.order_number ?? "",
+    supplier: po?.supplier ?? "",
+    order_date: po?.order_date ?? dayjs().format("YYYY-MM-DD"),
+    expected_date: po?.expected_date ?? "",
+    status: po?.status ?? "draft",
+    subtotal: num(po?.subtotal),
+    tax_amount: num(po?.tax_amount),
+    notes: po?.notes ?? "",
   });
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!f.vendor.trim()) return toast.error("Vendor required");
-        onSave(f);
+        if (!f.supplier) return toast.error("Supplier required");
+        onSave({
+          ...f,
+          supplier: f.supplier,
+          expected_date: f.expected_date || undefined,
+          subtotal: String(f.subtotal),
+          tax_amount: String(f.tax_amount),
+        });
       }}
       className="space-y-4"
     >
@@ -423,50 +494,95 @@ function POForm({
         <div>
           <label className="mb-1 block text-sm font-medium">PO Number</label>
           <input
-            value={f.po_number}
-            onChange={(e) => setF((p) => ({ ...p, po_number: e.target.value }))}
+            value={f.order_number}
+            onChange={(e) => setF((p) => ({ ...p, order_number: e.target.value }))}
+            placeholder="Auto-generated if blank"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Vendor *</label>
-          <input
-            value={f.vendor}
-            onChange={(e) => setF((p) => ({ ...p, vendor: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          <label className="mb-1 block text-sm font-medium">Supplier *</label>
+          <select
+            value={f.supplier}
+            onChange={(e) => setF((p) => ({ ...p, supplier: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
             required
-          />
+          >
+            <option value="">Select supplier…</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium">Description</label>
-        <textarea
-          value={f.description}
-          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
-          rows={2}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Total Amount ($)</label>
+          <label className="mb-1 block text-sm font-medium">Order Date</label>
+          <input
+            type="date"
+            value={f.order_date}
+            onChange={(e) => setF((p) => ({ ...p, order_date: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Expected Date</label>
+          <input
+            type="date"
+            value={f.expected_date}
+            onChange={(e) => setF((p) => ({ ...p, expected_date: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Subtotal (Rs.)</label>
           <input
             type="number"
             min={0}
             step="0.01"
-            value={f.total_amount}
-            onChange={(e) => setF((p) => ({ ...p, total_amount: Number(e.target.value) }))}
+            value={f.subtotal}
+            onChange={(e) => setF((p) => ({ ...p, subtotal: Number(e.target.value) }))}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Requested By</label>
+          <label className="mb-1 block text-sm font-medium">Tax (Rs.)</label>
           <input
-            value={f.requested_by}
-            onChange={(e) => setF((p) => ({ ...p, requested_by: e.target.value }))}
+            type="number"
+            min={0}
+            step="0.01"
+            value={f.tax_amount}
+            onChange={(e) => setF((p) => ({ ...p, tax_amount: Number(e.target.value) }))}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           />
         </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Status</label>
+          <select
+            value={f.status}
+            onChange={(e) => setF((p) => ({ ...p, status: e.target.value }))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Notes</label>
+        <textarea
+          value={f.notes}
+          onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))}
+          rows={2}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        />
       </div>
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onCancel} disabled={saving}>
