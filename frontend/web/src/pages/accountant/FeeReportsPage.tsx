@@ -241,6 +241,40 @@ export default function AccountantFeeReportsPage() {
           >
             Export CSV
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (!realtimeDashboard) return;
+              const cols = [
+                { key: "metric", label: "Metric" },
+                { key: "value", label: "Value" },
+              ];
+              const rows = [
+                { metric: "Total Expected", value: currency(realtimeDashboard.total_expected) },
+                { metric: "Total Collected", value: currency(realtimeDashboard.total_collected) },
+                {
+                  metric: "Total Outstanding",
+                  value: currency(realtimeDashboard.total_outstanding),
+                },
+                { metric: "Collection Rate", value: `${realtimeDashboard.collection_percentage}%` },
+                { metric: "Total Invoices", value: String(realtimeDashboard.total_invoices) },
+                { metric: "Paid Invoices", value: String(realtimeDashboard.paid_invoices) },
+                { metric: "Unpaid Invoices", value: String(realtimeDashboard.unpaid_invoices) },
+                { metric: "Overdue Invoices", value: String(realtimeDashboard.overdue_invoices) },
+                { metric: "Partial Invoices", value: String(realtimeDashboard.partial_invoices) },
+                { metric: "Total Students", value: String(realtimeDashboard.total_students) },
+                { metric: "Total Defaulters", value: String(realtimeDashboard.total_defaulters) },
+                { metric: "Overdue Amount", value: currency(realtimeDashboard.overdue_amount) },
+              ];
+              const csv = toCsv(rows, cols);
+              downloadCsv(csv, `fee-dashboard-${dayjs().format("YYYY-MM-DD")}.csv`);
+              toast.success("Dashboard exported");
+            }}
+            leftIcon={<ChartBarIcon className="h-4 w-4" />}
+            disabled={!realtimeDashboard}
+          >
+            Export Dashboard
+          </Button>
         </div>
       </div>
 
