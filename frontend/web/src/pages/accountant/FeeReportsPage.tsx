@@ -88,17 +88,78 @@ export default function AccountantFeeReportsPage() {
       }),
     enabled: !!yearId,
   });
-
   const { data: overdueData } = useQuery<{ results: OverdueInvoice[] }>({
     queryKey: ["overdue-invoices", yearId],
     queryFn: () => api.get("/fees/invoices/", { status: "overdue", academic_year: yearId }),
     enabled: !!yearId,
   });
 
-  const overdueInvoices = overdueData?.results ?? [];
+  const { data: realtimeDashboard } = useQuery<{
+    total_expected: number;
+    total_collected: number;
+    total_outstanding: number;
+    collection_percentage: number;
+    total_invoices: number;
+    paid_invoices: number;
+    unpaid_invoices: number;
+    overdue_invoices: number;
+    partial_invoices: number;
+    total_students: number;
+    total_defaulters: number;
+    overdue_amount: number;
+    by_status: Array<{ status: string; total: number; count: number }>;
+    by_category: Array<{ category: string; total: number; collected: number; count: number }>;
+    by_grade: Array<{ grade: string; total: number; collected: number; count: number }>;
+    by_payment_method: Array<{ method: string; total: number; count: number }>;
+    daily_collection: Array<{ date: string; collected: number }>;
+  }>({
+    queryKey: ["fee-dashboard-realtime", yearId],
+    queryFn: () => api.get("/fees/dashboard/realtime/"),
+    enabled: !!yearId,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+  });
 
-  // Group by aging buckets
+  const { data: agingReport } = useQuery<{
+    summary: { total_overdue_count: number; total_overdue_amount: number; as_of_date: string };
+    buckets: {
+      "0-30": { label: string; count: number; total: number; invoices: OverdueInvoice[] };
+      "31-60": { label: string; count: number; total: number; invoices: OverdueInvoice[] };
+      "61-90": { label: string; count: number; total: number; invoices: OverdueInvoice[] };
+      "90+": { label: string; count: number; total: number; invoices: OverdueInvoice[] };
+    };
+  }>({
+    queryKey: ["aging-report", yearId],
+    queryFn: () => api.get("/fees/invoices/aging-report/", { academic_year: yearId }),
+    enabled: !!yearId,
+  });
+
+  const overdueInvoices = agingReport
+    ? Object.values(agingReport.buckets).flatMap((b) => b.invoices)
+    : overdueData?.results ?? [];
+
+  // Use backend aging buckets if available, otherwise compute locally
   const agingBuckets = useMemo(() => {
+    if (agingReport?.buckets) {
+      return {
+        "0-30 days": {
+          count: agingReport.buckets["0-30"].count,
+          total: agingReport.buckets["0-30"].total,
+        },
+        "31-60 days": {
+          count: agingReport.buckets["31-60"].count,
+          total: agingReport.buckets["31-60"].total,
+        },
+        "61-90 days": {
+          count: agingReport.buckets["61-90"].count,
+          total: agingReport.buckets["61-90"].total,
+        },
+        "90+ days": {
+          count: agingReport.buckets["90+"].count,
+          total: agingReport.buckets["90+"].total,
+        },
+      };
+    }
+    // Fallback: compute locally from overdue invoices
     const buckets = {
       "0-30 days": { count: 0, total: 0 },
       "31-60 days": { count: 0, total: 0 },
@@ -123,7 +184,7 @@ export default function AccountantFeeReportsPage() {
       }
     });
     return buckets;
-  }, [overdueInvoices]);
+  }, [agingReport, overdueInvoices]);
 
   const handleExportReport = () => {
     if (!data) return;
