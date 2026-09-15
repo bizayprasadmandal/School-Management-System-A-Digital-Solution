@@ -3,7 +3,6 @@ Fees Service — Celery tasks for invoicing, fee reminders, overdue processing.
 """
 
 import logging
-import uuid
 from datetime import timedelta
 from decimal import Decimal
 
@@ -245,12 +244,15 @@ def generate_bulk_invoices(self, structure_id: int, academic_year_id: int):
         created = 0
         for enrollment in enrollments:
             due_date = structure.academic_year.start_date.replace(day=structure.due_day)
+            from .numbering import generate_invoice_number
+
+            invoice_number = generate_invoice_number(structure.school)
             _, new = FeeInvoice.objects.get_or_create(
                 student=enrollment.student,
                 fee_structure=structure,
                 academic_year_id=academic_year_id,
                 defaults={
-                    "invoice_number": f"INV-{uuid.uuid4().hex[:8].upper()}",
+                    "invoice_number": invoice_number,
                     "due_date": due_date,
                     "base_amount": structure.amount,
                     "total_amount": structure.amount,

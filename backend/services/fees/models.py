@@ -81,12 +81,19 @@ class FeeInvoice(models.Model):
             models.Index(fields=["due_date", "status"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            from .numbering import generate_invoice_number
+
+            self.invoice_number = generate_invoice_number(self.student.school)
+        super().save(*args, **kwargs)
+
     @property
     def outstanding_amount(self):
         return self.total_amount - self.paid_amount
 
     def __str__(self):
-        return f"INV-{self.invoice_number} | {self.student} | {self.total_amount}"
+        return f"{self.invoice_number} | {self.student} | {self.total_amount}"
 
 
 class Payment(models.Model):
@@ -140,7 +147,9 @@ class Payment(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.receipt_number:
-            self.receipt_number = f"RCPT-{uuid.uuid4().hex[:10].upper()}"
+            from .numbering import generate_receipt_number
+
+            self.receipt_number = generate_receipt_number(self.invoice.student.school)
         super().save(*args, **kwargs)
 
     def __str__(self):
