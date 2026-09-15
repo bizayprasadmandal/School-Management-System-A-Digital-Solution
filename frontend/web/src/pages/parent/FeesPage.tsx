@@ -6,14 +6,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Badge, Button, EmptyState, SkeletonCard } from "../../components/common";
 import PayFeePickerModal from "../../components/common/PayFeePickerModal";
-import { npr, FEE_STATUS, fmt } from "../../utils";
+import { npr, FEE_STATUS, fmt, downloadFromUrl } from "../../utils";
 import { useTitle } from "../../hooks";
+import { useAuthStore } from "../../store/authStore";
 import type { StudentListItem, FeeInvoice, PaginatedResponse } from "../../types";
 import {
   BanknotesIcon,
   CheckCircleIcon,
   ClockIcon,
   CreditCardIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
 
@@ -39,20 +41,14 @@ export default function ParentFeesPage() {
   const totalDue = invoices
     .filter((i: FeeInvoice) => ["unpaid", "overdue", "partial"].includes(i.status))
     .reduce((s: number, i: FeeInvoice) => s + Number(i.outstanding_amount), 0);
-  const totalPaid = invoices.reduce(
-    (s: number, i: FeeInvoice) => s + Number(i.paid_amount),
-    0
-  );
+  const totalPaid = invoices.reduce((s: number, i: FeeInvoice) => s + Number(i.paid_amount), 0);
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Fee Management</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Track fee invoices and pay online securely
-        </p>
+        <p className="text-sm text-slate-500 mt-1">Track fee invoices and pay online securely</p>
       </div>
-
       {childList.length > 1 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:shadow-none p-4 flex gap-2 overflow-x-auto">
           {childList.map((c: StudentListItem, i: number) => (
@@ -70,7 +66,6 @@ export default function ParentFeesPage() {
           ))}
         </div>
       )}
-
       {childrenLoading || invLoading ? (
         <div className="p-4">
           <SkeletonCard />
@@ -90,10 +85,7 @@ export default function ParentFeesPage() {
                 label: "Outstanding",
                 value: npr(totalDue),
                 icon: ClockIcon,
-                color:
-                  totalDue > 0
-                    ? "text-red-600 bg-red-50"
-                    : "text-slate-500 bg-slate-50",
+                color: totalDue > 0 ? "text-red-600 bg-red-50" : "text-slate-500 bg-slate-50",
               },
               {
                 label: "Invoices",
@@ -114,9 +106,7 @@ export default function ParentFeesPage() {
                   <Icon className={`h-5 w-5 ${color.split(" ")[0]}`} />
                 </div>
                 <div>
-                  <p className={`text-xl font-bold ${color.split(" ")[0]}`}>
-                    {value}
-                  </p>
+                  <p className={`text-xl font-bold ${color.split(" ")[0]}`}>{value}</p>
                   <p className="text-xs text-slate-500">{label}</p>
                 </div>
               </div>
@@ -125,9 +115,7 @@ export default function ParentFeesPage() {
 
           {totalDue > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-800">
-                Payment Required
-              </p>
+              <p className="text-sm font-semibold text-amber-800">Payment Required</p>
               <p className="text-xs text-amber-700 mt-0.5">
                 {npr(totalDue)} outstanding. Pay online with Khalti or eSewa.
               </p>
@@ -160,68 +148,76 @@ export default function ParentFeesPage() {
                           >
                             {h}
                           </th>
-                        )
+                        ),
                       )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 bg-white">
                     {invoices.map((inv: FeeInvoice) => {
                       const isOverdue =
-                        dayjs(inv.due_date).isBefore(dayjs()) &&
-                        inv.status !== "paid";
-                      const canPay = ["unpaid", "overdue", "partial"].includes(
-                        inv.status
-                      );
+                        dayjs(inv.due_date).isBefore(dayjs()) && inv.status !== "paid";
+                      const canPay = ["unpaid", "overdue", "partial"].includes(inv.status);
                       const s = FEE_STATUS[inv.status];
                       return (
-                        <tr
-                          key={inv.id}
-                          className="hover:bg-slate-50/60 transition-colors"
-                        >
+                        <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="px-4 py-3 text-sm font-mono text-slate-700">
                             {inv.invoice_number}
                           </td>
                           <td
                             className={`px-4 py-3 text-sm ${
-                              isOverdue
-                                ? "text-red-600 font-medium"
-                                : "text-slate-600"
+                              isOverdue ? "text-red-600 font-medium" : "text-slate-600"
                             }`}
                           >
                             {fmt.date(inv.due_date)}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-700">
-                        {npr(inv.total_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-green-600">
-                        {npr(inv.paid_amount)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {Number(inv.outstanding_amount) > 0 ? (
-                          <span className="text-red-600 font-semibold">
-                            {npr(inv.outstanding_amount)}
+                            {npr(inv.total_amount)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-green-600">
+                            {npr(inv.paid_amount)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {Number(inv.outstanding_amount) > 0 ? (
+                              <span className="text-red-600 font-semibold">
+                                {npr(inv.outstanding_amount)}
                               </span>
                             ) : (
                               <span className="text-slate-400">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <Badge color={s?.color ?? "slate"}>
-                              {s?.label ?? inv.status}
-                            </Badge>
+                            <Badge color={s?.color ?? "slate"}>{s?.label ?? inv.status}</Badge>
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            {canPay ? (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => setPayingInvoice(inv)}
-                                leftIcon={<CreditCardIcon className="h-4 w-4" />}
-                                className="bg-violet-600 hover:bg-violet-700 whitespace-nowrap"
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const token = useAuthStore.getState().tokens?.access ?? "";
+                                  const baseURL =
+                                    process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+                                  downloadFromUrl(
+                                    `${baseURL}/fees/invoices/${inv.id}/invoice-pdf/`,
+                                    `invoice_${inv.invoice_number}.pdf`,
+                                    token,
+                                  ).catch(() => {});
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+                                title="Download Invoice PDF"
                               >
-                                Pay Now
-                              </Button>
-                            ) : null}
+                                <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                              </button>
+                              {canPay ? (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => setPayingInvoice(inv)}
+                                  leftIcon={<CreditCardIcon className="h-4 w-4" />}
+                                  className="bg-violet-600 hover:bg-violet-700 whitespace-nowrap"
+                                >
+                                  Pay Now
+                                </Button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -232,18 +228,19 @@ export default function ParentFeesPage() {
             )}
           </div>
         </>
-      )}              {/* Unified Payment Modal — Stripe, Khalti, or eSewa */}
-              {payingInvoice && (
-                <PayFeePickerModal
-                  invoice={payingInvoice}
-                  open={!!payingInvoice}
-                  onClose={() => setPayingInvoice(null)}
-                  onSuccess={() => {
-                    qc.invalidateQueries({ queryKey: ["parent-child-inv", child?.id] });
-                    setPayingInvoice(null);
-                  }}
-                />
-              )}
+      )}{" "}
+      {/* Unified Payment Modal — Stripe, Khalti, or eSewa */}
+      {payingInvoice && (
+        <PayFeePickerModal
+          invoice={payingInvoice}
+          open={!!payingInvoice}
+          onClose={() => setPayingInvoice(null)}
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["parent-child-inv", child?.id] });
+            setPayingInvoice(null);
+          }}
+        />
+      )}
     </div>
   );
 }

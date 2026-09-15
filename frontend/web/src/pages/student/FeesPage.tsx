@@ -8,14 +8,16 @@ import {
   CheckCircleIcon,
   ClockIcon,
   CreditCardIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useStudentInvoices } from "../../api/hooks";
 import { Badge, EmptyState, SkeletonCard, ErrorState } from "../../components/common";
 import PayFeePickerModal from "../../components/common/PayFeePickerModal";
-import { npr, FEE_STATUS, fmt } from "../../utils";
+import { npr, FEE_STATUS, fmt, downloadFromUrl } from "../../utils";
 import { useTitle } from "../../hooks";
+import { useAuthStore } from "../../store/authStore";
 import dayjs from "dayjs";
 import type { FeeInvoice } from "../../types";
 
@@ -192,15 +194,33 @@ export default function StudentFeesPage() {
                         <Badge color={s?.color ?? "slate"}>{s?.label ?? inv.status}</Badge>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {canPay ? (
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setPayingInvoice(inv)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:bg-indigo-800"
+                            onClick={() => {
+                              const token = useAuthStore.getState().tokens?.access ?? "";
+                              const baseURL =
+                                process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+                              downloadFromUrl(
+                                `${baseURL}/fees/invoices/${inv.id}/invoice-pdf/`,
+                                `invoice_${inv.invoice_number}.pdf`,
+                                token,
+                              ).catch(() => {});
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+                            title="Download Invoice PDF"
                           >
-                            <CreditCardIcon className="h-3.5 w-3.5" />
-                            Pay Now
+                            <ArrowDownTrayIcon className="h-3.5 w-3.5" />
                           </button>
-                        ) : null}
+                          {canPay ? (
+                            <button
+                              onClick={() => setPayingInvoice(inv)}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:bg-indigo-800"
+                            >
+                              <CreditCardIcon className="h-3.5 w-3.5" />
+                              Pay Now
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
