@@ -1572,6 +1572,103 @@ class BudgetPlanViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
 
+    @action(detail=True, methods=["get"], url_path="variance")
+    def variance(self, request, pk=None):
+        """
+        Budget-vs-actual variance report for one budget plan.
+
+        Actuals per line item:
+        - Line items linked to a fee category are computed from approved/paid
+          ExpenseTracking rows in that category within the plan's academic
+          year (pending expenses are not counted as spent).
+        - Line items without a category use their stored ``actual_amount``.
+
+        Variance = budgeted − actual (positive means under budget). The
+        report is computed on read; nothing is persisted.
+        """
+        from django.db.models import Sum
+
+        plan = self.get_object()
+        year = plan.academic_year
+        line_items = list(plan.line_items.select_related("category"))
+
+        # Approved/paid expenses grouped by category within the academic year.
+        expenses_by_category: dict[int, Decimal] = {}
+        if year and year.start_date and year.end_date:
+            expense_rows = (
+                ExpenseTracking.objects.filter(
+                    school=plan.school,
+                    category__isnull=False,
+                    expense_date__gte=year.start_date,
+                    expense_date__lte=year.end_date,
+                    status__in=["approved", "paid"],
+                )
+                .values("category_id")
+                .annotate(total=Sum("amount"))
+            )
+            expenses_by_category = {row["category_id"]: row["total"] for row in expense_rows}
+
+        line_reports = []
+        total_budgeted = Decimal("0")
+        total_actual = Decimal("0")
+        over_budget_lines = 0
+
+        for item in line_items:
+            if item.category_id and item.category_id in expenses_by_category:
+                actual = expenses_by_category[item.category_id]
+                source = "expenses"
+            else:
+                actual = item.actual_amount
+                source = "manual"
+            budgeted = item.budgeted_amount
+            variance = budgeted - actual
+            utilization = float(actual / budgeted * 100) if budgeted > 0 else 0.0
+            if variance < 0:
+                over_budget_lines += 1
+
+            total_budgeted += budgeted
+            total_actual += actual
+            line_reports.append(
+                {
+                    "id": str(item.id),
+                    "description": item.description,
+                    "category": item.category.name if item.category else None,
+                    "budgeted_amount": str(budgeted),
+                    "actual_amount": str(actual),
+                    "variance": str(variance),
+                    "utilization_pct": round(utilization, 1),
+                    "over_budget": variance < 0,
+                    "source": source,
+                }
+            )
+
+        total_variance = total_budgeted - total_actual
+        plan_utilization = float(total_actual / total_budgeted * 100) if total_budgeted > 0 else 0.0
+
+        return Response(
+            {
+                "plan": {
+                    "id": str(plan.id),
+                    "title": plan.title,
+                    "status": plan.status,
+                    "academic_year": year.name if year else None,
+                    "total_budget": str(plan.total_budget),
+                    "allocated": str(sum(i.budgeted_amount for i in line_items)),
+                    "spent": str(total_actual),
+                    "remaining": str(plan.total_budget - total_actual),
+                },
+                "line_items": line_reports,
+                "summary": {
+                    "total_budgeted": str(total_budgeted),
+                    "total_actual": str(total_actual),
+                    "total_variance": str(total_variance),
+                    "utilization_pct": round(plan_utilization, 1),
+                    "line_count": len(line_reports),
+                    "over_budget_lines": over_budget_lines,
+                },
+            }
+        )
+
 
 class BudgetLineItemViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetLineItemSerializer
