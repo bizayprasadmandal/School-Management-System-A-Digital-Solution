@@ -15,6 +15,7 @@ import {
   ExclamationTriangleIcon,
   ShieldCheckIcon,
   ArrowDownTrayIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 interface PaymentHistoryModalProps {
@@ -162,6 +163,7 @@ export default function PaymentHistoryModal({
 }: PaymentHistoryModalProps) {
   const qc = useQueryClient();
   const [refundingPayment, setRefundingPayment] = useState<Payment | null>(null);
+  const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoice-payments", invoiceId],
@@ -176,6 +178,20 @@ export default function PaymentHistoryModal({
     qc.invalidateQueries({ queryKey: ["fees"] });
     setRefundingPayment(null);
   };
+
+  const voidMutation = useMutation({
+    mutationFn: (paymentId: string) =>
+      api.post(`/fees/payments/${paymentId}/void/`, { reason: "Voided by admin" }),
+    onSuccess: () => {
+      toast.success("Payment voided successfully");
+      qc.invalidateQueries({ queryKey: ["invoice-payments", invoiceId] });
+      qc.invalidateQueries({ queryKey: ["fees"] });
+      setVoidingPayment(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail || "Failed to void payment");
+    },
+  });
 
   return (
     <>
@@ -284,6 +300,17 @@ export default function PaymentHistoryModal({
                       </Button>
                     </div>
                   )}
+                  {payment.status === "pending" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setVoidingPayment(payment)}
+                      className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 flex-shrink-0"
+                      leftIcon={<XCircleIcon className="h-4 w-4" />}
+                    >
+                      Void
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -297,6 +324,34 @@ export default function PaymentHistoryModal({
           onClose={() => setRefundingPayment(null)}
           onSuccess={handleRefundSuccess}
         />
+      )}
+
+      {voidingPayment && (
+        <Modal open onClose={() => setVoidingPayment(null)} title="Void Payment" size="sm">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-lg bg-orange-50 p-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-orange-500 flex-shrink-0" />
+              <p className="text-sm text-orange-700">
+                This will void the pending payment of{" "}
+                <strong>{currency(voidingPayment.amount)}</strong> (Receipt:{" "}
+                {voidingPayment.receipt_number}). This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setVoidingPayment(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => voidMutation.mutate(voidingPayment.id)}
+                disabled={voidMutation.isPending}
+                leftIcon={<XCircleIcon className="h-4 w-4" />}
+              >
+                {voidMutation.isPending ? "Voiding..." : "Void Payment"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </>
   );

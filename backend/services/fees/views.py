@@ -714,6 +714,38 @@ class PaymentViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST,
         )
 
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        """
+        Void/cancel a pending payment. Only payments with status=pending can be voided.
+        Successful payments cannot be voided — use refund instead.
+        """
+        payment = self.get_object()
+
+        if payment.status != Payment.Status.PENDING:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot void a payment with status '{payment.status}'. " "Use refund for successful payments."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            locked = Payment.objects.select_for_update().get(pk=payment.pk)
+            if locked.status != Payment.Status.PENDING:
+                return Response(
+                    {"detail": "Payment was modified by another request."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            locked.status = Payment.Status.FAILED
+            locked.notes = f"Voided by {request.user.full_name}: {request.data.get('reason', 'No reason provided')}"
+            locked.save(update_fields=["status", "notes"])
+
+        return Response({"detail": "Payment voided successfully.", "payment_id": str(payment.id)})
+
 
 class ScholarshipViewSet(viewsets.ModelViewSet):
     serializer_class = ScholarshipSerializer
