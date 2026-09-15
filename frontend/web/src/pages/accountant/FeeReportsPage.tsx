@@ -58,6 +58,18 @@ interface FeeReportData {
   }>;
 }
 
+interface OverdueInvoice {
+  id: string;
+  invoice_number: string;
+  student_name: string;
+  total_amount: number;
+  paid_amount: number;
+  outstanding_amount: number;
+  due_date: string;
+  days_overdue: number;
+  status: string;
+}
+
 export default function AccountantFeeReportsPage() {
   const { data: currentYear } = useCurrentAcademicYear();
   const [selectedYear, setSelectedYear] = useState<number | undefined>();
@@ -76,6 +88,42 @@ export default function AccountantFeeReportsPage() {
       }),
     enabled: !!yearId,
   });
+
+  const { data: overdueData } = useQuery<{ results: OverdueInvoice[] }>({
+    queryKey: ["overdue-invoices", yearId],
+    queryFn: () => api.get("/fees/invoices/", { status: "overdue", academic_year: yearId }),
+    enabled: !!yearId,
+  });
+
+  const overdueInvoices = overdueData?.results ?? [];
+
+  // Group by aging buckets
+  const agingBuckets = useMemo(() => {
+    const buckets = {
+      "0-30 days": { count: 0, total: 0 },
+      "31-60 days": { count: 0, total: 0 },
+      "61-90 days": { count: 0, total: 0 },
+      "90+ days": { count: 0, total: 0 },
+    };
+    overdueInvoices.forEach((inv) => {
+      const days = inv.days_overdue;
+      const outstanding = inv.outstanding_amount;
+      if (days <= 30) {
+        buckets["0-30 days"].count++;
+        buckets["0-30 days"].total += outstanding;
+      } else if (days <= 60) {
+        buckets["31-60 days"].count++;
+        buckets["31-60 days"].total += outstanding;
+      } else if (days <= 90) {
+        buckets["61-90 days"].count++;
+        buckets["61-90 days"].total += outstanding;
+      } else {
+        buckets["90+ days"].count++;
+        buckets["90+ days"].total += outstanding;
+      }
+    });
+    return buckets;
+  }, [overdueInvoices]);
 
   const handleExportReport = () => {
     if (!data) return;
@@ -344,6 +392,90 @@ export default function AccountantFeeReportsPage() {
                 <div className="text-right ml-4">
                   <p className="text-sm font-semibold text-green-600">{currency(p.amount)}</p>
                   <p className="text-xs text-slate-400 capitalize">{p.payment_method}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Overdue Invoice Aging Report */}
+      {overdueInvoices.length > 0 && (
+        <div className="rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                Overdue Invoice Aging
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {overdueInvoices.length} overdue invoices totaling{" "}
+                {currency(overdueInvoices.reduce((s, i) => s + i.outstanding_amount, 0))}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const cols = [
+                  { key: "invoice_number", label: "Invoice #" },
+                  { key: "student_name", label: "Student" },
+                  { key: "outstanding_amount", label: "Outstanding" },
+                  { key: "days_overdue", label: "Days Overdue" },
+                  { key: "due_date", label: "Due Date" },
+                ];
+                const rows = overdueInvoices.map((inv) => ({
+                  invoice_number: inv.invoice_number,
+                  student_name: inv.student_name,
+                  outstanding_amount: currency(inv.outstanding_amount),
+                  days_overdue: inv.days_overdue.toString(),
+                  due_date: inv.due_date,
+                }));
+                const csv = toCsv(rows, cols);
+                downloadCsv(csv, `overdue-aging-${dayjs().format("YYYY-MM-DD")}.csv`);
+                toast.success("Aging report exported");
+              }}
+              leftIcon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            >
+              Export
+            </Button>
+          </div>
+
+          {/* Aging Buckets */}
+          <div className="grid grid-cols-4 gap-4 p-5">
+            {Object.entries(agingBuckets).map(([label, bucket]) => (
+              <div
+                key={label}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 p-3 text-center"
+              >
+                <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                  {bucket.count}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{label}</p>
+                <p className="text-sm font-semibold text-red-600 mt-1">{currency(bucket.total)}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Overdue List */}
+          <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-80 overflow-y-auto">
+            {overdueInvoices.slice(0, 20).map((inv) => (
+              <div
+                key={inv.id}
+                className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                    {inv.student_name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {inv.invoice_number} · Due {dayjs(inv.due_date).format("MMM D, YYYY")}
+                  </p>
+                </div>
+                <div className="text-right ml-4">
+                  <p className="text-sm font-semibold text-red-600">
+                    {currency(inv.outstanding_amount)}
+                  </p>
+                  <p className="text-xs text-orange-500">{inv.days_overdue} days overdue</p>
                 </div>
               </div>
             ))}
