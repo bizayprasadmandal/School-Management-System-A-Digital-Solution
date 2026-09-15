@@ -507,6 +507,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         invoice = credit_invoice(invoice, payment.amount)
 
+        # Dispatch receipt notification for successful cash/manual payments
+        if payment.status == Payment.Status.SUCCESSFUL:
+            from .tasks import send_payment_receipt_notification
+
+            send_payment_receipt_notification.delay(str(payment.id))
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="receipt-pdf")

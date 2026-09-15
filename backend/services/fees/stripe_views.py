@@ -307,6 +307,11 @@ def _handle_payment_success(payment_intent):
 
         invoice = credit_invoice(invoice, locked.amount)
 
+        # Dispatch receipt notification task
+        from .tasks import send_payment_receipt_notification
+
+        send_payment_receipt_notification.delay(str(locked.id))
+
         logger.info(
             "Payment successful: %s on invoice %s ($%.2f)",
             pi_id,

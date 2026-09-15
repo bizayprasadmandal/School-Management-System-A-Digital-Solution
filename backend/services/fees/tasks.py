@@ -274,3 +274,93 @@ def generate_bulk_invoices(self, structure_id: int, academic_year_id: int):
     except Exception as exc:
         logger.error("generate_bulk_invoices failed: %s", exc)
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_payment_receipt_notification(self, payment_id: str):
+    """
+    Send payment receipt notification to student and guardians after
+    a successful payment. Updates receipt_sent_at on the Payment record.
+    """
+    from services.communication.models import NotificationTemplate
+    from services.communication.services import NotificationService
+
+    from .models import Payment
+
+    try:
+        payment = Payment.objects.select_related(
+            "invoice__student__school",
+            "invoice__student__user",
+        ).get(id=payment_id)
+
+        if payment.receipt_sent_at:
+            logger.info("Receipt already sent for payment %s", payment_id)
+            return {"skipped": True, "reason": "already_sent"}
+
+        invoice = payment.invoice
+        student = invoice.student
+        school = student.school
+
+        # Find the notification template
+        template = NotificationTemplate.objects.filter(
+            school=school, event_type="payment_received", is_active=True
+        ).first()
+
+        if not template:
+            # Fallback: use fee_due template if payment_received not configured
+            template = NotificationTemplate.objects.filter(school=school, event_type="fee_due", is_active=True).first()
+
+        if not template:
+            logger.warning("No notification template found for school %s", school.id)
+            return {"skipped": True, "reason": "no_template"}
+
+        context = {
+            "student_name": student.user.full_name,
+            "amount": f"{payment.amount:,.2f}",
+            "receipt_number": payment.receipt_number,
+            "invoice_number": invoice.invoice_number,
+            "payment_method": payment.get_payment_method_display(),
+            "payment_date": payment.paid_at.strftime("%B %d, %Y") if payment.paid_at else "today",
+        }
+
+        # Notify student
+        NotificationService.send(
+            user=student.user,
+            template=template,
+            context=context,
+            reference_type="payment",
+            reference_id=str(payment.id),
+        )
+
+        # Notify guardians with portal access
+        try:
+            from services.students.models import StudentGuardian
+
+            guardians = StudentGuardian.objects.filter(
+                student=student,
+                portal_access=True,
+            ).select_related("user")
+            for guardian in guardians:
+                NotificationService.send(
+                    user=guardian.user,
+                    template=template,
+                    context=context,
+                    reference_type="payment",
+                    reference_id=str(payment.id),
+                )
+        except Exception:
+            pass  # Guardian notification is best-effort
+
+        # Mark receipt as sent
+        payment.receipt_sent_at = timezone.now()
+        payment.save(update_fields=["receipt_sent_at"])
+
+        logger.info("Payment receipt notification sent for payment %s", payment_id)
+        return {"sent": True, "payment_id": payment_id}
+
+    except Payment.DoesNotExist:
+        logger.error("Payment %s not found", payment_id)
+        return {"sent": False, "error": "payment_not_found"}
+    except Exception as exc:
+        logger.error("send_payment_receipt_notification failed: %s", exc)
+        raise self.retry(exc=exc)

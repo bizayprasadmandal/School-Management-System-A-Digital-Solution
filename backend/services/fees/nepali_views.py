@@ -828,4 +828,10 @@ def _mark_payment_successful(payment: Payment, gateway_data: dict) -> bool:
         from .ledger import credit_invoice
 
         credit_invoice(invoice, locked.amount)
+
+        # Dispatch receipt notification task
+        from .tasks import send_payment_receipt_notification
+
+        send_payment_receipt_notification.delay(str(locked.id))
+
         return True
