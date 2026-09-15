@@ -185,6 +185,154 @@ def mark_overdue_invoices(self):
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_installments(self):
+    """
+    Daily installment automation:
+
+    1. Mark past-due installment payments as overdue, applying the plan's
+       per-installment late fee once (recorded in the plan notes + a
+       TransactionLog audit entry per plan per installment).
+    2. Send a single in-app reminder per installment to the student and
+       their portal-linked guardians (deduplicated via the Notification
+       table, same pattern as send_fee_reminders).
+    3. Auto-complete plans whose installments are all paid/settled and
+       whose end date has passed.
+
+    Idempotent: overdue transitions and reminders happen exactly once per
+    installment, so the task can run daily without side effects repeating.
+    """
+    from django.db.models import Prefetch, Q
+    from services.communication.models import Notification
+    from services.communication.services import send_in_app_notification
+    from services.students.models import Guardian
+
+    from .models import InstallmentPayment, InstallmentPlan, TransactionLog
+
+    today = timezone.now().date()
+
+    try:
+        plans = (
+            InstallmentPlan.objects.filter(status=InstallmentPlan.Status.ACTIVE)
+            .select_related("student__user", "student__school")
+            .prefetch_related(
+                Prefetch(
+                    "payments",
+                    queryset=InstallmentPayment.objects.order_by("installment_number"),
+                ),
+                Prefetch(
+                    "student__guardians",
+                    queryset=Guardian.objects.filter(user__isnull=False).select_related("user"),
+                    to_attr="portal_guardians",
+                ),
+            )
+        )
+
+        overdue_marked = 0
+        late_fees_applied = 0
+        reminders_sent = 0
+        plans_completed = 0
+
+        for plan in plans:
+            plan_touched = False
+
+            for inst in plan.payments.all():
+                is_due = inst.due_date < today
+                needs_attention = inst.status in (
+                    InstallmentPayment.Status.PENDING,
+                    InstallmentPayment.Status.OVERDUE,
+                )
+                if not (is_due and needs_attention):
+                    continue
+
+                # 1. Overdue transition — exactly once per installment.
+                if inst.status == InstallmentPayment.Status.PENDING:
+                    inst.status = InstallmentPayment.Status.OVERDUE
+                    if plan.late_fee_per_installment > 0:
+                        inst.late_fee = plan.late_fee_per_installment
+                        late_fees_applied += 1
+                    inst.save(update_fields=["status", "late_fee"])
+                    overdue_marked += 1
+                    plan_touched = True
+
+                    TransactionLog.objects.get_or_create(
+                        transaction_id=f"INST-{inst.id}",
+                        defaults={
+                            "school_id": plan.school_id,
+                            "student_id": plan.student_id,
+                            "transaction_type": TransactionLog.TransactionType.LATE_FEE,
+                            "amount": inst.late_fee,
+                            "reference_number": str(plan.id),
+                            "description": (
+                                f"Installment {inst.installment_number} of plan for "
+                                f"{plan.student.user.full_name} marked overdue "
+                                f"(late fee {inst.late_fee})"
+                            ),
+                            "metadata": {
+                                "plan_id": str(plan.id),
+                                "installment_number": inst.installment_number,
+                                "due_date": inst.due_date.isoformat(),
+                            },
+                        },
+                    )
+
+                # 2. Reminder — one in-app notification per installment,
+                #    deduplicated like send_fee_reminders.
+                already = Notification.objects.filter(
+                    reference_type="installment",
+                    channel="in_app",
+                    reference_id=str(inst.id),
+                    title="Installment Payment Due",
+                ).exists()
+                if not already:
+                    body = (
+                        f"Installment {inst.installment_number} of "
+                        f"{inst.amount:,.2f} for invoice {plan.invoice.invoice_number} "
+                        f"was due on {inst.due_date.strftime('%B %d, %Y')}."
+                    )
+                    users = [plan.student.user] + [g.user for g in plan.student.portal_guardians]
+                    for user in users:
+                        send_in_app_notification.delay(
+                            user_id=str(user.id),
+                            title="Installment Payment Due",
+                            body=body,
+                            reference_type="installment",
+                            reference_id=str(inst.id),
+                        )
+                    reminders_sent += 1
+
+            # 3. Auto-complete: all installments settled and end date passed.
+            unsettled = plan.payments.exclude(
+                Q(status=InstallmentPayment.Status.PAID) | Q(status=InstallmentPayment.Status.WAIVED)
+            ).exists()
+            if not unsettled and plan.end_date and plan.end_date < today:
+                plan.status = InstallmentPlan.Status.COMPLETED
+                plan.save(update_fields=["status"])
+                plans_completed += 1
+            elif plan_touched:
+                # Touch nothing else; status changes are per-installment.
+                pass
+
+        logger.info(
+            "process_installments completed",
+            extra={
+                "overdue_marked": overdue_marked,
+                "late_fees_applied": late_fees_applied,
+                "reminder_batches": reminders_sent,
+                "plans_completed": plans_completed,
+            },
+        )
+        return {
+            "overdue_marked": overdue_marked,
+            "late_fees_applied": late_fees_applied,
+            "reminder_batches": reminders_sent,
+            "plans_completed": plans_completed,
+        }
+    except Exception as exc:
+        logger.error("process_installments failed: %s", exc)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def generate_monthly_revenue_report(self, year: int = None, month: int = None):
     """
     Generate a monthly RevenueReport snapshot per school for the previous

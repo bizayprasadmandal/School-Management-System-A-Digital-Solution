@@ -35,6 +35,11 @@ app.conf.beat_schedule = {
         "task": "services.fees.tasks.generate_monthly_revenue_report",
         "schedule": crontab(hour=2, minute=0, day_of_month=1),
     },
+    # Installment overdue marking, late fees, and reminders — daily at 0:15
+    "process-installments": {
+        "task": "services.fees.tasks.process_installments",
+        "schedule": crontab(hour=0, minute=15),
+    },
     # Send fee reminders 3 days before due date — runs daily at 8 AM
     "fee-due-reminders": {
         "task": "services.fees.tasks.send_fee_reminders",
