@@ -530,8 +530,9 @@ class GatewayConfigView(viewsets.ViewSet):
         serializer = PaymentGatewayConfigSerializer(config, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data) @ action(detail=False, methods=["get"])
+        return Response(serializer.data)
 
+    @action(detail=False, methods=["get"])
     def enabled(self, request):
         """
         GET /fees/gateway-config/enabled/

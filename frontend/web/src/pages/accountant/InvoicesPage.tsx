@@ -31,9 +31,13 @@ import {
 interface Invoice {
   id: string;
   invoice_number: string;
-  student_name: string;
-  description: string;
-  amount: number;
+  student: string;
+  student_name?: string;
+  academic_year: string;
+  fee_structure: string;
+  base_amount: number;
+  total_amount: number;
+  paid_amount: number;
   due_date: string;
   status: string;
 }
@@ -81,10 +85,7 @@ export default function InvoicesPage() {
       const q = search.toLowerCase();
       items = items.filter(
         (i) =>
-          i.invoice_number?.toLowerCase().includes(q) ||
-          (i as any).vendor?.toLowerCase().includes(q) ||
-          (i as any).client?.toLowerCase().includes(q) ||
-          i.description?.toLowerCase().includes(q),
+          i.invoice_number?.toLowerCase().includes(q) || i.student_name?.toLowerCase().includes(q),
       );
     }
     if (statusFilter !== "all") {
@@ -138,14 +139,16 @@ export default function InvoicesPage() {
   const handleExport = () => {
     const cols = [
       { key: "invoice_number", label: "Invoice #" },
-      { key: "client", label: "Client" },
+      { key: "student_name", label: "Student" },
       { key: "total_amount", label: "Amount" },
+      { key: "paid_amount", label: "Paid" },
       { key: "status", label: "Status" },
     ];
     const rows = invoices.map((row) => ({
       invoice_number: row.invoice_number ?? "",
-      client: row.description ?? "",
-      total_amount: row.amount ?? "",
+      student_name: row.student_name ?? "",
+      total_amount: row.total_amount ?? "",
+      paid_amount: row.paid_amount ?? "",
       status: row.status ?? "",
     }));
     const csv = toCsv(rows, cols);
@@ -155,7 +158,7 @@ export default function InvoicesPage() {
   const handleBulkDelete = async () => {
     if (!confirm(`Delete ${bulk.selectedCount} items?`)) return;
     try {
-      await Promise.all(bulk.selectedArray.map((id) => api.delete("/fees/invoices//" + id + "/")));
+      await Promise.all(bulk.selectedArray.map((id) => api.delete(`/fees/invoices/${id}/`)));
       toast.success(`${bulk.selectedCount} items deleted`);
       bulk.clear();
       qc.invalidateQueries({ queryKey: ["accountant-invoices"] });
@@ -304,16 +307,14 @@ export default function InvoicesPage() {
                   {inv.invoice_number}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {inv.student_name || "—"} · {inv.description || "—"}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Due: {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}
+                  {inv.student_name || "—"} · Due:{" "}
+                  {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
                   <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    ${(inv.amount ?? 0).toLocaleString()}
+                    Rs. {(inv.total_amount ?? 0).toLocaleString()}
                   </p>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -398,9 +399,11 @@ function InvoiceForm({
 }) {
   const [f, setF] = useState({
     invoice_number: invoice?.invoice_number ?? "",
+    student: invoice?.student ?? "",
     student_name: invoice?.student_name ?? "",
-    description: invoice?.description ?? "",
-    amount: invoice?.amount ?? 0,
+    academic_year: invoice?.academic_year ?? "",
+    fee_structure: invoice?.fee_structure ?? "",
+    base_amount: invoice?.base_amount ?? invoice?.total_amount ?? 0,
     due_date: invoice?.due_date ?? "",
   });
 
@@ -408,8 +411,16 @@ function InvoiceForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!f.student_name.trim()) return toast.error("Student required");
-        onSave(f);
+        if (!f.student.trim()) return toast.error("Student required");
+        onSave({
+          student: f.student,
+          invoice_number: f.invoice_number || undefined,
+          academic_year: f.academic_year || undefined,
+          fee_structure: f.fee_structure || undefined,
+          base_amount: f.base_amount,
+          total_amount: f.base_amount,
+          due_date: f.due_date,
+        });
       }}
       className="space-y-4"
     >
@@ -423,32 +434,24 @@ function InvoiceForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Student *</label>
+          <label className="mb-1 block text-sm font-medium">Student ID *</label>
           <input
-            value={f.student_name}
-            onChange={(e) => setF((p) => ({ ...p, student_name: e.target.value }))}
+            value={f.student}
+            onChange={(e) => setF((p) => ({ ...p, student: e.target.value }))}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
             required
           />
         </div>
       </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium">Description</label>
-        <input
-          value={f.description}
-          onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-        />
-      </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Amount ($)</label>
+          <label className="mb-1 block text-sm font-medium">Base Amount (Rs.)</label>
           <input
             type="number"
             min={0}
             step="0.01"
-            value={f.amount}
-            onChange={(e) => setF((p) => ({ ...p, amount: Number(e.target.value) }))}
+            value={f.base_amount}
+            onChange={(e) => setF((p) => ({ ...p, base_amount: Number(e.target.value) }))}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           />
         </div>

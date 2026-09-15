@@ -106,18 +106,18 @@ function RecordPaymentModal({ invoice, onClose }: PaymentModalProps) {
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Total</span>
             <span className="font-medium text-slate-900">
-              ${invoice.total_amount.toLocaleString()}
+              Rs. {invoice.total_amount.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Already Paid</span>
             <span className="font-medium text-green-600">
-              ${invoice.paid_amount.toLocaleString()}
+              Rs. {invoice.paid_amount.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2">
             <span>Outstanding</span>
-            <span className="text-red-600">${invoice.outstanding_amount.toLocaleString()}</span>
+            <span className="text-red-600">Rs. {invoice.outstanding_amount.toLocaleString()}</span>
           </div>
         </div>
 
@@ -236,7 +236,7 @@ export default function FeesPage() {
       header: "Total",
       render: (inv) => (
         <span className="font-medium text-slate-800">
-          ${Number(inv.total_amount).toLocaleString()}
+          Rs. {Number(inv.total_amount).toLocaleString()}
         </span>
       ),
     },
@@ -244,7 +244,7 @@ export default function FeesPage() {
       key: "paid_amount",
       header: "Paid",
       render: (inv) => (
-        <span className="text-green-600">${Number(inv.paid_amount).toLocaleString()}</span>
+        <span className="text-green-600">Rs. {Number(inv.paid_amount).toLocaleString()}</span>
       ),
     },
     {
@@ -252,7 +252,7 @@ export default function FeesPage() {
       header: "Outstanding",
       render: (inv) => (
         <span className="font-semibold text-red-600">
-          ${Number(inv.outstanding_amount).toLocaleString()}
+          Rs. {Number(inv.outstanding_amount).toLocaleString()}
         </span>
       ),
     },
@@ -356,19 +356,19 @@ export default function FeesPage() {
         {[
           {
             label: "Total Invoiced",
-            value: `$${(summary.total / 1000).toFixed(1)}K`,
+            value: `Rs. ${(summary.total / 1000).toFixed(1)}K`,
             color: "bg-indigo-500",
             icon: BanknotesIcon,
           },
           {
             label: "Collected",
-            value: `$${(summary.collected / 1000).toFixed(1)}K`,
+            value: `Rs. ${(summary.collected / 1000).toFixed(1)}K`,
             color: "bg-green-500",
             icon: CheckCircleIcon,
           },
           {
             label: "Outstanding",
-            value: `$${(summary.outstanding / 1000).toFixed(1)}K`,
+            value: `Rs. ${(summary.outstanding / 1000).toFixed(1)}K`,
             color: "bg-amber-500",
             icon: ClockIcon,
           },

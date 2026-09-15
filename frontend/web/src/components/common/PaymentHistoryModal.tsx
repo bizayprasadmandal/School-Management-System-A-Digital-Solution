@@ -53,14 +53,18 @@ function RefundConfirmModal({
   const [confirmed, setConfirmed] = useState(false);
 
   const refundMutation = useMutation({
-    mutationFn: () =>
-      api.post("/fees/stripe/refund/", {
+    mutationFn: () => {
+      const method = payment.payment_method;
+      const endpoint =
+        method === "khalti" || method === "esewa" ? "/fees/nepali/refund/" : "/fees/stripe/refund/";
+      return api.post(endpoint, {
         payment_id: payment.id,
         reason: reason.trim() || "Refund requested",
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success(`Refund of ${currency(payment.amount)} processed`);
-      onSuccess();  // handleRefundSuccess already closes the refund modal
+      onSuccess(); // handleRefundSuccess already closes the refund modal
     },
     onError: (err: any) => {
       toast.error(err?.message || "Refund failed. Please try again.");
@@ -96,8 +100,8 @@ function RefundConfirmModal({
           <div>
             <p className="text-sm font-semibold text-amber-800">Are you sure?</p>
             <p className="text-xs text-amber-700 mt-1">
-              This will refund {currency(payment.amount)} to the payer&apos;s card via Stripe. The
-              invoice balance will be adjusted. This action cannot be undone.
+              This will refund {currency(payment.amount)} to the payer. The invoice balance will be
+              adjusted. This action cannot be undone.
             </p>
           </div>
         </div>
@@ -113,7 +117,7 @@ function RefundConfirmModal({
           </div>
           {payment.transaction_id && (
             <div className="flex justify-between">
-              <span className="text-slate-500">Stripe ID</span>
+              <span className="text-slate-500">Transaction ID</span>
               <span className="font-mono text-xs">{payment.transaction_id.slice(0, 20)}…</span>
             </div>
           )}
@@ -159,8 +163,7 @@ export default function PaymentHistoryModal({
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoice-payments", invoiceId],
-    queryFn: () =>
-      api.get<PaginatedResponse<Payment>>("/fees/payments/", { invoice: invoiceId }),
+    queryFn: () => api.get<PaginatedResponse<Payment>>("/fees/payments/", { invoice: invoiceId }),
     enabled: open,
   });
 
@@ -201,14 +204,13 @@ export default function PaymentHistoryModal({
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge
-                        color={PAYMENT_STATUS_COLORS[payment.status] ?? "slate"}
-                        dot
-                      >
+                      <Badge color={PAYMENT_STATUS_COLORS[payment.status] ?? "slate"} dot>
                         {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                       </Badge>
                       <span className="text-xs text-slate-400">
-                        {payment.paid_at ? fmt.datetime(payment.paid_at) : fmt.datetime(payment.created_at)}
+                        {payment.paid_at
+                          ? fmt.datetime(payment.paid_at)
+                          : fmt.datetime(payment.created_at)}
                       </span>
                     </div>
                     <p className="text-sm font-semibold text-slate-900">
@@ -219,12 +221,15 @@ export default function PaymentHistoryModal({
                         {PAYMENT_METHOD_LABELS[payment.payment_method] ?? payment.payment_method}
                       </span>
                       <span className="font-mono">{payment.receipt_number}</span>
-                      {payment.collected_by_name && (
-                        <span>by {payment.collected_by_name}</span>
-                      )}
-                      {payment.transaction_id && payment.payment_method === "online" && (
+                      {payment.collected_by_name && <span>by {payment.collected_by_name}</span>}
+                      {payment.transaction_id && (
                         <span className="font-mono text-slate-400" title={payment.transaction_id}>
-                          Stripe: {payment.transaction_id.slice(0, 14)}…
+                          {payment.payment_method === "khalti"
+                            ? "Khalti"
+                            : payment.payment_method === "esewa"
+                              ? "eSewa"
+                              : "Gateway"}
+                          : {payment.transaction_id.slice(0, 14)}…
                         </span>
                       )}
                     </div>
@@ -246,7 +251,7 @@ export default function PaymentHistoryModal({
                   </div>
 
                   {/* Refund button */}
-                  {payment.status === "successful" && payment.payment_method === "online" && (
+                  {payment.status === "successful" && (
                     <Button
                       variant="ghost"
                       size="sm"

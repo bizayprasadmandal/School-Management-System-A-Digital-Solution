@@ -268,7 +268,7 @@ class InstallmentPayment(models.Model):
         unique_together = [("installment_plan", "installment_number")]
 
     def __str__(self):
-        return f"Installment {self.installment_number} - {self.student}"
+        return f"Installment {self.installment_number} - {self.installment_plan.student}"
 
 
 # =============================================================================

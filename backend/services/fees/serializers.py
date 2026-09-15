@@ -75,7 +75,6 @@ class FeeInvoiceSerializer(serializers.ModelSerializer):
         model = FeeInvoice
         fields = [
             "id",
-            "id",
             "invoice_number",
             "student",
             "academic_year",
@@ -95,7 +94,6 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            "id",
             "id",
             "invoice",
             "amount",
@@ -144,7 +142,6 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "invoice",
             "total_amount",
@@ -163,7 +160,6 @@ class InstallmentPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = InstallmentPayment
         fields = [
-            "id",
             "id",
             "installment_plan",
             "installment_number",
@@ -185,7 +181,6 @@ class SiblingDiscountSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "discount_type",
             "discount_value",
@@ -206,7 +201,6 @@ class PaymentReminderSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "invoice",
             "student",
             "reminder_type",
@@ -227,7 +221,6 @@ class FeeConcessionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "academic_year",
             "concession_type",
@@ -248,7 +241,6 @@ class RevenueReportSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "title",
             "report_type",
             "status",
@@ -271,7 +263,6 @@ class FeeCollectionDashboardSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "total_expected",
             "total_collected",
             "total_outstanding",
@@ -294,7 +285,6 @@ class FeeAdjustmentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "invoice",
             "adjustment_type",
@@ -314,7 +304,6 @@ class AdvancePaymentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "amount",
             "payment",
@@ -334,7 +323,6 @@ class FeeWaiverSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "academic_year",
             "waiver_type",
@@ -354,7 +342,6 @@ class StudentLedgerSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "academic_year",
             "transaction_type",
@@ -373,7 +360,6 @@ class FeeTemplateSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "template_type",
             "description",
@@ -395,7 +381,6 @@ class BulkInvoiceGenerationSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "batch_name",
             "description",
             "academic_year",
@@ -417,7 +402,6 @@ class PaymentReconciliationSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "reconciliation_type",
             "status",
             "period_start",
@@ -439,7 +423,6 @@ class BudgetPlanSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "academic_year",
             "title",
             "total_budget",
@@ -459,7 +442,6 @@ class BudgetLineItemSerializer(serializers.ModelSerializer):
         model = BudgetLineItem
         fields = [
             "id",
-            "id",
             "budget_plan",
             "category",
             "description",
@@ -478,7 +460,6 @@ class ExpenseTrackingSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "expense_type",
             "description",
             "amount",
@@ -499,7 +480,6 @@ class RefundRecordSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "payment",
             "invoice",
@@ -519,7 +499,6 @@ class LateFeeRuleSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "days_after_due",
             "fee_amount",
@@ -540,7 +519,6 @@ class FeeDiscountSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "discount_type",
             "value",
@@ -561,7 +539,6 @@ class FeeExemptionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "fee_structure",
             "reason",
@@ -581,7 +558,6 @@ class InvoiceTemplateSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "description",
             "header_text",
@@ -602,7 +578,6 @@ class ReceiptTemplateSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "description",
             "header_text",
@@ -621,7 +596,6 @@ class AccountingEntrySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "entry_type",
             "account_code",
             "account_name",
@@ -643,7 +617,6 @@ class FinancialAuditSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "audit_type",
             "title",
             "audit_period_start",
@@ -666,7 +639,6 @@ class StudentFinancialAccountSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "student",
             "account_type",
             "balance",
@@ -687,7 +659,6 @@ class ParentAccountSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "parent",
             "balance",
             "total_paid",
@@ -707,7 +678,6 @@ class BankReconciliationSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "bank_statement_date",
             "statement_balance",
             "book_balance",
@@ -729,7 +699,6 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "method_type",
             "description",
@@ -748,7 +717,6 @@ class TransactionLogSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "transaction_type",
             "transaction_id",
             "student",
@@ -769,7 +737,6 @@ class CreditNoteSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "note_number",
             "student",
             "invoice",
@@ -789,7 +756,6 @@ class DebitNoteSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "note_number",
             "student",
             "invoice",
@@ -809,7 +775,6 @@ class FinancialYearSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "start_date",
             "end_date",
@@ -830,7 +795,6 @@ class FeeWaiverApprovalSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "waiver",
             "approver",
             "status",
