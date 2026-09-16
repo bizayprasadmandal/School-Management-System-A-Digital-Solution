@@ -14,6 +14,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.fees.models import AccountingEntry, TransactionLog
 
 from .models import (
     AssetTag,
@@ -238,11 +239,106 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "submit",
+            "approve",
+        ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         if self.action == "receive_items":
             return [IsAuthenticated(), IsSchoolStaff()]
         return [IsAuthenticated(), IsSchoolMember()]
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        """Move a draft purchase order into the submitted (pending approval) state."""
+        po = self.get_object()
+        if po.status != PurchaseOrder.Status.DRAFT:
+            return Response(
+                {"error": f"Only draft orders can be submitted (current: {po.status})"},
+                status=400,
+            )
+        if po.items.count() == 0:
+            return Response({"error": "Cannot submit an order with no line items."}, status=400)
+        po.status = PurchaseOrder.Status.SUBMITTED
+        po.save(update_fields=["status"])
+        return Response(PurchaseOrderSerializer(po).data)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Approve a submitted order: confirm it and post the commitment to accounting."""
+        po = self.get_object()
+        if po.status != PurchaseOrder.Status.SUBMITTED:
+            return Response(
+                {"error": f"Only submitted orders can be approved (current: {po.status})"},
+                status=400,
+            )
+
+        with db_transaction.atomic():
+            po.status = PurchaseOrder.Status.CONFIRMED
+            po.save(update_fields=["status"])
+            self._post_accounting_entries(po, request.user)
+
+        return Response(PurchaseOrderSerializer(po).data)
+
+    @staticmethod
+    def _post_accounting_entries(po, user):
+        """Post the PO commitment as debit (expense) / credit (payable) entries.
+
+        Idempotent: keyed by reference_id=PO id, so a retried approval or a
+        duplicate call never double-posts the books.
+        """
+        already = AccountingEntry.objects.filter(
+            school=po.school,
+            reference_type="purchase_order",
+            reference_id=str(po.id),
+        ).exists()
+        if already:
+            return
+        AccountingEntry.objects.bulk_create(
+            [
+                AccountingEntry(
+                    school=po.school,
+                    entry_type=AccountingEntry.EntryType.DEBIT,
+                    account_code="5000",
+                    account_name="Inventory Purchases",
+                    description=f"PO {po.order_number} approved",
+                    amount=po.total_amount,
+                    reference_type="purchase_order",
+                    reference_id=str(po.id),
+                    entry_date=timezone.localdate(),
+                    created_by=user,
+                    notes=f"Approved by {user.full_name or user.email}",
+                ),
+                AccountingEntry(
+                    school=po.school,
+                    entry_type=AccountingEntry.EntryType.CREDIT,
+                    account_code="2000",
+                    account_name="Accounts Payable",
+                    description=f"PO {po.order_number} approved",
+                    amount=po.total_amount,
+                    reference_type="purchase_order",
+                    reference_id=str(po.id),
+                    entry_date=timezone.localdate(),
+                    created_by=user,
+                    notes=f"Approved by {user.full_name or user.email}",
+                ),
+            ]
+        )
+        TransactionLog.objects.get_or_create(
+            transaction_id=f"PO-{po.id}-APPROVAL",
+            defaults={
+                "school": po.school,
+                "transaction_type": TransactionLog.TransactionType.OTHER,
+                "amount": po.total_amount,
+                "reference_number": po.order_number,
+                "status": "success",
+                "description": f"Purchase order {po.order_number} approved and posted to accounting",
+            },
+        )
 
     def create(self, request, *args, **kwargs):
         # `items_data` is consumed by this view (line items), not a serializer

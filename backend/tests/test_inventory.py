@@ -303,3 +303,123 @@ class TestPurchaseOrders:
         assert po.status == "received"
         item.refresh_from_db()
         assert item.current_stock == 15
+
+
+@pytest.mark.django_db
+class TestPurchaseOrderApprovalWorkflow:
+    """submit -> approve: confirm the PO and post debit/credit accounting entries."""
+
+    def _make_po(self, school, total="1200.00"):
+        from services.inventory.models import PurchaseOrder
+
+        return PurchaseOrder.objects.create(
+            school=school,
+            order_date=date.today(),
+            status=PurchaseOrder.Status.SUBMITTED,
+            subtotal=Decimal(total),
+            total_amount=Decimal(total),
+        )
+
+    def test_submit_draft_po(self, admin_client, school):
+        from services.inventory.models import Category, InventoryItem, Supplier
+
+        cat = Category.objects.create(school=school, name="WF-Cat")
+        supplier = Supplier.objects.create(school=school, name="WF-Supplier")
+        InventoryItem.objects.create(
+            school=school,
+            category=cat,
+            name="WF-Item",
+            sku="WF-001",
+            current_stock=0,
+            minimum_stock=0,
+        )
+        payload = {
+            "supplier": supplier.id,
+            "order_date": date.today().isoformat(),
+            "items_data": [
+                {
+                    "item": InventoryItem.objects.get(sku="WF-001").id,
+                    "quantity_ordered": 2,
+                }
+            ],
+        }
+        r = admin_client.post(INVENTORY_PURCHASE_ORDERS, payload, format="json")
+        assert r.status_code == status.HTTP_201_CREATED
+        po_id = r.data["id"]
+
+        r = admin_client.post(f"{INVENTORY_PURCHASE_ORDERS}{po_id}/submit/")
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["status"] == "submitted"
+
+    def test_submit_rejected_for_non_draft(self, admin_client, school):
+        po = self._make_po(school)
+        r = admin_client.post(f"{INVENTORY_PURCHASE_ORDERS}{po.id}/submit/")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_submit_rejected_without_line_items(self, admin_client, school):
+        from services.inventory.models import PurchaseOrder
+
+        po = PurchaseOrder.objects.create(school=school, order_date=date.today(), status=PurchaseOrder.Status.DRAFT)
+        r = admin_client.post(f"{INVENTORY_PURCHASE_ORDERS}{po.id}/submit/")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_approve_posts_balanced_accounting_entries_once(self, admin_client, school):
+        from services.fees.models import AccountingEntry
+        from services.fees.models import TransactionLog as FeeTransactionLog
+
+        po = self._make_po(school, total="800.00")
+        url = f"{INVENTORY_PURCHASE_ORDERS}{po.id}/approve/"
+
+        r = admin_client.post(url)
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["status"] == "confirmed"
+
+        entries = AccountingEntry.objects.filter(reference_type="purchase_order", reference_id=str(po.id))
+        assert entries.count() == 2
+        debit = entries.get(entry_type="debit")
+        credit = entries.get(entry_type="credit")
+        assert debit.account_code == "5000" and debit.amount == Decimal("800.00")
+        assert credit.account_code == "2000" and credit.amount == Decimal("800.00")
+
+        # Idempotent: a second approval attempt is rejected and never double-posts.
+        r2 = admin_client.post(url)
+        assert r2.status_code == status.HTTP_400_BAD_REQUEST
+        assert entries.count() == 2
+
+        log = FeeTransactionLog.objects.get(transaction_id=f"PO-{po.id}-APPROVAL")
+        assert log.amount == Decimal("800.00")
+
+    def test_approve_rejected_for_non_submitted(self, admin_client, school):
+        from services.inventory.models import PurchaseOrder
+
+        po = PurchaseOrder.objects.create(school=school, order_date=date.today(), status=PurchaseOrder.Status.DRAFT)
+        r = admin_client.post(f"{INVENTORY_PURCHASE_ORDERS}{po.id}/approve/")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_approve_tenant_isolation(self, db):
+        from services.inventory.models import PurchaseOrder
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        school_a = SchoolFactory(code="POA1")
+        school_b = SchoolFactory(code="POB1")
+        po_b = PurchaseOrder.objects.create(
+            school=school_b,
+            order_date=date.today(),
+            status=PurchaseOrder.Status.SUBMITTED,
+        )
+        admin_a = AdminUserFactory(school=school_a)
+        c = APIClient()
+        c.force_authenticate(user=admin_a)
+        r = c.post(f"{INVENTORY_PURCHASE_ORDERS}{po_b.id}/approve/")
+        assert r.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_teacher_cannot_approve(self, teacher_client, school):
+        from services.inventory.models import PurchaseOrder
+
+        po = PurchaseOrder.objects.create(
+            school=school,
+            order_date=date.today(),
+            status=PurchaseOrder.Status.SUBMITTED,
+        )
+        r = teacher_client.post(f"{INVENTORY_PURCHASE_ORDERS}{po.id}/approve/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN
