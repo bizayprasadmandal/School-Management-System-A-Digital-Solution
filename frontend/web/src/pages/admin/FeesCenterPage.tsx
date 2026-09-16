@@ -357,7 +357,8 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         confirm:
           "Apply this credit note to its invoice? This reduces the invoice total and cannot be undone.",
         kind: "approve",
-        visibleIf: (row) => row["status"] === "draft" || row["status"] === "issued",
+        visibleIf: (row) =>
+          (row["status"] === "draft" || row["status"] === "issued") && !!row["invoice"],
       },
     ],
   },
@@ -417,7 +418,8 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         confirm:
           "Apply this debit note to its invoice? This increases the invoice total and cannot be undone.",
         kind: "info",
-        visibleIf: (row) => row["status"] === "draft" || row["status"] === "issued",
+        visibleIf: (row) =>
+          (row["status"] === "draft" || row["status"] === "issued") && !!row["invoice"],
       },
     ],
   },

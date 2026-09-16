@@ -169,6 +169,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
+    items_count = serializers.SerializerMethodField()
+
     class Meta:
         model = PurchaseOrder
         fields = [
@@ -186,8 +188,13 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "total_amount",
             "notes",
             "ordered_by",
+            "items_count",
         ]
         read_only_fields = ["school", "id", "created_at", "updated_at", "school"]
+
+    def get_items_count(self, obj):
+        # len() on the prefetched relation avoids a per-row COUNT query.
+        return len(obj.items.all())
 
     def validate_supplier(self, value):
         # Purchase orders must stay within the tenant — the supplier has to

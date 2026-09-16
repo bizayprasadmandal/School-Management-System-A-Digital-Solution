@@ -292,7 +292,11 @@ export function EntitySection({
   const searchKeys = useMemo(
     () =>
       cfg.searchKeys ??
-      cfg.fields.filter((f) => f.main || f.subtitle || f.badge || f.card).map((f) => f.key),
+      [
+        ...cfg.fields.filter((f) => f.main || f.subtitle || f.badge || f.card).map((f) => f.key),
+        cfg.titleField,
+        cfg.subtitleField,
+      ].filter((k): k is string => Boolean(k)),
     [cfg],
   );
 

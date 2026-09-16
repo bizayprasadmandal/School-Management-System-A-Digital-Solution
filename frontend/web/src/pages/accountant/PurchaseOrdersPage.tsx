@@ -43,6 +43,7 @@ interface PurchaseOrder {
   total_amount: string | number;
   notes: string;
   ordered_by?: string | number | null;
+  items_count?: number;
 }
 
 interface SupplierOption {
@@ -415,7 +416,7 @@ export default function PurchaseOrdersPage() {
                   </span>
                 </div>
                 <div className="flex gap-1">
-                  {order.status === "draft" && (
+                  {order.status === "draft" && (order.items_count ?? 0) > 0 && (
                     <button
                       onClick={() => submitPO.mutate(order.id)}
                       disabled={submitPO.isPending}
@@ -516,6 +517,7 @@ function POForm({
     subtotal: num(po?.subtotal),
     tax_amount: num(po?.tax_amount),
     notes: po?.notes ?? "",
+    items_count: po?.items_count ?? 0,
   });
 
   return (

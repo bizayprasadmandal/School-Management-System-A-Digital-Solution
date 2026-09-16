@@ -112,6 +112,19 @@ class IsSchoolStaff(permissions.BasePermission):
         )
 
 
+class IsSchoolAdminOrAccountant(permissions.BasePermission):
+    """Admins or accountants — for finance-adjacent workflows like PO approval."""
+
+    message = "Only administrators or accountants can perform this action."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.role in [UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.ACCOUNTANT]
+        )
+
+
 class IsSuperAdmin(permissions.BasePermission):
     message = "Only super administrators can perform this action."
 

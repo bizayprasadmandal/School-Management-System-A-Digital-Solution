@@ -5,7 +5,7 @@ import logging
 from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
+from core.permissions import IsSchoolAdmin, IsSchoolAdminOrAccountant, IsSchoolMember, IsSchoolStaff
 from django.db import transaction as db_transaction
 from django.db.models import Count
 from django.utils import timezone
@@ -247,7 +247,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             "submit",
             "approve",
         ]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
+            return [IsAuthenticated(), IsSchoolAdminOrAccountant()]
         if self.action == "receive_items":
             return [IsAuthenticated(), IsSchoolStaff()]
         return [IsAuthenticated(), IsSchoolMember()]

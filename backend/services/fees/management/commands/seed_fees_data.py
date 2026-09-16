@@ -751,6 +751,39 @@ class Command(BaseCommand):
                 issued_by=admin_user,
             )
             created += 2
+
+        # Open (draft/issued) notes linked to real invoices so the
+        # apply-to-invoice workflow is demoable in the UI.
+        open_invoices = FeeInvoice.objects.filter(school=school, status__in=["unpaid", "partial", "overdue"]).order_by(
+            "?"
+        )[:6]
+        for invoice in open_invoices:
+            for Model, prefix, reasons, amounts in (
+                (
+                    CreditNote,
+                    "CN",
+                    ["Overpayment correction", "Fee structure adjustment"],
+                    [500, 1000],
+                ),
+                (
+                    DebitNote,
+                    "DN",
+                    ["Late fee applied", "Additional charges"],
+                    [200, 500],
+                ),
+            ):
+                Model.objects.create(
+                    school=school,
+                    note_number=f"{prefix}-{uuid.uuid4().hex[:8].upper()}",
+                    student=invoice.student,
+                    invoice=invoice,
+                    amount=Decimal(str(random.choice(amounts))),
+                    reason=random.choice(reasons),
+                    status="issued",
+                    issued_date=timezone.now().date(),
+                    issued_by=admin_user,
+                )
+                created += 1
         self.stdout.write(f"  {created} credit/debit notes created")
 
     def _seed_expenses(self, school, admin_user):
