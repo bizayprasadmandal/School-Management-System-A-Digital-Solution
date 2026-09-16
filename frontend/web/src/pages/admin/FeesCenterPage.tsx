@@ -350,6 +350,16 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "applied_date", label: "Applied Date", type: "date" },
       { key: "issued_by", label: "Issued By" },
     ],
+    actions: [
+      {
+        label: "Apply to invoice",
+        url: (id) => `/fees/credit-note/${id}/apply/`,
+        confirm:
+          "Apply this credit note to its invoice? This reduces the invoice total and cannot be undone.",
+        kind: "approve",
+        visibleIf: (row) => row["status"] === "draft" || row["status"] === "issued",
+      },
+    ],
   },
   dashboard: {
     key: "dashboard",
@@ -399,6 +409,16 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "issued_date", label: "Issued Date", type: "date" },
       { key: "applied_date", label: "Applied Date", type: "date" },
       { key: "issued_by", label: "Issued By" },
+    ],
+    actions: [
+      {
+        label: "Apply to invoice",
+        url: (id) => `/fees/debit-note/${id}/apply/`,
+        confirm:
+          "Apply this debit note to its invoice? This increases the invoice total and cannot be undone.",
+        kind: "info",
+        visibleIf: (row) => row["status"] === "draft" || row["status"] === "issued",
+      },
     ],
   },
   "expense-tracking": {
@@ -587,6 +607,16 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "closed_by", label: "Closed By" },
       { key: "closed_date", label: "Closed Date", type: "date" },
       { key: "notes", label: "Notes", type: "textarea" },
+    ],
+    actions: [
+      {
+        label: "Close financial year",
+        url: (id) => `/fees/financial-year/${id}/close/`,
+        confirm:
+          "Close this financial year? Outstanding balances are rolled forward and the year is locked permanently.",
+        kind: "approve",
+        visibleIf: (row) => !row["is_closed"],
+      },
     ],
   },
   "installment-payments": {

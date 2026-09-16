@@ -147,6 +147,26 @@ export default function PurchaseOrdersPage() {
     },
   });
 
+  const invalidatePos = () => qc.invalidateQueries({ queryKey: ["accountant-pos"] });
+
+  const submitPO = useMutation({
+    mutationFn: (id: string) => api.post(`/inventory/purchase-orders/${id}/submit/`),
+    onSuccess: () => {
+      toast.success("Purchase order submitted for approval");
+      invalidatePos();
+    },
+    onError: () => toast.error("Failed to submit purchase order"),
+  });
+
+  const approvePO = useMutation({
+    mutationFn: (id: string) => api.post(`/inventory/purchase-orders/${id}/approve/`),
+    onSuccess: () => {
+      toast.success("Purchase order approved and posted to accounting");
+      invalidatePos();
+    },
+    onError: () => toast.error("Failed to approve purchase order"),
+  });
+
   const orders = React.useMemo(() => {
     let items = allOrders;
     if (search.trim()) {
@@ -395,6 +415,29 @@ export default function PurchaseOrdersPage() {
                   </span>
                 </div>
                 <div className="flex gap-1">
+                  {order.status === "draft" && (
+                    <button
+                      onClick={() => submitPO.mutate(order.id)}
+                      disabled={submitPO.isPending}
+                      className="rounded px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                      aria-label="Submit purchase order for approval"
+                    >
+                      Submit
+                    </button>
+                  )}
+                  {order.status === "submitted" && (
+                    <button
+                      onClick={() => {
+                        if (confirm("Approve this PO and post it to accounting?"))
+                          approvePO.mutate(order.id);
+                      }}
+                      disabled={approvePO.isPending}
+                      className="rounded px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+                      aria-label="Approve purchase order"
+                    >
+                      Approve
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setEditing(order);

@@ -50,6 +50,8 @@ export interface EntityAction {
   url: (id: string | number) => string;
   confirm?: string;
   kind: "approve" | "reject" | "info";
+  /** Optional predicate — show the button only on rows where it returns true. */
+  visibleIf?: (row: Record<string, unknown>) => boolean;
 }
 
 export interface EntityConfig {
@@ -481,34 +483,36 @@ export function EntitySection({
                         }
                       />
                     )}
-                    {cfg.actions?.map((a) => {
-                      const Icon =
-                        a.kind === "approve"
-                          ? CheckCircleIcon
-                          : a.kind === "reject"
-                            ? XCircleIcon
-                            : AdjustmentsHorizontalIcon;
-                      return (
-                        <button
-                          key={a.label}
-                          type="button"
-                          title={a.label}
-                          onClick={() => {
-                            if (a.confirm && !confirm(a.confirm)) return;
-                            runAction.mutate(a.url(row.id));
-                          }}
-                          className={`rounded-md p-1.5 ${
-                            a.kind === "approve"
-                              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
-                              : a.kind === "reject"
-                                ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                                : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </button>
-                      );
-                    })}
+                    {(cfg.actions ?? [])
+                      .filter((a) => !a.visibleIf || a.visibleIf(row as Record<string, unknown>))
+                      .map((a) => {
+                        const Icon =
+                          a.kind === "approve"
+                            ? CheckCircleIcon
+                            : a.kind === "reject"
+                              ? XCircleIcon
+                              : AdjustmentsHorizontalIcon;
+                        return (
+                          <button
+                            key={a.label}
+                            type="button"
+                            title={a.label}
+                            onClick={() => {
+                              if (a.confirm && !confirm(a.confirm)) return;
+                              runAction.mutate(a.url(row.id));
+                            }}
+                            className={`rounded-md p-1.5 ${
+                              a.kind === "approve"
+                                ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
+                                : a.kind === "reject"
+                                  ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                  : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </button>
+                        );
+                      })}
                     {!cfg.readOnly && (
                       <>
                         <button
