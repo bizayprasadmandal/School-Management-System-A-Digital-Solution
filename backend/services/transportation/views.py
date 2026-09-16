@@ -1,11 +1,17 @@
 import logging
+from decimal import Decimal, InvalidOperation
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
+from django.db import transaction as db_transaction
 from django.db.models import Count, Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from services.fees.ledger import post_revenue
 
 from .models import (
     BusTracking,
@@ -251,6 +257,41 @@ class TransportFeeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"], url_path="record-payment")
+    def record_payment(self, request, pk=None):
+        """Record a payment against a transport fee and post it to the books."""
+        fee = self.get_object()
+        if fee.status in (TransportFee.Status.PAID, TransportFee.Status.WAIVED):
+            return Response({"error": f"Fee is already {fee.status}"}, status=400)
+        try:
+            amount = Decimal(str(request.data.get("amount", "0")))
+        except (TypeError, ValueError, InvalidOperation):
+            return Response({"error": "Invalid amount."}, status=400)
+        if amount <= 0:
+            return Response({"error": "amount must be positive."}, status=400)
+
+        method = str(request.data.get("payment_method", "cash"))[:20]
+        with db_transaction.atomic():
+            locked = TransportFee.objects.select_for_update().get(pk=fee.pk)
+            locked.paid_amount += amount
+            if locked.paid_amount >= locked.amount:
+                locked.status = TransportFee.Status.PAID
+                locked.paid_date = timezone.localdate()
+            else:
+                locked.status = TransportFee.Status.PENDING
+            locked.save(update_fields=["paid_amount", "status", "paid_date"])
+            post_revenue(
+                school=locked.school,
+                amount=amount,
+                reference_type="transport_fee",
+                reference_id=str(locked.id),
+                description=(f"Transport fee payment — {locked.student} " f"({locked.get_fee_type_display()})"),
+                student=locked.student,
+                payment_method=method,
+                user=request.user if request.user.is_authenticated else None,
+            )
+        return Response(TransportFeeSerializer(locked).data)
 
 
 class VehicleInsuranceViewSet(viewsets.ModelViewSet):

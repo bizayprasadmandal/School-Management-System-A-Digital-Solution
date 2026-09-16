@@ -34,6 +34,55 @@ REVENUE_ACCOUNT_CODE = "4000"
 REVENUE_ACCOUNT_NAME = "Fee Revenue"
 
 
+def post_revenue(
+    *,
+    school,
+    amount,
+    reference_type: str,
+    reference_id: str,
+    description: str,
+    student=None,
+    payment_method: str = "",
+    transaction_type: str = TransactionLog.TransactionType.PAYMENT,
+    user=None,
+) -> None:
+    """Post one revenue payment to the books — for non-fee money streams.
+
+    Used by transport, hostel, and cafeteria flows so their collections hit
+    the same ``TransactionLog`` + ``AccountingEntry`` audit trail as fee
+    payments. Idempotent via get_or_create on the (reference_type,
+    reference_id) pair — calling twice with the same reference never
+    double-posts.
+    """
+    AccountingEntry.objects.get_or_create(
+        school=school,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        entry_type=AccountingEntry.EntryType.CREDIT,
+        defaults={
+            "account_code": REVENUE_ACCOUNT_CODE,
+            "account_name": REVENUE_ACCOUNT_NAME,
+            "description": description[:200],
+            "amount": amount,
+            "entry_date": timezone.now().date(),
+            "created_by": user,
+        },
+    )
+    TransactionLog.objects.get_or_create(
+        transaction_id=f"{reference_type.upper()}-{reference_id}",
+        defaults={
+            "school": school,
+            "transaction_type": transaction_type,
+            "student": student,
+            "amount": amount,
+            "payment_method": payment_method[:50],
+            "reference_number": reference_id,
+            "status": "success",
+            "description": description,
+        },
+    )
+
+
 def _recalculate_status(invoice: FeeInvoice) -> None:
     """Recompute invoice status from paid_amount, flooring at zero."""
     if invoice.paid_amount <= 0:

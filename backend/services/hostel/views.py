@@ -907,7 +907,31 @@ class HostelFeePaymentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        payment = serializer.save(school=self.request.user.school)
+        self._post_to_books(payment, self.request.user)
+
+    def perform_update(self, serializer):
+        payment = serializer.save()
+        self._post_to_books(payment, self.request.user)
+
+    def _post_to_books(self, payment, user):
+        """Post a paid/partial hostel fee payment to the revenue books."""
+        from services.fees.ledger import post_revenue
+
+        if payment.status not in (HostelFeePayment.Status.PAID, HostelFeePayment.Status.PARTIAL):
+            return
+        allocation = payment.allocation
+        student = getattr(allocation, "student", None)
+        post_revenue(
+            school=payment.school,
+            amount=payment.amount_paid,
+            reference_type="hostel_fee_payment",
+            reference_id=str(payment.id),
+            description=(f"Hostel fee payment — {student or allocation} " f"({payment.billing_period or 'period'})"),
+            student=student,
+            payment_method=payment.payment_method,
+            user=user,
+        )
 
 
 class HostelInspectionScheduleViewSet(viewsets.ModelViewSet):

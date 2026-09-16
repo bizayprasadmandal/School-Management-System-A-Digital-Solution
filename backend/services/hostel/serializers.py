@@ -817,7 +817,6 @@ class HostelFeePaymentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "allocation",
             "hostel_fee",
             "status",
@@ -828,8 +827,11 @@ class HostelFeePaymentSerializer(serializers.ModelSerializer):
             "payment_method",
             "transaction_id",
             "payment_date",
+            "due_date",
+            "billing_period",
+            "notes",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class HostelInspectionScheduleSerializer(serializers.ModelSerializer):
