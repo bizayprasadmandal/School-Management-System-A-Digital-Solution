@@ -40,6 +40,27 @@ app.conf.beat_schedule = {
         "task": "services.fees.tasks.process_installments",
         "schedule": crontab(hour=0, minute=15),
     },
+    # ── Operations automation (hostel / transportation / cafeteria) ─────
+    # Mark overdue transport fees daily at 0:30
+    "mark-overdue-transport-fees": {
+        "task": "services.transportation.tasks.mark_overdue_transport_fees",
+        "schedule": crontab(hour=0, minute=30),
+    },
+    # Check driver license / vehicle insurance expiry daily at 7:30
+    "transport-document-expiry": {
+        "task": "services.transportation.tasks.check_transport_document_expiry",
+        "schedule": crontab(hour=7, minute=30),
+    },
+    # Mark overdue hostel fee payments daily at 0:45
+    "mark-overdue-hostel-payments": {
+        "task": "services.hostel.tasks.mark_overdue_hostel_payments",
+        "schedule": crontab(hour=0, minute=45),
+    },
+    # Cafeteria low/out-of-stock alerts daily at 6:30
+    "cafeteria-low-stock-alerts": {
+        "task": "services.cafeteria.tasks.generate_low_stock_alerts",
+        "schedule": crontab(hour=6, minute=30),
+    },
     # Send fee reminders 3 days before due date — runs daily at 8 AM
     "fee-due-reminders": {
         "task": "services.fees.tasks.send_fee_reminders",
