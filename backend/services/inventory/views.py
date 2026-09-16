@@ -12,6 +12,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from services.fees.models import AccountingEntry, TransactionLog
@@ -708,7 +709,36 @@ class InvoicePaymentViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        invoice = serializer.validated_data["invoice"]
+        if invoice.school_id != self.request.user.school_id:
+            raise ValidationError({"invoice": "Invoice not found in your school."})
+        payment = serializer.save(created_by=self.request.user)
+        self._clear_payable(payment, self.request.user)
+
+    def _clear_payable(self, payment, user):
+        """A supplier payment clears part of the payable posted at PO approval."""
+        from services.fees.ledger import post_revenue
+
+        invoice = payment.invoice
+        invoice.amount_paid = (invoice.amount_paid or 0) + payment.amount
+        if invoice.total and invoice.amount_paid >= invoice.total:
+            invoice.status = "paid"
+        elif invoice.amount_paid > 0:
+            invoice.status = "partial"
+        invoice.save(update_fields=["amount_paid", "status"])
+        post_revenue(
+            school=invoice.school,
+            amount=payment.amount,
+            reference_type="supplier_invoice_payment",
+            reference_id=str(payment.id),
+            description=(f"Supplier payment — invoice {invoice.invoice_number} " f"({invoice.supplier.name})"),
+            payment_method=payment.payment_method,
+            transaction_type=TransactionLog.TransactionType.PAYMENT,
+            entry_type=AccountingEntry.EntryType.DEBIT,
+            account_code="2000",
+            account_name="Accounts Payable",
+            user=user,
+        )
 
 
 class ReturnRequestViewSet(viewsets.ModelViewSet):

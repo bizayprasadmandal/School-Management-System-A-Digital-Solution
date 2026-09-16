@@ -6,6 +6,7 @@ Transport ``record-payment`` and hostel fee payment creation both call
 idempotent, and tenant-safe.
 """
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -16,6 +17,7 @@ from tests.url_helpers import API_PREFIX
 
 TRANSPORT_FEES = f"{API_PREFIX}/transport/fees/"
 HOSTEL_FEE_PAYMENTS = f"{API_PREFIX}/hostel/hostel-fee-payment/"
+INVENTORY_INVOICE_PAYMENTS = f"{API_PREFIX}/inventory/invoice-payment/"
 
 
 @pytest.fixture
@@ -200,3 +202,94 @@ class TestHostelFeePaymentPosting:
         payment.save()
         assert AccountingEntry.objects.filter(reference_type="hostel_fee_payment").count() == 0
         assert payment.status == "pending"
+
+
+@pytest.mark.django_db
+class TestSupplierInvoicePaymentPosting:
+    def _make_invoice(self, school, total="1000.00"):
+        from services.inventory.models import Invoice, Supplier
+
+        supplier = Supplier.objects.create(school=school, name="PayLoop Supplier")
+        return Invoice.objects.create(
+            school=school,
+            supplier=supplier,
+            invoice_number=f"INV-{uuid.uuid4().hex[:8].upper()}",
+            invoice_date=date.today(),
+            due_date=date.today(),
+            total=Decimal(total),
+        )
+
+    def test_payment_posts_debit_and_clears_invoice(self, admin_client, school):
+        from services.fees.models import AccountingEntry, TransactionLog
+
+        invoice = self._make_invoice(school)
+        r = admin_client.post(
+            INVENTORY_INVOICE_PAYMENTS,
+            {
+                "invoice": str(invoice.id),
+                "payment_date": date.today().isoformat(),
+                "amount": "400.00",
+                "payment_method": "bank_transfer",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED, r.data
+        payment_id = r.data["id"]
+
+        entry = AccountingEntry.objects.get(reference_type="supplier_invoice_payment", reference_id=str(payment_id))
+        assert entry.entry_type == "debit"
+        assert entry.account_code == "2000"
+        assert entry.amount == Decimal("400.00")
+
+        log = TransactionLog.objects.get(transaction_id=f"SUPPLIER_INVOICE_PAYMENT-{payment_id}")
+        assert log.amount == Decimal("400.00")
+
+        invoice.refresh_from_db()
+        assert invoice.amount_paid == Decimal("400.00")
+        assert invoice.status == "partial"
+
+    def test_full_payment_marks_invoice_paid(self, admin_client, school):
+        invoice = self._make_invoice(school, total="600.00")
+        r = admin_client.post(
+            INVENTORY_INVOICE_PAYMENTS,
+            {
+                "invoice": str(invoice.id),
+                "payment_date": date.today().isoformat(),
+                "amount": "600.00",
+                "payment_method": "cash",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        invoice.refresh_from_db()
+        assert invoice.status == "paid"
+
+    def test_tenant_isolation(self, db):
+        from services.inventory.models import Invoice, Supplier
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        school_a = SchoolFactory(code="PLA1")
+        school_b = SchoolFactory(code="PLB1")
+        supplier_b = Supplier.objects.create(school=school_b, name="Other Supplier")
+        invoice_b = Invoice.objects.create(
+            school=school_b,
+            supplier=supplier_b,
+            invoice_number=f"INV-{uuid.uuid4().hex[:8].upper()}",
+            invoice_date=date.today(),
+            due_date=date.today(),
+            total=Decimal("500.00"),
+        )
+        admin_a = AdminUserFactory(school=school_a)
+        c = APIClient()
+        c.force_authenticate(user=admin_a)
+        r = c.post(
+            INVENTORY_INVOICE_PAYMENTS,
+            {
+                "invoice": str(invoice_b.id),
+                "payment_date": date.today().isoformat(),
+                "amount": "100.00",
+                "payment_method": "cash",
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_400_BAD_REQUEST

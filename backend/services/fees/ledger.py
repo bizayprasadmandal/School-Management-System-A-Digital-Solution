@@ -45,23 +45,27 @@ def post_revenue(
     payment_method: str = "",
     transaction_type: str = TransactionLog.TransactionType.PAYMENT,
     user=None,
+    entry_type: str = AccountingEntry.EntryType.CREDIT,
+    account_code: str = REVENUE_ACCOUNT_CODE,
+    account_name: str = REVENUE_ACCOUNT_NAME,
 ) -> None:
-    """Post one revenue payment to the books — for non-fee money streams.
+    """Post one money movement to the books — for non-fee streams.
 
-    Used by transport, hostel, and cafeteria flows so their collections hit
-    the same ``TransactionLog`` + ``AccountingEntry`` audit trail as fee
-    payments. Idempotent via get_or_create on the (reference_type,
-    reference_id) pair — calling twice with the same reference never
-    double-posts.
+    Used by transport, hostel, and cafeteria collections (credit → revenue)
+    and inventory supplier payments (debit → clears accounts payable) so
+    they share the same ``TransactionLog`` + ``AccountingEntry`` audit
+    trail as fee payments. Idempotent via get_or_create on the
+    (reference_type, reference_id, entry_type) triple — calling twice with
+    the same reference never double-posts.
     """
     AccountingEntry.objects.get_or_create(
         school=school,
         reference_type=reference_type,
         reference_id=reference_id,
-        entry_type=AccountingEntry.EntryType.CREDIT,
+        entry_type=entry_type,
         defaults={
-            "account_code": REVENUE_ACCOUNT_CODE,
-            "account_name": REVENUE_ACCOUNT_NAME,
+            "account_code": account_code,
+            "account_name": account_name,
             "description": description[:200],
             "amount": amount,
             "entry_date": timezone.now().date(),
