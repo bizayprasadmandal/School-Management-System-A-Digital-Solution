@@ -5,9 +5,12 @@ Database router — directs read queries to the replica, writes to primary.
 
 class ReadReplicaRouter:
     READ_APPS = {
-        "services.students", "services.academics",
-        "services.attendance", "services.gradebook",
-        "services.communication", "services.reporting",
+        "services.students",
+        "services.academics",
+        "services.attendance",
+        "services.gradebook",
+        "services.communication",
+        "services.reporting",
     }
 
     def db_for_read(self, model, **hints):

@@ -5,20 +5,22 @@ Admissions, Hostel, Transportation, Inventory).
 Run inside the Docker container:
     docker exec -i sms_backend python manage.py shell < backend/seed_module_data.py
 """
+
 import os
 import sys
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from random import choice, randint, uniform, sample
+from random import choice, randint, sample, uniform
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings.development")
 import django
+
 django.setup()
 
 from django.contrib.auth import get_user_model
-from services.students.models import Student, Grade, Classroom
 from services.auth.models import School, UserRole
+from services.students.models import Classroom, Grade, Student
 
 print("Resolving demo school and users...")
 school = School.objects.get(subdomain="demo")
@@ -36,7 +38,7 @@ current_year = date.today().year
 # 1. SPORTS & EXTRACURRICULARS
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== SPORTS & EXTRACURRICULARS ===")
-from services.sports.models import Sport, Team, TeamMember, SportEvent, SportAchievement
+from services.sports.models import Sport, SportAchievement, SportEvent, Team, TeamMember
 
 SPORT_DATA = [
     ("Basketball", "sport", "Indoor basketball", 5, 15),
@@ -53,7 +55,8 @@ SPORT_DATA = [
 
 for name, cat, desc, min_p, max_p in SPORT_DATA:
     Sport.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(category=cat, description=desc, min_players=min_p, max_players=max_p, is_active=True),
     )
 sports = list(Sport.objects.filter(school=school))
@@ -70,7 +73,9 @@ TEAM_DATA = [
 for name, gender, sport_name in TEAM_DATA:
     sport = next((s for s in sports if s.name in sport_name), sports[0])
     Team.objects.get_or_create(
-        school=school, name=name, sport=sport,
+        school=school,
+        name=name,
+        sport=sport,
         defaults=dict(gender=gender, coach=choice(teachers) if teachers else None, is_active=True),
     )
 teams = list(Team.objects.filter(school=school))
@@ -79,18 +84,24 @@ print(f"  Created {len(teams)} teams")
 # Team members
 for team in teams[:3]:
     for s in sample(students, min(len(students), team.sport.max_players // 2)):
-        TeamMember.objects.get_or_create(team=team, student=s, defaults=dict(role=choice(["member", "vice_captain", "captain"])))
+        TeamMember.objects.get_or_create(
+            team=team, student=s, defaults=dict(role=choice(["member", "vice_captain", "captain"]))
+        )
 
 # Events
 event_statuses = ["scheduled", "ongoing", "completed", "cancelled"]
 for i in range(10):
     team = choice(teams)
     SportEvent.objects.get_or_create(
-        school=school, title=f"{team.sport.name} Match #{i+1}",
+        school=school,
+        title=f"{team.sport.name} Match #{i+1}",
         defaults=dict(
-            sport=team.sport, team=team, opponent=f"Opponent School {i+1}",
+            sport=team.sport,
+            team=team,
+            opponent=f"Opponent School {i+1}",
             event_date=datetime.now() + timedelta(days=randint(-30, 60)),
-            status=choice(event_statuses), home_score=str(randint(0, 100)),
+            status=choice(event_statuses),
+            home_score=str(randint(0, 100)),
             opponent_score=str(randint(0, 100)),
         ),
     )
@@ -99,7 +110,8 @@ for i in range(10):
 for i in range(8):
     student_obj = choice(students) if students else None
     SportAchievement.objects.get_or_create(
-        school=school, title=f"Achievement #{i+1}",
+        school=school,
+        title=f"Achievement #{i+1}",
         defaults=dict(
             student=student_obj,
             position=choice(["1st Place", "2nd Place", "3rd Place", "Gold Medal", "Silver Medal"]),
@@ -113,11 +125,12 @@ print(f"  Created events and achievements")
 # 2. HEALTH / CLINIC
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== HEALTH & CLINIC ===")
-from services.health_clinic.models import HealthRecord, NurseVisit, Immunization, MedicationLog
+from services.health_clinic.models import HealthRecord, Immunization, MedicationLog, NurseVisit
 
 for student in students[:20]:
     HealthRecord.objects.get_or_create(
-        school=school, student=student,
+        school=school,
+        student=student,
         defaults=dict(
             blood_type=choice(["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]),
             allergies=choice(["Pollen, Dust", "Peanuts", "None", "Latex", "Sulfa Drugs"]),
@@ -131,7 +144,8 @@ VISIT_REASONS = ["Fever", "Headache", "Stomach ache", "Minor injury", "Allergy",
 for _ in range(25):
     student = choice(students)
     NurseVisit.objects.create(
-        school=school, student=student,
+        school=school,
+        student=student,
         visit_type=choice(["sick", "injury", "medication", "checkup", "followup", "other"]),
         symptoms=choice(VISIT_REASONS),
         diagnosis=choice(["Viral infection", "No diagnosis", "Strain", "Allergic reaction"]),
@@ -144,22 +158,27 @@ VACCINES = ["Hepatitis B", "DTaP", "Polio", "MMR", "Varicella", "HPV", "Meningoc
 for student in students[:15]:
     for v in sample(VACCINES, randint(2, 4)):
         Immunization.objects.get_or_create(
-            student=student, vaccine_name=v, dose_number=1,
+            student=student,
+            vaccine_name=v,
+            dose_number=1,
             defaults=dict(date_administered=date.today() - timedelta(days=randint(30, 730))),
         )
 
-print(f"  Created {HealthRecord.objects.count()} records, {NurseVisit.objects.count()} visits, {Immunization.objects.count()} immunizations")
+print(
+    f"  Created {HealthRecord.objects.count()} records, {NurseVisit.objects.count()} visits, {Immunization.objects.count()} immunizations"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. ALUMNI MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== ALUMNI MANAGEMENT ===")
-from services.alumni.models import AlumniProfile, AlumniEvent, AlumniDonation, AlumniChapter
+from services.alumni.models import AlumniChapter, AlumniDonation, AlumniEvent, AlumniProfile
 
 for student in students[:10]:
     user = student.user
     AlumniProfile.objects.get_or_create(
-        school=school, user=user,
+        school=school,
+        user=user,
         defaults=dict(
             graduation_year=current_year - randint(1, 15),
             occupation=choice(["Engineer", "Doctor", "Teacher", "Business Owner", "Lawyer", "Designer"]),
@@ -173,8 +192,9 @@ for student in students[:10]:
 for i in range(5):
     AlumniEvent.objects.get_or_create(
         school=school,
-        title=choice(["Annual Homecoming", "Alumni Networking Night", "Career Fair",
-                       "Class Reunion", "Fundraising Gala"]),
+        title=choice(
+            ["Annual Homecoming", "Alumni Networking Night", "Career Fair", "Class Reunion", "Fundraising Gala"]
+        ),
         defaults=dict(
             event_date=datetime.now() + timedelta(days=randint(1, 180)),
             location=school.name,
@@ -186,7 +206,8 @@ for i in range(5):
 for i in range(6):
     profile = choice(list(AlumniProfile.objects.filter(school=school)))
     AlumniDonation.objects.create(
-        school=school, alumni=profile,
+        school=school,
+        alumni=profile,
         amount=Decimal(str(uniform(50, 10000))),
         fund_type=choice(["general", "scholarship", "infrastructure", "sports", "library"]),
         donation_date=date.today() - timedelta(days=randint(1, 365)),
@@ -195,18 +216,21 @@ for i in range(6):
 
 for city in ["New York", "London", "Dubai", "Singapore"]:
     AlumniChapter.objects.get_or_create(
-        school=school, name=f"{city} Chapter",
+        school=school,
+        name=f"{city} Chapter",
         defaults=dict(city=city, country=choice(["USA", "UK", "UAE", "Singapore"]), is_active=True),
     )
 
-print(f"  Created {AlumniProfile.objects.count()} profiles, {AlumniEvent.objects.count()} events, "
-      f"{AlumniDonation.objects.count()} donations, {AlumniChapter.objects.count()} chapters")
+print(
+    f"  Created {AlumniProfile.objects.count()} profiles, {AlumniEvent.objects.count()} events, "
+    f"{AlumniDonation.objects.count()} donations, {AlumniChapter.objects.count()} chapters"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. CAFETERIA / MEAL MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== CAFETERIA & MEALS ===")
-from services.cafeteria.models import MealMenu, MealPlan, MealBooking, DietaryRestriction
+from services.cafeteria.models import DietaryRestriction, MealBooking, MealMenu, MealPlan
 
 meal_items_map = {
     "breakfast": "Oatmeal, Eggs, Toast, Fruit, Yogurt, Cereal, Pancakes",
@@ -219,7 +243,9 @@ for i in range(15):
     day = date.today() + timedelta(days=i)
     for mt in ["breakfast", "lunch", "dinner"]:
         MealMenu.objects.get_or_create(
-            school=school, date=day, meal_type=mt,
+            school=school,
+            date=day,
+            meal_type=mt,
             defaults=dict(
                 name=f"{day.strftime('%a')} {mt.title()}",
                 items=meal_items_map[mt],
@@ -237,7 +263,8 @@ for name, price, days, meals in [
     ("Weekend Plan", 59.99, 7, "breakfast,lunch,dinner"),
 ]:
     MealPlan.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(
             description=f"Demo meal plan - {name}",
             price_per_period=Decimal(str(price)),
@@ -258,21 +285,25 @@ menus = list(MealMenu.objects.filter(school=school))
 for student in students[:5]:
     if menus:
         MealBooking.objects.get_or_create(
-            user=student.user, menu=choice(menus),
+            user=student.user,
+            menu=choice(menus),
             defaults=dict(
-                school=school, meal_type=choice(["breakfast", "lunch", "dinner"]),
+                school=school,
+                meal_type=choice(["breakfast", "lunch", "dinner"]),
                 status=choice(["confirmed", "attended"]),
             ),
         )
 
-print(f"  Created {MealMenu.objects.count()} menus, {MealPlan.objects.count()} plans, "
-      f"{DietaryRestriction.objects.count()} restrictions, {MealBooking.objects.count()} bookings")
+print(
+    f"  Created {MealMenu.objects.count()} menus, {MealPlan.objects.count()} plans, "
+    f"{DietaryRestriction.objects.count()} restrictions, {MealBooking.objects.count()} bookings"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. ADMISSIONS / ENROLLMENT
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== ADMISSIONS & ENROLLMENT ===")
-from services.admissions.models import EnrollmentIntake, Application, ApplicationReview
+from services.admissions.models import Application, ApplicationReview, EnrollmentIntake
 
 for name, status in [
     ("Fall 2026 Intake", "open"),
@@ -280,7 +311,8 @@ for name, status in [
     ("Summer 2026 Intake", "closed"),
 ]:
     EnrollmentIntake.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(
             academic_year=f"{current_year}-{current_year+1}",
             application_start=date.today() - timedelta(days=60),
@@ -292,13 +324,14 @@ for name, status in [
 
 intakes = list(EnrollmentIntake.objects.filter(school=school))
 for i in range(5):
-    first = choice(["James", "Mary", "John", "Patricia", "Robert", "Jennifer",
-                     "Michael", "Linda", "David", "Barbara"])
+    first = choice(["James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David", "Barbara"])
     last = choice(["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"])
     intake = choice(intakes)
     app_num = f"APP-{uuid.uuid4().hex[:8].upper()}"
     Application.objects.get_or_create(
-        school=school, first_name=first, last_name=last,
+        school=school,
+        first_name=first,
+        last_name=last,
         email=f"{first.lower()}.{last.lower()}{i}@example.com",
         defaults=dict(
             application_number=app_num,
@@ -314,7 +347,8 @@ for i in range(5):
 apps = list(Application.objects.filter(school=school))
 for app in apps[:3]:
     ApplicationReview.objects.get_or_create(
-        application=app, reviewer=choice(teachers) if teachers else admin,
+        application=app,
+        reviewer=choice(teachers) if teachers else admin,
         defaults=dict(
             score=randint(50, 100),
             recommendation=choice(["Strongly Recommend", "Recommend", "Consider", "Not Recommended"]),
@@ -328,7 +362,7 @@ print(f"  Created {len(intakes)} intakes, {len(apps)} applications, {Application
 # 6. HOSTEL / ACCOMMODATION
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== HOSTEL & ACCOMMODATION ===")
-from services.hostel.models import Hostel, HostelRoom, HostelAllocation, HostelFee, HostelVisitor
+from services.hostel.models import Hostel, HostelAllocation, HostelFee, HostelRoom, HostelVisitor
 
 for name, gender, amenities in [
     ("Sunrise Hall", "male", "WiFi, Laundry, Common Room, Study Area"),
@@ -336,12 +370,15 @@ for name, gender, amenities in [
     ("Unity Hostel", "coed", "WiFi, Laundry, Gym, Common Room, Cafeteria"),
 ]:
     hostel, created = Hostel.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(
             gender=gender,
             warden=choice(teachers) if teachers else None,
-            amenities=amenities, status="active",
-            total_floors=3, notes=f"Demo hostel: {name}",
+            amenities=amenities,
+            status="active",
+            total_floors=3,
+            notes=f"Demo hostel: {name}",
         ),
     )
     if created:
@@ -364,14 +401,18 @@ rooms = list(HostelRoom.objects.filter(hostel__school=school))
 for i, student in enumerate(students[:6]):
     if i < len(rooms):
         HostelAllocation.objects.get_or_create(
-            room=rooms[i], student=student, check_in_date=date.today() - timedelta(days=randint(30, 180)),
+            room=rooms[i],
+            student=student,
+            check_in_date=date.today() - timedelta(days=randint(30, 180)),
             defaults=dict(status="active", fee_amount=Decimal(str(randint(5000, 15000) / 100)), allocated_by=admin),
         )
 
 for hostel in list(Hostel.objects.filter(school=school)):
     for cycle in ["monthly", "quarterly", "annual"]:
         HostelFee.objects.create(
-            school=school, hostel=hostel, name=f"{hostel.name} {cycle.title()} Fee",
+            school=school,
+            hostel=hostel,
+            name=f"{hostel.name} {cycle.title()} Fee",
             billing_cycle=cycle,
             amount=Decimal(str(randint(5000, 30000) / 100)),
             includes_meals=choice([True, False]),
@@ -379,23 +420,29 @@ for hostel in list(Hostel.objects.filter(school=school)):
             includes_wifi=True,
         )
 
-print(f"  Created {Hostel.objects.count()} hostels, {HostelRoom.objects.count()} rooms, "
-      f"{HostelAllocation.objects.count()} allocations")
+print(
+    f"  Created {Hostel.objects.count()} hostels, {HostelRoom.objects.count()} rooms, "
+    f"{HostelAllocation.objects.count()} allocations"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. TRANSPORTATION
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== TRANSPORTATION ===")
-from services.transportation.models import Vehicle, Driver, Route, RouteStop
+from services.transportation.models import Driver, Route, RouteStop, Vehicle
 
-for i, (name, plate, capacity) in enumerate([
-    ("Bus #1", "ABC-1234", 40),
-    ("Bus #2", "DEF-5678", 36),
-    ("Bus #3", "GHI-9012", 30),
-    ("Mini Bus #1", "JKL-3456", 16),
-], 1):
+for i, (name, plate, capacity) in enumerate(
+    [
+        ("Bus #1", "ABC-1234", 40),
+        ("Bus #2", "DEF-5678", 36),
+        ("Bus #3", "GHI-9012", 30),
+        ("Mini Bus #1", "JKL-3456", 16),
+    ],
+    1,
+):
     Vehicle.objects.get_or_create(
-        school=school, plate_number=plate,
+        school=school,
+        plate_number=plate,
         defaults=dict(
             vehicle_type=choice(["bus", "mini_bus", "van"]),
             model_name=f"Demo Model {2020 + i}",
@@ -409,7 +456,8 @@ vehicles = list(Vehicle.objects.filter(school=school))
 for i, vehicle in enumerate(vehicles):
     name = f"Driver {vehicle.plate_number}"
     Driver.objects.get_or_create(
-        school=school, full_name=name,
+        school=school,
+        full_name=name,
         defaults=dict(phone_number=f"+1-555-{randint(1000,9999)}", status="active"),
     )
 drivers = list(Driver.objects.filter(school=school))
@@ -418,9 +466,11 @@ for name in ["Morning Route A", "Evening Route A", "Morning Route B"]:
     vehicle = choice(vehicles)
     driver = choice(drivers) if drivers else None
     Route.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(
-            vehicle=vehicle, driver=driver,
+            vehicle=vehicle,
+            driver=driver,
             origin=choice(["Bus Depot", "City Center", "Railway Station"]),
             destination=school.name,
             estimated_duration_minutes=randint(15, 45),
@@ -432,26 +482,35 @@ for name in ["Morning Route A", "Evening Route A", "Morning Route B"]:
 
 routes = list(Route.objects.filter(school=school))
 for route in routes:
-    for stop_i, area in enumerate(["Central Park", "Market Square", "Hospital", "Library", "Sports Complex"][:randint(3, 5)]):
+    for stop_i, area in enumerate(
+        ["Central Park", "Market Square", "Hospital", "Library", "Sports Complex"][: randint(3, 5)]
+    ):
         RouteStop.objects.get_or_create(
-            route=route, stop_order=stop_i + 1,
+            route=route,
+            stop_order=stop_i + 1,
             defaults=dict(
                 name=area,
-                pickup_time=f"{7 + stop_i * 10 // 60:02d}:{(stop_i * 10) % 60:02d}:00" if "Morning" in route.name else None,
-                dropoff_time=None if "Morning" in route.name else f"{15 + stop_i * 10 // 60:02d}:{(stop_i * 10) % 60:02d}:00",
+                pickup_time=(
+                    f"{7 + stop_i * 10 // 60:02d}:{(stop_i * 10) % 60:02d}:00" if "Morning" in route.name else None
+                ),
+                dropoff_time=(
+                    None if "Morning" in route.name else f"{15 + stop_i * 10 // 60:02d}:{(stop_i * 10) % 60:02d}:00"
+                ),
                 stop_type="both",
                 is_active=True,
             ),
         )
 
-print(f"  Created {Vehicle.objects.count()} vehicles, {Driver.objects.count()} drivers, "
-      f"{Route.objects.count()} routes, {RouteStop.objects.count()} stops")
+print(
+    f"  Created {Vehicle.objects.count()} vehicles, {Driver.objects.count()} drivers, "
+    f"{Route.objects.count()} routes, {RouteStop.objects.count()} stops"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. INVENTORY / STORE MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n=== INVENTORY & STORE ===")
-from services.inventory.models import Category, Supplier, InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem
+from services.inventory.models import Category, InventoryItem, PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier
 
 for name, desc in [
     ("Stationery", "Pens, paper, notebooks"),
@@ -473,7 +532,8 @@ for name, email, phone in [
     ("TechEd Solutions", "info@teched.com", "+1-555-4000"),
 ]:
     Supplier.objects.get_or_create(
-        school=school, name=name,
+        school=school,
+        name=name,
         defaults=dict(contact_person="Sales Team", email=email, phone=phone, status="active"),
     )
 suppliers = list(Supplier.objects.filter(school=school))
@@ -499,9 +559,12 @@ for name, sku, cat_name, price, stock, min_stock, max_stock in ITEMS:
     cat = next(c for c in categories if c.name == cat_name)
     supplier = choice(suppliers)
     InventoryItem.objects.get_or_create(
-        school=school, sku=sku,
+        school=school,
+        sku=sku,
         defaults=dict(
-            name=name, category=cat, supplier=supplier,
+            name=name,
+            category=cat,
+            supplier=supplier,
             unit_price=Decimal(str(price)),
             current_stock=stock,
             minimum_stock=min_stock,
@@ -527,7 +590,8 @@ for item in items[:5]:
 for i in range(3):
     supplier = choice(suppliers)
     po = PurchaseOrder.objects.create(
-        school=school, supplier=supplier,
+        school=school,
+        supplier=supplier,
         order_number=f"PO-DEMO-{uuid.uuid4().hex[:6].upper()}",
         order_date=date.today() - timedelta(days=randint(1, 30)),
         status=choice(["draft", "submitted", "confirmed", "received"]),
@@ -541,7 +605,9 @@ for i in range(3):
         total = item.unit_price * qty
         po_total += total
         PurchaseOrderItem.objects.create(
-            purchase_order=po, item=item, quantity_ordered=qty,
+            purchase_order=po,
+            item=item,
+            quantity_ordered=qty,
             quantity_received=randint(0, qty) if po.status in ["received", "confirmed"] else 0,
             unit_price=item.unit_price,
             total_price=total,
@@ -550,9 +616,11 @@ for i in range(3):
     po.total_amount = po_total
     po.save(update_fields=["subtotal", "total_amount"])
 
-print(f"  Created {Category.objects.count()} categories, {Supplier.objects.count()} suppliers, "
-      f"{len(items)} items, {StockMovement.objects.count()} stock movements, "
-      f"{PurchaseOrder.objects.count()} purchase orders")
+print(
+    f"  Created {Category.objects.count()} categories, {Supplier.objects.count()} suppliers, "
+    f"{len(items)} items, {StockMovement.objects.count()} stock movements, "
+    f"{PurchaseOrder.objects.count()} purchase orders"
+)
 
 print("\n" + "=" * 60)
 print("Demo data seeded successfully for all 8 modules!")

@@ -13,7 +13,6 @@ Usage:
 """
 
 import logging
-from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +42,7 @@ class APIVersioningMiddleware:
             # Rewrite path to v1 for fallback routing
             rewritten = path.replace("/api/v2/", "/api/v1/", 1)
             request.path_info = rewritten
-            logger.debug(
-                "API versioning: rewrote %s → %s", path, rewritten
-            )
+            logger.debug("API versioning: rewrote %s → %s", path, rewritten)
 
         elif path.startswith("/api/v1/"):
             request.api_version = "1.0"

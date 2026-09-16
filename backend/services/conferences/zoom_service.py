@@ -10,7 +10,7 @@ Docs: https://developers.zoom.us/docs/internal-apps/s2s-oauth/
 
 import base64
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -149,7 +149,7 @@ def get_user(user_id: str = "me") -> dict[str, Any] | None:
 
 def create_meeting(
     topic: str,
-    start_time: str,          # ISO 8601, e.g. "2025-06-15T15:00:00Z"
+    start_time: str,  # ISO 8601, e.g. "2025-06-15T15:00:00Z"
     duration_minutes: int = 30,
     password: str | None = None,
     settings: dict | None = None,
@@ -165,7 +165,8 @@ def create_meeting(
         "start_time": start_time,
         "duration": duration_minutes,
         "timezone": "UTC",
-        "settings": settings or {
+        "settings": settings
+        or {
             "host_video": True,
             "participant_video": True,
             "join_before_host": False,

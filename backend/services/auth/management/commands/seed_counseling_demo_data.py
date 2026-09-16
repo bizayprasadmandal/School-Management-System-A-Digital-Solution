@@ -9,12 +9,12 @@ Usage:
     python manage.py seed_counseling_demo_data --flush
 """
 
+import random
+from datetime import date, time, timedelta
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-from datetime import date, timedelta, time
-import random
-
 
 REASONS = [
     "Student has been struggling with math concepts and needs additional support.",
@@ -79,43 +79,40 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--appointments", default=15, type=int,
+            "--appointments",
+            default=15,
+            type=int,
             help="Number of counseling appointments to create",
         )
         parser.add_argument(
-            "--referrals", default=10, type=int,
+            "--referrals",
+            default=10,
+            type=int,
             help="Number of student referrals to create",
         )
         parser.add_argument(
-            "--flush", action="store_true",
+            "--flush",
+            action="store_true",
             help="Delete existing counseling demo data first",
         )
 
     def handle(self, *args, **options):
         from services.auth.models import User, UserRole
-        from services.students.models import Student
         from services.counseling.models import CounselingAppointment, StudentReferral
+        from services.students.models import Student
 
         # ── Find or create a counselor ────────────────────────────────────
         school_admin = User.objects.filter(role=UserRole.SCHOOL_ADMIN).first()
         if not school_admin:
-            self.stderr.write(self.style.ERROR(
-                "No school admin found! Run seed_demo_data first."
-            ))
+            self.stderr.write(self.style.ERROR("No school admin found! Run seed_demo_data first."))
             return
         school = school_admin.school
 
-        teachers = list(User.objects.filter(
-            school=school, role=UserRole.TEACHER, is_active=True
-        ))
-        students = list(Student.objects.filter(
-            school=school, is_active=True
-        ))
+        teachers = list(User.objects.filter(school=school, role=UserRole.TEACHER, is_active=True))
+        students = list(Student.objects.filter(school=school, is_active=True))
 
         if not students:
-            self.stderr.write(self.style.ERROR(
-                "No students found! Run seed_demo_data first."
-            ))
+            self.stderr.write(self.style.ERROR("No students found! Run seed_demo_data first."))
             return
 
         # Create a counselor user if none exists
@@ -136,16 +133,9 @@ class Command(BaseCommand):
         # ── Flush existing data ───────────────────────────────────────────
         if options["flush"]:
             with transaction.atomic():
-                deleted_appts = CounselingAppointment.objects.filter(
-                    school=school
-                ).delete()[0]
-                deleted_refs = StudentReferral.objects.filter(
-                    school=school
-                ).delete()[0]
-            self.stdout.write(
-                f"  Flushed {deleted_appts} appointments and "
-                f"{deleted_refs} referrals"
-            )
+                deleted_appts = CounselingAppointment.objects.filter(school=school).delete()[0]
+                deleted_refs = StudentReferral.objects.filter(school=school).delete()[0]
+            self.stdout.write(f"  Flushed {deleted_appts} appointments and " f"{deleted_refs} referrals")
 
         num_appointments = options["appointments"]
         num_referrals = options["referrals"]
@@ -163,16 +153,30 @@ class Command(BaseCommand):
 
         # ── Appointment time slots ────────────────────────────────────────
         time_slots = [
-            time(8, 0), time(9, 0), time(10, 0), time(11, 0),
-            time(13, 0), time(14, 0), time(15, 0), time(16, 0),
+            time(8, 0),
+            time(9, 0),
+            time(10, 0),
+            time(11, 0),
+            time(13, 0),
+            time(14, 0),
+            time(15, 0),
+            time(16, 0),
         ]
         appointment_types = [
-            "academic", "career", "personal", "behavioral",
-            "college", "group", "other",
+            "academic",
+            "career",
+            "personal",
+            "behavioral",
+            "college",
+            "group",
+            "other",
         ]
         locations = [
-            "Counseling Office - Room 102", "Virtual Meeting Room",
-            "Library Conference Room", "", "Wellness Center",
+            "Counseling Office - Room 102",
+            "Virtual Meeting Room",
+            "Library Conference Room",
+            "",
+            "Wellness Center",
         ]
 
         with transaction.atomic():
@@ -185,16 +189,12 @@ class Command(BaseCommand):
                     days_ago = random.randint(1, 14)
                     sched_date = today - timedelta(days=days_ago)
                     sched_time = random.choice(time_slots)
-                    status_choices = ["completed", "completed", "completed",
-                                      "cancelled", "no_show"]
+                    status_choices = ["completed", "completed", "completed", "cancelled", "no_show"]
                     status = random.choice(status_choices)
                     duration = random.choice([15, 30, 30, 45, 60])
                     notes = random.choice(NOTES)
                     follow_up = random.random() < 0.15
-                    follow_up_date = (
-                        today + timedelta(days=random.randint(1, 7))
-                        if follow_up else None
-                    )
+                    follow_up_date = today + timedelta(days=random.randint(1, 7)) if follow_up else None
                 else:
                     # Future appointments (scheduled)
                     days_ahead = random.randint(0, 14)
@@ -221,9 +221,7 @@ class Command(BaseCommand):
                     follow_up_needed=follow_up,
                     follow_up_date=follow_up_date,
                     created_by=(
-                        counselor if status == "scheduled"
-                        else random.choice(teachers) if teachers
-                        else counselor
+                        counselor if status == "scheduled" else random.choice(teachers) if teachers else counselor
                     ),
                 )
                 stats["appointments"] += 1
@@ -236,13 +234,25 @@ class Command(BaseCommand):
 
             # ── Seed Referrals ────────────────────────────────────────────
             referral_categories = [
-                "academic", "attendance", "behavior", "emotional",
-                "family", "social", "safety", "other",
+                "academic",
+                "attendance",
+                "behavior",
+                "emotional",
+                "family",
+                "social",
+                "safety",
+                "other",
             ]
             priorities_list = ["low", "medium", "medium", "high", "urgent"]
             status_list = [
-                "pending", "pending", "under_review", "contacted",
-                "actioned", "actioned", "closed", "declined",
+                "pending",
+                "pending",
+                "under_review",
+                "contacted",
+                "actioned",
+                "actioned",
+                "closed",
+                "declined",
             ]
 
             for i in range(num_referrals):
@@ -264,9 +274,7 @@ class Command(BaseCommand):
                 intervention_plan = ""
 
                 if is_actioned or is_closed:
-                    action_taken_at = timezone.now() - timedelta(
-                        days=random.randint(0, days_ago)
-                    )
+                    action_taken_at = timezone.now() - timedelta(days=random.randint(0, days_ago))
                     intervention_plan = random.choice(INTERVENTION_PLANS)
                     outcome = random.choice(OUTCOMES)
 
@@ -284,9 +292,7 @@ class Command(BaseCommand):
                     outcome=outcome,
                     action_taken_at=action_taken_at,
                     follow_up_date=(
-                        today + timedelta(days=random.randint(1, 14))
-                        if is_actioned and random.random() < 0.3
-                        else None
+                        today + timedelta(days=random.randint(1, 14)) if is_actioned and random.random() < 0.3 else None
                     ),
                     is_confidential=is_confidential,
                 )
@@ -303,11 +309,12 @@ class Command(BaseCommand):
         self.stdout.write(f"      ├ Completed:         {stats['completed']}")
         self.stdout.write(f"      ├ Cancelled:         {stats['cancelled']}")
         self.stdout.write(f"      ├ No-show:           {stats['no_show']}")
-        self.stdout.write(f"      └ Scheduled:         "
-                          f"{stats['appointments'] - stats['completed'] - stats['cancelled'] - stats['no_show']}")
+        self.stdout.write(
+            f"      └ Scheduled:         "
+            f"{stats['appointments'] - stats['completed'] - stats['cancelled'] - stats['no_show']}"
+        )
         self.stdout.write(f"    Referrals created:    {stats['referrals']}")
         self.stdout.write(f"      ├ Urgent:            {stats['urgent_refs']}")
         self.stdout.write(f"      └ Closed:            {stats['closed_refs']}")
-        self.stdout.write(f"\n  Counselor: {counselor.full_name} "
-                          f"<{counselor.email}>")
+        self.stdout.write(f"\n  Counselor: {counselor.full_name} " f"<{counselor.email}>")
         self.stdout.write(f"  Students: {len(students)}, Teachers: {len(teachers) if teachers else 0}")

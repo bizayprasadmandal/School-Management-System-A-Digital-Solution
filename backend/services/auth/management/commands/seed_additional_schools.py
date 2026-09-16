@@ -9,10 +9,11 @@ Usage:
   python manage.py seed_additional_schools --create-full-demo  # Also seed students/teachers
 """
 
-from django.core.management.base import BaseCommand
-from django.db import transaction
 from datetime import date, timedelta
 from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
 
 SCHOOLS = [
     {
@@ -48,10 +49,10 @@ class Command(BaseCommand):
 
     def _seed_full_demo(self, school, ay):
         """Create students, teachers, classrooms, and fees for the school."""
-        from services.auth.models import User, UserRole
-        from services.students.models import Grade, Classroom, Student, Guardian, StudentGuardian, Enrollment
         from services.academics.models import Subject, TeacherProfile
+        from services.auth.models import User, UserRole
         from services.fees.models import FeeCategory, FeeStructure
+        from services.students.models import Classroom, Enrollment, Grade, Guardian, Student, StudentGuardian
 
         student_count = 0
         pwd_config = {
@@ -62,8 +63,12 @@ class Command(BaseCommand):
 
         # ── Grades ─────────────────────────────────────────────────────────
         grade_data = [
-            (1, "Grade 1"), (2, "Grade 2"), (3, "Grade 3"),
-            (4, "Grade 4"), (5, "Grade 5"), (6, "Grade 6"),
+            (1, "Grade 1"),
+            (2, "Grade 2"),
+            (3, "Grade 3"),
+            (4, "Grade 4"),
+            (5, "Grade 5"),
+            (6, "Grade 6"),
         ]
         grades = {}
         for level, name in grade_data:
@@ -75,15 +80,20 @@ class Command(BaseCommand):
         for grade_level, grade_obj in grades.items():
             for sname in core_subjects:
                 Subject.objects.get_or_create(
-                    school=school, grade=grade_obj,
+                    school=school,
+                    grade=grade_obj,
                     code=f"{sname[:3].upper()}{grade_level:02d}",
                     defaults={"name": sname, "is_core": True, "max_marks": 100, "pass_marks": 40},
                 )
 
         # ── Teachers ────────────────────────────────────────────────────────
         teacher_names = [
-            ("Alice", "Morgan"), ("Benjamin", "Clark"), ("Catherine", "Lee"),
-            ("Daniel", "Wright"), ("Eleanor", "Hall"), ("Frank", "Adams"),
+            ("Alice", "Morgan"),
+            ("Benjamin", "Clark"),
+            ("Catherine", "Lee"),
+            ("Daniel", "Wright"),
+            ("Eleanor", "Hall"),
+            ("Frank", "Adams"),
         ]
         teachers = []
         school_prefix = school.code.upper()  # e.g. BFA, GVS
@@ -92,8 +102,11 @@ class Command(BaseCommand):
             u, created_u = User.objects.get_or_create(
                 email=email,
                 defaults={
-                    "first_name": fname, "last_name": lname,
-                    "role": UserRole.TEACHER, "school": school, "is_active": True,
+                    "first_name": fname,
+                    "last_name": lname,
+                    "role": UserRole.TEACHER,
+                    "school": school,
+                    "is_active": True,
                 },
             )
             if created_u:
@@ -103,7 +116,8 @@ class Command(BaseCommand):
             # employee_id is globally unique — prefix with school code to avoid clashes
             emp_id = f"{school_prefix}-T{idx+1:03d}"
             TeacherProfile.objects.get_or_create(
-                user=u, school=school,
+                user=u,
+                school=school,
                 defaults={
                     "employee_id": emp_id,
                     "gender": "F" if idx % 2 == 0 else "M",
@@ -124,15 +138,17 @@ class Command(BaseCommand):
             for section in ["A", "B"]:
                 teacher = teachers[(grade_level * 2 + ord(section) - ord("A")) % len(teachers)]
                 cls, _ = Classroom.objects.get_or_create(
-                    school=school, grade=grades[grade_level],
-                    name=f"{grade_level}{section}", academic_year=ay,
+                    school=school,
+                    grade=grades[grade_level],
+                    name=f"{grade_level}{section}",
+                    academic_year=ay,
                     defaults={"capacity": 30, "class_teacher": teacher, "room_number": f"R{grade_level}{section}"},
                 )
                 classrooms[f"{grade_level}{section}"] = cls
 
         # ── Students & Guardians ────────────────────────────────────────────
-        first_names = ["Aiden","Emma","Liam","Olivia","Noah","Ava","William","Sophia","James","Isabella"]
-        last_names = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis"]
+        first_names = ["Aiden", "Emma", "Liam", "Olivia", "Noah", "Ava", "William", "Sophia", "James", "Isabella"]
+        last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"]
         cls_keys = list(classrooms.keys())
 
         for i in range(60):  # 60 students per school
@@ -142,8 +158,11 @@ class Command(BaseCommand):
             su, created_u = User.objects.get_or_create(
                 email=email,
                 defaults={
-                    "first_name": fname, "last_name": lname,
-                    "role": UserRole.STUDENT, "school": school, "is_active": True,
+                    "first_name": fname,
+                    "last_name": lname,
+                    "role": UserRole.STUDENT,
+                    "school": school,
+                    "is_active": True,
                 },
             )
             if created_u:
@@ -153,7 +172,8 @@ class Command(BaseCommand):
 
             dob = date(2010 - (i % 6), (i % 12) + 1, (i % 28) + 1)
             s, s_created = Student.objects.get_or_create(
-                user=su, school=school,
+                user=su,
+                school=school,
                 defaults={
                     "admission_number": f"ADM-{school.code}-{i+1:04d}",
                     "date_of_birth": dob,
@@ -166,15 +186,19 @@ class Command(BaseCommand):
             if s_created:
                 cls_key = cls_keys[i % len(cls_keys)]
                 Enrollment.objects.get_or_create(
-                    student=s, academic_year=ay,
+                    student=s,
+                    academic_year=ay,
                     defaults={"classroom": classrooms[cls_key], "status": "active", "is_active": True},
                 )
                 # Guardian
                 pu, _ = User.objects.get_or_create(
                     email=f"parent{i+1:04d}@{school.subdomain}.edu",
                     defaults={
-                        "first_name": f"Parent{i+1}", "last_name": lname,
-                        "role": UserRole.PARENT, "school": school, "is_active": True,
+                        "first_name": f"Parent{i+1}",
+                        "last_name": lname,
+                        "role": UserRole.PARENT,
+                        "school": school,
+                        "is_active": True,
                     },
                 )
                 if _:
@@ -183,13 +207,22 @@ class Command(BaseCommand):
                     pu.save()
                 g, _ = Guardian.objects.get_or_create(
                     email=pu.email,
-                    defaults={"user": pu, "first_name": f"Parent{i+1}", "last_name": lname,
-                              "phone": f"+1555{i:07d}", "is_primary": True},
+                    defaults={
+                        "user": pu,
+                        "first_name": f"Parent{i+1}",
+                        "last_name": lname,
+                        "phone": f"+1555{i:07d}",
+                        "is_primary": True,
+                    },
                 )
                 StudentGuardian.objects.get_or_create(
-                    student=s, guardian=g,
-                    defaults={"relationship": "father" if i % 2 == 0 else "mother",
-                              "is_primary_contact": True, "portal_access": True},
+                    student=s,
+                    guardian=g,
+                    defaults={
+                        "relationship": "father" if i % 2 == 0 else "mother",
+                        "is_primary_contact": True,
+                        "portal_access": True,
+                    },
                 )
                 student_count += 1
 
@@ -203,12 +236,16 @@ class Command(BaseCommand):
         }
         for cat_name, (recurrence, amount) in fee_cats.items():
             cat, _ = FeeCategory.objects.get_or_create(
-                school=school, name=cat_name,
+                school=school,
+                name=cat_name,
                 defaults={"recurrence": recurrence, "is_mandatory": cat_name in ["Tuition", "Activity"]},
             )
             for grade_obj in grades.values():
                 FeeStructure.objects.get_or_create(
-                    school=school, academic_year=ay, grade=grade_obj, fee_category=cat,
+                    school=school,
+                    academic_year=ay,
+                    grade=grade_obj,
+                    fee_category=cat,
                     defaults={"amount": amount, "due_day": 10, "late_fee_per_day": Decimal("5.00")},
                 )
 
@@ -243,7 +280,8 @@ class Command(BaseCommand):
 
                 # ── Academic Year ────────────────────────────────────────────────
                 ay, ay_created = AcademicYear.objects.get_or_create(
-                    school=school, name="2024-2025",
+                    school=school,
+                    name="2024-2025",
                     defaults={
                         "start_date": date(2024, 9, 1),
                         "end_date": date(2025, 6, 30),
@@ -277,9 +315,12 @@ class Command(BaseCommand):
                 accountant_user, acc_created = User.objects.get_or_create(
                     email=f"accountant@{subdomain}.edu",
                     defaults={
-                        "first_name": "School", "last_name": "Accountant",
-                        "role": UserRole.ACCOUNTANT, "school": school,
-                        "is_active": True, "email_verified": True,
+                        "first_name": "School",
+                        "last_name": "Accountant",
+                        "role": UserRole.ACCOUNTANT,
+                        "school": school,
+                        "is_active": True,
+                        "email_verified": True,
                     },
                 )
                 if acc_created:
@@ -290,9 +331,12 @@ class Command(BaseCommand):
                 librarian_user, lib_created = User.objects.get_or_create(
                     email=f"librarian@{subdomain}.edu",
                     defaults={
-                        "first_name": "School", "last_name": "Librarian",
-                        "role": UserRole.LIBRARIAN, "school": school,
-                        "is_active": True, "email_verified": True,
+                        "first_name": "School",
+                        "last_name": "Librarian",
+                        "role": UserRole.LIBRARIAN,
+                        "school": school,
+                        "is_active": True,
+                        "email_verified": True,
                     },
                 )
                 if lib_created:
@@ -306,6 +350,7 @@ class Command(BaseCommand):
 
                 # ── Payment Gateway Config ─────────────────────────────────────────
                 from services.fees.models import PaymentGatewayConfig
+
                 PaymentGatewayConfig.objects.get_or_create(
                     school=school,
                     defaults={

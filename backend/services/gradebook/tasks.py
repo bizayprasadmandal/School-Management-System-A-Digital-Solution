@@ -5,6 +5,7 @@ Gradebook Celery tasks — Report card generation, grade computation
 import io
 import logging
 from decimal import Decimal
+
 from celery import shared_task
 from django.utils import timezone
 
@@ -22,14 +23,13 @@ def generate_report_cards_task(self, exam_id: str):
     5. Update ReportCard records
     """
     try:
-        from .models import Exam, Grade, ReportCard, GradingScale
         from services.students.models import Enrollment
+
+        from .models import Exam, Grade, GradingScale, ReportCard
 
         exam = Exam.objects.select_related("school", "academic_year").get(id=exam_id)
         school = exam.school
-        grading_scale = GradingScale.objects.filter(
-            school=school, is_default=True
-        ).prefetch_related("entries").first()
+        grading_scale = GradingScale.objects.filter(school=school, is_default=True).prefetch_related("entries").first()
 
         schedules = exam.schedules.select_related("subject", "classroom")
         classroom_ids = schedules.values_list("classroom_id", flat=True).distinct()
@@ -52,21 +52,22 @@ def generate_report_cards_task(self, exam_id: str):
                 )
                 total_marks = sum(g.exam_schedule.max_marks for g in student_grades)
                 obtained_marks = sum(
-                    g.marks_obtained for g in student_grades
-                    if g.marks_obtained and not g.is_absent
+                    g.marks_obtained for g in student_grades if g.marks_obtained and not g.is_absent
                 ) or Decimal("0")
 
                 pct = (obtained_marks / total_marks * 100) if total_marks else Decimal("0")
                 grade_letter, gpa = _compute_grade(pct, grading_scale)
 
-                student_results.append({
-                    "student": student,
-                    "total_marks": total_marks,
-                    "obtained_marks": obtained_marks,
-                    "percentage": pct,
-                    "grade_letter": grade_letter,
-                    "gpa": gpa,
-                })
+                student_results.append(
+                    {
+                        "student": student,
+                        "total_marks": total_marks,
+                        "obtained_marks": obtained_marks,
+                        "percentage": pct,
+                        "grade_letter": grade_letter,
+                        "gpa": gpa,
+                    }
+                )
 
             # Sort by percentage descending for ranking
             student_results.sort(key=lambda x: x["percentage"], reverse=True)
@@ -91,6 +92,7 @@ def generate_report_cards_task(self, exam_id: str):
                 pdf_buffer = _generate_pdf(report_card, result, exam)
                 if pdf_buffer:
                     from django.core.files.base import ContentFile
+
                     report_card.pdf_file.save(
                         f"report_card_{report_card.student.admission_number}_{exam_id[:8]}.pdf",
                         ContentFile(pdf_buffer.read()),
@@ -111,12 +113,11 @@ def compute_cumulative_gpa(student_id: str, school):
     Compute cumulative GPA across all exams in the current academic year.
     Uses exam_type weightage to calculate a weighted average.
     """
-    from .models import Grade, Exam, ExamType
     from services.students.models import AcademicYear
 
-    current_year = AcademicYear.objects.filter(
-        school=school, is_current=True
-    ).first()
+    from .models import Grade
+
+    current_year = AcademicYear.objects.filter(school=school, is_current=True).first()
     if not current_year:
         return None
 
@@ -164,6 +165,7 @@ def compute_cumulative_gpa(student_id: str, school):
     cumulative_pct = weighted_sum / total_weight
     # Convert percentage to GPA using grading scale or fallback
     from .tasks import _compute_grade
+
     _, gpa = _compute_grade(cumulative_pct, None)
     return {
         "cumulative_percentage": float(cumulative_pct),
@@ -177,12 +179,18 @@ def _compute_grade(pct: Decimal, scale):
     """Return (letter_grade, gpa_points) for a given percentage."""
     if scale is None:
         # Default fallback scale
-        if pct >= 90: return "A+", Decimal("4.0")
-        if pct >= 80: return "A",  Decimal("3.7")
-        if pct >= 70: return "B+", Decimal("3.3")
-        if pct >= 60: return "B",  Decimal("3.0")
-        if pct >= 50: return "C",  Decimal("2.0")
-        if pct >= 40: return "D",  Decimal("1.0")
+        if pct >= 90:
+            return "A+", Decimal("4.0")
+        if pct >= 80:
+            return "A", Decimal("3.7")
+        if pct >= 70:
+            return "B+", Decimal("3.3")
+        if pct >= 60:
+            return "B", Decimal("3.0")
+        if pct >= 50:
+            return "C", Decimal("2.0")
+        if pct >= 40:
+            return "D", Decimal("1.0")
         return "F", Decimal("0.0")
 
     for entry in scale.entries.all():
@@ -194,35 +202,44 @@ def _compute_grade(pct: Decimal, scale):
 def _generate_pdf(report_card, result, exam) -> io.BytesIO:
     """Generate a styled A4 PDF report card using ReportLab."""
     try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
         from reportlab.lib import colors
-        from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table,
-            TableStyle, HRFlowable,
-        )
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import cm
+        from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
         BRAND = colors.HexColor("#4F46E5")
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            rightMargin=2 * cm, leftMargin=2 * cm,
-            topMargin=2 * cm, bottomMargin=2 * cm,
+            buffer,
+            pagesize=A4,
+            rightMargin=2 * cm,
+            leftMargin=2 * cm,
+            topMargin=2 * cm,
+            bottomMargin=2 * cm,
         )
 
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
-            "Title", parent=styles["Title"],
-            textColor=BRAND, fontSize=20, spaceAfter=4,
+            "Title",
+            parent=styles["Title"],
+            textColor=BRAND,
+            fontSize=20,
+            spaceAfter=4,
         )
         sub_style = ParagraphStyle(
-            "Sub", parent=styles["Normal"],
-            fontSize=10, textColor=colors.grey,
+            "Sub",
+            parent=styles["Normal"],
+            fontSize=10,
+            textColor=colors.grey,
         )
         heading_style = ParagraphStyle(
-            "Heading", parent=styles["Heading2"],
-            textColor=BRAND, fontSize=12, spaceBefore=12, spaceAfter=6,
+            "Heading",
+            parent=styles["Heading2"],
+            textColor=BRAND,
+            fontSize=12,
+            spaceBefore=12,
+            spaceAfter=6,
         )
 
         elems = []
@@ -235,30 +252,38 @@ def _generate_pdf(report_card, result, exam) -> io.BytesIO:
         elems.append(HRFlowable(width="100%", thickness=2, color=BRAND, spaceAfter=12))
 
         # Report card title
-        elems.append(Paragraph(
-            f"<b>REPORT CARD — {exam.name.upper()}</b>", heading_style
-        ))
+        elems.append(Paragraph(f"<b>REPORT CARD — {exam.name.upper()}</b>", heading_style))
 
         # Student info table
         info_data = [
             ["Student Name", student.user.full_name, "Admission No.", student.admission_number],
-            ["Class",
-             str(student.enrollments.filter(is_active=True).first().classroom if student.enrollments.filter(is_active=True).exists() else "—"),
-             "Academic Year", report_card.academic_year.name],
-            ["Date of Birth", student.date_of_birth.strftime("%B %d, %Y"), "Gender",
-             student.get_gender_display()],
+            [
+                "Class",
+                str(
+                    student.enrollments.filter(is_active=True).first().classroom
+                    if student.enrollments.filter(is_active=True).exists()
+                    else "—"
+                ),
+                "Academic Year",
+                report_card.academic_year.name,
+            ],
+            ["Date of Birth", student.date_of_birth.strftime("%B %d, %Y"), "Gender", student.get_gender_display()],
         ]
         info_table = Table(info_data, colWidths=[4 * cm, 7 * cm, 4 * cm, 4 * cm])
-        info_table.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (-1, -1), 6),
-        ]))
+        info_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                    ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("PADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         elems.append(info_table)
         elems.append(Spacer(1, 0.5 * cm))
 
@@ -275,27 +300,33 @@ def _generate_pdf(report_card, result, exam) -> io.BytesIO:
             ],
         ]
         summary_table = Table(summary_data, colWidths=[3.8 * cm] * 5)
-        summary_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), BRAND),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#eef2ff")]),
-            ("PADDING", (0, 0), (-1, -1), 8),
-        ]))
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), BRAND),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#eef2ff")]),
+                    ("PADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
         elems.append(summary_table)
         elems.append(Spacer(1, 0.5 * cm))
 
         # Footer
         elems.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
         elems.append(Spacer(1, 0.3 * cm))
-        elems.append(Paragraph(
-            f"Generated by EduSphere SMS · {timezone.now().strftime('%B %d, %Y')}",
-            ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=colors.grey),
-        ))
+        elems.append(
+            Paragraph(
+                f"Generated by EduSphere SMS · {timezone.now().strftime('%B %d, %Y')}",
+                ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=colors.grey),
+            )
+        )
 
         doc.build(elems)
         buffer.seek(0)

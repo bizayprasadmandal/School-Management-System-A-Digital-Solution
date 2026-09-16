@@ -28,6 +28,7 @@ def get_firebase_app():
     if _firebase_attempted:
         if _firebase_available:
             import firebase_admin
+
             return firebase_admin.get_app()
         return None
 
@@ -35,9 +36,7 @@ def get_firebase_app():
 
     creds_raw = settings.FIREBASE_CREDENTIALS
     if not creds_raw:
-        logger.warning(
-            "FIREBASE_CREDENTIALS not configured — push notifications disabled"
-        )
+        logger.warning("FIREBASE_CREDENTIALS not configured — push notifications disabled")
         return None
 
     try:

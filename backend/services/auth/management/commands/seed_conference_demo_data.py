@@ -12,13 +12,14 @@ Usage: python manage.py seed_conference_demo_data
        python manage.py seed_conference_demo_data --days 7 --slots-per-teacher 3
 """
 
+import random
+from datetime import date, time, timedelta
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from datetime import date, timedelta, time
-import random
-
 
 # ─── Mock Zoom data generator ────────────────────────────────────────────────
+
 
 def _mock_zoom_details(index: int) -> dict:
     """Generate mock Zoom meeting data simulating real Zoom API responses."""
@@ -37,38 +38,26 @@ class Command(BaseCommand):
     help = "Seed conference slots with bookings and mock Zoom meeting data."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--days", default=5, type=int,
-            help="Number of future days to create slots for"
-        )
-        parser.add_argument(
-            "--slots-per-teacher", default=3, type=int,
-            help="Number of time slots per teacher per day"
-        )
+        parser.add_argument("--days", default=5, type=int, help="Number of future days to create slots for")
+        parser.add_argument("--slots-per-teacher", default=3, type=int, help="Number of time slots per teacher per day")
 
     def handle(self, *args, **options):
         from services.auth.models import User, UserRole
-        from services.students.models import Student
         from services.conferences.models import ConferenceSlot
+        from services.students.models import Student
 
         school = User.objects.filter(role=UserRole.SCHOOL_ADMIN).first()
         if not school:
-            self.stderr.write(self.style.ERROR(
-                "No school admin found! Run seed_demo_data first."
-            ))
+            self.stderr.write(self.style.ERROR("No school admin found! Run seed_demo_data first."))
             return
         school = school.school
 
-        teachers = list(User.objects.filter(
-            school=school, role=UserRole.TEACHER, is_active=True
-        ))
+        teachers = list(User.objects.filter(school=school, role=UserRole.TEACHER, is_active=True))
         if not teachers:
             self.stderr.write(self.style.ERROR("No teachers found!"))
             return
 
-        students = list(Student.objects.filter(
-            school=school, is_active=True
-        ))
+        students = list(Student.objects.filter(school=school, is_active=True))
         if not students:
             self.stderr.write(self.style.ERROR("No students found!"))
             return
@@ -97,10 +86,7 @@ class Command(BaseCommand):
 
                 for teacher in teachers:
                     # Pick random time slots for this teacher
-                    chosen_slots = random.sample(
-                        time_slots,
-                        min(slots_per_teacher, len(time_slots))
-                    )
+                    chosen_slots = random.sample(time_slots, min(slots_per_teacher, len(time_slots)))
                     for start_time, end_time in chosen_slots:
                         # 40% chance this slot is booked
                         is_booked = random.random() < 0.40
@@ -125,14 +111,16 @@ class Command(BaseCommand):
                                 "student": student,
                                 "is_booked": is_booked,
                                 "booked_by": booked_by,
-                                "notes": random.choice([
-                                    "",
-                                    "Discuss academic progress",
-                                    "Review recent test scores",
-                                    "Behavioral discussion",
-                                    "Career guidance talk",
-                                    "Homework improvement plan",
-                                ]),
+                                "notes": random.choice(
+                                    [
+                                        "",
+                                        "Discuss academic progress",
+                                        "Review recent test scores",
+                                        "Behavioral discussion",
+                                        "Career guidance talk",
+                                        "Homework improvement plan",
+                                    ]
+                                ),
                                 **zoom_data,
                             },
                         )

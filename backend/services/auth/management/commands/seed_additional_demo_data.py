@@ -9,14 +9,15 @@ Usage: python manage.py seed_additional_demo_data
        python manage.py seed_additional_demo_data --days 45
 """
 
+import random
+from datetime import date, time, timedelta
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from datetime import date, timedelta, time
-from decimal import Decimal
-import random
-
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def weighted_choice(choices: list[tuple[str, float]]) -> str:
     """Pick from choices with weighted probabilities (must sum to 1.0)."""
@@ -31,36 +32,37 @@ def weighted_choice(choices: list[tuple[str, float]]) -> str:
 
 # ─── Command ─────────────────────────────────────────────────────────────────
 
+
 class Command(BaseCommand):
     help = "Seed additional demo data: attendance, grades, invoices, payments, timetable, messages, events."
 
     def add_arguments(self, parser):
-        parser.add_argument("--days", default=30, type=int,
-                            help="Number of school days of attendance to generate")
-        parser.add_argument("--messages", default=500, type=int,
-                            help="Number of direct messages to generate")
+        parser.add_argument("--days", default=30, type=int, help="Number of school days of attendance to generate")
+        parser.add_argument("--messages", default=500, type=int, help="Number of direct messages to generate")
 
     def handle(self, *args, **options):
         # Lazy imports so the command can be copied/versioned cleanly
-        from services.auth.models import User, UserRole
-        from services.students.models import AcademicYear, Student, Classroom, Enrollment
-        from services.academics.models import Subject, TeacherAssignment
+        from services.academics.models import LessonPlan, Subject, TeacherAssignment
         from services.attendance.models import AttendanceRecord
-        from services.gradebook.models import (
-            GradingScale, GradingScaleEntry, ExamType,
-            Exam, ExamSchedule, Grade, ReportCard,
-        )
-        from services.fees.models import FeeCategory, FeeStructure, FeeInvoice, Payment
-        from services.timetable.models import Period, TimetableSlot, SchoolEvent
-        from services.academics.models import LessonPlan
+        from services.auth.models import User, UserRole
         from services.communication.models import Announcement, DirectMessage
+        from services.fees.models import FeeCategory, FeeInvoice, FeeStructure, Payment
+        from services.gradebook.models import (
+            Exam,
+            ExamSchedule,
+            ExamType,
+            Grade,
+            GradingScale,
+            GradingScaleEntry,
+            ReportCard,
+        )
+        from services.students.models import AcademicYear, Classroom, Enrollment, Student
+        from services.timetable.models import Period, SchoolEvent, TimetableSlot
 
         # ── Resolve objects ────────────────────────────────────────────────
         school = User.objects.filter(role=UserRole.SCHOOL_ADMIN).first()
         if not school:
-            self.stderr.write(self.style.ERROR(
-                "No school admin found! Run seed_demo_data first."
-            ))
+            self.stderr.write(self.style.ERROR("No school admin found! Run seed_demo_data first."))
             return
         school = school.school
 
@@ -85,11 +87,21 @@ class Command(BaseCommand):
 
         # Track created counts for summary
         stats = {
-            "assignments": 0, "exam_types": 0, "scale_entries": 0,
-            "exams": 0, "schedules": 0, "grades": 0,
-            "attendance": 0, "invoices": 0, "payments": 0, "report_cards": 0,
-            "timetable_slots": 0, "lesson_plans": 0, "messages": 0,
-            "events": 0, "announcements": 0,
+            "assignments": 0,
+            "exam_types": 0,
+            "scale_entries": 0,
+            "exams": 0,
+            "schedules": 0,
+            "grades": 0,
+            "attendance": 0,
+            "invoices": 0,
+            "payments": 0,
+            "report_cards": 0,
+            "timetable_slots": 0,
+            "lesson_plans": 0,
+            "messages": 0,
+            "events": 0,
+            "announcements": 0,
         }
 
         # ── Seed within a single transaction for speed ──────────────────────
@@ -102,8 +114,10 @@ class Command(BaseCommand):
                 for idx, subject in enumerate(subjects):
                     teacher = teachers[idx % len(teachers)]
                     _, created = TeacherAssignment.objects.get_or_create(
-                        teacher=teacher, subject=subject,
-                        classroom=cls, academic_year=ay,
+                        teacher=teacher,
+                        subject=subject,
+                        classroom=cls,
+                        academic_year=ay,
                         defaults={"is_primary": True},
                     )
                     if created:
@@ -112,22 +126,24 @@ class Command(BaseCommand):
             # ── 2. Grading Scale ────────────────────────────────────────────
             self.stdout.write("  Seeding grading scale…")
             scale, _ = GradingScale.objects.get_or_create(
-                school=school, name="Standard (A-F)",
+                school=school,
+                name="Standard (A-F)",
                 defaults={"is_default": True},
             )
             grade_entries = [
                 ("A+", 90, 100, 4.0, "Excellent"),
-                ("A",  80, 89.99, 3.7, "Very Good"),
+                ("A", 80, 89.99, 3.7, "Very Good"),
                 ("B+", 75, 79.99, 3.3, "Good"),
-                ("B",  70, 74.99, 3.0, "Above Average"),
-                ("C",  60, 69.99, 2.5, "Average"),
-                ("D",  50, 59.99, 2.0, "Below Average"),
-                ("E",  40, 49.99, 1.5, "Poor"),
-                ("F",   0, 39.99, 0.0, "Fail"),
+                ("B", 70, 74.99, 3.0, "Above Average"),
+                ("C", 60, 69.99, 2.5, "Average"),
+                ("D", 50, 59.99, 2.0, "Below Average"),
+                ("E", 40, 49.99, 1.5, "Poor"),
+                ("F", 0, 39.99, 0.0, "Fail"),
             ]
             for letter, min_pct, max_pct, gpa, desc in grade_entries:
                 _, created = GradingScaleEntry.objects.get_or_create(
-                    scale=scale, grade_letter=letter,
+                    scale=scale,
+                    grade_letter=letter,
                     defaults={
                         "min_percentage": Decimal(str(min_pct)),
                         "max_percentage": Decimal(str(max_pct)),
@@ -142,13 +158,14 @@ class Command(BaseCommand):
             self.stdout.write("  Seeding exam types…")
             exam_types_data = [
                 ("Midterm Exam", Decimal("40.00"), True),
-                ("Final Exam",   Decimal("60.00"), True),
-                ("Quiz",         Decimal("10.00"), False),
+                ("Final Exam", Decimal("60.00"), True),
+                ("Quiz", Decimal("10.00"), False),
             ]
             exam_types = {}
             for name, weightage, terminal in exam_types_data:
                 et, created = ExamType.objects.get_or_create(
-                    school=school, name=name,
+                    school=school,
+                    name=name,
                     defaults={"weightage": weightage, "is_terminal": terminal},
                 )
                 if created:
@@ -158,20 +175,25 @@ class Command(BaseCommand):
             # ── 4. Exams ───────────────────────────────────────────────────
             self.stdout.write("  Seeding exams…")
             schedule_dates = [
-                (date(2024, 10, 28), date(2024, 11, 1),  "Term 1 Midterm Exams"),
-                (date(2024, 12, 9),  date(2024, 12, 13), "Term 1 Final Exams"),
-                (date(2025, 3, 3),   date(2025, 3, 7),   "Term 2 Midterm Exams"),
+                (date(2024, 10, 28), date(2024, 11, 1), "Term 1 Midterm Exams"),
+                (date(2024, 12, 9), date(2024, 12, 13), "Term 1 Final Exams"),
+                (date(2025, 3, 3), date(2025, 3, 7), "Term 2 Midterm Exams"),
             ]
             all_exams = []
             subjects_list = list(Subject.objects.filter(school=school))
             for start_dt, end_dt, exam_name in schedule_dates:
                 et = exam_types["Midterm Exam"] if "Midterm" in exam_name else exam_types["Final Exam"]
                 exam, created = Exam.objects.get_or_create(
-                    school=school, name=exam_name, academic_year=ay, exam_type=et,
+                    school=school,
+                    name=exam_name,
+                    academic_year=ay,
+                    exam_type=et,
                     defaults={
                         "description": f"{exam_name} for the {ay.name} academic year",
-                        "start_date": start_dt, "end_date": end_dt,
-                        "status": "completed", "created_by": admin_user,
+                        "start_date": start_dt,
+                        "end_date": end_dt,
+                        "status": "completed",
+                        "created_by": admin_user,
                     },
                 )
                 if created:
@@ -182,7 +204,9 @@ class Command(BaseCommand):
                         for subj in grade_subjects:
                             exam_day = start_dt + timedelta(days=random.randint(0, 4))
                             sched, sched_created = ExamSchedule.objects.get_or_create(
-                                exam=exam, subject=subj, classroom=cls,
+                                exam=exam,
+                                subject=subj,
+                                classroom=cls,
                                 defaults={
                                     "date": exam_day,
                                     "start_time": time(9, 0),
@@ -203,9 +227,7 @@ class Command(BaseCommand):
             self.stdout.write("  Seeding exam grades for all students…")
             schedules = list(ExamSchedule.objects.filter(exam__school=school))
             for student in students_qs.iterator():
-                enrollment = Enrollment.objects.filter(
-                    student=student, academic_year=ay
-                ).first()
+                enrollment = Enrollment.objects.filter(student=student, academic_year=ay).first()
                 if not enrollment:
                     continue
                 for sched in schedules:
@@ -219,7 +241,8 @@ class Command(BaseCommand):
                         mu, sigma = 72, 16
                         marks = max(0, min(100, round(random.gauss(mu, sigma), 1)))
                     _, created = Grade.objects.get_or_create(
-                        student=student, exam_schedule=sched,
+                        student=student,
+                        exam_schedule=sched,
                         defaults={
                             "marks_obtained": Decimal(str(marks)) if marks is not None else None,
                             "is_absent": is_absent,
@@ -233,21 +256,13 @@ class Command(BaseCommand):
             # ── 6. Report Cards ────────────────────────────────────────────
             self.stdout.write("  Generating report cards…")
             for student in students_qs.iterator():
-                enrollment = Enrollment.objects.filter(
-                    student=student, academic_year=ay
-                ).first()
+                enrollment = Enrollment.objects.filter(student=student, academic_year=ay).first()
                 if not enrollment:
                     continue
                 for exam in all_exams:
-                    grade_qs = Grade.objects.filter(
-                        student=student, exam_schedule__exam=exam
-                    )
-                    total = sum(
-                        (g.marks_obtained or 0) for g in grade_qs
-                    )
-                    max_possible = sum(
-                        g.exam_schedule.max_marks for g in grade_qs
-                    )
+                    grade_qs = Grade.objects.filter(student=student, exam_schedule__exam=exam)
+                    total = sum((g.marks_obtained or 0) for g in grade_qs)
+                    max_possible = sum(g.exam_schedule.max_marks for g in grade_qs)
                     if max_possible == 0:
                         continue
                     pct = round((total / max_possible) * 100, 2)
@@ -260,13 +275,10 @@ class Command(BaseCommand):
                             break
 
                     att_pct = None
-                    att_count = AttendanceRecord.objects.filter(
-                        student=student, academic_year=ay
-                    ).count()
+                    att_count = AttendanceRecord.objects.filter(student=student, academic_year=ay).count()
                     if att_count > 0:
                         present_count = AttendanceRecord.objects.filter(
-                            student=student, academic_year=ay,
-                            status__in=["P", "L"]
+                            student=student, academic_year=ay, status__in=["P", "L"]
                         ).count()
                         att_pct = round((present_count / att_count) * 100, 2)
 
@@ -282,7 +294,9 @@ class Command(BaseCommand):
                     ]
 
                     _, created = ReportCard.objects.get_or_create(
-                        student=student, exam=exam, academic_year=ay,
+                        student=student,
+                        exam=exam,
+                        academic_year=ay,
                         defaults={
                             "total_marks": max_possible,
                             "obtained_marks": total,
@@ -310,34 +324,39 @@ class Command(BaseCommand):
                 cursor += timedelta(days=1)
 
             for student in students_qs.iterator():
-                enrollment = Enrollment.objects.filter(
-                    student=student, academic_year=ay
-                ).first()
+                enrollment = Enrollment.objects.filter(student=student, academic_year=ay).first()
                 if not enrollment:
                     continue
                 for adate in attendance_dates:
                     # Weighted attendance distribution
-                    status = weighted_choice([
-                        ("P", 0.75),  # 75% present
-                        ("A", 0.08),  # 8% absent
-                        ("L", 0.10),  # 10% late
-                        ("E", 0.05),  # 5% excused
-                        ("H", 0.02),  # 2% half-day
-                    ])
+                    status = weighted_choice(
+                        [
+                            ("P", 0.75),  # 75% present
+                            ("A", 0.08),  # 8% absent
+                            ("L", 0.10),  # 10% late
+                            ("E", 0.05),  # 5% excused
+                            ("H", 0.02),  # 2% half-day
+                        ]
+                    )
                     remarks = ""
                     if status == "L":
                         remarks = f"Arrived {random.randint(5, 30)} min late"
                     elif status == "A":
                         if random.random() < 0.3:
-                            remarks = random.choice([
-                                "Called in sick", "Family emergency",
-                                "Medical appointment", "Traveling",
-                            ])
+                            remarks = random.choice(
+                                [
+                                    "Called in sick",
+                                    "Family emergency",
+                                    "Medical appointment",
+                                    "Traveling",
+                                ]
+                            )
                     elif status == "E":
                         remarks = "Prior intimation given"
 
                     _, created = AttendanceRecord.objects.get_or_create(
-                        student=student, date=adate,
+                        student=student,
+                        date=adate,
                         defaults={
                             "classroom": enrollment.classroom,
                             "academic_year": ay,
@@ -352,15 +371,11 @@ class Command(BaseCommand):
 
             # ── 8. Fee Invoices & Payments ─────────────────────────────────
             self.stdout.write("  Seeding fee invoices and payments…")
-            fee_structures = list(FeeStructure.objects.filter(
-                school=school, academic_year=ay, is_active=True
-            ))
+            fee_structures = list(FeeStructure.objects.filter(school=school, academic_year=ay, is_active=True))
             months = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
 
             for student in students_qs.iterator():
-                enrollment = Enrollment.objects.filter(
-                    student=student, academic_year=ay
-                ).first()
+                enrollment = Enrollment.objects.filter(student=student, academic_year=ay).first()
                 if not enrollment:
                     continue
 
@@ -382,11 +397,13 @@ class Command(BaseCommand):
 
                         total_amt = fs.amount + late
                         # ~60% paid in full, 15% partial, 25% unpaid
-                        pay_status = weighted_choice([
-                            ("paid", 0.60),
-                            ("partial", 0.15),
-                            ("unpaid", 0.25),
-                        ])
+                        pay_status = weighted_choice(
+                            [
+                                ("paid", 0.60),
+                                ("partial", 0.15),
+                                ("unpaid", 0.25),
+                            ]
+                        )
 
                         inv, inv_created = FeeInvoice.objects.get_or_create(
                             invoice_number=inv_num,
@@ -398,10 +415,15 @@ class Command(BaseCommand):
                                 "base_amount": fs.amount,
                                 "late_fee": late,
                                 "total_amount": total_amt,
-                                "paid_amount": total_amt if pay_status == "paid"
-                                              else (total_amt * Decimal("0.5")).quantize(Decimal("0.01"))
-                                              if pay_status == "partial"
-                                              else Decimal("0"),
+                                "paid_amount": (
+                                    total_amt
+                                    if pay_status == "paid"
+                                    else (
+                                        (total_amt * Decimal("0.5")).quantize(Decimal("0.01"))
+                                        if pay_status == "partial"
+                                        else Decimal("0")
+                                    )
+                                ),
                                 "status": {"paid": "paid", "partial": "partial", "unpaid": "unpaid"}[pay_status],
                                 "created_by": admin_user,
                             },
@@ -413,7 +435,9 @@ class Command(BaseCommand):
                             if pay_status in ("paid", "partial"):
                                 pay_amt = inv.paid_amount
                                 pay_method = random.choice(["cash", "bank_transfer", "card", "online"])
-                                receipt_num = f"RCT-{student.admission_number}-{month_name[:3]}-{random.randint(1000, 9999)}"
+                                receipt_num = (
+                                    f"RCT-{student.admission_number}-{month_name[:3]}-{random.randint(1000, 9999)}"
+                                )
 
                                 Payment.objects.create(
                                     invoice=inv,
@@ -432,9 +456,7 @@ class Command(BaseCommand):
             periods = list(Period.objects.filter(school=school, is_break=False))
             days_of_week = [0, 1, 2, 3, 4]  # Mon–Fri
             for cls in classrooms:
-                assignments = list(TeacherAssignment.objects.filter(
-                    classroom=cls, academic_year=ay
-                ))
+                assignments = list(TeacherAssignment.objects.filter(classroom=cls, academic_year=ay))
                 if not assignments:
                     continue
                 for day in days_of_week:
@@ -442,8 +464,10 @@ class Command(BaseCommand):
                         # Assign subjects to periods, cycling through the assignments
                         assignment = assignments[day % len(assignments)]
                         _, created = TimetableSlot.objects.get_or_create(
-                            classroom=cls, period=period,
-                            day_of_week=day, academic_year=ay,
+                            classroom=cls,
+                            period=period,
+                            day_of_week=day,
+                            academic_year=ay,
                             defaults={
                                 "assignment": assignment,
                                 "room": cls.room_number or "",
@@ -479,14 +503,16 @@ class Command(BaseCommand):
                     if lesson_date > ay.end_date:
                         lesson_date = ay.end_date - timedelta(days=7)
                     _, created = LessonPlan.objects.get_or_create(
-                        assignment=assignment, title=topic,
-                        date=lesson_date, duration_minutes=45,
+                        assignment=assignment,
+                        title=topic,
+                        date=lesson_date,
+                        duration_minutes=45,
                         defaults={
                             "topic": topic,
                             "objectives": objectives,
                             "content": f"Detailed lesson content for {topic}. "
-                                       f"Covers key concepts with practical examples "
-                                       f"and student activities.",
+                            f"Covers key concepts with practical examples "
+                            f"and student activities.",
                             "resources": "Textbook, worksheet, presentation slides",
                             "status": random.choice(["draft", "approved", "completed"]),
                         },
@@ -514,12 +540,8 @@ class Command(BaseCommand):
                 "Please ensure {student} brings the completed permission slip by Friday.",
             ]
             subjects_list = list(Subject.objects.filter(school=school))
-            student_users = list(User.objects.filter(
-                school=school, role=UserRole.STUDENT, is_active=True
-            ))
-            parent_users = list(User.objects.filter(
-                school=school, role=UserRole.PARENT, is_active=True
-            ))
+            student_users = list(User.objects.filter(school=school, role=UserRole.STUDENT, is_active=True))
+            parent_users = list(User.objects.filter(school=school, role=UserRole.PARENT, is_active=True))
 
             # Teacher <-> Parent conversations
             for i in range(min(options["messages"], len(teachers) * len(parent_users) * 2)):
@@ -535,7 +557,9 @@ class Command(BaseCommand):
 
                 # Teacher sends to parent
                 _, created = DirectMessage.objects.get_or_create(
-                    sender=teacher, recipient=parent, content=content,
+                    sender=teacher,
+                    recipient=parent,
+                    content=content,
                     defaults={
                         "status": random.choice(["sent", "delivered", "read"]),
                         "sent_at": ay.start_date + timedelta(days=random.randint(1, 120)),
@@ -547,16 +571,20 @@ class Command(BaseCommand):
 
                 # Parent replies (50% chance)
                 if random.random() < 0.5:
-                    reply_content = random.choice([
-                        "Thank you for the update!",
-                        "I'll look into this right away.",
-                        "Noted. Thanks for letting me know.",
-                        "Can we discuss this further in the next PTM?",
-                        "I appreciate your concern. Will take necessary action.",
-                        "Got it, thanks!",
-                    ])
+                    reply_content = random.choice(
+                        [
+                            "Thank you for the update!",
+                            "I'll look into this right away.",
+                            "Noted. Thanks for letting me know.",
+                            "Can we discuss this further in the next PTM?",
+                            "I appreciate your concern. Will take necessary action.",
+                            "Got it, thanks!",
+                        ]
+                    )
                     _, created = DirectMessage.objects.get_or_create(
-                        sender=parent, recipient=teacher, content=reply_content,
+                        sender=parent,
+                        recipient=teacher,
+                        content=reply_content,
                         defaults={
                             "status": random.choice(["sent", "delivered", "read"]),
                             "sent_at": ay.start_date + timedelta(days=random.randint(1, 120)),
@@ -568,30 +596,92 @@ class Command(BaseCommand):
             # ── 12. School Events ─────────────────────────────────────────────
             self.stdout.write("  Seeding school events…")
             events_data = [
-                ("Independence Day Celebration", "school-wide celebration with cultural programs",
-                 "cultural", date(2024, 8, 15), date(2024, 8, 15), True),
-                ("Annual Sports Day", "Inter-house sports competitions and awards ceremony",
-                 "sports", date(2024, 11, 20), date(2024, 11, 22), True),
-                ("Parent-Teacher Meeting — Term 1", "Discuss student progress and report cards",
-                 "ptm", date(2024, 12, 20), date(2024, 12, 20), True),
-                ("Winter Break", "School closed for winter holidays",
-                 "holiday", date(2024, 12, 23), date(2025, 1, 5), True),
-                ("Science Fair", "Students showcase science projects and experiments",
-                 "cultural", date(2025, 2, 10), date(2025, 2, 11), True),
-                ("Field Trip — Science Museum", "Grade 5-6 educational visit to the National Science Museum",
-                 "trip", date(2025, 3, 15), date(2025, 3, 15), False),
-                ("Annual Day & Awards Ceremony", "Year-end celebration with prizes and performances",
-                 "cultural", date(2025, 4, 10), date(2025, 4, 10), True),
-                ("Spring Break", "School closed for spring holidays",
-                 "holiday", date(2025, 4, 14), date(2025, 4, 20), True),
-                ("Parent-Teacher Meeting — Term 2", "End-of-year progress discussion",
-                 "ptm", date(2025, 5, 15), date(2025, 5, 15), True),
-                ("Graduation Ceremony", "Farewell and graduation for Grade 6 students",
-                 "cultural", date(2025, 6, 10), date(2025, 6, 10), True),
+                (
+                    "Independence Day Celebration",
+                    "school-wide celebration with cultural programs",
+                    "cultural",
+                    date(2024, 8, 15),
+                    date(2024, 8, 15),
+                    True,
+                ),
+                (
+                    "Annual Sports Day",
+                    "Inter-house sports competitions and awards ceremony",
+                    "sports",
+                    date(2024, 11, 20),
+                    date(2024, 11, 22),
+                    True,
+                ),
+                (
+                    "Parent-Teacher Meeting — Term 1",
+                    "Discuss student progress and report cards",
+                    "ptm",
+                    date(2024, 12, 20),
+                    date(2024, 12, 20),
+                    True,
+                ),
+                (
+                    "Winter Break",
+                    "School closed for winter holidays",
+                    "holiday",
+                    date(2024, 12, 23),
+                    date(2025, 1, 5),
+                    True,
+                ),
+                (
+                    "Science Fair",
+                    "Students showcase science projects and experiments",
+                    "cultural",
+                    date(2025, 2, 10),
+                    date(2025, 2, 11),
+                    True,
+                ),
+                (
+                    "Field Trip — Science Museum",
+                    "Grade 5-6 educational visit to the National Science Museum",
+                    "trip",
+                    date(2025, 3, 15),
+                    date(2025, 3, 15),
+                    False,
+                ),
+                (
+                    "Annual Day & Awards Ceremony",
+                    "Year-end celebration with prizes and performances",
+                    "cultural",
+                    date(2025, 4, 10),
+                    date(2025, 4, 10),
+                    True,
+                ),
+                (
+                    "Spring Break",
+                    "School closed for spring holidays",
+                    "holiday",
+                    date(2025, 4, 14),
+                    date(2025, 4, 20),
+                    True,
+                ),
+                (
+                    "Parent-Teacher Meeting — Term 2",
+                    "End-of-year progress discussion",
+                    "ptm",
+                    date(2025, 5, 15),
+                    date(2025, 5, 15),
+                    True,
+                ),
+                (
+                    "Graduation Ceremony",
+                    "Farewell and graduation for Grade 6 students",
+                    "cultural",
+                    date(2025, 6, 10),
+                    date(2025, 6, 10),
+                    True,
+                ),
             ]
             for title, desc, etype, start_dt, end_dt, school_wide in events_data:
                 _, created = SchoolEvent.objects.get_or_create(
-                    school=school, title=title, start_date=start_dt,
+                    school=school,
+                    title=title,
+                    start_date=start_dt,
                     defaults={
                         "description": desc,
                         "event_type": etype,
@@ -606,35 +696,61 @@ class Command(BaseCommand):
             # ── 13. Additional Announcements ──────────────────────────────────
             self.stdout.write("  Seeding additional announcements…")
             announcements_data = [
-                ("Exam Schedule Released",
-                 "The Term 1 final examination schedule has been published. Please check the timetable page for details.",
-                 "high", "all"),
-                ("Library Timings Extended",
-                 "The school library will remain open until 5 PM during exam season.",
-                 "normal", "students"),
-                ("Staff Meeting Reminder",
-                 "All staff members are requested to attend the monthly meeting on Friday at 3 PM in the conference hall.",
-                 "normal", "staff"),
-                ("Uniform Policy Update",
-                 "Please note that winter uniforms are now mandatory. Students must wear blazers and sweaters.",
-                 "normal", "students"),
-                ("Emergency Drill Scheduled",
-                 "A fire safety drill will be conducted on Wednesday at 10 AM. All students and staff must participate.",
-                 "urgent", "all"),
-                ("Sports Tryouts Open",
-                 "Tryouts for the school basketball and football teams will be held next week. Interested students should sign up at the sports office.",
-                 "normal", "students"),
-                ("Fee Payment Deadline Extended",
-                 "The deadline for Term 2 fee payment has been extended to January 20th. Late fee will apply after this date.",
-                 "high", "parents"),
-                ("New Computer Lab Inauguration",
-                 "The new state-of-the-art computer lab will be inaugurated on February 5th. We invite all parents to the ceremony.",
-                 "low", "all"),
+                (
+                    "Exam Schedule Released",
+                    "The Term 1 final examination schedule has been published. Please check the timetable page for details.",
+                    "high",
+                    "all",
+                ),
+                (
+                    "Library Timings Extended",
+                    "The school library will remain open until 5 PM during exam season.",
+                    "normal",
+                    "students",
+                ),
+                (
+                    "Staff Meeting Reminder",
+                    "All staff members are requested to attend the monthly meeting on Friday at 3 PM in the conference hall.",
+                    "normal",
+                    "staff",
+                ),
+                (
+                    "Uniform Policy Update",
+                    "Please note that winter uniforms are now mandatory. Students must wear blazers and sweaters.",
+                    "normal",
+                    "students",
+                ),
+                (
+                    "Emergency Drill Scheduled",
+                    "A fire safety drill will be conducted on Wednesday at 10 AM. All students and staff must participate.",
+                    "urgent",
+                    "all",
+                ),
+                (
+                    "Sports Tryouts Open",
+                    "Tryouts for the school basketball and football teams will be held next week. Interested students should sign up at the sports office.",
+                    "normal",
+                    "students",
+                ),
+                (
+                    "Fee Payment Deadline Extended",
+                    "The deadline for Term 2 fee payment has been extended to January 20th. Late fee will apply after this date.",
+                    "high",
+                    "parents",
+                ),
+                (
+                    "New Computer Lab Inauguration",
+                    "The new state-of-the-art computer lab will be inaugurated on February 5th. We invite all parents to the ceremony.",
+                    "low",
+                    "all",
+                ),
             ]
             from services.communication.models import Announcement
+
             for title, content, priority, audience in announcements_data:
                 _, created = Announcement.objects.get_or_create(
-                    school=school, title=title,
+                    school=school,
+                    title=title,
                     defaults={
                         "content": content,
                         "priority": priority,

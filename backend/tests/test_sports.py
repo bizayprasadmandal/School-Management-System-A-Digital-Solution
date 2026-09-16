@@ -1,7 +1,8 @@
 """Tests for Sports Service — Sport, Team, TeamMember, SportEvent, SportAchievement."""
 
-import pytest
 from datetime import date, timedelta
+
+import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.url_helpers import API_PREFIX
@@ -16,18 +17,21 @@ SPORTS_ACHIEVEMENTS = f"{API_PREFIX}/sports/achievements/"
 @pytest.fixture
 def school(db):
     from tests.factories import SchoolFactory
+
     return SchoolFactory()
 
 
 @pytest.fixture
 def admin(db, school):
     from tests.factories import AdminUserFactory
+
     return AdminUserFactory(school=school)
 
 
 @pytest.fixture
 def teacher(db, school):
     from tests.factories import TeacherUserFactory
+
     return TeacherUserFactory(school=school)
 
 
@@ -60,8 +64,10 @@ class TestSports:
 
     def test_list_sports(self, admin_client, school):
         from services.sports.models import Sport
+
         Sport.objects.create(
-            school=school, name="Football",
+            school=school,
+            name="Football",
             max_players=11,
         )
         r = admin_client.get(SPORTS_SPORTS)
@@ -74,13 +80,15 @@ class TestSports:
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
     def test_tenant_isolation(self, db):
-        from tests.factories import SchoolFactory, AdminUserFactory
         from services.sports.models import Sport
+        from tests.factories import AdminUserFactory, SchoolFactory
+
         school_a = SchoolFactory(code="SPTA")
         school_b = SchoolFactory(code="SPTB")
         admin_a = AdminUserFactory(school=school_a)
         Sport.objects.create(
-            school=school_b, name="Secret Sport",
+            school=school_b,
+            name="Secret Sport",
             max_players=5,
         )
         client = APIClient()
@@ -95,8 +103,10 @@ class TestTeams:
 
     def test_create_team(self, admin_client, school):
         from services.sports.models import Sport
+
         sport = Sport.objects.create(
-            school=school, name="Basketball",
+            school=school,
+            name="Basketball",
             max_players=5,
         )
         payload = {
@@ -110,8 +120,10 @@ class TestTeams:
 
     def test_list_teams_filter_by_sport(self, admin_client, school):
         from services.sports.models import Sport, Team
+
         sport = Sport.objects.create(
-            school=school, name="Volleyball",
+            school=school,
+            name="Volleyball",
             max_players=6,
         )
         Team.objects.create(school=school, sport=sport, name="Spartans")
@@ -125,11 +137,13 @@ class TestTeams:
 class TestTeamMembers:
 
     def test_add_member(self, admin_client, school):
-        from tests.factories import StudentFactory
         from services.sports.models import Sport, Team
+        from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
         sport = Sport.objects.create(
-            school=school, name="Cricket",
+            school=school,
+            name="Cricket",
             max_players=11,
         )
         team = Team.objects.create(school=school, sport=sport, name="Tigers")
@@ -148,8 +162,10 @@ class TestSportEvents:
 
     def test_create_event(self, admin_client, school):
         from services.sports.models import Sport
+
         sport = Sport.objects.create(
-            school=school, name="Athletics",
+            school=school,
+            name="Athletics",
             max_players=1,
         )
         payload = {
@@ -164,12 +180,15 @@ class TestSportEvents:
 
     def test_upcoming_events(self, admin_client, school):
         from services.sports.models import Sport, SportEvent
+
         sport = Sport.objects.create(
-            school=school, name="Swimming",
+            school=school,
+            name="Swimming",
             max_players=4,
         )
         SportEvent.objects.create(
-            school=school, sport=sport,
+            school=school,
+            sport=sport,
             title="Swimming Competition",
             event_date=date.today() + timedelta(days=7),
             location="Pool",
@@ -183,6 +202,7 @@ class TestSportAchievements:
 
     def test_create_achievement(self, admin_client, school):
         from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
         payload = {
             "student": pupil.id,
@@ -195,11 +215,13 @@ class TestSportAchievements:
         assert r.status_code == status.HTTP_201_CREATED
 
     def test_list_achievements(self, admin_client, school):
-        from tests.factories import StudentFactory
         from services.sports.models import SportAchievement
+        from tests.factories import StudentFactory
+
         pupil = StudentFactory(school=school)
         SportAchievement.objects.create(
-            school=school, student=pupil,
+            school=school,
+            student=pupil,
             title="Participation - Relay",
             description="Participated in relay",
             awarded_date=date.today(),

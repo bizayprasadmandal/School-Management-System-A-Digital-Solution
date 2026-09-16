@@ -9,6 +9,7 @@ File upload endpoints can bypass this limit via a URL prefix exemption.
 """
 
 import logging
+
 from django.conf import settings
 from django.http import JsonResponse
 
@@ -18,11 +19,15 @@ logger = logging.getLogger(__name__)
 MAX_BODY_SIZE = getattr(settings, "MAX_REQUEST_BODY_SIZE", 5 * 1024 * 1024)
 
 # These endpoints are exempt from body size limits (file uploads)
-EXEMPT_PREFIXES = getattr(settings, "BODY_SIZE_LIMIT_EXEMPT_PREFIXES", [
-    "/api/v1/students/upload/",
-    "/api/v1/communication/upload/",
-    "/api/v1/auth/avatar/",
-])
+EXEMPT_PREFIXES = getattr(
+    settings,
+    "BODY_SIZE_LIMIT_EXEMPT_PREFIXES",
+    [
+        "/api/v1/students/upload/",
+        "/api/v1/communication/upload/",
+        "/api/v1/auth/avatar/",
+    ],
+)
 
 
 class RequestBodySizeMiddleware:

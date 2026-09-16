@@ -7,11 +7,12 @@ Triggers:
 """
 
 import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
-from .models import StudentReferral, CounselingAppointment
 from services.communication.models import Notification
+
+from .models import CounselingAppointment, StudentReferral
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,8 @@ def notify_referral_created(sender, instance, created, **kwargs):
         )
         logger.info(
             "Referral %s notification sent to counselor %s",
-            instance.id, instance.assigned_to.email,
+            instance.id,
+            instance.assigned_to.email,
         )
     except Exception as e:
         logger.error("Failed to send referral notification: %s", e)

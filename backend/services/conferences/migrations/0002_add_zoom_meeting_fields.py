@@ -26,29 +26,21 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="conferenceslot",
             name="zoom_join_url",
-            field=models.URLField(
-                blank=True, default="", help_text="Zoom join link for participants"
-            ),
+            field=models.URLField(blank=True, default="", help_text="Zoom join link for participants"),
         ),
         migrations.AddField(
             model_name="conferenceslot",
             name="zoom_meeting_id",
-            field=models.CharField(
-                blank=True, default="", help_text="Zoom meeting ID", max_length=64
-            ),
+            field=models.CharField(blank=True, default="", help_text="Zoom meeting ID", max_length=64),
         ),
         migrations.AddField(
             model_name="conferenceslot",
             name="zoom_password",
-            field=models.CharField(
-                blank=True, default="", help_text="Zoom meeting password", max_length=32
-            ),
+            field=models.CharField(blank=True, default="", help_text="Zoom meeting password", max_length=32),
         ),
         migrations.AddField(
             model_name="conferenceslot",
             name="zoom_start_url",
-            field=models.URLField(
-                blank=True, default="", help_text="Zoom start link for host"
-            ),
+            field=models.URLField(blank=True, default="", help_text="Zoom start link for host"),
         ),
     ]

@@ -6,8 +6,8 @@ Import and use as: Student.objects.active().for_school(school)
 from django.db import models
 from django.utils import timezone
 
-
 # ─── Students ─────────────────────────────────────────────────────────────────
+
 
 class StudentQuerySet(models.QuerySet):
     def active(self):
@@ -20,22 +20,13 @@ class StudentQuerySet(models.QuerySet):
         return self.filter(school=school)
 
     def for_classroom(self, classroom):
-        return self.filter(
-            enrollments__classroom=classroom,
-            enrollments__is_active=True
-        ).distinct()
+        return self.filter(enrollments__classroom=classroom, enrollments__is_active=True).distinct()
 
     def for_grade(self, grade):
-        return self.filter(
-            enrollments__classroom__grade=grade,
-            enrollments__is_active=True
-        ).distinct()
+        return self.filter(enrollments__classroom__grade=grade, enrollments__is_active=True).distinct()
 
     def for_academic_year(self, academic_year):
-        return self.filter(
-            enrollments__academic_year=academic_year,
-            enrollments__is_active=True
-        ).distinct()
+        return self.filter(enrollments__academic_year=academic_year, enrollments__is_active=True).distinct()
 
     def with_full_profile(self):
         return self.select_related("user", "school").prefetch_related(
@@ -62,6 +53,7 @@ class StudentManager(models.Manager):
 
 
 # ─── Attendance ────────────────────────────────────────────────────────────────
+
 
 class AttendanceQuerySet(models.QuerySet):
     def for_school(self, school):
@@ -119,6 +111,7 @@ class AttendanceManager(models.Manager):
 
 # ─── Fee Invoice ──────────────────────────────────────────────────────────────
 
+
 class FeeInvoiceQuerySet(models.QuerySet):
     def for_school(self, school):
         return self.filter(student__school=school)
@@ -142,19 +135,16 @@ class FeeInvoiceQuerySet(models.QuerySet):
         return self.filter(academic_year=academic_year)
 
     def total_outstanding(self):
-        from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+        from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+
         result = self.unpaid().aggregate(
-            total=Sum(
-                ExpressionWrapper(
-                    F("total_amount") - F("paid_amount"),
-                    output_field=DecimalField()
-                )
-            )
+            total=Sum(ExpressionWrapper(F("total_amount") - F("paid_amount"), output_field=DecimalField()))
         )
         return result["total"] or 0
 
     def total_collected(self):
         from django.db.models import Sum
+
         return self.paid().aggregate(total=Sum("paid_amount"))["total"] or 0
 
 
@@ -174,6 +164,7 @@ class FeeInvoiceManager(models.Manager):
 
 # ─── Grade (Gradebook) ────────────────────────────────────────────────────────
 
+
 class GradeQuerySet(models.QuerySet):
     def for_student(self, student):
         return self.filter(student=student)
@@ -186,28 +177,24 @@ class GradeQuerySet(models.QuerySet):
 
     def passed(self):
         from django.db.models import F
-        return self.filter(
-            is_absent=False,
-            marks_obtained__gte=F("exam_schedule__passing_marks")
-        )
+
+        return self.filter(is_absent=False, marks_obtained__gte=F("exam_schedule__passing_marks"))
 
     def failed(self):
         from django.db.models import F
-        return self.filter(
-            is_absent=False,
-            marks_obtained__lt=F("exam_schedule__passing_marks")
-        )
+
+        return self.filter(is_absent=False, marks_obtained__lt=F("exam_schedule__passing_marks"))
 
     def absent(self):
         return self.filter(is_absent=True)
 
     def average_percentage(self):
-        from django.db.models import Avg, F, ExpressionWrapper, FloatField
+        from django.db.models import Avg, ExpressionWrapper, F, FloatField
+
         return self.filter(is_absent=False, marks_obtained__isnull=False).aggregate(
             avg=Avg(
                 ExpressionWrapper(
-                    F("marks_obtained") * 100.0 / F("exam_schedule__max_marks"),
-                    output_field=FloatField()
+                    F("marks_obtained") * 100.0 / F("exam_schedule__max_marks"), output_field=FloatField()
                 )
             )
         )["avg"]
@@ -223,6 +210,7 @@ class GradeManager(models.Manager):
 
 # ─── Announcement ─────────────────────────────────────────────────────────────
 
+
 class AnnouncementQuerySet(models.QuerySet):
     def for_school(self, school):
         return self.filter(school=school)
@@ -231,16 +219,13 @@ class AnnouncementQuerySet(models.QuerySet):
         return self.filter(is_draft=False, published_at__isnull=False)
 
     def active(self):
-        return self.published().filter(
-            models.Q(expires_at__isnull=True) |
-            models.Q(expires_at__gt=timezone.now())
-        )
+        return self.published().filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()))
 
     def for_audience(self, role):
         audience_map = {
-            "student":      ["all", "students"],
-            "parent":       ["all", "parents"],
-            "teacher":      ["all", "teachers", "staff"],
+            "student": ["all", "students"],
+            "parent": ["all", "parents"],
+            "teacher": ["all", "teachers", "staff"],
             "school_admin": ["all", "teachers", "students", "parents", "staff"],
         }
         allowed = audience_map.get(role, ["all"])

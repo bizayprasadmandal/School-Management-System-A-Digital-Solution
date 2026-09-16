@@ -5,3 +5,6 @@ per-file-ignores =
     docs/combined_hld_lld.py:E501,F541,E402
     docs/er_diagram.py:E501
     backend/scripts/*:E402,E501,F541,F401
+    backend/seed_module_data.py:E402,E501,F541,F401,E231
+    backend/services/auth/management/commands/seed_*:E501,F541,F401,F811,F841,E402
+    backend/services/*/migrations/*:E501

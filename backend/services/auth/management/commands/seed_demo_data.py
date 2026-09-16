@@ -4,11 +4,12 @@ Creates a complete demo school with realistic data for showcasing the system.
 Usage: python manage.py seed_demo_data [--school-name "Demo Academy"]
 """
 
-from django.core.management.base import BaseCommand
-from django.db import transaction
+import random
 from datetime import date, timedelta
 from decimal import Decimal
-import random
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
 
 
 class Command(BaseCommand):
@@ -33,15 +34,20 @@ class Command(BaseCommand):
         TEACHER_PWD = options.get("teacher_password") or DEFAULT_TEACHER_PWD
         STUDENT_PWD = options.get("student_password") or DEFAULT_STUDENT_PWD
         PARENT_PWD = options.get("parent_password") or DEFAULT_PARENT_PWD
+        from services.academics.models import Subject, TeacherAssignment, TeacherProfile
         from services.auth.models import School, User, UserRole
-        from services.students.models import (
-            AcademicYear, Grade, Classroom, Student, Guardian,
-            StudentGuardian, Enrollment,
-        )
-        from services.academics.models import Subject, TeacherProfile, TeacherAssignment
-        from services.fees.models import FeeCategory, FeeStructure
-        from services.timetable.models import Period, SchoolEvent
         from services.communication.models import Announcement, NotificationTemplate
+        from services.fees.models import FeeCategory, FeeStructure
+        from services.students.models import (
+            AcademicYear,
+            Classroom,
+            Enrollment,
+            Grade,
+            Guardian,
+            Student,
+            StudentGuardian,
+        )
+        from services.timetable.models import Period, SchoolEvent
 
         self.stdout.write(self.style.MIGRATE_HEADING("🎓 Seeding demo school data…"))
 
@@ -65,7 +71,8 @@ class Command(BaseCommand):
 
             # ── Academic Year ────────────────────────────────────────────────
             ay, _ = AcademicYear.objects.get_or_create(
-                school=school, name="2024-2025",
+                school=school,
+                name="2024-2025",
                 defaults={"start_date": date(2024, 9, 1), "end_date": date(2025, 6, 30), "is_current": True},
             )
 
@@ -73,8 +80,12 @@ class Command(BaseCommand):
             admin, _ = User.objects.get_or_create(
                 email="admin@demo.edusphere.school",
                 defaults={
-                    "first_name": "Alex", "last_name": "Administrator",
-                    "role": UserRole.SCHOOL_ADMIN, "school": school, "is_active": True, "is_staff": True,
+                    "first_name": "Alex",
+                    "last_name": "Administrator",
+                    "role": UserRole.SCHOOL_ADMIN,
+                    "school": school,
+                    "is_active": True,
+                    "is_staff": True,
                 },
             )
             if _:
@@ -85,10 +96,18 @@ class Command(BaseCommand):
 
             # ── Grades ─────────────────────────────────────────────────────────
             grade_data = [
-                (1, "Grade 1"), (2, "Grade 2"), (3, "Grade 3"),
-                (4, "Grade 4"), (5, "Grade 5"), (6, "Grade 6"),
-                (7, "Grade 7"), (8, "Grade 8"), (9, "Grade 9"),
-                (10, "Grade 10"), (11, "Grade 11"), (12, "Grade 12"),
+                (1, "Grade 1"),
+                (2, "Grade 2"),
+                (3, "Grade 3"),
+                (4, "Grade 4"),
+                (5, "Grade 5"),
+                (6, "Grade 6"),
+                (7, "Grade 7"),
+                (8, "Grade 8"),
+                (9, "Grade 9"),
+                (10, "Grade 10"),
+                (11, "Grade 11"),
+                (12, "Grade 12"),
             ]
             grades = {}
             for level, name in grade_data:
@@ -103,7 +122,8 @@ class Command(BaseCommand):
                 all_subjects[grade_level] = []
                 for idx, sname in enumerate(core_subjects):
                     s, _ = Subject.objects.get_or_create(
-                        school=school, grade=grade_obj,
+                        school=school,
+                        grade=grade_obj,
                         code=f"{sname[:3].upper()}{grade_level:02d}",
                         defaults={"name": sname, "is_core": True, "max_marks": 100, "pass_marks": 40},
                     )
@@ -111,9 +131,14 @@ class Command(BaseCommand):
 
             # ── Teachers ────────────────────────────────────────────────────────
             teacher_names = [
-                ("Sarah", "Mitchell"), ("James", "Thompson"), ("Emily", "Chen"),
-                ("Robert", "Johnson"), ("Maria", "Garcia"), ("David", "Williams"),
-                ("Lisa", "Anderson"), ("Michael", "Brown"),
+                ("Sarah", "Mitchell"),
+                ("James", "Thompson"),
+                ("Emily", "Chen"),
+                ("Robert", "Johnson"),
+                ("Maria", "Garcia"),
+                ("David", "Williams"),
+                ("Lisa", "Anderson"),
+                ("Michael", "Brown"),
             ]
             teachers = []
             for idx, (fname, lname) in enumerate(teacher_names):
@@ -121,8 +146,11 @@ class Command(BaseCommand):
                 u, created_u = User.objects.get_or_create(
                     email=email,
                     defaults={
-                        "first_name": fname, "last_name": lname,
-                        "role": UserRole.TEACHER, "school": school, "is_active": True,
+                        "first_name": fname,
+                        "last_name": lname,
+                        "role": UserRole.TEACHER,
+                        "school": school,
+                        "is_active": True,
                     },
                 )
                 if created_u:
@@ -130,7 +158,8 @@ class Command(BaseCommand):
                     u.email_verified = True
                     u.save()
                 tp, _ = TeacherProfile.objects.get_or_create(
-                    user=u, school=school,
+                    user=u,
+                    school=school,
                     defaults={
                         "employee_id": f"EMP{idx+1:04d}",
                         "gender": "F" if idx % 2 == 0 else "M",
@@ -151,16 +180,49 @@ class Command(BaseCommand):
                 for section in ["A", "B"]:
                     teacher = teachers[(grade_level * 2 + ord(section) - ord("A")) % len(teachers)]
                     cls, _ = Classroom.objects.get_or_create(
-                        school=school, grade=grades[grade_level],
-                        name=f"{grade_level}{section}", academic_year=ay,
+                        school=school,
+                        grade=grades[grade_level],
+                        name=f"{grade_level}{section}",
+                        academic_year=ay,
                         defaults={"capacity": 35, "class_teacher": teacher, "room_number": f"R{grade_level}{section}"},
                     )
                     classrooms[f"{grade_level}{section}"] = cls
 
             # ── Students & Guardians ────────────────────────────────────────────
-            first_names = ["Aiden","Emma","Liam","Olivia","Noah","Ava","William","Sophia","James","Isabella",
-                           "Oliver","Mia","Benjamin","Charlotte","Elijah","Amelia","Lucas","Harper","Mason","Evelyn"]
-            last_names = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Wilson","Taylor"]
+            first_names = [
+                "Aiden",
+                "Emma",
+                "Liam",
+                "Olivia",
+                "Noah",
+                "Ava",
+                "William",
+                "Sophia",
+                "James",
+                "Isabella",
+                "Oliver",
+                "Mia",
+                "Benjamin",
+                "Charlotte",
+                "Elijah",
+                "Amelia",
+                "Lucas",
+                "Harper",
+                "Mason",
+                "Evelyn",
+            ]
+            last_names = [
+                "Smith",
+                "Johnson",
+                "Williams",
+                "Brown",
+                "Jones",
+                "Garcia",
+                "Miller",
+                "Davis",
+                "Wilson",
+                "Taylor",
+            ]
 
             student_count = 0
             cls_keys = list(classrooms.keys())
@@ -171,8 +233,11 @@ class Command(BaseCommand):
                 su, created_u = User.objects.get_or_create(
                     email=email,
                     defaults={
-                        "first_name": fname, "last_name": lname,
-                        "role": UserRole.STUDENT, "school": school, "is_active": True,
+                        "first_name": fname,
+                        "last_name": lname,
+                        "role": UserRole.STUDENT,
+                        "school": school,
+                        "is_active": True,
                     },
                 )
                 if created_u:
@@ -182,7 +247,8 @@ class Command(BaseCommand):
 
                 dob = date(2010 - (i % 6), (i % 12) + 1, (i % 28) + 1)
                 s, s_created = Student.objects.get_or_create(
-                    user=su, school=school,
+                    user=su,
+                    school=school,
                     defaults={
                         "admission_number": f"ADM-2024-{i+1:04d}",
                         "date_of_birth": dob,
@@ -197,15 +263,19 @@ class Command(BaseCommand):
                 if s_created:
                     cls_key = cls_keys[i % len(cls_keys)]
                     Enrollment.objects.get_or_create(
-                        student=s, academic_year=ay,
+                        student=s,
+                        academic_year=ay,
                         defaults={"classroom": classrooms[cls_key], "status": "active", "is_active": True},
                     )
                     # Guardian
                     pu, _ = User.objects.get_or_create(
                         email=f"parent{i+1:03d}@demo.edusphere.school",
                         defaults={
-                            "first_name": f"Parent{i+1}", "last_name": lname,
-                            "role": UserRole.PARENT, "school": school, "is_active": True,
+                            "first_name": f"Parent{i+1}",
+                            "last_name": lname,
+                            "role": UserRole.PARENT,
+                            "school": school,
+                            "is_active": True,
                         },
                     )
                     if _:
@@ -214,13 +284,22 @@ class Command(BaseCommand):
                         pu.save()
                     g, _ = Guardian.objects.get_or_create(
                         email=pu.email,
-                        defaults={"user": pu, "first_name": f"Parent{i+1}", "last_name": lname,
-                                  "phone": f"+1555{i:07d}", "is_primary": True},
+                        defaults={
+                            "user": pu,
+                            "first_name": f"Parent{i+1}",
+                            "last_name": lname,
+                            "phone": f"+1555{i:07d}",
+                            "is_primary": True,
+                        },
                     )
                     StudentGuardian.objects.get_or_create(
-                        student=s, guardian=g,
-                        defaults={"relationship": "father" if i % 2 == 0 else "mother",
-                                  "is_primary_contact": True, "portal_access": True},
+                        student=s,
+                        guardian=g,
+                        defaults={
+                            "relationship": "father" if i % 2 == 0 else "mother",
+                            "is_primary_contact": True,
+                            "portal_access": True,
+                        },
                     )
                     student_count += 1
 
@@ -235,64 +314,92 @@ class Command(BaseCommand):
             }
             for cat_name, (recurrence, amount) in fee_cats.items():
                 cat, _ = FeeCategory.objects.get_or_create(
-                    school=school, name=cat_name,
+                    school=school,
+                    name=cat_name,
                     defaults={"recurrence": recurrence, "is_mandatory": cat_name in ["Tuition", "Activity"]},
                 )
                 for grade_obj in grades.values():
                     FeeStructure.objects.get_or_create(
-                        school=school, academic_year=ay, grade=grade_obj, fee_category=cat,
+                        school=school,
+                        academic_year=ay,
+                        grade=grade_obj,
+                        fee_category=cat,
                         defaults={"amount": amount, "due_day": 10, "late_fee_per_day": Decimal("5.00")},
                     )
 
             # ── Periods ────────────────────────────────────────────────────────
             periods_data = [
-                (1, "Period 1", "08:00", "08:45"), (2, "Period 2", "08:50", "09:35"),
-                (3, "Period 3", "09:40", "10:25"), (0, "Break",    "10:25", "10:45"),
-                (4, "Period 4", "10:45", "11:30"), (5, "Period 5", "11:35", "12:20"),
-                (8, "Lunch",   "12:20", "13:00"), (6, "Period 6", "13:00", "13:45"),
+                (1, "Period 1", "08:00", "08:45"),
+                (2, "Period 2", "08:50", "09:35"),
+                (3, "Period 3", "09:40", "10:25"),
+                (0, "Break", "10:25", "10:45"),
+                (4, "Period 4", "10:45", "11:30"),
+                (5, "Period 5", "11:35", "12:20"),
+                (8, "Lunch", "12:20", "13:00"),
+                (6, "Period 6", "13:00", "13:45"),
                 (7, "Period 7", "13:50", "14:35"),
             ]
             for num, name, start, end in periods_data:
                 Period.objects.get_or_create(
-                    school=school, name=name,
-                    defaults={"period_number": num, "start_time": start,
-                              "end_time": end, "is_break": num == 0},
+                    school=school,
+                    name=name,
+                    defaults={"period_number": num, "start_time": start, "end_time": end, "is_break": num == 0},
                 )
 
             # ── Notification Templates ─────────────────────────────────────────
             templates = [
-                ("attendance_absent", "Attendance Alert",
-                 "Dear Parent, {{student_name}} was absent on {{date}}. Please contact the school.",
-                 "{{student_name}} absent on {{date}}",
-                 "Attendance Alert", "{{student_name}} was absent today."),
-                ("fee_due", "Fee Reminder",
-                 "Dear {{student_name}}, your fee payment of ${{amount}} is due on {{due_date}}.",
-                 "Fee due: ${{amount}} by {{due_date}}",
-                 "Fee Reminder", "Payment of ${{amount}} due on {{due_date}}."),
-                ("report_card_published", "Report Card Available",
-                 "{{student_name}}'s {{exam_name}} results are now available on the portal.",
-                 "{{exam_name}} results available",
-                 "Results Available", "Your {{exam_name}} report card is ready."),
+                (
+                    "attendance_absent",
+                    "Attendance Alert",
+                    "Dear Parent, {{student_name}} was absent on {{date}}. Please contact the school.",
+                    "{{student_name}} absent on {{date}}",
+                    "Attendance Alert",
+                    "{{student_name}} was absent today.",
+                ),
+                (
+                    "fee_due",
+                    "Fee Reminder",
+                    "Dear {{student_name}}, your fee payment of ${{amount}} is due on {{due_date}}.",
+                    "Fee due: ${{amount}} by {{due_date}}",
+                    "Fee Reminder",
+                    "Payment of ${{amount}} due on {{due_date}}.",
+                ),
+                (
+                    "report_card_published",
+                    "Report Card Available",
+                    "{{student_name}}'s {{exam_name}} results are now available on the portal.",
+                    "{{exam_name}} results available",
+                    "Results Available",
+                    "Your {{exam_name}} report card is ready.",
+                ),
             ]
             for event_type, email_subj, email_body, sms_body, push_title, push_body in templates:
                 NotificationTemplate.objects.get_or_create(
-                    school=school, event_type=event_type,
+                    school=school,
+                    event_type=event_type,
                     defaults={
                         "name": event_type.replace("_", " ").title(),
-                        "email_subject": email_subj, "email_body": email_body,
-                        "sms_body": sms_body, "push_title": push_title,
-                        "push_body": push_body, "is_active": True,
+                        "email_subject": email_subj,
+                        "email_body": email_body,
+                        "sms_body": sms_body,
+                        "push_title": push_title,
+                        "push_body": push_body,
+                        "is_active": True,
                     },
                 )
 
             # ── Welcome Announcement ────────────────────────────────────────────
             Announcement.objects.get_or_create(
-                school=school, title="Welcome to EduSphere Demo!",
+                school=school,
+                title="Welcome to EduSphere Demo!",
                 defaults={
                     "content": "Welcome to the EduSphere School Management System demo. "
-                               "Explore all features including attendance, grades, fees, and more.",
-                    "priority": "normal", "audience": "all",
-                    "is_draft": False, "send_push": True, "created_by": admin,
+                    "Explore all features including attendance, grades, fees, and more.",
+                    "priority": "normal",
+                    "audience": "all",
+                    "is_draft": False,
+                    "send_push": True,
+                    "created_by": admin,
                 },
             )
 

@@ -27,13 +27,12 @@ Usage:
     python manage.py generate_2fa_qr admin@school.edu --show-secret
 """
 
-import io
 import base64
+import io
 from pathlib import Path
 
-from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-
+from django.core.management.base import BaseCommand, CommandError
 from services.auth.models import User
 
 
@@ -49,14 +48,12 @@ class Command(BaseCommand):
             "--output",
             "-o",
             default=None,
-            help="File path to save the QR code PNG. "
-                 "Default: media/qr_codes/<email>.png",
+            help="File path to save the QR code PNG. " "Default: media/qr_codes/<email>.png",
         )
         parser.add_argument(
             "--to-stdout",
             action="store_true",
-            help="Print the QR code as a base64-encoded PNG to stdout "
-                 "instead of saving to a file.",
+            help="Print the QR code as a base64-encoded PNG to stdout " "instead of saving to a file.",
         )
         parser.add_argument(
             "--regenerate",
@@ -66,14 +63,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--show-secret",
             action="store_true",
-            help="Print the raw TOTP secret in the output "
-                 "(masked by default for security).",
+            help="Print the raw TOTP secret in the output " "(masked by default for security).",
         )
         parser.add_argument(
             "--issuer",
             default=None,
-            help="Issuer name shown in the authenticator app. "
-                 "Default: user's school name or 'EduSphere SMS'.",
+            help="Issuer name shown in the authenticator app. " "Default: user's school name or 'EduSphere SMS'.",
         )
 
     def handle(self, *args, **options):
@@ -88,10 +83,7 @@ class Command(BaseCommand):
             try:
                 user = User.objects.get(id=user_input)
             except (User.DoesNotExist, ValueError):
-                raise CommandError(
-                    f"User not found: '{user_input}'. "
-                    f"Provide an email address or UUID."
-                )
+                raise CommandError(f"User not found: '{user_input}'. " f"Provide an email address or UUID.")
 
         self.stdout.write(f"User:      {user.full_name} <{user.email}> [{user.role}]")
 
@@ -110,8 +102,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Secret:    {secret} ({secret_status})")
         else:
             self.stdout.write(
-                f"Secret:    {secret[:4]}...{secret[-4:]} "
-                f"({secret_status}, use --show-secret to reveal)"
+                f"Secret:    {secret[:4]}...{secret[-4:]} " f"({secret_status}, use --show-secret to reveal)"
             )
 
         # ── Provisioning URI ──────────────────────────────────────────────
@@ -157,12 +148,8 @@ class Command(BaseCommand):
                 output_path = str(qr_dir / f"{user.email}.png")
 
             img.save(output_path, format="PNG")
-            self.stdout.write(
-                self.style.SUCCESS(f"\n✅ QR code saved to: {output_path}")
-            )
-            self.stdout.write(
-                f"File size: {Path(output_path).stat().st_size} bytes"
-            )
+            self.stdout.write(self.style.SUCCESS(f"\n✅ QR code saved to: {output_path}"))
+            self.stdout.write(f"File size: {Path(output_path).stat().st_size} bytes")
             self.stdout.write(
                 "\nNext steps:\n"
                 f"  1. Share {output_path} with {user.email}\n"

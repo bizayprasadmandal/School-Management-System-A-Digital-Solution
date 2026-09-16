@@ -18,15 +18,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="student",
             name="interests",
-            field=models.TextField(
-                blank=True, help_text="Hobbies, extracurricular interests"
-            ),
+            field=models.TextField(blank=True, help_text="Hobbies, extracurricular interests"),
         ),
         migrations.AddField(
             model_name="student",
             name="learning_goals",
-            field=models.TextField(
-                blank=True, help_text="Academic goals and aspirations"
-            ),
+            field=models.TextField(blank=True, help_text="Academic goals and aspirations"),
         ),
     ]

@@ -3,9 +3,10 @@ Students Service — Signal handlers
 Auto-create guardian portal account when student is enrolled.
 """
 
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
 import logging
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def handle_guardian_linked(sender, instance, created, **kwargs):
     """Send welcome notification to guardian when portal access is granted."""
     if created and instance.portal_access and instance.guardian.user:
         from services.communication.services import send_in_app_notification
+
         send_in_app_notification.delay(
             user_id=str(instance.guardian.user.id),
             title="Portal Access Granted",

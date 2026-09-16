@@ -1,21 +1,22 @@
 """AcademicYear viewset and serializer."""
 
-from rest_framework import viewsets, serializers
+from core.permissions import IsSchoolAdmin, IsSchoolMember
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 from .models import AcademicYear
-from core.permissions import IsSchoolMember, IsSchoolAdmin
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
-        model  = AcademicYear
+        model = AcademicYear
         fields = ["id", "name", "start_date", "end_date", "is_current"]
 
     def validate(self, attrs):
-        school  = self.context["request"].user.school
-        name    = attrs.get("name", getattr(self.instance, "name", ""))
+        school = self.context["request"].user.school
+        name = attrs.get("name", getattr(self.instance, "name", ""))
         qs = AcademicYear.objects.filter(school=school, name=name)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -29,12 +30,11 @@ class AcademicYearViewSet(viewsets.ModelViewSet):
     CRUD for academic years. Only one can be current.
     Admin: full CRUD. Others: read-only.
     """
-    serializer_class   = AcademicYearSerializer
+
+    serializer_class = AcademicYearSerializer
 
     def get_queryset(self):
-        return AcademicYear.objects.filter(
-            school=self.request.user.school
-        ).order_by("-start_date")
+        return AcademicYear.objects.filter(school=self.request.user.school).order_by("-start_date")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy", "set_current"]:
@@ -56,9 +56,7 @@ class AcademicYearViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="current")
     def current(self, request):
         """Shortcut: return just the current academic year."""
-        year = AcademicYear.objects.filter(
-            school=request.user.school, is_current=True
-        ).first()
+        year = AcademicYear.objects.filter(school=request.user.school, is_current=True).first()
         if not year:
             return Response({"detail": "No current academic year set."}, status=404)
         return Response(AcademicYearSerializer(year).data)

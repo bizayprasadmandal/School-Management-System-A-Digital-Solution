@@ -1,21 +1,21 @@
 """Tests for Communication Service — Announcements, Notifications, DirectMessages."""
 
 import pytest
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from tests.url_helpers import (
-    COMMUNICATION_ANNOUNCEMENTS, COMMUNICATION_NOTIFICATIONS,
-    COMMUNICATION_NOTIFICATIONS_UNREAD_COUNT,
-    COMMUNICATION_NOTIFICATIONS_MARK_ALL_READ,
+    COMMUNICATION_ANNOUNCEMENTS,
     COMMUNICATION_MESSAGES,
-    communication_announcement_detail,
-    communication_announcement_publish,
+    COMMUNICATION_NOTIFICATIONS,
+    COMMUNICATION_NOTIFICATIONS_MARK_ALL_READ,
+    COMMUNICATION_NOTIFICATIONS_UNREAD_COUNT,
     communication_announcement_mark_read,
+    communication_announcement_publish,
 )
-from django.utils import timezone
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def api_client():
@@ -25,30 +25,35 @@ def api_client():
 @pytest.fixture
 def school(db):
     from tests.factories import SchoolFactory
+
     return SchoolFactory()
 
 
 @pytest.fixture
 def admin_user(db, school):
     from tests.factories import AdminUserFactory
+
     return AdminUserFactory(school=school)
 
 
 @pytest.fixture
 def teacher_user(db, school):
     from tests.factories import TeacherUserFactory
+
     return TeacherUserFactory(school=school)
 
 
 @pytest.fixture
 def student_user(db, school):
     from tests.factories import StudentUserFactory
+
     return StudentUserFactory(school=school)
 
 
 @pytest.fixture
 def other_user(db, school):
     from tests.factories import UserFactory
+
     return UserFactory(school=school, email="other@school.edu")
 
 
@@ -78,6 +83,7 @@ def other_auth_client(api_client, other_user):
 
 # ─── Announcement Tests ──────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestAnnouncements:
 
@@ -101,6 +107,7 @@ class TestAnnouncements:
 
     def test_admin_can_publish_announcement(self, admin_auth_client, school):
         from tests.factories import AnnouncementFactory
+
         ann = AnnouncementFactory(school=school, is_draft=True)
         response = admin_auth_client.post(
             communication_announcement_publish(ann.id),
@@ -111,9 +118,11 @@ class TestAnnouncements:
 
     def test_publish_twice_returns_400(self, admin_auth_client, school):
         from tests.factories import AnnouncementFactory
+
         ann = AnnouncementFactory(
             school=school,
-            is_draft=False, published_at=timezone.now(),
+            is_draft=False,
+            published_at=timezone.now(),
         )
         response = admin_auth_client.post(
             communication_announcement_publish(ann.id),
@@ -123,9 +132,11 @@ class TestAnnouncements:
 
     def test_mark_announcement_read(self, admin_auth_client, school):
         from tests.factories import AnnouncementFactory
+
         ann = AnnouncementFactory(
             school=school,
-            is_draft=False, published_at=timezone.now(),
+            is_draft=False,
+            published_at=timezone.now(),
         )
         initial_views = ann.view_count
         response = admin_auth_client.post(
@@ -138,12 +149,16 @@ class TestAnnouncements:
 
     def test_student_sees_only_published_announcements(self, student_auth_client, school):
         from tests.factories import AnnouncementFactory
+
         AnnouncementFactory(
-            school=school, is_draft=True,
+            school=school,
+            is_draft=True,
             title="Draft Title",
         )
         AnnouncementFactory(
-            school=school, is_draft=False, published_at=timezone.now(),
+            school=school,
+            is_draft=False,
+            published_at=timezone.now(),
             title="Published Title",
         )
         response = student_auth_client.get(COMMUNICATION_ANNOUNCEMENTS)
@@ -154,13 +169,20 @@ class TestAnnouncements:
 
     def test_announcement_audience_filter(self, admin_auth_client, school):
         from tests.factories import AnnouncementFactory
+
         AnnouncementFactory(
-            school=school, audience="teachers", title="Teacher Only",
-            is_draft=False, published_at=timezone.now(),
+            school=school,
+            audience="teachers",
+            title="Teacher Only",
+            is_draft=False,
+            published_at=timezone.now(),
         )
         AnnouncementFactory(
-            school=school, audience="students", title="Student Only",
-            is_draft=False, published_at=timezone.now(),
+            school=school,
+            audience="students",
+            title="Student Only",
+            is_draft=False,
+            published_at=timezone.now(),
         )
         response = admin_auth_client.get(COMMUNICATION_ANNOUNCEMENTS)
         assert response.status_code == status.HTTP_200_OK
@@ -168,13 +190,16 @@ class TestAnnouncements:
 
     def test_tenant_isolation_announcement(self, db):
         """School A cannot see School B announcements."""
-        from tests.factories import SchoolFactory, AdminUserFactory, AnnouncementFactory
+        from tests.factories import AdminUserFactory, AnnouncementFactory, SchoolFactory
+
         school_a = SchoolFactory(code="ANNA")
         school_b = SchoolFactory(code="ANNB")
         admin_a = AdminUserFactory(school=school_a)
         AnnouncementFactory(
-            school=school_b, title="Secret",
-            is_draft=False, published_at=timezone.now(),
+            school=school_b,
+            title="Secret",
+            is_draft=False,
+            published_at=timezone.now(),
         )
         client = APIClient()
         client.force_authenticate(user=admin_a)
@@ -185,11 +210,13 @@ class TestAnnouncements:
 
 # ─── Notification Tests ──────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestNotifications:
 
     def test_list_notifications(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, title="Test Notification")
         response = student_auth_client.get(COMMUNICATION_NOTIFICATIONS)
         assert response.status_code == status.HTTP_200_OK
@@ -198,6 +225,7 @@ class TestNotifications:
     def test_notification_isolation(self, admin_auth_client, student_user):
         """Admin should not see student's notifications (different users)."""
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, title="Student Nudge")
         response = admin_auth_client.get(COMMUNICATION_NOTIFICATIONS)
         titles = [n["title"] for n in response.data["results"]]
@@ -205,6 +233,7 @@ class TestNotifications:
 
     def test_unread_count(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, title="Unread One", read_at=None)
         NotificationFactory(user=student_user, title="Read One", read_at=timezone.now())
         response = student_auth_client.get(COMMUNICATION_NOTIFICATIONS_UNREAD_COUNT)
@@ -213,6 +242,7 @@ class TestNotifications:
 
     def test_mark_notification_read(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         notif = NotificationFactory(user=student_user, title="Unread")
         response = student_auth_client.patch(
             f"{COMMUNICATION_NOTIFICATIONS}{notif.id}/mark-read/",
@@ -224,6 +254,7 @@ class TestNotifications:
 
     def test_mark_all_read(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, title="A", read_at=None)
         NotificationFactory(user=student_user, title="B", read_at=None)
         response = student_auth_client.post(
@@ -235,6 +266,7 @@ class TestNotifications:
 
     def test_notification_filter_by_channel(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, channel="in_app")
         NotificationFactory(user=student_user, channel="email")
         response = student_auth_client.get(f"{COMMUNICATION_NOTIFICATIONS}?channel=email")
@@ -244,8 +276,10 @@ class TestNotifications:
 
     def test_notification_ordering(self, student_auth_client, student_user):
         from tests.factories import NotificationFactory
+
         NotificationFactory(user=student_user, title="Older")
         import time as time_module
+
         time_module.sleep(0.01)
         NotificationFactory(user=student_user, title="Newer")
         response = student_auth_client.get(COMMUNICATION_NOTIFICATIONS)
@@ -254,6 +288,7 @@ class TestNotifications:
 
 
 # ─── DirectMessage Tests ─────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestDirectMessages:
@@ -273,6 +308,7 @@ class TestDirectMessages:
     def test_cannot_message_other_school(self, other_auth_client, student_user):
         """Users from different schools cannot message each other (serializer validation)."""
         from tests.factories import SchoolFactory, UserFactory
+
         other_school = SchoolFactory(code="MSGOS")
         other_user = UserFactory(school=other_school)
         payload = {"recipient": other_user.id, "content": "Cross-school message"}
@@ -281,14 +317,13 @@ class TestDirectMessages:
 
     def test_get_conversation(self, other_auth_client, student_user):
         from tests.factories import DirectMessageFactory
+
         sender = other_auth_client.handler._force_user
         # Message from sender to student
         DirectMessageFactory(sender=sender, recipient=student_user, content="Hello")
         # Message from student to sender
         DirectMessageFactory(sender=student_user, recipient=sender, content="Hi back")
-        response = other_auth_client.get(
-            f"{COMMUNICATION_MESSAGES}conversation/{student_user.id}/"
-        )
+        response = other_auth_client.get(f"{COMMUNICATION_MESSAGES}conversation/{student_user.id}/")
         assert response.status_code == status.HTTP_200_OK
         contents = [m["content"] for m in response.data["results"]]
         assert "Hello" in contents
@@ -296,6 +331,7 @@ class TestDirectMessages:
 
     def test_inbox_returns_threads(self, other_auth_client, student_user):
         from tests.factories import DirectMessageFactory
+
         sender = other_auth_client.handler._force_user
         DirectMessageFactory(sender=sender, recipient=student_user, content="Last msg")
         response = other_auth_client.get(f"{COMMUNICATION_MESSAGES}inbox/")
@@ -305,22 +341,23 @@ class TestDirectMessages:
 
     def test_inbox_unread_count(self, other_auth_client, student_user):
         from tests.factories import DirectMessageFactory
+
         sender = other_auth_client.handler._force_user
         DirectMessageFactory(
-            sender=student_user, recipient=sender,
-            content="Unread", status="sent",
+            sender=student_user,
+            recipient=sender,
+            content="Unread",
+            status="sent",
         )
         response = other_auth_client.get(f"{COMMUNICATION_MESSAGES}inbox/")
         assert response.status_code == status.HTTP_200_OK
-        unread = sum(
-            t["unread_count"] for t in response.data
-            if t["partner"]["id"] == str(student_user.id)
-        )
+        unread = sum(t["unread_count"] for t in response.data if t["partner"]["id"] == str(student_user.id))
         assert unread >= 1
 
     def test_message_tenant_isolation(self, db):
         """School A cannot see School B messages."""
-        from tests.factories import SchoolFactory, UserFactory, DirectMessageFactory
+        from tests.factories import DirectMessageFactory, SchoolFactory, UserFactory
+
         school_a = SchoolFactory(code="MSGA")
         school_b = SchoolFactory(code="MSGB")
         user_a = UserFactory(school=school_a)

@@ -3,9 +3,10 @@ Request/response logging middleware with request ID tracking.
 Attaches a unique request_id to each incoming request for traceability
 across middleware, views, and downstream Celery tasks.
 """
+
+import logging
 import time
 import uuid
-import logging
 
 logger = logging.getLogger("sms.requests")
 

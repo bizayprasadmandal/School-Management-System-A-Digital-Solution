@@ -13,10 +13,11 @@ Configuration (in settings):
   JWT_ACCESS_TOKEN_LIFETIME is read from SIMPLE_JWT settings
 """
 
-import json
 import base64
-import time
+import json
 import logging
+import time
+
 from django.conf import settings
 from django.http import JsonResponse
 

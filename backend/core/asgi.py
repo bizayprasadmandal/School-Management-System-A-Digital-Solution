@@ -6,6 +6,7 @@ MUST come AFTER get_asgi_application() to avoid AppRegistryNotReady.
 """
 
 import os
+
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings.base")
@@ -20,8 +21,8 @@ django_asgi_app = get_asgi_application()
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.security.websocket import OriginValidator  # noqa: E402
 from core.middleware.jwt_auth import JWTAuthMiddlewareStack  # noqa: E402
-from services.communication.routing import websocket_urlpatterns  # noqa: E402
 from django.conf import settings  # noqa: E402
+from services.communication.routing import websocket_urlpatterns  # noqa: E402
 
 # ── Determine valid WebSocket origins ─────────────────────────────────────────
 # AllowedHostsOriginValidator normally passes ALLOWED_HOSTS to OriginValidator.
@@ -35,12 +36,12 @@ ALLOWED_WS_ORIGINS = ["*"] if settings.DEBUG else list(settings.ALLOWED_HOSTS)
 
 # ── Application ───────────────────────────────────────────────────────────────
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": OriginValidator(
-        JWTAuthMiddlewareStack(
-            URLRouter(websocket_urlpatterns)
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": OriginValidator(
+            JWTAuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
+            ALLOWED_WS_ORIGINS,
         ),
-        ALLOWED_WS_ORIGINS,
-    ),
-})
+    }
+)

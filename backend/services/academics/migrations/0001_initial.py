@@ -8,7 +8,9 @@ to generate the real migration from services/academics/models.py, then:
 This stub exists only so the migrations package is importable before
 that first makemigrations run.
 """
+
 from django.db import migrations
+
 
 class Migration(migrations.Migration):
     initial = True

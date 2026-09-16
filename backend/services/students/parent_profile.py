@@ -5,11 +5,13 @@ Provides GET/PATCH endpoint at /students/parent-profile/ for authenticated paren
 
 from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
+
 from .models import ParentProfile
 
 
 class ParentProfileSerializer(serializers.ModelSerializer):
     """Full parent profile — for admin view."""
+
     user_name = serializers.CharField(source="user.full_name", read_only=True)
 
     class Meta:
@@ -23,11 +25,19 @@ class ParentSelfProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProfile
-        fields = ["occupation", "alternate_phone", "address", "emergency_contact_name", "emergency_contact_phone", "bio"]
+        fields = [
+            "occupation",
+            "alternate_phone",
+            "address",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+            "bio",
+        ]
 
 
 class ParentProfileView(generics.RetrieveUpdateAPIView):
     """Get/update the authenticated parent's own profile."""
+
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):

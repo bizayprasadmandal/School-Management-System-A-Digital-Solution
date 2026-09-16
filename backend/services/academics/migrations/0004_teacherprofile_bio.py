@@ -13,8 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="teacherprofile",
             name="bio",
-            field=models.TextField(
-                blank=True, help_text="Professional bio / biography"
-            ),
+            field=models.TextField(blank=True, help_text="Professional bio / biography"),
         ),
     ]

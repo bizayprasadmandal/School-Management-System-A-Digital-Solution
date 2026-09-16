@@ -14,10 +14,8 @@ Steps performed:
   3. Updates the django_migrations table to mark old migrations as applied
 """
 
-from django.core.management.base import BaseCommand, CommandError
 from django.core.management import call_command
-from django.db import connection
-import os
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
@@ -82,14 +80,8 @@ class Command(BaseCommand):
                 interactive=False,
                 verbosity=0,
             )
-            self.stdout.write(
-                f"  ✓ Squashed migration created for {app_label}"
-            )
+            self.stdout.write(f"  ✓ Squashed migration created for {app_label}")
         except CommandError as e:
-            self.stdout.write(
-                self.style.WARNING(f"  ⚠ Skipping {app_label}: {e}")
-            )
+            self.stdout.write(self.style.WARNING(f"  ⚠ Skipping {app_label}: {e}"))
         except Exception as e:
-            self.stdout.write(
-                self.style.ERROR(f"  ✗ Failed {app_label}: {e}")
-            )
+            self.stdout.write(self.style.ERROR(f"  ✗ Failed {app_label}: {e}"))

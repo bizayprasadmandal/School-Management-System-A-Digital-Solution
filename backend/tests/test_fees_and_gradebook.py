@@ -2,28 +2,50 @@
 Test Suite — Fees and Gradebook services comprehensive coverage
 """
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
+from services.fees.models import FeeCategory, FeeInvoice, FeeStructure, Scholarship
+from services.gradebook.models import Assessment
+from services.gradebook.models import Grade as GradeModel
+from services.gradebook.models import ReportCard
 from tests.factories import (
-    SchoolFactory, AdminUserFactory, TeacherUserFactory, StudentUserFactory,
-    StudentFactory, ClassroomFactory, AcademicYearFactory, GradeFactory,
-    EnrollmentFactory, SubjectFactory, TeacherAssignmentFactory,
-    ExamFactory, ExamTypeFactory, ExamScheduleFactory, GradeRecordFactory,
-    FeeCategoryFactory, FeeStructureFactory, FeeInvoiceFactory,
+    AcademicYearFactory,
+    AdminUserFactory,
+    ClassroomFactory,
+    EnrollmentFactory,
+    ExamFactory,
+    ExamScheduleFactory,
+    ExamTypeFactory,
+    FeeCategoryFactory,
+    FeeInvoiceFactory,
+    FeeStructureFactory,
+    GradeFactory,
+    GradeRecordFactory,
+    SchoolFactory,
+    StudentFactory,
+    StudentUserFactory,
+    SubjectFactory,
+    TeacherAssignmentFactory,
+    TeacherUserFactory,
 )
 from tests.url_helpers import (
-    GRADEBOOK_EXAMS, GRADEBOOK_GRADES_BULK, GRADEBOOK_GRADES,
-    GRADEBOOK_REPORT_CARDS, gradebook_exam_leaderboard,
-    FEES_INVOICES, FEES_PAYMENTS, FEES_SCHOLARSHIPS, fees_invoice_waive,
+    FEES_INVOICES,
+    FEES_PAYMENTS,
+    FEES_SCHOLARSHIPS,
+    GRADEBOOK_EXAMS,
+    GRADEBOOK_GRADES,
+    GRADEBOOK_GRADES_BULK,
+    GRADEBOOK_REPORT_CARDS,
+    fees_invoice_waive,
+    gradebook_exam_leaderboard,
 )
-from services.fees.models import FeeCategory, FeeStructure, FeeInvoice, Payment, Scholarship
-from services.gradebook.models import Grade as GradeModel, Assessment, ReportCard
-
 
 # ─── Shared Fixtures ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def school(db):
@@ -63,7 +85,9 @@ def grade(db, school):
 @pytest.fixture
 def classroom(db, school, grade, academic_year, teacher):
     return ClassroomFactory(
-        school=school, grade=grade, academic_year=academic_year,
+        school=school,
+        grade=grade,
+        academic_year=academic_year,
         class_teacher=teacher,
     )
 
@@ -71,7 +95,9 @@ def classroom(db, school, grade, academic_year, teacher):
 @pytest.fixture
 def enrollment(db, student, classroom, academic_year):
     return EnrollmentFactory(
-        student=student, classroom=classroom, academic_year=academic_year,
+        student=student,
+        classroom=classroom,
+        academic_year=academic_year,
     )
 
 
@@ -98,7 +124,9 @@ def schedule(db, exam, subject, classroom):
 @pytest.fixture
 def assignment(db, teacher, subject, classroom, academic_year):
     return TeacherAssignmentFactory(
-        teacher=teacher, subject=subject, classroom=classroom,
+        teacher=teacher,
+        subject=subject,
+        classroom=classroom,
         academic_year=academic_year,
     )
 
@@ -127,6 +155,7 @@ def student_client(db, student_user):
 # ═══════════════════════════════════════════════════════════════════════════════
 # FEES SERVICE TESTS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @pytest.mark.django_db
 class TestFeeCategories:
@@ -193,8 +222,11 @@ class TestFeeStructures:
     def test_duplicate_structure_rejected(self, admin_client, grade, academic_year):
         cat = FeeCategoryFactory(school=grade.school)
         payload = {
-            "grade": grade.id, "academic_year": academic_year.id,
-            "fee_category": cat.id, "amount": "500.00", "due_day": 10,
+            "grade": grade.id,
+            "academic_year": academic_year.id,
+            "fee_category": cat.id,
+            "amount": "500.00",
+            "due_day": 10,
         }
         admin_client.post("/api/v1/fees/structures/", payload, format="json")
         r = admin_client.post("/api/v1/fees/structures/", payload, format="json")
@@ -223,10 +255,12 @@ class TestFeeInvoices:
         structure = FeeStructureFactory(school=student.school)
         payload = {
             "invoice_number": "INV-TEST-002",
-            "student": student.id, "academic_year": academic_year.id,
+            "student": student.id,
+            "academic_year": academic_year.id,
             "fee_structure": structure.id,
             "due_date": (date.today() + timedelta(days=30)).isoformat(),
-            "base_amount": "500.00", "total_amount": "500.00",
+            "base_amount": "500.00",
+            "total_amount": "500.00",
         }
         r = admin_client.post(FEES_INVOICES, payload, format="json")
         assert r.data["status"] == "unpaid"
@@ -235,12 +269,16 @@ class TestFeeInvoices:
     def test_student_sees_own_invoices_only(self, admin_client, student_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
             invoice_number="INV-OWN-001",
         )
         other_student = StudentFactory(school=school)
         FeeInvoiceFactory(
-            student=other_student, academic_year=academic_year, fee_structure=structure,
+            student=other_student,
+            academic_year=academic_year,
+            fee_structure=structure,
             invoice_number="INV-OTHER-001",
         )
         r = student_client.get(FEES_INVOICES)
@@ -250,10 +288,21 @@ class TestFeeInvoices:
 
     def test_filter_invoices_by_status(self, admin_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
-        FeeInvoiceFactory(student=student, academic_year=academic_year, fee_structure=structure,
-                          status="unpaid", invoice_number="INV-U-001")
-        FeeInvoiceFactory(student=student, academic_year=academic_year, fee_structure=structure,
-                          status="paid", invoice_number="INV-P-001", paid_amount="500.00")
+        FeeInvoiceFactory(
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            status="unpaid",
+            invoice_number="INV-U-001",
+        )
+        FeeInvoiceFactory(
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            status="paid",
+            invoice_number="INV-P-001",
+            paid_amount="500.00",
+        )
         r = admin_client.get(f"{FEES_INVOICES}?status=paid")
         inv_numbers = [inv["invoice_number"] for inv in r.data["results"]]
         assert "INV-P-001" in inv_numbers
@@ -262,16 +311,22 @@ class TestFeeInvoices:
     def test_outstanding_amount_property(self, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
-            total_amount=Decimal("1000.00"), paid_amount=Decimal("300.00"),
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            total_amount=Decimal("1000.00"),
+            paid_amount=Decimal("300.00"),
         )
         assert inv.outstanding_amount == Decimal("700.00")
 
     def test_invoice_waive(self, admin_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
-            status="unpaid", invoice_number="INV-WAIVE-001",
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            status="unpaid",
+            invoice_number="INV-WAIVE-001",
         )
         r = admin_client.post(fees_invoice_waive(inv.id), {"reason": "Financial hardship"}, format="json")
         assert r.status_code == status.HTTP_200_OK
@@ -281,7 +336,9 @@ class TestFeeInvoices:
     def test_waive_requires_admin(self, teacher_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
         )
         r = teacher_client.post(fees_invoice_waive(inv.id), {"reason": "test"}, format="json")
         assert r.status_code == status.HTTP_403_FORBIDDEN
@@ -293,9 +350,13 @@ class TestPayments:
     def test_record_payment_updates_invoice(self, admin_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
-            total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"),
-            status="unpaid", invoice_number="INV-PAY-001",
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            total_amount=Decimal("500.00"),
+            paid_amount=Decimal("0.00"),
+            status="unpaid",
+            invoice_number="INV-PAY-001",
         )
         payload = {"invoice": inv.id, "amount": "500.00", "payment_method": "cash"}
         r = admin_client.post(FEES_PAYMENTS, payload, format="json")
@@ -307,9 +368,13 @@ class TestPayments:
     def test_partial_payment_sets_partial_status(self, admin_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
-            total_amount=Decimal("500.00"), paid_amount=Decimal("0.00"),
-            status="unpaid", invoice_number="INV-PART-001",
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
+            total_amount=Decimal("500.00"),
+            paid_amount=Decimal("0.00"),
+            status="unpaid",
+            invoice_number="INV-PART-001",
         )
         payload = {"invoice": inv.id, "amount": "200.00", "payment_method": "bank_transfer"}
         r = admin_client.post(FEES_PAYMENTS, payload, format="json")
@@ -328,7 +393,9 @@ class TestPayments:
     def test_payment_has_receipt_number(self, admin_client, student, academic_year, school):
         structure = FeeStructureFactory(school=school)
         inv = FeeInvoiceFactory(
-            student=student, academic_year=academic_year, fee_structure=structure,
+            student=student,
+            academic_year=academic_year,
+            fee_structure=structure,
             invoice_number="INV-RCPT-001",
         )
         payload = {"invoice": inv.id, "amount": "100.00", "payment_method": "cash"}
@@ -342,7 +409,8 @@ class TestScholarships:
 
     def test_admin_can_create_scholarship(self, admin_client, admin, student, academic_year):
         payload = {
-            "student": student.id, "academic_year": academic_year.id,
+            "student": student.id,
+            "academic_year": academic_year.id,
             "name": "Merit Scholarship",
             "discount_type": "percent",
             "discount_value": "25.00",
@@ -354,18 +422,25 @@ class TestScholarships:
 
     def test_non_admin_cannot_create_scholarship(self, teacher_client, student, academic_year):
         payload = {
-            "student": student.id, "academic_year": academic_year.id,
-            "name": "Test", "discount_type": "fixed",
-            "discount_value": "100.00", "reason": "test",
+            "student": student.id,
+            "academic_year": academic_year.id,
+            "name": "Test",
+            "discount_type": "fixed",
+            "discount_value": "100.00",
+            "reason": "test",
         }
         r = teacher_client.post(FEES_SCHOLARSHIPS, payload, format="json")
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
     def test_scholarship_list_scoped(self, admin_client, school, student, academic_year):
         Scholarship.objects.create(
-            school=school, student=student, academic_year=academic_year,
-            name="Scholarship A", discount_type="percent",
-            discount_value=Decimal("10.00"), reason="test",
+            school=school,
+            student=student,
+            academic_year=academic_year,
+            name="Scholarship A",
+            discount_type="percent",
+            discount_value=Decimal("10.00"),
+            reason="test",
             approved_by=admin_client.handler._force_user,
         )
         r = admin_client.get(FEES_SCHOLARSHIPS)
@@ -377,13 +452,16 @@ class TestScholarships:
 # GRADEBOOK EXTENDED TESTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.mark.django_db
 class TestExamsExtended:
 
     def test_create_exam_with_schedule(self, admin_client, academic_year, exam_type):
         payload = {
-            "academic_year": academic_year.id, "exam_type": exam_type.id,
-            "name": "Final Exam 2026", "start_date": date.today().isoformat(),
+            "academic_year": academic_year.id,
+            "exam_type": exam_type.id,
+            "name": "Final Exam 2026",
+            "start_date": date.today().isoformat(),
             "end_date": (date.today() + timedelta(days=10)).isoformat(),
         }
         r = admin_client.post(GRADEBOOK_EXAMS, payload, format="json")
@@ -392,8 +470,10 @@ class TestExamsExtended:
 
     def test_student_cannot_create_exam(self, student_client, academic_year, exam_type):
         payload = {
-            "academic_year": academic_year.id, "exam_type": exam_type.id,
-            "name": "Hack Attempt", "start_date": date.today().isoformat(),
+            "academic_year": academic_year.id,
+            "exam_type": exam_type.id,
+            "name": "Hack Attempt",
+            "start_date": date.today().isoformat(),
             "end_date": (date.today() + timedelta(days=3)).isoformat(),
         }
         r = student_client.post(GRADEBOOK_EXAMS, payload, format="json")
@@ -410,9 +490,14 @@ class TestExamsExtended:
 
     def test_publish_results_updates_status(self, admin_client, exam, student, academic_year):
         ReportCard.objects.create(
-            student=student, exam=exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("85"),
-            percentage=Decimal("85.0"), grade_letter="A", status="draft",
+            student=student,
+            exam=exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("85"),
+            percentage=Decimal("85.0"),
+            grade_letter="A",
+            status="draft",
         )
         r = admin_client.post(f"/api/v1/gradebook/exams/{exam.id}/publish-results/")
         assert r.status_code == status.HTTP_200_OK
@@ -420,10 +505,16 @@ class TestExamsExtended:
 
     def test_leaderboard_returns_ranked_results(self, admin_client, exam, student, academic_year, enrollment):
         ReportCard.objects.create(
-            student=student, exam=exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("95"),
-            percentage=Decimal("95.0"), grade_letter="A+",
-            rank_in_class=1, rank_in_grade=1, status="published",
+            student=student,
+            exam=exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("95"),
+            percentage=Decimal("95.0"),
+            grade_letter="A+",
+            rank_in_class=1,
+            rank_in_grade=1,
+            status="published",
         )
         r = admin_client.get(gradebook_exam_leaderboard(exam.id))
         assert r.status_code == status.HTTP_200_OK
@@ -489,6 +580,7 @@ class TestGradesExtended:
 
     def test_student_cannot_view_other_student_grades(self, db, school, student_user, schedule):
         from tests.factories import StudentFactory
+
         other_student = StudentFactory(school=school)
         GradeRecordFactory(student=other_student, exam_schedule=schedule, marks_obtained=Decimal("99"))
         client = APIClient()
@@ -503,9 +595,14 @@ class TestReportCards:
 
     def test_list_report_cards(self, admin_client, student, exam, academic_year):
         ReportCard.objects.create(
-            student=student, exam=exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("88"),
-            percentage=Decimal("88.0"), grade_letter="B+", status="published",
+            student=student,
+            exam=exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("88"),
+            percentage=Decimal("88.0"),
+            grade_letter="B+",
+            status="published",
         )
         r = admin_client.get(f"{GRADEBOOK_REPORT_CARDS}?student={student.id}")
         assert r.status_code == status.HTTP_200_OK
@@ -515,18 +612,30 @@ class TestReportCards:
     def test_student_sees_published_only(self, student_client, student, exam, school, exam_type):
         academic_year = exam.academic_year
         other_exam = ExamFactory(
-            school=school, academic_year=academic_year, exam_type=exam_type,
+            school=school,
+            academic_year=academic_year,
+            exam_type=exam_type,
             name="Different Exam",
         )
         ReportCard.objects.create(
-            student=student, exam=other_exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("90"),
-            percentage=Decimal("90.0"), grade_letter="A", status="draft",
+            student=student,
+            exam=other_exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("90"),
+            percentage=Decimal("90.0"),
+            grade_letter="A",
+            status="draft",
         )
         ReportCard.objects.create(
-            student=student, exam=exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("80"),
-            percentage=Decimal("80.0"), grade_letter="B", status="published",
+            student=student,
+            exam=exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("80"),
+            percentage=Decimal("80.0"),
+            grade_letter="B",
+            status="published",
         )
         r = student_client.get(GRADEBOOK_REPORT_CARDS)
         assert r.status_code == status.HTTP_200_OK
@@ -535,9 +644,14 @@ class TestReportCards:
 
     def test_download_pdf_404_when_not_generated(self, admin_client, student, exam, academic_year):
         rc = ReportCard.objects.create(
-            student=student, exam=exam, academic_year=academic_year,
-            total_marks=Decimal("100"), obtained_marks=Decimal("75"),
-            percentage=Decimal("75.0"), grade_letter="C", status="draft",
+            student=student,
+            exam=exam,
+            academic_year=academic_year,
+            total_marks=Decimal("100"),
+            obtained_marks=Decimal("75"),
+            percentage=Decimal("75.0"),
+            grade_letter="C",
+            status="draft",
         )
         r = admin_client.get(f"/api/v1/gradebook/report-cards/{rc.id}/download-pdf/")
         assert r.status_code == status.HTTP_404_NOT_FOUND
@@ -559,17 +673,22 @@ class TestAssessments:
 
     def test_student_cannot_create_assessment(self, student_client, assignment):
         payload = {
-            "assignment": assignment.id, "title": "Hack",
+            "assignment": assignment.id,
+            "title": "Hack",
             "assessment_type": "quiz",
-            "due_date": date.today().isoformat(), "max_marks": "10.00",
+            "due_date": date.today().isoformat(),
+            "max_marks": "10.00",
         }
         r = student_client.post("/api/v1/gradebook/assessments/", payload, format="json")
         assert r.status_code == status.HTTP_403_FORBIDDEN
 
     def test_assessment_list(self, teacher_client, assignment):
         Assessment.objects.create(
-            assignment=assignment, title="Quiz 1", assessment_type="quiz",
-            due_date=date.today() + timedelta(days=3), max_marks=Decimal("15.00"),
+            assignment=assignment,
+            title="Quiz 1",
+            assessment_type="quiz",
+            due_date=date.today() + timedelta(days=3),
+            max_marks=Decimal("15.00"),
         )
         r = teacher_client.get("/api/v1/gradebook/assessments/")
         assert r.status_code == status.HTTP_200_OK
