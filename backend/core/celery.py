@@ -61,6 +61,16 @@ app.conf.beat_schedule = {
         "task": "services.cafeteria.tasks.generate_low_stock_alerts",
         "schedule": crontab(hour=6, minute=30),
     },
+    # Generate work orders for due preventive-maintenance schedules daily at 5:00
+    "pm-work-orders": {
+        "task": "services.infrastructure.tasks.generate_due_pm_work_orders",
+        "schedule": crontab(hour=5, minute=0),
+    },
+    # Post monthly asset depreciation on the 1st at 1:00
+    "monthly-asset-depreciation": {
+        "task": "services.infrastructure.tasks.run_monthly_depreciation",
+        "schedule": crontab(hour=1, minute=0, day_of_month=1),
+    },
     # Send fee reminders 3 days before due date — runs daily at 8 AM
     "fee-due-reminders": {
         "task": "services.fees.tasks.send_fee_reminders",
