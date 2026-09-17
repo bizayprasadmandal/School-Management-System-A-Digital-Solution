@@ -54,11 +54,17 @@ interface LedgerStream {
   total_debits: string;
   total_credits: string;
   entry_count: number;
+  prev_debits?: string;
+  prev_credits?: string;
 }
 
 interface LedgerSummary {
   month: string;
+  prev_month?: string;
   streams: LedgerStream[];
+  prev_total_debits?: string;
+  prev_total_credits?: string;
+  prev_net?: string;
   total_debits: string;
   total_credits: string;
   net: string;
@@ -80,6 +86,48 @@ const STREAM_LABELS: Record<string, string> = {
 };
 
 const CURRENCY = "Rs. ";
+
+/** Month-over-month arrow: ↑/↓ vs last month, coloured by direction. */
+function Delta({
+  current,
+  previous,
+  invert = false,
+}: {
+  current: string;
+  previous?: string;
+  invert?: boolean;
+}) {
+  if (previous === undefined) return null;
+  const cur = parseFloat(current) || 0;
+  const prev = parseFloat(previous) || 0;
+  if (prev === 0) {
+    if (cur === 0) return null;
+    return (
+      <span
+        className="ml-1 text-[10px] font-medium text-slate-400 dark:text-slate-500"
+        title="No activity last month"
+      >
+        new
+      </span>
+    );
+  }
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (pct === 0) return null;
+  const up = pct > 0;
+  // For debits, a rise is unfavourable (red); for credits/net, a rise is good.
+  const good = invert ? !up : up;
+  return (
+    <span
+      className={`ml-1 text-[10px] font-semibold ${
+        good ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+      }`}
+      title={`vs ${money(previous)} last month`}
+    >
+      {up ? "↑" : "↓"}
+      {Math.abs(pct)}%
+    </span>
+  );
+}
 
 function money(v: string | number) {
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -120,6 +168,11 @@ function LedgerSummaryCard() {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
           Ledger this month ({data.month})
+          {data.prev_month && (
+            <span className="ml-2 text-xs font-normal text-slate-400 dark:text-slate-500">
+              vs {data.prev_month}
+            </span>
+          )}
         </h2>
         <div className="flex items-baseline gap-4 text-sm">
           <span className="text-slate-500 dark:text-slate-400">
@@ -127,12 +180,14 @@ function LedgerSummaryCard() {
             <span className="font-semibold text-green-600 dark:text-green-400">
               {money(data.total_credits)}
             </span>
+            <Delta current={data.total_credits} previous={data.prev_total_credits} />
           </span>
           <span className="text-slate-500 dark:text-slate-400">
             Debits{" "}
             <span className="font-semibold text-red-600 dark:text-red-400">
               {money(data.total_debits)}
             </span>
+            <Delta current={data.total_debits} previous={data.prev_total_debits} invert />
           </span>
           <span
             className={`font-semibold ${
@@ -142,6 +197,7 @@ function LedgerSummaryCard() {
             }`}
           >
             Net {money(data.net)}
+            <Delta current={data.net} previous={data.prev_net} />
           </span>
         </div>
       </div>{" "}
@@ -171,6 +227,7 @@ function LedgerSummaryCard() {
                   </div>
                   <span className="w-24 shrink-0 text-right text-xs text-green-600 dark:text-green-400">
                     {money(credits)}
+                    <Delta current={s.total_credits} previous={s.prev_credits} />
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -183,6 +240,7 @@ function LedgerSummaryCard() {
                   </div>
                   <span className="w-24 shrink-0 text-right text-xs text-red-600 dark:text-red-400">
                     {money(debits)}
+                    <Delta current={s.total_debits} previous={s.prev_debits} invert />
                   </span>
                 </div>
               </div>

@@ -1846,49 +1846,76 @@ class AccountingEntryViewSet(viewsets.ModelViewSet):
         Streams are derived from ``reference_type`` (payment, transport,
         hostel, cafeteria_pos, cafeteria_payment, cafeteria_refund,
         depreciation, purchase_order, ...) so every ledger writer shows up
-        automatically. Returns per-stream totals plus the overall balance.
+        automatically. Returns per-stream totals for the current month, the
+        same aggregates for the previous month (``prev_*``), plus the overall
+        balances — so clients can show month-over-month deltas.
         """
+        from datetime import timedelta
+
         from django.db.models import Count, Q, Sum
         from django.db.models.functions import Coalesce
         from django.utils import timezone
 
         today = timezone.localdate()
         month_start = today.replace(day=1)
-        qs = self.get_queryset().filter(entry_date__gte=month_start, entry_date__lte=today)
+        prev_start = (month_start - timedelta(days=1)).replace(day=1)
+        prev_end = month_start - timedelta(days=1)
+        base = self.get_queryset()
 
-        streams = (
-            qs.values("reference_type")
-            .annotate(
-                total_debits=Coalesce(
-                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.DEBIT)),
-                    Decimal("0"),
-                ),
-                total_credits=Coalesce(
-                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.CREDIT)),
-                    Decimal("0"),
-                ),
-                entry_count=Count("id"),
+        def _aggregate(start, end):
+            grouped = (
+                base.filter(entry_date__gte=start, entry_date__lte=end)
+                .values("reference_type")
+                .annotate(
+                    total_debits=Coalesce(
+                        Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.DEBIT)),
+                        Decimal("0"),
+                    ),
+                    total_credits=Coalesce(
+                        Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.CREDIT)),
+                        Decimal("0"),
+                    ),
+                    entry_count=Count("id"),
+                )
+                .order_by("reference_type")
             )
-            .order_by("reference_type")
-        )
-        rows = [
-            {
-                "stream": row["reference_type"] or "unclassified",
-                "total_debits": str(row["total_debits"].quantize(Decimal("0.01"))),
-                "total_credits": str(row["total_credits"].quantize(Decimal("0.01"))),
-                "entry_count": row["entry_count"],
-            }
-            for row in streams
-        ]
+            return {row["reference_type"] or "unclassified": row for row in grouped}
+
+        def _money(value):
+            return str(Decimal(value).quantize(Decimal("0.01")))
+
+        current = _aggregate(month_start, today)
+        previous = _aggregate(prev_start, prev_end)
+
+        rows = []
+        for stream in sorted(set(current) | set(previous)):
+            cur, prior = current.get(stream), previous.get(stream)
+            rows.append(
+                {
+                    "stream": stream,
+                    "total_debits": _money(cur["total_debits"]) if cur else "0.00",
+                    "total_credits": _money(cur["total_credits"]) if cur else "0.00",
+                    "entry_count": cur["entry_count"] if cur else 0,
+                    "prev_debits": _money(prior["total_debits"]) if prior else "0.00",
+                    "prev_credits": _money(prior["total_credits"]) if prior else "0.00",
+                }
+            )
+
         total_debits = sum((Decimal(r["total_debits"]) for r in rows), Decimal("0.00"))
         total_credits = sum((Decimal(r["total_credits"]) for r in rows), Decimal("0.00"))
+        prev_total_debits = sum((Decimal(r["prev_debits"]) for r in rows), Decimal("0.00"))
+        prev_total_credits = sum((Decimal(r["prev_credits"]) for r in rows), Decimal("0.00"))
         return Response(
             {
                 "month": month_start.strftime("%Y-%m"),
+                "prev_month": prev_start.strftime("%Y-%m"),
                 "streams": rows,
-                "total_debits": str(total_debits.quantize(Decimal("0.01"))),
-                "total_credits": str(total_credits.quantize(Decimal("0.01"))),
-                "net": str((total_credits - total_debits).quantize(Decimal("0.01"))),
+                "total_debits": _money(total_debits),
+                "total_credits": _money(total_credits),
+                "net": _money(total_credits - total_debits),
+                "prev_total_debits": _money(prev_total_debits),
+                "prev_total_credits": _money(prev_total_credits),
+                "prev_net": _money(prev_total_credits - prev_total_debits),
             }
         )
 
