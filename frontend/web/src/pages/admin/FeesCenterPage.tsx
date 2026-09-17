@@ -54,6 +54,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     label: "Accounting Entry",
     endpoint: "accounting-entry",
     titleField: "entry_type",
+    searchKeys: [
+      "entry_type",
+      "account_name",
+      "account_code",
+      "description",
+      "reference_type",
+      "reference_id",
+    ],
     fields: [
       {
         key: "entry_type",
@@ -1192,6 +1200,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     endpoint: "transaction-log",
     titleField: "transaction_type",
     subtitleField: "status",
+    searchKeys: [
+      "transaction_type",
+      "status",
+      "description",
+      "reference_number",
+      "transaction_id",
+      "payment_method",
+    ],
     fields: [
       {
         key: "transaction_type",

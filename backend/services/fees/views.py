@@ -1825,8 +1825,8 @@ class AccountingEntryViewSet(viewsets.ModelViewSet):
     serializer_class = AccountingEntrySerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
+    search_fields = ["description", "account_name", "account_code", "reference_type", "reference_id"]
+    filterset_fields = ["school", "entry_type", "account_code", "reference_type"]
 
     def get_queryset(self):
         return AccountingEntry.objects.filter(school=self.request.user.school)
@@ -1939,8 +1939,8 @@ class TransactionLogViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionLogSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ["id"]
-    filterset_fields = ["school"]
+    search_fields = ["description", "reference_number", "transaction_id"]
+    filterset_fields = ["school", "transaction_type", "status"]
 
     def get_queryset(self):
         return TransactionLog.objects.filter(school=self.request.user.school)
