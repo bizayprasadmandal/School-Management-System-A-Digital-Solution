@@ -649,12 +649,77 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
         return PurchaseRequisition.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "convert_to_po"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+    @action(detail=True, methods=["post"])
+    def convert_to_po(self, request, pk=None):
+        """Approve a submitted requisition and spawn a draft purchase order.
+
+        One transaction: requisition flips to ``approved`` then ``ordered``
+        (``ordered`` doubles as the double-conversion guard), a draft PO is
+        created with one line per requisition item, and the requisition is
+        stamped with the PO in ``notes``. Idempotent in effect — a second
+        call is rejected because the requisition is no longer ``submitted``.
+        """
+        req = self.get_object()
+        if req.status != "submitted":
+            return Response(
+                {"error": f"Only submitted requisitions can be converted (current: {req.status})"},
+                status=400,
+            )
+        req_items = list(req.items.select_related("item"))
+        if not req_items:
+            return Response({"error": "Cannot convert a requisition with no line items."}, status=400)
+
+        with db_transaction.atomic():
+            today = timezone.localdate()
+            prefix = f"PO-{today:%Y%m%d}-"
+            seq = PurchaseOrder.objects.filter(order_number__startswith=prefix).count() + 1
+            po = PurchaseOrder.objects.create(
+                school=req.school,
+                order_number=f"{prefix}{seq:04d}",
+                order_date=today,
+                status=PurchaseOrder.Status.DRAFT,
+                ordered_by=request.user,
+                notes=(
+                    f"Converted from requisition {req.requisition_number}"
+                    + (f" — {req.department}" if req.department else "")
+                ),
+            )
+            subtotal = Decimal("0.00")
+            for ri in req_items:
+                unit_price = ri.estimated_cost if ri.estimated_cost is not None else Decimal("0.00")
+                PurchaseOrderItem.objects.create(
+                    purchase_order=po,
+                    item=ri.item,
+                    quantity_ordered=ri.quantity,
+                    unit_price=unit_price,
+                    total_price=(Decimal(ri.quantity) * unit_price).quantize(Decimal("0.01")),
+                )
+                subtotal += Decimal(ri.quantity) * unit_price
+            po.subtotal = subtotal.quantize(Decimal("0.01"))
+            po.total_amount = po.subtotal
+            po.save(update_fields=["subtotal", "total_amount"])
+
+            req.status = "approved"
+            req.approved_by = request.user
+            req.notes = ((req.notes + "\n") if req.notes else "") + f"Converted to PO {po.order_number}"
+            req.save(update_fields=["status", "approved_by", "notes", "updated_at"])
+            req.status = "ordered"
+            req.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            {
+                "requisition": PurchaseRequisitionSerializer(req).data,
+                "purchase_order": PurchaseOrderSerializer(po).data,
+            },
+            status=201,
+        )
 
 
 class PurchaseRequisitionItemViewSet(viewsets.ModelViewSet):

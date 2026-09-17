@@ -574,6 +574,16 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "justification", label: "Justification" },
       { key: "notes", label: "Notes", type: "textarea" },
     ],
+    actions: [
+      {
+        label: "Convert to PO",
+        url: (id) => `/inventory/purchase-requisition/${id}/convert_to_po/`,
+        confirm:
+          "Convert this requisition into a draft purchase order? The requisition will be marked as ordered.",
+        kind: "approve",
+        visibleIf: (row) => row["status"] === "submitted",
+      },
+    ],
   },
   "purchase-requisition-item": {
     key: "purchase-requisition-item",
