@@ -4,12 +4,14 @@
  * 39 entity tabs (config-driven via EntitySection). Invoices, payments, budgets, expenses, refunds, reconciliations, templates and audits.
  */
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   KeyboardShortcutHelp,
   useShortcutHelp,
 } from "../../components/common/KeyboardShortcutHelp";
 import { EntitySection, type EntityConfig } from "../../components/common/EntitySection";
 import { Button } from "../../components/common";
+import { api } from "../../api/client";
 import { useTitle } from "../../hooks";
 import {
   MagnifyingGlassIcon,
@@ -46,6 +48,156 @@ import {
   TrophyIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
+
+interface LedgerStream {
+  stream: string;
+  total_debits: string;
+  total_credits: string;
+  entry_count: number;
+}
+
+interface LedgerSummary {
+  month: string;
+  streams: LedgerStream[];
+  total_debits: string;
+  total_credits: string;
+  net: string;
+}
+
+const STREAM_LABELS: Record<string, string> = {
+  payment: "Fee Payments",
+  transport: "Transport Fees",
+  hostel: "Hostel Fees",
+  hostel_fee_payment: "Hostel Fees",
+  cafeteria_pos: "Cafeteria POS",
+  cafeteria_payment: "Cafeteria Online",
+  cafeteria_refund: "Cafeteria Refunds",
+  depreciation: "Depreciation",
+  purchase_order: "Purchase Orders",
+  supplier_payment: "Supplier Payments",
+  refund: "Fee Refunds",
+  unclassified: "Unclassified",
+};
+
+const CURRENCY = "Rs. ";
+
+function money(v: string | number) {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  return `${CURRENCY}${(isFinite(n) ? n : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** Monthly debits-vs-credits per posting stream, above the ledger tabs. */
+function LedgerSummaryCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["ledger-monthly-summary"],
+    queryFn: () => api.get<LedgerSummary>("/fees/accounting-entry/monthly_summary/"),
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="h-40 animate-pulse rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800" />
+    );
+  }
+  if (!data) return null;
+
+  const maxVal = Math.max(
+    1,
+    ...data.streams.map((s) =>
+      Math.max(parseFloat(s.total_debits) || 0, parseFloat(s.total_credits) || 0),
+    ),
+  );
+
+  return (
+    <div
+      data-testid="ledger-summary"
+      className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+          Ledger this month ({data.month})
+        </h2>
+        <div className="flex items-baseline gap-4 text-sm">
+          <span className="text-slate-500 dark:text-slate-400">
+            Credits{" "}
+            <span className="font-semibold text-green-600 dark:text-green-400">
+              {money(data.total_credits)}
+            </span>
+          </span>
+          <span className="text-slate-500 dark:text-slate-400">
+            Debits{" "}
+            <span className="font-semibold text-red-600 dark:text-red-400">
+              {money(data.total_debits)}
+            </span>
+          </span>
+          <span
+            className={`font-semibold ${
+              parseFloat(data.net) >= 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            Net {money(data.net)}
+          </span>
+        </div>
+      </div>
+      <div className="mt-4 space-y-2.5">
+        {data.streams.length === 0 && (
+          <p className="text-sm text-slate-400 dark:text-slate-500">
+            No accounting activity yet this month.
+          </p>
+        )}
+        {data.streams.map((s) => {
+          const debits = parseFloat(s.total_debits) || 0;
+          const credits = parseFloat(s.total_credits) || 0;
+          return (
+            <div key={s.stream} className="flex items-center gap-3">
+              <span className="w-40 shrink-0 truncate text-xs font-medium text-slate-600 dark:text-slate-300">
+                {STREAM_LABELS[s.stream] ?? s.stream}
+              </span>
+              <div className="flex flex-1 flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                    <div
+                      className="h-full rounded-full bg-green-500"
+                      style={{
+                        width: `${credits > 0 ? Math.max((credits / maxVal) * 100, 2) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-24 shrink-0 text-right text-xs text-green-600 dark:text-green-400">
+                    {money(credits)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                    <div
+                      className="h-full rounded-full bg-red-500"
+                      style={{ width: `${debits > 0 ? Math.max((debits / maxVal) * 100, 2) : 0}%` }}
+                    />
+                    <span className="sr-only">Debits {money(debits)}</span>
+                  </div>
+                  <span className="w-24 shrink-0 text-right text-xs text-red-600 dark:text-red-400">
+                    {money(debits)}
+                  </span>
+                </div>
+              </div>
+              <span
+                className="w-14 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500"
+                title={`${s.entry_count} entries`}
+              >
+                {s.entry_count} ent.
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   "accounting-entry": {
@@ -1402,6 +1554,8 @@ export default function FeesCenterPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "accounting-entry" && <LedgerSummaryCard />}
 
       <EntitySection
         cfg={activeCfg}

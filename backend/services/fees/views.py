@@ -1839,6 +1839,59 @@ class AccountingEntryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
 
+    @action(detail=False, methods=["get"])
+    def monthly_summary(self, request):
+        """Debits vs credits for the current month, grouped by posting stream.
+
+        Streams are derived from ``reference_type`` (payment, transport,
+        hostel, cafeteria_pos, cafeteria_payment, cafeteria_refund,
+        depreciation, purchase_order, ...) so every ledger writer shows up
+        automatically. Returns per-stream totals plus the overall balance.
+        """
+        from django.db.models import Count, Q, Sum
+        from django.db.models.functions import Coalesce
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        month_start = today.replace(day=1)
+        qs = self.get_queryset().filter(entry_date__gte=month_start, entry_date__lte=today)
+
+        streams = (
+            qs.values("reference_type")
+            .annotate(
+                total_debits=Coalesce(
+                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.DEBIT)),
+                    Decimal("0"),
+                ),
+                total_credits=Coalesce(
+                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.CREDIT)),
+                    Decimal("0"),
+                ),
+                entry_count=Count("id"),
+            )
+            .order_by("reference_type")
+        )
+        rows = [
+            {
+                "stream": row["reference_type"] or "unclassified",
+                "total_debits": str(row["total_debits"].quantize(Decimal("0.01"))),
+                "total_credits": str(row["total_credits"].quantize(Decimal("0.01"))),
+                "entry_count": row["entry_count"],
+            }
+            for row in streams
+        ]
+        total_debits = sum((Decimal(r["total_debits"]) for r in rows), Decimal("0.00"))
+        total_credits = sum((Decimal(r["total_credits"]) for r in rows), Decimal("0.00"))
+        return Response(
+            {
+                "month": month_start.strftime("%Y-%m"),
+                "streams": rows,
+                "total_debits": str(total_debits.quantize(Decimal("0.01"))),
+                "total_credits": str(total_credits.quantize(Decimal("0.01"))),
+                "net": str((total_credits - total_debits).quantize(Decimal("0.01"))),
+            }
+        )
+
 
 class FinancialAuditViewSet(viewsets.ModelViewSet):
     serializer_class = FinancialAuditSerializer
