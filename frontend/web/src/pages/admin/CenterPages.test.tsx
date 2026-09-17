@@ -5,7 +5,7 @@
  * heading renders and the first tab's data displays.
  */
 import React from "react";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import ReportingCenterPage from "./ReportingCenterPage";
 import ConferencesCenterPage from "./ConferencesCenterPage";
 import AuthCenterPage from "./AuthCenterPage";
@@ -96,13 +96,25 @@ describe("Admin center pages", () => {
         });
       }
       if (url.includes("monthly_trend")) {
+        // Honor the months param so range-toggle tests see matching series
+        const mParam = parseInt(
+          new URLSearchParams(url.split("?")[1] || "").get("months") || "6",
+          10,
+        );
+        const m = Math.min(Math.max(Number.isNaN(mParam) ? 6 : mParam, 1), 12);
+        const months = Array.from({ length: m }, (_, i) => {
+          const d = new Date(2026, 8 - (m - 1 - i), 1); // trailing months ending 2026-09
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        });
         return ok({
-          months: ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"],
+          months,
           streams: [
             {
               stream: "payment",
-              credits: ["0.00", "300.00", "0.00", "900.00", "1000.00", "1200.00"],
-              debits: ["0.00", "0.00", "0.00", "0.00", "0.00", "0.00"],
+              credits: months.map((_, i) =>
+                i === m - 1 ? "1200.00" : i === m - 2 ? "1000.00" : "0.00",
+              ),
+              debits: months.map(() => "0.00"),
             },
           ],
         });
@@ -237,6 +249,46 @@ describe("Admin center pages", () => {
     renderWithProviders(<FeesCenterPage />);
     expect(screen.getByRole("heading", { name: "Finance Center" })).toBeInTheDocument();
     expect(await screen.findByText("debit")).toBeInTheDocument();
+  });
+
+  test("ledger card: range toggle refetches trend, CSV export carries streams", async () => {
+    renderWithProviders(<FeesCenterPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Accounting Entry" }));
+    expect(await screen.findByTestId("ledger-summary")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/fees/accounting-entry/monthly_trend/?months=6");
+
+    fireEvent.click(screen.getByRole("button", { name: "12m" }));
+    expect(api.get).toHaveBeenCalledWith("/fees/accounting-entry/monthly_trend/?months=12");
+    expect(screen.getByTestId("ledger-summary")).toBeInTheDocument();
+    // Wait for the 12-month trend data to land before exporting
+    await screen.findAllByTitle(/Last 12 months/);
+
+    // jsdom lacks URL.createObjectURL/revokeObjectURL — stub both before clicking
+    const createObjectURL = jest.fn(() => "blob:mock");
+    Object.defineProperty(URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      value: jest.fn(),
+      configurable: true,
+      writable: true,
+    });
+    fireEvent.click(screen.getByTestId("export-csv"));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blob = createObjectURL.mock.calls[0][0] as Blob;
+    // jsdom Blob has no .text() — read through FileReader
+    const text = await new Promise<string>((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.readAsText(blob);
+    });
+    expect(text).toContain("stream,credits,debits,entry_count,prev_credits,prev_debits");
+    expect(text).toContain("payment,1200.00,0.00,3,1000.00,0.00");
+    expect(text).toContain("cr_2026-04");
+    Object.defineProperty(URL, "createObjectURL", { value: undefined, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: undefined, configurable: true });
   });
 
   test("HRCenterPage renders heading and first-tab data", async () => {

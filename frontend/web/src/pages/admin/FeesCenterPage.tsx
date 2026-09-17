@@ -176,20 +176,57 @@ function money(v: string | number) {
 
 /** Monthly debits-vs-credits per posting stream, above the ledger tabs. */
 function LedgerSummaryCard() {
+  const [range, setRange] = useState(6);
   const { data, isLoading } = useQuery({
     queryKey: ["ledger-monthly-summary"],
     queryFn: () => api.get<LedgerSummary>("/fees/accounting-entry/monthly_summary/"),
     refetchInterval: 60_000,
   });
   const trendQ = useQuery({
-    queryKey: ["ledger-monthly-trend"],
-    queryFn: () => api.get<LedgerTrend>("/fees/accounting-entry/monthly_trend/"),
+    queryKey: ["ledger-monthly-trend", range],
+    queryFn: () => api.get<LedgerTrend>(`/fees/accounting-entry/monthly_trend/?months=${range}`),
     refetchInterval: 60_000,
   });
   const trendByStream: Record<string, LedgerTrendStream> = {};
   trendQ.data?.streams?.forEach((s) => {
     trendByStream[s.stream] = s;
   });
+
+  const exportCsv = () => {
+    if (!data?.streams) return;
+    const months = trendQ.data?.months ?? [];
+    const trendMap = new Map(trendQ.data?.streams?.map((s) => [s.stream, s]));
+    const header = [
+      "stream",
+      "credits",
+      "debits",
+      "entry_count",
+      "prev_credits",
+      "prev_debits",
+      ...months.flatMap((m) => [`cr_${m}`, `dr_${m}`]),
+    ];
+    const rows = data.streams.map((s) => {
+      const t = trendMap.get(s.stream);
+      return [
+        s.stream,
+        s.total_credits,
+        s.total_debits,
+        String(s.entry_count),
+        s.prev_credits ?? "",
+        s.prev_debits ?? "",
+        ...months.flatMap((_, i) => [t?.credits[i] ?? "", t?.debits[i] ?? ""]),
+      ];
+    });
+    const csv = [header, ...rows]
+      .map((cells) => cells.map((c) => (c.includes(",") ? `"${c}"` : c)).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ledger-summary-${data.month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return (
@@ -247,6 +284,38 @@ function LedgerSummaryCard() {
           </span>
         </div>
       </div>{" "}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div
+          className="flex items-center gap-1"
+          role="group"
+          aria-label="Trend range"
+          data-testid="trend-range"
+        >
+          {[3, 6, 12].map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              aria-pressed={range === r}
+              className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                range === r
+                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+              }`}
+            >
+              {r}m
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={exportCsv}
+          data-testid="export-csv"
+          className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+        >
+          Export CSV
+        </button>
+      </div>
       <div className="mt-4 space-y-2.5">
         {streams.length === 0 && (
           <p className="text-sm text-slate-400 dark:text-slate-500">

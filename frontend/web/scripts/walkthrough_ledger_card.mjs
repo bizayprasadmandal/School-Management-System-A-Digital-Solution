@@ -45,7 +45,7 @@ console.log(`api trend: months=${trend.months?.length} streams=${trend.streams?.
 const browser = await chromium.launch();
 const errors = { errors: [], failedApi: [] };
 const page = await browser
-  .newContext({ viewport: { width: 1600, height: 1000 } })
+  .newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true })
   .then((c) => c.newPage());
 page.on("console", (m) => {
   if (m.type() === "error" && !m.text().includes("WebSocket"))
@@ -77,7 +77,10 @@ report("2 Finance Center loads", /finance/i.test(heading || ""), (heading || "")
 
 await page.locator('button:has-text("Accounting Entry")').first().click();
 const card = page.locator('[data-testid="ledger-summary"]');
-const cardVisible = await card.isVisible({ timeout: 15000 }).catch(() => false);
+const cardVisible = await card
+  .waitFor({ timeout: 15000 })
+  .then(() => true)
+  .catch(() => false);
 report("3 Ledger summary card visible on Accounting Entry tab", cardVisible);
 
 if (cardVisible) {
@@ -146,6 +149,39 @@ if (cardVisible) {
       !!seriesOk,
       (sparkTitle || "").slice(0, 80),
     );
+  }
+
+  /* Range toggle: switching to 12m refetches and re-renders the series */
+  await card.locator('button:has-text("12m")').first().click();
+  const twelve = await card
+    .locator('[data-sparkline][title*="Last 12 months"]')
+    .first()
+    .waitFor({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  report("11 range toggle switches sparklines to 12 months", twelve);
+  await card.locator('button:has-text("6m")').first().click();
+  await card
+    .locator('[data-sparkline][title*="Last 6 months"]')
+    .first()
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
+
+  /* CSV export downloads and contains stream rows */
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 15000 }).catch(() => null),
+    card.locator('[data-testid="export-csv"]').click(),
+  ]);
+  if (download) {
+    const path = await download.path();
+    const { readFile } = await import("fs/promises");
+    const csv = await readFile(path, "utf8");
+    const csvOk =
+      csv.includes("stream,credits,debits,entry_count") &&
+      csv.includes(`${summary.streams[0].stream},`);
+    report("12 CSV export downloads with stream rows", csvOk, download.suggestedFilename());
+  } else {
+    report("12 CSV export downloads with stream rows", false, "no download event");
   }
 
   /* Screenshot for the record */
