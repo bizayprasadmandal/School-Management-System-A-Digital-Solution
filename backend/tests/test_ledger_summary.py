@@ -15,6 +15,7 @@ from rest_framework.test import APIClient
 from tests.url_helpers import API_PREFIX
 
 SUMMARY_URL = f"{API_PREFIX}/fees/accounting-entry/monthly_summary/"
+TREND_URL = f"{API_PREFIX}/fees/accounting-entry/monthly_trend/"
 
 
 @pytest.fixture
@@ -176,3 +177,61 @@ class TestMonthlyLedgerSummary:
         assert r.data["total_debits"] == "0.00"
         assert r.data["total_credits"] == "0.00"
         assert r.data["net"] == "0.00"
+
+
+@pytest.mark.django_db
+class TestMonthlyLedgerTrend:
+    def test_series_align_to_month_labels(self, admin_client, school):
+        _entry(school, "payment", "credit", "100.00")  # this month
+        _entry(school, "payment", "credit", "40.00", entry_date=_prev_month_mid())
+        _entry(school, "cafeteria_pos", "debit", "2.00")  # only this month
+
+        r = admin_client.get(TREND_URL)
+        assert r.status_code == status.HTTP_200_OK, r.data
+
+        months = r.data["months"]
+        assert len(months) == 6
+        assert months[-1] == timezone.localdate().strftime("%Y-%m")
+
+        by_stream = {s["stream"]: s for s in r.data["streams"]}
+        payment = by_stream["payment"]
+        assert payment["credits"][-1] == "100.00"
+        assert payment["credits"][-2] == "40.00"
+        assert payment["credits"][0] == "0.00"  # untouched months are zero-filled
+        assert payment["debits"][-1] == "0.00"
+
+        cafeteria = by_stream["cafeteria_pos"]
+        assert cafeteria["debits"][-1] == "2.00"
+        assert cafeteria["credits"] == ["0.00"] * 6
+
+    def test_months_param_bounds(self, admin_client, school):
+        r = admin_client.get(TREND_URL, {"months": "3"})
+        assert len(r.data["months"]) == 3
+
+        r = admin_client.get(TREND_URL, {"months": "99"})
+        assert len(r.data["months"]) == 12
+
+        r = admin_client.get(TREND_URL, {"months": "junk"})
+        assert len(r.data["months"]) == 6
+
+    def test_tenant_isolation(self, admin_client, admin, school, other_school):
+        _entry(school, "payment", "credit", "100.00")
+        _entry(other_school, "payment", "credit", "500.00")
+
+        r = admin_client.get(TREND_URL)
+        payment = next(s for s in r.data["streams"] if s["stream"] == "payment")
+        assert payment["credits"][-1] == "100.00"
+
+        from tests.factories import AdminUserFactory
+
+        other_admin = AdminUserFactory(school=other_school)
+        c = APIClient()
+        c.force_authenticate(user=other_admin)
+        r2 = c.get(TREND_URL)
+        payment2 = next(s for s in r2.data["streams"] if s["stream"] == "payment")
+        assert payment2["credits"][-1] == "500.00"
+
+    def test_requires_authentication(self, db):
+        c = APIClient()
+        r = c.get(TREND_URL)
+        assert r.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)

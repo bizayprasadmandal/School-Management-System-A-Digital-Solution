@@ -1919,6 +1919,73 @@ class AccountingEntryViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=False, methods=["get"])
+    def monthly_trend(self, request):
+        """Per-stream credits/debits for the trailing months (default 6).
+
+        Powers the trend sparklines on the ledger summary card. Months are
+        calendar months ending with the current one; a stream with no
+        activity in a given month reports 0.00 so series stay aligned.
+        """
+        from datetime import timedelta
+
+        from django.db.models import Q, Sum
+        from django.db.models.functions import Coalesce, TruncMonth
+        from django.utils import timezone
+
+        try:
+            months = min(max(int(request.query_params.get("months", "6")), 1), 12)
+        except (TypeError, ValueError):
+            months = 6
+
+        today = timezone.localdate()
+        start = today.replace(day=1)
+        for _ in range(months - 1):
+            start = (start - timedelta(days=1)).replace(day=1)
+
+        labels = []
+        cursor = start
+        while cursor <= today:
+            labels.append(cursor.strftime("%Y-%m"))
+            cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+        def _money(value):
+            return str(Decimal(value).quantize(Decimal("0.01")))
+
+        buckets = (
+            self.get_queryset()
+            .filter(entry_date__gte=start, entry_date__lte=today)
+            .annotate(bucket=TruncMonth("entry_date"))
+            .values("reference_type", "bucket")
+            .annotate(
+                debits=Coalesce(
+                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.DEBIT)),
+                    Decimal("0"),
+                ),
+                credits=Coalesce(
+                    Sum("amount", filter=Q(entry_type=AccountingEntry.EntryType.CREDIT)),
+                    Decimal("0"),
+                ),
+            )
+            .order_by("bucket")
+        )
+
+        series = {}
+        for row in buckets:
+            stream = row["reference_type"] or "unclassified"
+            label = row["bucket"].strftime("%Y-%m")
+            series.setdefault(stream, {})[label] = row
+
+        streams = [
+            {
+                "stream": stream,
+                "credits": [_money(points[label]["credits"]) if label in points else "0.00" for label in labels],
+                "debits": [_money(points[label]["debits"]) if label in points else "0.00" for label in labels],
+            }
+            for stream, points in sorted(series.items())
+        ]
+        return Response({"months": labels, "streams": streams})
+
 
 class FinancialAuditViewSet(viewsets.ModelViewSet):
     serializer_class = FinancialAuditSerializer

@@ -95,6 +95,18 @@ describe("Admin center pages", () => {
           prev_net: "1000.00",
         });
       }
+      if (url.includes("monthly_trend")) {
+        return ok({
+          months: ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"],
+          streams: [
+            {
+              stream: "payment",
+              credits: ["0.00", "300.00", "0.00", "900.00", "1000.00", "1200.00"],
+              debits: ["0.00", "0.00", "0.00", "0.00", "0.00", "0.00"],
+            },
+          ],
+        });
+      }
       if (url.includes("accounting-entry")) {
         return ok({
           count: 1,

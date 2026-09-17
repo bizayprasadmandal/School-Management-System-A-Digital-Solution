@@ -58,6 +58,17 @@ interface LedgerStream {
   prev_credits?: string;
 }
 
+interface LedgerTrendStream {
+  stream: string;
+  credits: string[];
+  debits: string[];
+}
+
+interface LedgerTrend {
+  months: string[];
+  streams: LedgerTrendStream[];
+}
+
 interface LedgerSummary {
   month: string;
   prev_month?: string;
@@ -129,6 +140,32 @@ function Delta({
   );
 }
 
+/** Tiny trailing-months bar chart for one stream (credits or debits). */
+function Sparkline({ values, tone }: { values?: string[]; tone: "green" | "red" }) {
+  if (!values || values.length === 0) return null;
+  const nums = values.map((v) => parseFloat(v) || 0);
+  const max = Math.max(...nums);
+  return (
+    <div
+      data-sparkline
+      className="flex h-2 items-end gap-px"
+      title={`Last ${nums.length} months (${tone === "green" ? "credits" : "debits"}): ${nums.join(
+        ", ",
+      )}`}
+    >
+      {nums.map((n, i) => (
+        <div
+          key={i}
+          className={`w-1 rounded-full ${tone === "green" ? "bg-green-500" : "bg-red-500"} ${
+            n > 0 ? "" : "opacity-20"
+          }`}
+          style={{ height: `${n > 0 ? Math.max(Math.round((n / max) * 8), 2) : 1}px` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function money(v: string | number) {
   const n = typeof v === "string" ? parseFloat(v) : v;
   return `${CURRENCY}${(isFinite(n) ? n : 0).toLocaleString(undefined, {
@@ -143,6 +180,15 @@ function LedgerSummaryCard() {
     queryKey: ["ledger-monthly-summary"],
     queryFn: () => api.get<LedgerSummary>("/fees/accounting-entry/monthly_summary/"),
     refetchInterval: 60_000,
+  });
+  const trendQ = useQuery({
+    queryKey: ["ledger-monthly-trend"],
+    queryFn: () => api.get<LedgerTrend>("/fees/accounting-entry/monthly_trend/"),
+    refetchInterval: 60_000,
+  });
+  const trendByStream: Record<string, LedgerTrendStream> = {};
+  trendQ.data?.streams?.forEach((s) => {
+    trendByStream[s.stream] = s;
   });
 
   if (isLoading) {
@@ -243,6 +289,10 @@ function LedgerSummaryCard() {
                     <Delta current={s.total_debits} previous={s.prev_debits} invert />
                   </span>
                 </div>
+              </div>
+              <div className="hidden w-16 shrink-0 flex-col justify-center gap-1 sm:flex">
+                <Sparkline values={trendByStream[s.stream]?.credits} tone="green" />
+                <Sparkline values={trendByStream[s.stream]?.debits} tone="red" />
               </div>
               <span
                 className="w-14 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500"

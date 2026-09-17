@@ -33,10 +33,14 @@ const login = await fetch(`${API}/auth/login/`, {
 const summary = await fetch(`${API}/fees/accounting-entry/monthly_summary/`, {
   headers: { Authorization: `Bearer ${login.access}` },
 }).then((r) => r.json());
+const trend = await fetch(`${API}/fees/accounting-entry/monthly_trend/`, {
+  headers: { Authorization: `Bearer ${login.access}` },
+}).then((r) => r.json());
 console.log(
   `api summary: month=${summary.month} streams=${summary.streams?.length} ` +
     `credits=${summary.total_credits} debits=${summary.total_debits}`,
 );
+console.log(`api trend: months=${trend.months?.length} streams=${trend.streams?.length}`);
 
 const browser = await chromium.launch();
 const errors = { errors: [], failedApi: [] };
@@ -114,6 +118,33 @@ if (cardVisible) {
       `8 first stream (${first.stream}) values rendered`,
       amountOk,
       `cr=${money(first.total_credits)} dr=${money(first.total_debits)}`,
+    );
+  }
+
+  /* Trend sparklines: two mini-charts (credits + debits) per stream */
+  const sparkCount = await card.locator("[data-sparkline]").count();
+  report(
+    `9 trend sparklines rendered (${trend.streams.length} streams → ${
+      trend.streams.length * 2
+    } expected)`,
+    sparkCount === trend.streams.length * 2,
+    `rendered=${sparkCount}`,
+  );
+  const trendStream = trend.streams[0];
+  if (trendStream) {
+    const sparkTitle = await card
+      .locator('[data-sparkline][title*="Last 6 months"]')
+      .first()
+      .getAttribute("title")
+      .catch(() => "");
+    // Tooltip renders floats without trailing zeroes — compare numerically
+    const lastCr = String(parseFloat(trendStream.credits.at(-1)) || 0);
+    const lastDr = String(parseFloat(trendStream.debits.at(-1)) || 0);
+    const seriesOk = sparkTitle?.includes(`, ${lastCr}`) || sparkTitle?.includes(`, ${lastDr}`);
+    report(
+      `10 sparkline tooltip carries the live 6-month series (${trendStream.stream})`,
+      !!seriesOk,
+      (sparkTitle || "").slice(0, 80),
     );
   }
 
