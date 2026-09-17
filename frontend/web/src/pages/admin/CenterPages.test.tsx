@@ -264,7 +264,7 @@ describe("Admin center pages", () => {
     await screen.findAllByTitle(/Last 12 months/);
 
     // jsdom lacks URL.createObjectURL/revokeObjectURL — stub both before clicking
-    const createObjectURL = jest.fn(() => "blob:mock");
+    const createObjectURL = jest.fn((_blob: Blob) => "blob:mock");
     Object.defineProperty(URL, "createObjectURL", {
       value: createObjectURL,
       configurable: true,
