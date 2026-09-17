@@ -102,11 +102,12 @@ function LedgerSummaryCard() {
       <div className="h-40 animate-pulse rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800" />
     );
   }
-  if (!data) return null;
+  if (!data?.streams) return null;
+  const streams = data.streams;
 
   const maxVal = Math.max(
     1,
-    ...data.streams.map((s) =>
+    ...streams.map((s) =>
       Math.max(parseFloat(s.total_debits) || 0, parseFloat(s.total_credits) || 0),
     ),
   );
@@ -143,14 +144,14 @@ function LedgerSummaryCard() {
             Net {money(data.net)}
           </span>
         </div>
-      </div>
+      </div>{" "}
       <div className="mt-4 space-y-2.5">
-        {data.streams.length === 0 && (
+        {streams.length === 0 && (
           <p className="text-sm text-slate-400 dark:text-slate-500">
             No accounting activity yet this month.
           </p>
         )}
-        {data.streams.map((s) => {
+        {streams.map((s) => {
           const debits = parseFloat(s.total_debits) || 0;
           const credits = parseFloat(s.total_credits) || 0;
           return (

@@ -73,6 +73,22 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("monthly_summary")) {
+        return ok({
+          month: "2026-09",
+          streams: [
+            {
+              stream: "payment",
+              total_debits: "0.00",
+              total_credits: "1200.00",
+              entry_count: 3,
+            },
+          ],
+          total_debits: "0.00",
+          total_credits: "1200.00",
+          net: "1200.00",
+        });
+      }
       if (url.includes("accounting-entry")) {
         return ok({
           count: 1,
