@@ -171,7 +171,7 @@ class PointOfSaleSerializer(serializers.ModelSerializer):
             "transaction_type_display",
             "payment_method_display",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "school"]
 
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):
@@ -203,7 +203,7 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
             "payment_method_display",
             "status_display",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "school", "created_at"]
 
 
 class FreeReducedLunchSerializer(serializers.ModelSerializer):

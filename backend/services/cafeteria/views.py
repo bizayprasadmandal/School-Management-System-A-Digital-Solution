@@ -6,6 +6,8 @@ from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
+from services.fees.ledger import post_revenue
+from services.fees.models import AccountingEntry
 
 from .models import (
     AllergenManagement,
@@ -183,7 +185,29 @@ class PointOfSaleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        instance = serializer.save(school=self.request.user.school)
+        self._post_to_books(instance)
+
+    @staticmethod
+    def _post_to_books(sale):
+        """Post a successful register sale to the revenue books.
+
+        Same audit trail as fee/transport/hostel collections: one credit
+        AccountingEntry + one TransactionLog, idempotent via the ledger's
+        get_or_create keyed on the sale id.
+        """
+        if not sale.is_successful or sale.amount <= 0:
+            return
+        post_revenue(
+            school=sale.school,
+            amount=sale.amount,
+            reference_type="cafeteria_pos",
+            reference_id=str(sale.id),
+            description=(
+                f"Cafeteria POS sale — {sale.get_transaction_type_display()} " f"({sale.get_payment_method_display()})"
+            ),
+            payment_method=sale.payment_method,
+        )
 
 
 class PaymentTransactionViewSet(viewsets.ModelViewSet):
@@ -201,7 +225,46 @@ class PaymentTransactionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), IsSchoolMember()]
 
     def perform_create(self, serializer):
-        serializer.save(school=self.request.user.school)
+        instance = serializer.save(school=self.request.user.school)
+        self._post_to_books(instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._post_to_books(instance)
+
+    @staticmethod
+    def _post_to_books(txn):
+        """Post completed online transactions to the books.
+
+        Deposits/purchases → credit; refunds → debit reversal. Only
+        ``completed`` transactions post, so pending/failed rows stay off the
+        ledger; marking a pending row completed later (via update) posts
+        exactly once thanks to the ledger's idempotent get_or_create.
+        """
+        if txn.status != PaymentTransaction.Status.COMPLETED:
+            return
+        if txn.amount <= 0:
+            return
+        if txn.transaction_type == PaymentTransaction.TransactionType.REFUND:
+            post_revenue(
+                school=txn.school,
+                amount=txn.amount,
+                reference_type="cafeteria_refund",
+                reference_id=str(txn.id),
+                description=f"Cafeteria refund — {txn.get_transaction_type_display()}",
+                payment_method=txn.payment_method,
+                transaction_type="refund",
+                entry_type=AccountingEntry.EntryType.DEBIT,
+            )
+        else:
+            post_revenue(
+                school=txn.school,
+                amount=txn.amount,
+                reference_type="cafeteria_payment",
+                reference_id=str(txn.id),
+                description=f"Cafeteria {txn.get_transaction_type_display()} via {txn.get_payment_method_display()}",
+                payment_method=txn.payment_method,
+            )
 
 
 class FreeReducedLunchViewSet(viewsets.ModelViewSet):
