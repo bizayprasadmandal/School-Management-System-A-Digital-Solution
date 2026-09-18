@@ -849,16 +849,21 @@ class Command(BaseCommand):
         self.stdout.write("  1 budget plan with 8 line items created")
 
     def _seed_accounting_entries(self, school, admin_user):
+        """Demo ledger rows that follow the ledger's own conventions.
+
+        Credits = revenue in (account 4000s), debits = expense out
+        (account 5000s). ``reference_type`` classifies each row into a
+        posting stream on the ledger summary card (``manual`` / ``payroll``).
+        """
         entries = [
-            ("debit", "1001", "Cash", "Tuition fee collection", 500000),
-            ("credit", "4001", "Tuition Revenue", "Monthly tuition income", 500000),
-            ("debit", "1002", "Bank Account", "Transport fee deposit", 150000),
-            ("credit", "4002", "Transport Revenue", "Transport income", 150000),
-            ("debit", "5001", "Salary Expense", "Teacher payroll", 500000),
-            ("credit", "2001", "Salary Payable", "Pending salary", 500000),
+            # (entry_type, code, name, description, amount, reference_type)
+            ("credit", "4001", "Tuition Revenue", "Monthly tuition income", 500000, "manual"),
+            ("credit", "4002", "Transport Revenue", "Transport income", 150000, "manual"),
+            ("debit", "5001", "Salary Expense", "Teacher payroll", 500000, "payroll"),
+            ("credit", "2001", "Salary Payable", "Pending salary", 500000, "payroll"),
         ]
         created = 0
-        for etype, code, name, desc, amount in entries:
+        for etype, code, name, desc, amount, ref_type in entries:
             AccountingEntry.objects.create(
                 school=school,
                 entry_type=etype,
@@ -867,6 +872,7 @@ class Command(BaseCommand):
                 description=desc,
                 amount=Decimal(str(amount)),
                 entry_date=timezone.now().date() - timedelta(days=random.randint(0, 30)),
+                reference_type=ref_type,
                 created_by=admin_user,
             )
             created += 1

@@ -55,6 +55,8 @@ export const STREAM_LABELS: Record<string, string> = {
   purchase_order: "Purchase Orders",
   supplier_payment: "Supplier Payments",
   refund: "Fee Refunds",
+  manual: "Manual Entries",
+  payroll: "Payroll",
   unclassified: "Unclassified",
 };
 
