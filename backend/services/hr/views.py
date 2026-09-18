@@ -319,6 +319,79 @@ class PayslipViewSet(viewsets.ModelViewSet):
         )
         return Response(PayslipSerializer(payslip).data)
 
+    @action(detail=False, methods=["post"], url_path="payroll-run")
+    def payroll_run(self, request):
+        """Generate payslips for every salaried employee for one pay period.
+
+        Idempotent per (employee, period): re-running the same period only
+        backfills employees who were skipped the first time. Optionally
+        narrow the run with ``department`` (id) or ``employee_ids``.
+        Returns a run summary: created, existing, totals, and per-employee
+        breakdown — draft payslips, approved and paid through mark-paid,
+        which posts each salary expense to the books.
+        """
+        from decimal import Decimal
+
+        period_start = request.data.get("period_start")
+        period_end = request.data.get("period_end")
+        if not period_start or not period_end:
+            return Response({"error": "period_start and period_end are required"}, status=400)
+
+        salaries = EmployeeSalary.objects.filter(employee__school=request.user.school, is_active=True).select_related(
+            "employee__user", "employee__department"
+        )
+
+        department_id = request.data.get("department")
+        if department_id:
+            salaries = salaries.filter(employee__department_id=department_id)
+        employee_ids = request.data.get("employee_ids")
+        if employee_ids:
+            salaries = salaries.filter(employee_id__in=employee_ids)
+
+        created_slips = []
+        existing = 0
+        for salary in salaries:
+            employee = salary.employee
+            payslip, was_created = Payslip.objects.get_or_create(
+                school=employee.school,
+                employee=employee,
+                period_start=period_start,
+                period_end=period_end,
+                defaults={
+                    "basic_salary": salary.basic_salary,
+                    "housing_allowance": salary.housing_allowance,
+                    "transport_allowance": salary.transport_allowance,
+                    "medical_allowance": salary.medical_allowance,
+                    "other_allowances": salary.other_allowances,
+                    "tax_deduction": salary.tax_deduction,
+                    "pension_deduction": salary.pension_deduction,
+                    "other_deductions": salary.other_deductions,
+                    "gross_pay": salary.total_earnings,
+                    "total_deductions": salary.total_deductions,
+                    "net_pay": salary.net_salary,
+                    "generated_by": request.user,
+                },
+            )
+            if was_created:
+                created_slips.append(payslip)
+            else:
+                existing += 1
+
+        total_gross = sum((s.gross_pay for s in created_slips), Decimal("0"))
+        total_net = sum((s.net_pay for s in created_slips), Decimal("0"))
+        return Response(
+            {
+                "period_start": period_start,
+                "period_end": period_end,
+                "created": len(created_slips),
+                "existing": existing,
+                "total_gross": str(total_gross),
+                "total_net": str(total_net),
+                "payslips": PayslipSerializer(created_slips, many=True).data,
+            },
+            status=201 if created_slips else 200,
+        )
+
 
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer

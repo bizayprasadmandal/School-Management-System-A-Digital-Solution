@@ -900,3 +900,93 @@ class TestCompliance:
             format="json",
         )
         assert r.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+@pytest.mark.django_db
+class TestPayrollRun:
+    """Bulk payroll-run: one payslip per salaried employee for a period."""
+
+    @staticmethod
+    def _make_salaried_employee(school, email, basic="50000.00"):
+        from services.hr.models import Department, Employee, EmployeeSalary
+        from tests.factories import UserFactory
+
+        emp_user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.create(school=school, name=f"Dept {email[:6]}", code=email[:6].upper())
+        emp = Employee.objects.create(
+            school=school,
+            user=emp_user,
+            department=dept,
+            employee_id=f"EMP-{email[:8].upper()}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        EmployeeSalary.objects.create(
+            employee=emp,
+            basic_salary=Decimal(basic),
+            effective_from=date.today(),
+        )
+        return emp
+
+    def test_run_creates_payslips_with_summary(self, admin_client, school):
+        self._make_salaried_employee(school, "run-a@school.edu", basic="50000.00")
+        self._make_salaried_employee(school, "run-b@school.edu", basic="60000.00")
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}payroll-run/",
+            {"period_start": "2026-09-01", "period_end": "2026-09-30"},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["created"] == 2
+        assert r.data["existing"] == 0
+        assert Decimal(r.data["total_net"]) == Decimal("110000.00")
+
+    def test_run_is_idempotent_per_period(self, admin_client, school):
+        self._make_salaried_employee(school, "run-c@school.edu")
+        payload = {"period_start": "2026-09-01", "period_end": "2026-09-30"}
+        r1 = admin_client.post(f"{HR_PAYSLIPS}payroll-run/", payload, format="json")
+        r2 = admin_client.post(f"{HR_PAYSLIPS}payroll-run/", payload, format="json")
+        assert r1.status_code == status.HTTP_201_CREATED
+        assert r2.status_code == status.HTTP_200_OK
+        assert r2.data["created"] == 0
+        assert r2.data["existing"] == 1
+
+    def test_run_filters_by_department(self, admin_client, school):
+        from services.hr.models import Employee, EmployeeSalary
+        from tests.factories import UserFactory
+
+        emp = self._make_salaried_employee(school, "run-d@school.edu")
+        other_user = UserFactory(school=school, role="teacher", email="run-e@school.edu")
+        other_emp = Employee.objects.create(
+            school=school,
+            user=other_user,
+            department=emp.department,
+            employee_id="EMP-RUN-E",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        EmployeeSalary.objects.create(employee=other_emp, basic_salary=Decimal("70000.00"), effective_from=date.today())
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}payroll-run/",
+            {
+                "period_start": "2026-09-01",
+                "period_end": "2026-09-30",
+                "employee_ids": [str(emp.id)],
+            },
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED
+        assert r.data["created"] == 1
+
+    def test_run_without_salaries_is_empty(self, admin_client, school):
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}payroll-run/",
+            {"period_start": "2026-09-01", "period_end": "2026-09-30"},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["created"] == 0
+
+    def test_run_requires_period(self, admin_client, school):
+        r = admin_client.post(f"{HR_PAYSLIPS}payroll-run/", {}, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
