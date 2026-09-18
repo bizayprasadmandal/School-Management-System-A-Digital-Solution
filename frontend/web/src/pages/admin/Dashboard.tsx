@@ -41,6 +41,7 @@ import {
   useFeeForecast,
 } from "../../api/hooks";
 import { SkeletonDashboard, ErrorState, ErrorBoundary } from "../../components/common";
+import LedgerSummaryCard from "../../components/common/LedgerSummaryCard";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -219,6 +220,11 @@ export default function AdminDashboard() {
             to="/admin/fees"
           />
         </div>
+      </ErrorBoundary>
+
+      {/* Ledger: debits vs credits per stream this month */}
+      <ErrorBoundary>
+        <LedgerSummaryCard />
       </ErrorBoundary>
 
       {/* Charts row */}

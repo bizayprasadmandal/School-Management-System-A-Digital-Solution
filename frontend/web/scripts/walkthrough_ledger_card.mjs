@@ -208,6 +208,23 @@ if (cardVisible) {
   console.log("screenshot: scripts/ledger_card_live.png");
 }
 
+/* The same card also lives on the admin dashboard home */
+await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded", timeout: 90000 });
+await page.waitForTimeout(6000);
+const dashCard = page.locator('[data-testid="ledger-summary"]');
+const dashCardOk = await dashCard
+  .waitFor({ timeout: 15000 })
+  .then(() => true)
+  .catch(() => false);
+report("14 ledger card renders on the admin dashboard", dashCardOk);
+if (dashCardOk) {
+  const dashText = await dashCard.innerText();
+  const dashTotalsOk =
+    dashText.includes(money(summary.total_credits)) &&
+    dashText.includes(money(summary.total_debits));
+  report("15 dashboard card totals match live API", dashTotalsOk);
+}
+
 await browser.close();
 
 console.log("\n════ diagnostics ════");

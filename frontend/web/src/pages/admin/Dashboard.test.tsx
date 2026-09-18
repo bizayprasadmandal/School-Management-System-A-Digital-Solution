@@ -198,7 +198,40 @@ beforeEach(() => {
     isLoading: false,
   });
 
-  (api.get as jest.Mock).mockResolvedValue(mockDashboardStats);
+  (api.get as jest.Mock).mockImplementation((url: string) => {
+    if (url.includes("monthly_summary")) {
+      return Promise.resolve({
+        month: "2026-09",
+        prev_month: "2026-08",
+        streams: [
+          {
+            stream: "payment",
+            total_debits: "0.00",
+            total_credits: "1200.00",
+            entry_count: 3,
+            prev_credits: "1000.00",
+            prev_debits: "0.00",
+          },
+        ],
+        total_debits: "0.00",
+        total_credits: "1200.00",
+        net: "1200.00",
+      });
+    }
+    if (url.includes("monthly_trend")) {
+      return Promise.resolve({
+        months: ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"],
+        streams: [
+          {
+            stream: "payment",
+            credits: ["0.00", "0.00", "0.00", "0.00", "1000.00", "1200.00"],
+            debits: ["0.00", "0.00", "0.00", "0.00", "0.00", "0.00"],
+          },
+        ],
+      });
+    }
+    return Promise.resolve(mockDashboardStats);
+  });
 
   (useAnnouncements as jest.Mock).mockReturnValue({ data: mockAnnouncements });
   (useAtRiskStudents as jest.Mock).mockReturnValue({ data: mockAtRisk });
@@ -219,7 +252,9 @@ describe("rendering", () => {
   test("renders the date line", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/\d{4}/)).toBeInTheDocument();
+      // e.g. "Friday, September 18 2026" — specific so the ledger card's
+      // month strings (also 4-digit) don't collide
+      expect(screen.getByText(/, \w+ \d{1,2} \d{4}/)).toBeInTheDocument();
     });
   });
 
@@ -470,5 +505,33 @@ describe("analytics sections", () => {
       expect(screen.getByText("🎉 No students currently flagged")).toBeInTheDocument();
       expect(screen.getByText("No applications yet")).toBeInTheDocument();
     });
+  });
+});
+
+describe("ledger summary card", () => {
+  test("renders month totals and stream rows with drillable labels", async () => {
+    renderPage();
+    const card = await screen.findByTestId("ledger-summary");
+    expect(card).toBeInTheDocument();
+    // Stream row label from the mocked monthly_summary response
+    expect(await screen.findByText("Fee Payments")).toBeInTheDocument();
+  });
+
+  test("card hides gracefully when the ledger endpoint fails", async () => {
+    // Fresh cache — the shared module-level client would replay the
+    // previous test's cached ledger queries instead of hitting the mock.
+    queryClient.clear();
+    (api.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes("monthly_summary") || url.includes("monthly_trend")) {
+        return Promise.reject(new Error("boom"));
+      }
+      return Promise.resolve(mockDashboardStats);
+    });
+    renderPage();
+    // Dashboard itself still renders its KPI cards
+    await waitFor(() => {
+      expect(screen.getByText("Total Students")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("ledger-summary")).not.toBeInTheDocument();
   });
 });
