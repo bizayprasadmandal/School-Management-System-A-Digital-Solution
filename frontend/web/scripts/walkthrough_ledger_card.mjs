@@ -151,6 +151,23 @@ if (cardVisible) {
     );
   }
 
+  /* Spike badges: streams whose current debits > 2× trailing average */
+  const expectedSpikes = summary.streams.filter((s) => {
+    const t = trend.streams.find((x) => x.stream === s.stream);
+    if (!t) return false;
+    const prior = t.debits.slice(0, -1).map(parseFloat);
+    const avg = prior.reduce((a, b) => a + b, 0) / (prior.length || 1);
+    return avg >= 1 && (parseFloat(s.total_debits) || 0) > 2 * avg;
+  });
+  const badgeCount = await card.locator('[data-testid^="spike-"]').count();
+  const countBadge = await card.locator('[data-testid="ledger-spike-count"]').count();
+  report(
+    `10b spike badges match live API (${expectedSpikes.length} expected)`,
+    badgeCount === expectedSpikes.length &&
+      (expectedSpikes.length > 0 ? countBadge === 1 : countBadge === 0),
+    expectedSpikes.map((s) => s.stream).join(", ") || "none",
+  );
+
   /* Range toggle: switching to 12m refetches and re-renders the series */
   await card.locator('button:has-text("12m")').first().click();
   const twelve = await card

@@ -86,6 +86,14 @@ describe("Admin center pages", () => {
               prev_debits: "0.00",
               prev_credits: "1000.00",
             },
+            {
+              stream: "purchase_order",
+              total_debits: "250.00",
+              total_credits: "250.00",
+              entry_count: 6,
+              prev_debits: "100.00",
+              prev_credits: "100.00",
+            },
           ],
           total_debits: "0.00",
           total_credits: "1200.00",
@@ -115,6 +123,14 @@ describe("Admin center pages", () => {
                 i === m - 1 ? "1200.00" : i === m - 2 ? "1000.00" : "0.00",
               ),
               debits: months.map(() => "0.00"),
+            },
+            {
+              stream: "purchase_order",
+              credits: months.map(() => "0.00"),
+              // Spike: current month 250 vs trailing avg 40 (0,0,0,100,100)
+              debits: months.map((_, i) =>
+                i === m - 1 ? "250.00" : i >= m - 3 ? "100.00" : "0.00",
+              ),
             },
           ],
         });
@@ -302,6 +318,15 @@ describe("Admin center pages", () => {
     expect(searchInput).toHaveValue("payment");
     // The mocked entry has no reference_type, so the stream filter empties the list
     expect(await screen.findByText(/No accounting entry found/i)).toBeInTheDocument();
+  });
+
+  test("ledger card: flags streams whose debits spike vs trailing average", async () => {
+    renderWithProviders(<FeesCenterPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Accounting Entry" }));
+    expect(await screen.findByTestId("ledger-summary")).toBeInTheDocument();
+    // Mock: purchase_order debits 250 vs trailing avg 40 → flagged; payment has none
+    expect(await screen.findByTestId("ledger-spike-count")).toHaveTextContent("1 spike");
+    expect(screen.getByText("⚠ spike")).toBeInTheDocument();
   });
 
   test("HRCenterPage renders heading and first-tab data", async () => {

@@ -128,6 +128,43 @@ export function Sparkline({ values, tone }: { values?: string[]; tone: "green" |
   );
 }
 
+/**
+ * Spike detection: flag a stream whose current-month debits more than double
+ * its average over the preceding trend months (min 100 to skip noise).
+ * Returns the average for the tooltip, or null when the stream is calm.
+ */
+export function debitSpike(debits: string, priorDebits?: string[]): number | null {
+  if (!priorDebits || priorDebits.length === 0) return null;
+  const prior = priorDebits.map((v) => parseFloat(v) || 0);
+  const avg = prior.reduce((a, b) => a + b, 0) / prior.length;
+  if (avg < 1) return null; // noise floor: ignore streams that were ~always zero
+  const cur = parseFloat(debits) || 0;
+  return cur > 2 * avg ? Math.round(avg * 100) / 100 : null;
+}
+
+/** Amber warning shown on a stream row when this month's debits spike. */
+export function DebitSpikeBadge({
+  stream,
+  debits,
+  priorDebits,
+}: {
+  stream: string;
+  debits: string;
+  priorDebits?: string[];
+}) {
+  const avg = debitSpike(debits, priorDebits);
+  if (avg === null) return null;
+  return (
+    <span
+      data-testid={`spike-${stream}`}
+      className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+      title={`Unusual debit spike — avg ${money(avg)}/month over the trailing months`}
+    >
+      ⚠ spike
+    </span>
+  );
+}
+
 export function money(v: string | number) {
   const n = typeof v === "string" ? parseFloat(v) : v;
   return `${CURRENCY}${(isFinite(n) ? n : 0).toLocaleString(undefined, {
@@ -201,6 +238,10 @@ export default function LedgerSummaryCard({
   if (!data?.streams) return null;
   const streams = data.streams;
 
+  const spiked = streams.filter((s) =>
+    debitSpike(s.total_debits, trendByStream[s.stream]?.debits?.slice(0, -1)),
+  );
+
   const maxVal = Math.max(
     1,
     ...streams.map((s) =>
@@ -272,6 +313,15 @@ export default function LedgerSummaryCard({
             </button>
           ))}
         </div>
+        {spiked.length > 0 && (
+          <span
+            data-testid="ledger-spike-count"
+            className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+            title="Streams spending unusually fast this month"
+          >
+            ⚠ {spiked.length} spike{spiked.length > 1 ? "s" : ""}
+          </span>
+        )}
         <button
           type="button"
           onClick={exportCsv}
@@ -340,6 +390,11 @@ export default function LedgerSummaryCard({
                 <Sparkline values={trendByStream[s.stream]?.credits} tone="green" />
                 <Sparkline values={trendByStream[s.stream]?.debits} tone="red" />
               </div>
+              <DebitSpikeBadge
+                stream={s.stream}
+                debits={s.total_debits}
+                priorDebits={trendByStream[s.stream]?.debits?.slice(0, -1)}
+              />
               <span
                 className="w-14 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500"
                 title={`${s.entry_count} entries`}
