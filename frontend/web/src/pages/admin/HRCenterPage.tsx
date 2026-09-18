@@ -9,9 +9,10 @@ import {
   useShortcutHelp,
 } from "../../components/common/KeyboardShortcutHelp";
 import { EntitySection, type EntityConfig } from "../../components/common/EntitySection";
+import PayrollRunsPanel from "./PayrollRunsPanel";
 import { Button } from "../../components/common";
 import { useTitle } from "../../hooks";
-import { MagnifyingGlassIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, MagnifyingGlassIcon, UsersIcon } from "@heroicons/react/24/outline";
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   // ===== hr =====
@@ -1140,11 +1141,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   },
 };
 
-const TABS = Object.entries(ENTITY_CONFIGS).map(([key, cfg]) => ({
-  key,
-  label: cfg.label,
-  icon: UsersIcon,
-}));
+const TABS = [
+  { key: "payroll-runs", label: "Payroll Runs", icon: BanknotesIcon },
+  ...Object.entries(ENTITY_CONFIGS).map(([key, cfg]) => ({
+    key,
+    label: cfg.label,
+    icon: UsersIcon,
+  })),
+];
 
 export default function HRCenterPage() {
   useTitle("HR Center");
@@ -1257,23 +1261,27 @@ export default function HRCenterPage() {
                 : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
           >
-            <t.icon className="h-4 w-4" />
+            <t.icon className="h-4 w-4" aria-hidden="true" />
             {t.label}
           </button>
         ))}
       </div>
 
-      <EntitySection
-        cfg={activeCfg}
-        basePath="/hr"
-        search={search}
-        page={page}
-        setPage={setPage}
-        viewMode={viewMode}
-        registerActions={(h) => {
-          actionRef.current = h;
-        }}
-      />
+      {activeTab === "payroll-runs" ? (
+        <PayrollRunsPanel />
+      ) : (
+        <EntitySection
+          cfg={activeCfg}
+          basePath="/hr"
+          search={search}
+          page={page}
+          setPage={setPage}
+          viewMode={viewMode}
+          registerActions={(h) => {
+            actionRef.current = h;
+          }}
+        />
+      )}
 
       <KeyboardShortcutHelp
         open={helpOpen}

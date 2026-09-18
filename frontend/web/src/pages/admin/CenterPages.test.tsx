@@ -161,6 +161,37 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/payslips")) {
+        return ok({
+          count: 3,
+          results: [
+            {
+              id: 11,
+              employee_name: "Alex Rivera",
+              status: "draft",
+              net_pay: "5000.00",
+              period_start: "2026-10-01",
+              period_end: "2026-10-31",
+            },
+            {
+              id: 12,
+              employee_name: "Maria Lopez",
+              status: "approved",
+              net_pay: "6000.00",
+              period_start: "2026-10-01",
+              period_end: "2026-10-31",
+            },
+            {
+              id: 13,
+              employee_name: "John Smith",
+              status: "paid",
+              net_pay: "4500.00",
+              period_start: "2026-09-01",
+              period_end: "2026-09-30",
+            },
+          ],
+        });
+      }
       if (url.includes("/transport/attendance")) {
         return ok({
           count: 1,
@@ -329,9 +360,31 @@ describe("Admin center pages", () => {
     expect(screen.getByText("⚠ spike")).toBeInTheDocument();
   });
 
-  test("HRCenterPage renders heading and first-tab data", async () => {
+  test("HRCenterPage renders heading and payroll runs panel by default", async () => {
     renderWithProviders(<HRCenterPage />);
     expect(screen.getByRole("heading", { name: "HR Center" })).toBeInTheDocument();
+    // Payroll Runs is the default tab — panel renders with live counters
+    expect(await screen.findByText("Run payroll")).toBeInTheDocument();
+    expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
+    expect(screen.getByText("Approve all drafts")).toBeEnabled();
+    expect(screen.getByText("Mark all paid → ledger")).toBeEnabled();
+  });
+
+  test("HRCenterPage payroll bulk-approve sends only draft ids", async () => {
+    (api.post as jest.Mock).mockResolvedValue({ approved: 1, skipped: 0 });
+    renderWithProviders(<HRCenterPage />);
+    fireEvent.click(await screen.findByText("Approve all drafts"));
+    expect(await screen.findByText(/Approved 1 payslips/i)).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith(
+      "/payslips/bulk-approve/",
+      expect.objectContaining({ ids: [11] }),
+    );
+  });
+
+  test("HRCenterPage entity tabs still render after the panel tab", async () => {
+    renderWithProviders(<HRCenterPage />);
+    await screen.findByText("Run payroll");
+    fireEvent.click(screen.getByRole("button", { name: "Accountant Profile" }));
     expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
   });
 
