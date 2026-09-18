@@ -8,8 +8,8 @@
  */
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:5173";
-const API = "http://localhost:8000/api/v1";
+const BASE = "http://127.0.0.1:5173"; // IPv4 explicitly — Windows resolves localhost→::1 first, and another dev app shadows [::1]:5173
+const API = "http://127.0.0.1:8000/api/v1";
 
 const results = [];
 const report = (step, ok, detail) => {
@@ -105,7 +105,7 @@ if (cardVisible) {
   report("6 net figure shown", netShown, money(summary.net));
 
   /* One row per stream, credits/debits amounts rendered */
-  const streamRows = await card.locator("span.w-40").count();
+  const streamRows = await card.locator("span.w-40, [data-testid^='drill-']").count();
   report(
     `7 stream rows rendered (${summary.streams.length} expected)`,
     streamRows === summary.streams.length,
@@ -182,6 +182,25 @@ if (cardVisible) {
     report("12 CSV export downloads with stream rows", csvOk, download.suggestedFilename());
   } else {
     report("12 CSV export downloads with stream rows", false, "no download event");
+  }
+
+  /* Drill-down: clicking a stream label filters the Accounting Entry list below */
+  const drillSel = '[data-testid="drill-' + (summary.streams[0]?.stream ?? "") + '"]';
+  const drillBtn = page.locator(drillSel).first();
+  if ((await drillBtn.count()) > 0) {
+    await drillBtn.click();
+    const searchInput = page.locator('input[type="search"]').first();
+    const searchVal = await searchInput
+      .waitFor({ timeout: 10000 })
+      .then(() => searchInput.inputValue())
+      .catch(() => "");
+    report(
+      `13 stream drill-down filters the entry list (${summary.streams[0]?.stream})`,
+      searchVal === (summary.streams[0]?.stream ?? ""),
+      `search="${searchVal}"`,
+    );
+  } else {
+    report("13 stream drill-down filters the entry list", false, "no drill button found");
   }
 
   /* Screenshot for the record */

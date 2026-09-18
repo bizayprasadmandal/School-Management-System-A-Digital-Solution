@@ -291,6 +291,19 @@ describe("Admin center pages", () => {
     Object.defineProperty(URL, "revokeObjectURL", { value: undefined, configurable: true });
   });
 
+  test("ledger card: clicking a stream drills down to its filtered entries", async () => {
+    renderWithProviders(<FeesCenterPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Accounting Entry" }));
+    expect(await screen.findByTestId("ledger-summary")).toBeInTheDocument();
+
+    // Stream label is a drill-down button; clicking filters the entries below
+    fireEvent.click(screen.getByTestId("drill-payment"));
+    const searchInput = screen.getByPlaceholderText(/Search/);
+    expect(searchInput).toHaveValue("payment");
+    // The mocked entry has no reference_type, so the stream filter empties the list
+    expect(await screen.findByText(/No accounting entry found/i)).toBeInTheDocument();
+  });
+
   test("HRCenterPage renders heading and first-tab data", async () => {
     renderWithProviders(<HRCenterPage />);
     expect(screen.getByRole("heading", { name: "HR Center" })).toBeInTheDocument();

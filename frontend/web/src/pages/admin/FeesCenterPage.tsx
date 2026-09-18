@@ -175,7 +175,7 @@ function money(v: string | number) {
 }
 
 /** Monthly debits-vs-credits per posting stream, above the ledger tabs. */
-function LedgerSummaryCard() {
+function LedgerSummaryCard({ onDrillDown }: { onDrillDown?: (stream: string) => void }) {
   const [range, setRange] = useState(6);
   const { data, isLoading } = useQuery({
     queryKey: ["ledger-monthly-summary"],
@@ -327,9 +327,21 @@ function LedgerSummaryCard() {
           const credits = parseFloat(s.total_credits) || 0;
           return (
             <div key={s.stream} className="flex items-center gap-3">
-              <span className="w-40 shrink-0 truncate text-xs font-medium text-slate-600 dark:text-slate-300">
-                {STREAM_LABELS[s.stream] ?? s.stream}
-              </span>
+              {onDrillDown ? (
+                <button
+                  type="button"
+                  onClick={() => onDrillDown(s.stream)}
+                  title={`Show ${STREAM_LABELS[s.stream] ?? s.stream} entries below`}
+                  data-testid={`drill-${s.stream}`}
+                  className="w-40 shrink-0 truncate text-left text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  {STREAM_LABELS[s.stream] ?? s.stream}
+                </button>
+              ) : (
+                <span className="w-40 shrink-0 truncate text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {STREAM_LABELS[s.stream] ?? s.stream}
+                </span>
+              )}
               <div className="flex flex-1 flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
@@ -1658,6 +1670,13 @@ export default function FeesCenterPage() {
 
   const activeCfg = ENTITY_CONFIGS[activeTab];
 
+  /** Click a ledger stream row → jump to the Accounting Entry tab filtered to it. */
+  const drillToLedger = (stream: string) => {
+    setActiveTab("accounting-entry");
+    setSearch(stream);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1733,7 +1752,7 @@ export default function FeesCenterPage() {
         ))}
       </div>
 
-      {activeTab === "accounting-entry" && <LedgerSummaryCard />}
+      {activeTab === "accounting-entry" && <LedgerSummaryCard onDrillDown={drillToLedger} />}
 
       <EntitySection
         cfg={activeCfg}
