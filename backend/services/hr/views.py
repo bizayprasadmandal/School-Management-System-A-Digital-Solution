@@ -251,6 +251,30 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
         return Response(PayslipSerializer(payslip).data, status=201 if created else 200)
 
 
+def _post_payslip_expense(payslip, user=None):
+    """Post one payslip's net pay to the shared ledger as salary expense.
+
+    One debit entry (account 5001) + one TransactionLog, idempotent per
+    payslip — shared by mark-paid and the bulk mark-paid action.
+    """
+    from services.fees.ledger import post_revenue
+    from services.fees.models import AccountingEntry, TransactionLog
+
+    post_revenue(
+        school=payslip.school,
+        amount=payslip.net_pay,
+        reference_type="payslip",
+        reference_id=str(payslip.id),
+        description=f"Payroll — {payslip.employee} ({payslip.period_start} to {payslip.period_end})",
+        payment_method=payslip.payment_method,
+        transaction_type=TransactionLog.TransactionType.OTHER,
+        entry_type=AccountingEntry.EntryType.DEBIT,
+        account_code="5001",
+        account_name="Salary Expense",
+        user=user,
+    )
+
+
 class PayslipViewSet(viewsets.ModelViewSet):
     serializer_class = PayslipSerializer
     pagination_class = StandardResultsSetPagination
@@ -271,6 +295,9 @@ class PayslipViewSet(viewsets.ModelViewSet):
             "destroy",
             "approve",
             "mark_paid",
+            "payroll_run",
+            "bulk_approve",
+            "bulk_mark_paid",
         ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
@@ -298,26 +325,47 @@ class PayslipViewSet(viewsets.ModelViewSet):
         payslip.payment_date = request.data.get("payment_date", timezone.now().date())
         payslip.payment_method = request.data.get("payment_method", "")
         payslip.save(update_fields=["status", "payment_date", "payment_method"])
-
-        # Same audit trail as every other money movement: one debit entry
-        # (salary expense) + one TransactionLog, idempotent per payslip.
-        from services.fees.ledger import post_revenue
-        from services.fees.models import AccountingEntry, TransactionLog
-
-        post_revenue(
-            school=payslip.school,
-            amount=payslip.net_pay,
-            reference_type="payslip",
-            reference_id=str(payslip.id),
-            description=f"Payroll — {payslip.employee} ({payslip.period_start} to {payslip.period_end})",
-            payment_method=payslip.payment_method,
-            transaction_type=TransactionLog.TransactionType.OTHER,
-            entry_type=AccountingEntry.EntryType.DEBIT,
-            account_code="5001",
-            account_name="Salary Expense",
-            user=request.user if request.user.is_authenticated else None,
-        )
+        _post_payslip_expense(payslip, user=request.user if request.user.is_authenticated else None)
         return Response(PayslipSerializer(payslip).data)
+
+    @action(detail=False, methods=["post"], url_path="bulk-approve")
+    def bulk_approve(self, request):
+        """Approve many draft payslips in one call. School-scoped: ids from
+        other schools (or already-approved slips) are counted as skipped."""
+        ids = request.data.get("ids") or []
+        if not ids:
+            return Response({"error": "ids is required"}, status=400)
+        updated = (
+            self.get_queryset().filter(id__in=ids, status=Payslip.Status.DRAFT).update(status=Payslip.Status.APPROVED)
+        )
+        return Response({"approved": updated, "skipped": len(ids) - updated})
+
+    @action(detail=False, methods=["post"], url_path="bulk-mark-paid")
+    def bulk_mark_paid(self, request):
+        """Mark many approved payslips paid in one call, posting each salary
+        expense to the ledger. Same guards as mark-paid: only approved slips
+        transition; everything else is skipped, never double-posted."""
+        from django.db import transaction
+
+        ids = request.data.get("ids") or []
+        if not ids:
+            return Response({"error": "ids is required"}, status=400)
+        payment_date = request.data.get("payment_date", timezone.now().date())
+        payment_method = request.data.get("payment_method", "")
+        paid_ids = []
+        with transaction.atomic():
+            # of=("self",): the select_related joins hit nullable sides
+            # (department), and Postgres can't FOR UPDATE an outer join.
+            for payslip in (
+                self.get_queryset().select_for_update(of=("self",)).filter(id__in=ids, status=Payslip.Status.APPROVED)
+            ):
+                payslip.status = Payslip.Status.PAID
+                payslip.payment_date = payment_date
+                payslip.payment_method = payment_method
+                payslip.save(update_fields=["status", "payment_date", "payment_method"])
+                _post_payslip_expense(payslip, user=request.user if request.user.is_authenticated else None)
+                paid_ids.append(str(payslip.id))
+        return Response({"paid": len(paid_ids), "skipped": len(ids) - len(paid_ids), "ids": paid_ids})
 
     @action(detail=False, methods=["post"], url_path="payroll-run")
     def payroll_run(self, request):

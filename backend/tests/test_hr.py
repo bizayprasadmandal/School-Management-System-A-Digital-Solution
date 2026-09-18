@@ -990,3 +990,90 @@ class TestPayrollRun:
     def test_run_requires_period(self, admin_client, school):
         r = admin_client.post(f"{HR_PAYSLIPS}payroll-run/", {}, format="json")
         assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestBulkPayrollActions:
+    """Bulk approve / bulk mark-paid for whole payroll runs."""
+
+    @staticmethod
+    def _make_payslip(school, email, status="draft", net="40000.00"):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        emp_user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.create(school=school, name=f"BD {email[:6]}", code=email[:6].upper())
+        emp = Employee.objects.create(
+            school=school,
+            user=emp_user,
+            department=dept,
+            employee_id=f"EMP-{email[:8].upper()}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        return Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=date.today().replace(day=1),
+            period_end=date.today(),
+            basic_salary=Decimal(net),
+            gross_pay=Decimal(net),
+            total_deductions=Decimal("0.00"),
+            net_pay=Decimal(net),
+            status=status,
+        )
+
+    def test_bulk_approve_only_touches_drafts(self, admin_client, school):
+        from services.hr.models import Payslip
+
+        d1 = self._make_payslip(school, "bulk-a@school.edu", status="draft")
+        d2 = self._make_payslip(school, "bulk-b@school.edu", status="draft")
+        already = self._make_payslip(school, "bulk-c@school.edu", status="approved")
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}bulk-approve/",
+            {"ids": [str(d1.id), str(d2.id), str(already.id)]},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["approved"] == 2
+        assert r.data["skipped"] == 1
+        already.refresh_from_db()
+        assert already.status == Payslip.Status.APPROVED
+
+    def test_bulk_mark_paid_posts_each_to_ledger(self, admin_client, school):
+        from services.fees.models import AccountingEntry
+
+        p1 = self._make_payslip(school, "bulk-d@school.edu", status="approved", net="40000.00")
+        p2 = self._make_payslip(school, "bulk-e@school.edu", status="approved", net="55000.00")
+        draft = self._make_payslip(school, "bulk-f@school.edu", status="draft")
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}bulk-mark-paid/",
+            {"ids": [str(p1.id), str(p2.id), str(draft.id)], "payment_method": "bank"},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["paid"] == 2
+        assert r.data["skipped"] == 1
+        entries = AccountingEntry.objects.filter(reference_type="payslip", reference_id__in=[str(p1.id), str(p2.id)])
+        assert entries.count() == 2
+        assert set(entries.values_list("amount", flat=True)) == {Decimal("40000.00"), Decimal("55000.00")}
+        draft.refresh_from_db()
+        from services.hr.models import Payslip
+
+        assert draft.status == Payslip.Status.DRAFT
+
+    def test_bulk_requires_ids(self, admin_client, school):
+        for path in ("bulk-approve/", "bulk-mark-paid/"):
+            r = admin_client.post(f"{HR_PAYSLIPS}{path}", {}, format="json")
+            assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_bulk_scoped_to_school(self, admin_client, school):
+        from services.fees.models import AccountingEntry
+        from tests.factories import SchoolFactory
+
+        other_school = SchoolFactory(code="BULKX")
+        slip_b = self._make_payslip(other_school, "bulk-g@school.edu", status="approved")
+        r = admin_client.post(f"{HR_PAYSLIPS}bulk-mark-paid/", {"ids": [str(slip_b.id)]}, format="json")
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["paid"] == 0
+        assert not AccountingEntry.objects.filter(reference_type="payslip").exists()
