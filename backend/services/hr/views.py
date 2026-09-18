@@ -290,7 +290,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="mark-paid")
     def mark_paid(self, request, pk=None):
-        """Mark an approved payslip as paid."""
+        """Mark an approved payslip as paid and post the expense to the books."""
         payslip = self.get_object()
         if payslip.status != Payslip.Status.APPROVED:
             return Response({"detail": "Only approved payslips can be marked paid."}, status=400)
@@ -298,6 +298,25 @@ class PayslipViewSet(viewsets.ModelViewSet):
         payslip.payment_date = request.data.get("payment_date", timezone.now().date())
         payslip.payment_method = request.data.get("payment_method", "")
         payslip.save(update_fields=["status", "payment_date", "payment_method"])
+
+        # Same audit trail as every other money movement: one debit entry
+        # (salary expense) + one TransactionLog, idempotent per payslip.
+        from services.fees.ledger import post_revenue
+        from services.fees.models import AccountingEntry, TransactionLog
+
+        post_revenue(
+            school=payslip.school,
+            amount=payslip.net_pay,
+            reference_type="payslip",
+            reference_id=str(payslip.id),
+            description=f"Payroll — {payslip.employee} ({payslip.period_start} to {payslip.period_end})",
+            payment_method=payslip.payment_method,
+            transaction_type=TransactionLog.TransactionType.OTHER,
+            entry_type=AccountingEntry.EntryType.DEBIT,
+            account_code="5001",
+            account_name="Salary Expense",
+            user=request.user if request.user.is_authenticated else None,
+        )
         return Response(PayslipSerializer(payslip).data)
 
 

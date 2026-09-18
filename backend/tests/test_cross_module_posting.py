@@ -293,3 +293,104 @@ class TestSupplierInvoicePaymentPosting:
             format="json",
         )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+
+HR_PAYSLIPS = f"{API_PREFIX}/hr/payslips/"
+
+
+def _make_payslip(school, amount="45000.00"):
+    """An approved payslip ready to be marked paid."""
+    from services.hr.models import Department, Employee, Payslip
+    from tests.factories import UserFactory
+
+    emp_user = UserFactory(school=school, role="teacher", email=f"pay-{uuid.uuid4().hex[:6]}@school.edu")
+    dept = Department.objects.create(school=school, name="Payroll Dept", code=f"PD{uuid.uuid4().hex[:4]}")
+    emp = Employee.objects.create(
+        school=school,
+        user=emp_user,
+        department=dept,
+        employee_id=f"EMP-{uuid.uuid4().hex[:6].upper()}",
+        designation="Teacher",
+        joining_date=date.today(),
+    )
+    return Payslip.objects.create(
+        school=school,
+        employee=emp,
+        period_start=date.today().replace(day=1),
+        period_end=date.today(),
+        basic_salary=Decimal(amount),
+        gross_pay=Decimal(amount),
+        total_deductions=Decimal("0.00"),
+        net_pay=Decimal(amount),
+        status=Payslip.Status.APPROVED,
+    )
+
+
+@pytest.mark.django_db
+class TestPayrollPosting:
+    """Marking a payslip paid posts the salary expense to the shared ledger."""
+
+    def test_mark_paid_posts_debit_entry_and_log(self, admin_client, school):
+        from services.fees.models import AccountingEntry, TransactionLog
+
+        payslip = _make_payslip(school)
+        r = admin_client.post(f"{HR_PAYSLIPS}{payslip.id}/mark-paid/", {}, format="json")
+        assert r.status_code == status.HTTP_200_OK
+
+        entry = AccountingEntry.objects.get(reference_type="payslip", reference_id=str(payslip.id))
+        assert entry.entry_type == AccountingEntry.EntryType.DEBIT
+        assert entry.amount == payslip.net_pay
+        assert entry.account_code == "5001"
+        log = TransactionLog.objects.get(transaction_id=f"PAYSLIP-{payslip.id}")
+        assert log.school == school
+
+    def test_mark_paid_is_idempotent(self, admin_client, school):
+        from services.fees.models import AccountingEntry
+
+        payslip = _make_payslip(school)
+        r = admin_client.post(f"{HR_PAYSLIPS}{payslip.id}/mark-paid/", {}, format="json")
+        assert r.status_code == status.HTTP_200_OK
+        # A retried mark-paid is rejected by the state guard (already paid)…
+        r2 = admin_client.post(f"{HR_PAYSLIPS}{payslip.id}/mark-paid/", {}, format="json")
+        assert r2.status_code == status.HTTP_400_BAD_REQUEST
+        # …and even a direct double-post of the same reference never duplicates.
+        from services.fees.ledger import post_revenue
+        from services.fees.models import TransactionLog
+
+        post_revenue(
+            school=school,
+            amount=payslip.net_pay,
+            reference_type="payslip",
+            reference_id=str(payslip.id),
+            description="retry",
+            entry_type=AccountingEntry.EntryType.DEBIT,
+            account_code="5001",
+            account_name="Salary Expense",
+            transaction_type=TransactionLog.TransactionType.OTHER,
+        )
+        assert AccountingEntry.objects.filter(reference_type="payslip", reference_id=str(payslip.id)).count() == 1
+
+    def test_draft_payslip_never_posts(self, admin_client, school):
+        from services.fees.models import AccountingEntry
+        from services.hr.models import Payslip
+
+        payslip = _make_payslip(school)
+        payslip.status = Payslip.Status.DRAFT
+        payslip.save(update_fields=["status"])
+        r = admin_client.post(f"{HR_PAYSLIPS}{payslip.id}/mark-paid/", {}, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+        assert not AccountingEntry.objects.filter(reference_type="payslip", reference_id=str(payslip.id)).exists()
+
+    def test_tenant_isolation(self, db):
+        from services.fees.models import AccountingEntry
+        from tests.factories import AdminUserFactory, SchoolFactory
+
+        school_a = SchoolFactory(code="PAYA")
+        school_b = SchoolFactory(code="PAYB")
+        payslip_b = _make_payslip(school_b)
+        admin_a = AdminUserFactory(school=school_a)
+        c = APIClient()
+        c.force_authenticate(user=admin_a)
+        r = c.post(f"{HR_PAYSLIPS}{payslip_b.id}/mark-paid/", {}, format="json")
+        assert r.status_code == status.HTTP_404_NOT_FOUND
+        assert not AccountingEntry.objects.filter(reference_type="payslip").exists()
