@@ -376,7 +376,7 @@ describe("Admin center pages", () => {
     fireEvent.click(await screen.findByText("Approve all drafts"));
     expect(await screen.findByText(/Approved 1 payslips/i)).toBeInTheDocument();
     expect(api.post).toHaveBeenCalledWith(
-      "/payslips/bulk-approve/",
+      "/hr/payslips/bulk-approve/",
       expect.objectContaining({ ids: [11] }),
     );
   });
