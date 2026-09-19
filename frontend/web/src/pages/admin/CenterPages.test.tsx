@@ -430,6 +430,35 @@ describe("Admin center pages", () => {
     expect(await screen.findByText("No payslips match the current filter.")).toBeInTheDocument();
   });
 
+  test("HRCenterPage payroll print view renders filtered payslips", async () => {
+    const writeMock = jest.fn();
+    const fakeWin = {
+      document: { write: writeMock, close: jest.fn() },
+      focus: jest.fn(),
+      print: jest.fn(),
+    } as unknown as Window;
+    jest.spyOn(window, "open").mockReturnValue(fakeWin);
+    renderWithProviders(<HRCenterPage />);
+    await screen.findByText("Alex Rivera");
+    fireEvent.click(screen.getByLabelText("Print payslip list"));
+    const html = writeMock.mock.calls[0][0] as string;
+    // All three slips, department names, and the 15,500.00 net total
+    expect(html).toContain("Alex Rivera");
+    expect(html).toContain("Maria Lopez");
+    expect(html).toContain("John Smith");
+    expect(html).toContain("Science");
+    expect(html).toContain("15,500.00");
+    expect(fakeWin.print).toHaveBeenCalled();
+    // Narrow the filter → print view contains only the filtered row
+    fireEvent.change(screen.getByLabelText("Filter payslips by status"), {
+      target: { value: "draft" },
+    });
+    fireEvent.click(screen.getByLabelText("Print payslip list"));
+    const html2 = writeMock.mock.calls[1][0] as string;
+    expect(html2).toContain("Alex Rivera");
+    expect(html2).not.toContain("Maria Lopez");
+  });
+
   test("HRCenterPage entity tabs still render after the panel tab", async () => {
     renderWithProviders(<HRCenterPage />);
     await screen.findByText("Run payroll");

@@ -156,6 +156,18 @@ ASSET_NAMES = [
 def shape_text(model_name, field, i):
     """Generate a plausible value for a text field based on its name."""
     n = field.name.lower()
+    if model_name == "Department" and n == "name":
+        # Real school department names, not faker word-salad.
+        return [
+            "Academics",
+            "Administration",
+            "Finance & Accounts",
+            "Library",
+            "IT & Maintenance",
+            "Sports",
+            "Transport",
+            "Health & Safety",
+        ][(i - 1) % 8]
     if n in {"name", "title"}:
         return f"{fake.word().capitalize()} {fake.word().capitalize()} {i}"
     if "description" in n or n in {

@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Button } from "../../components/common";
-import { BanknotesIcon, CheckBadgeIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CheckBadgeIcon, PlayIcon, PrinterIcon } from "@heroicons/react/24/outline";
 
 interface PayslipRow {
   id: number;
@@ -144,6 +144,52 @@ export default function PayrollRunsPanel() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bulk mark-paid failed");
     }
+  };
+
+  /** Open a clean print view of the filtered payslips (browser → Save as PDF). */
+  const printSlips = () => {
+    const rows = visibleSlips;
+    const w = window.open("", "_blank", "width=900,height=650");
+    if (!w) return; // popup blocked
+    const esc = (s: string) =>
+      s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
+    const body = rows
+      .map(
+        (s) => `<tr>
+          <td>${esc(s.employee_name ?? `#${s.id}`)}</td>
+          <td>${esc(s.department_name ?? "—")}</td>
+          <td>${esc(s.period_start ?? "—")} → ${esc(s.period_end ?? "—")}</td>
+          <td>${esc(s.status)}</td>
+          <td class="num">${fmtMoney(s.net_pay)}</td>
+        </tr>`,
+      )
+      .join("");
+    const total = rows.reduce((a, s) => a + Number(s.net_pay ?? 0), 0);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
+<title>Payslips ${esc(periodFilter === "all" ? "— all periods" : periodFilter)}</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; margin: 32px; color: #111; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.meta { color: #555; font-size: 12px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+  th { background: #f4f4f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 700; border-top: 2px solid #111; }
+</style></head><body>
+<h1>Payslips ${esc(periodFilter === "all" ? "— all periods" : periodFilter)}</h1>
+<p class="meta">${rows.length} payslip(s) · status: ${esc(
+      statusFilter,
+    )} · generated ${new Date().toLocaleDateString()}</p>
+<table>
+<thead><tr><th>Employee</th><th>Department</th><th>Period</th><th>Status</th><th class="num">Net pay</th></tr></thead>
+<tbody>${body}</tbody>
+<tfoot><tr><td colspan="4">Total net</td><td class="num">${fmtMoney(total)}</td></tr></tfoot>
+</table>
+</body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
   };
 
   const drafts = slips.filter((s) => s.status === "draft").length;
@@ -415,6 +461,16 @@ export default function PayrollRunsPanel() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </label>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={printSlips}
+              disabled={visibleSlips.length === 0}
+              leftIcon={<PrinterIcon className="h-4 w-4" />}
+              aria-label="Print payslip list"
+            >
+              Print / PDF
+            </Button>
           </div>
         </div>
         <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
