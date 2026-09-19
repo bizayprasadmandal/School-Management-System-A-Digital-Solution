@@ -317,7 +317,7 @@ export default function PayrollRunsPanel() {
             Payroll by department
           </h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Net totals across all loaded payslips, grouped by each employee's department.
+            Net totals across all loaded payslips, grouped by each employee&apos;s department.
           </p>
           <div className="mt-4 space-y-3">
             {byDepartment.map(([name, agg]) => {
