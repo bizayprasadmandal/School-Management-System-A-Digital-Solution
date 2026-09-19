@@ -150,6 +150,18 @@ export default function PayrollRunsPanel() {
   const approved = slips.filter((s) => s.status === "approved").length;
   const paid = slips.filter((s) => s.status === "paid").length;
 
+  // ── Filters: by pay-period month and by status (client-side over loaded slips) ──
+  const periodOptions = [...new Set(slips.map((s) => (s.period_start ?? "").slice(0, 7)))]
+    .filter(Boolean)
+    .sort();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [periodFilter, setPeriodFilter] = useState<string>("all");
+  const visibleSlips = slips.filter(
+    (s) =>
+      (statusFilter === "all" || s.status === statusFilter) &&
+      (periodFilter === "all" || (s.period_start ?? "").slice(0, 7) === periodFilter),
+  );
+
   /** Per-department net/gross totals + headcount, grouped from the loaded slips. */
   const byDepartment = (() => {
     const map = new Map<
@@ -366,6 +378,45 @@ export default function PayrollRunsPanel() {
 
       {/* Per-slip breakdown */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            Payslips ({visibleSlips.length}
+            {visibleSlips.length !== slips.length && ` of ${slips.length}`})
+          </h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              Period
+              <select
+                aria-label="Filter payslips by pay period"
+                value={periodFilter}
+                onChange={(e) => setPeriodFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              >
+                <option value="all">All periods</option>
+                {periodOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              Status
+              <select
+                aria-label="Filter payslips by status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              >
+                <option value="all">All</option>
+                <option value="draft">Draft</option>
+                <option value="approved">Approved</option>
+                <option value="paid">Paid</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+          </div>
+        </div>
         <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
           <thead className="bg-slate-50 dark:bg-slate-800">
             <tr>
@@ -380,18 +431,20 @@ export default function PayrollRunsPanel() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-700 dark:bg-slate-800">
-            {slips.length === 0 ? (
+            {visibleSlips.length === 0 ? (
               <tr>
                 <td
                   colSpan={4}
                   data-testid="no-slips"
                   className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
                 >
-                  No payslips yet — run payroll above to generate them.
+                  {slips.length === 0
+                    ? "No payslips yet — run payroll above to generate them."
+                    : "No payslips match the current filter."}
                 </td>
               </tr>
             ) : (
-              slips.map((s) => (
+              visibleSlips.map((s) => (
                 <tr key={s.id}>
                   <td className="px-4 py-2.5 text-slate-900 dark:text-slate-100">
                     {s.employee_name ?? `#${s.id}`}

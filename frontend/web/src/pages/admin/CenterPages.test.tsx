@@ -401,6 +401,35 @@ describe("Admin center pages", () => {
     expect(breakdown).toHaveTextContent("1 paid");
   });
 
+  test("HRCenterPage payroll panel filters payslips by status and period", async () => {
+    renderWithProviders(<HRCenterPage />);
+    await screen.findByText("Alex Rivera");
+    // Header shows unfiltered count
+    expect(screen.getByText(/Payslips \(3\)/)).toBeInTheDocument();
+    // Status filter: only drafts remain
+    fireEvent.change(screen.getByLabelText("Filter payslips by status"), {
+      target: { value: "draft" },
+    });
+    expect(screen.getByText(/Payslips \(1 of 3\)/)).toBeInTheDocument();
+    expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
+    expect(screen.queryByText("Maria Lopez")).not.toBeInTheDocument();
+    // Period filter: only the September period remains
+    fireEvent.change(screen.getByLabelText("Filter payslips by status"), {
+      target: { value: "all" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter payslips by pay period"), {
+      target: { value: "2026-09" },
+    });
+    expect(screen.getByText(/Payslips \(1 of 3\)/)).toBeInTheDocument();
+    expect(screen.getByText("John Smith")).toBeInTheDocument();
+    expect(screen.queryByText("Alex Rivera")).not.toBeInTheDocument();
+    // Empty state when the combination matches nothing
+    fireEvent.change(screen.getByLabelText("Filter payslips by status"), {
+      target: { value: "cancelled" },
+    });
+    expect(await screen.findByText("No payslips match the current filter.")).toBeInTheDocument();
+  });
+
   test("HRCenterPage entity tabs still render after the panel tab", async () => {
     renderWithProviders(<HRCenterPage />);
     await screen.findByText("Run payroll");
