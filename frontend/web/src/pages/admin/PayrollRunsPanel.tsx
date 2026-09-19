@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Button } from "../../components/common";
+import { Sparkline } from "../../components/common/LedgerSummaryCard";
 import { BanknotesIcon, CheckBadgeIcon, PlayIcon, PrinterIcon } from "@heroicons/react/24/outline";
 
 interface PayslipRow {
@@ -313,6 +314,28 @@ ${slipsHtml}
   }, []);
   const unviewedCount = (viewRows ?? []).filter((r) => r.view_count === 0).length;
 
+  // ── Payroll trend (monthly net/gross series for the sparkline) ──
+  interface TrendData {
+    months: string[];
+    gross: string[];
+    net: string[];
+  }
+  const [trend, setTrend] = useState<TrendData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<TrendData>("/hr/payslips/payroll-trend/", { months: 6 })
+      .then((res) => {
+        if (!cancelled) setTrend(res);
+      })
+      .catch(() => {
+        if (!cancelled) setTrend(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /** Per-department net/gross totals + headcount, grouped from the loaded slips. */
   const byDepartment = (() => {
     const map = new Map<
@@ -469,6 +492,44 @@ ${slipsHtml}
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{paid}</p>
         </div>
       </div>
+
+      {/* Payroll trend sparkline */}
+      {trend && trend.months.length > 0 && (
+        <div
+          data-testid="payroll-trend"
+          className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Payroll trend
+              </h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Monthly totals over the last {trend.months.length} months ({trend.months[0]} →{" "}
+                {trend.months[trend.months.length - 1]}).
+              </p>
+            </div>
+            <div className="flex items-end gap-5">
+              <div className="text-right">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Net this month</p>
+                <p className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">
+                  {fmtMoney(trend.net[trend.net.length - 1])}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400">Net</span>
+                  <Sparkline values={trend.net} tone="green" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Gross</span>
+                  <Sparkline values={trend.gross} tone="red" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Per-department breakdown */}
       {byDepartment.length > 0 && (

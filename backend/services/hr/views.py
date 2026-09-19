@@ -527,6 +527,57 @@ class PayslipViewSet(viewsets.ModelViewSet):
         rows.sort(key=lambda r: (r["view_count"], r["last_viewed_at"] or ""))
         return Response({"count": len(rows), "results": rows})
 
+    @action(detail=False, methods=["get"], url_path="payroll-trend")
+    def payroll_trend(self, request):
+        """Monthly net/gross payroll for the trailing months (default 6).
+
+        Powers the trend sparkline on the Payroll Runs panel. Months are
+        calendar months ending with the current one; months with no payslips
+        report 0.00 so the series stays aligned. Scoped like the list view:
+        admins see the whole school, staff see their own pay history.
+        """
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.db.models import Sum
+        from django.db.models.functions import TruncMonth
+
+        try:
+            months = min(max(int(request.query_params.get("months", "6")), 1), 12)
+        except (TypeError, ValueError):
+            months = 6
+
+        today = timezone.localdate()
+        start = today.replace(day=1)
+        for _ in range(months - 1):
+            start = (start - timedelta(days=1)).replace(day=1)
+
+        labels = []
+        cursor = start
+        while cursor <= today:
+            labels.append(cursor.strftime("%Y-%m"))
+            cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+        def _money(value):
+            return str(Decimal(value).quantize(Decimal("0.01")))
+
+        buckets = (
+            self.get_queryset()
+            .filter(period_start__gte=start, period_start__lte=today)
+            .annotate(bucket=TruncMonth("period_start"))
+            .values("bucket")
+            .annotate(gross=Sum("gross_pay"), net=Sum("net_pay"))
+            .order_by("bucket")
+        )
+        points = {b["bucket"].strftime("%Y-%m"): b for b in buckets}
+        return Response(
+            {
+                "months": labels,
+                "gross": [_money(points[lab]["gross"]) if lab in points else "0.00" for lab in labels],
+                "net": [_money(points[lab]["net"]) if lab in points else "0.00" for lab in labels],
+            }
+        )
+
 
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer

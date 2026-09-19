@@ -1311,3 +1311,84 @@ class TestPayslipPaidNotification:
         r2 = admin_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/", {}, format="json")
         assert r2.status_code == status.HTTP_400_BAD_REQUEST
         assert Notification.objects.filter(reference_type="payslip").count() == 0
+
+
+@pytest.mark.django_db
+class TestPayrollTrend:
+    """Monthly net/gross payroll series powering the panel sparkline."""
+
+    def _slip(self, school, email, period_start, net="40000.00", gross="45000.00"):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.get_or_create(school=school, name="Trend", defaults={"code": "TRND"})[0]
+        emp = Employee.objects.create(
+            school=school,
+            user=user,
+            department=dept,
+            employee_id=f"EMP-{email[:10]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        return Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=period_start,
+            period_end=period_start,
+            basic_salary=Decimal("30000"),
+            gross_pay=Decimal(gross),
+            total_deductions=Decimal("5000"),
+            net_pay=Decimal(net),
+            status="paid",
+        )
+
+    def test_series_alignment_and_sums(self, admin_client, school):
+        today = date.today()
+        this_month = today.replace(day=1)
+        prev_month = (this_month - timedelta(days=1)).replace(day=1)
+        self._slip(school, "trend-a@school.edu", this_month, net="40000.00")
+        self._slip(school, "trend-b@school.edu", this_month, net="30000.00")
+        self._slip(school, "trend-c@school.edu", prev_month, net="20000.00")
+
+        r = admin_client.get(f"{HR_PAYSLIPS}payroll-trend/")
+        assert r.status_code == status.HTTP_200_OK
+        labels = r.data["months"]
+        assert len(labels) == 6
+        assert labels[-1] == this_month.strftime("%Y-%m")
+        net = [float(v) for v in r.data["net"]]
+        gross = [float(v) for v in r.data["gross"]]
+        assert net[-1] == 70000.0  # 40k + 30k this month
+        assert net[-2] == 20000.0  # previous month
+        assert gross[-1] == 90000.0
+        # Zero-filled gaps
+        assert all(v == 0.0 for v in net[:-2])
+
+    def test_months_param_bounds(self, admin_client, school):
+        r3 = admin_client.get(f"{HR_PAYSLIPS}payroll-trend/?months=3")
+        assert r3.status_code == status.HTTP_200_OK
+        assert len(r3.data["months"]) == 3
+        r12 = admin_client.get(f"{HR_PAYSLIPS}payroll-trend/?months=12")
+        assert len(r12.data["months"]) == 12
+        # Junk falls back to 6; out-of-range clamps
+        assert len(admin_client.get(f"{HR_PAYSLIPS}payroll-trend/?months=junk").data["months"]) == 6
+        assert len(admin_client.get(f"{HR_PAYSLIPS}payroll-trend/?months=99").data["months"]) == 12
+
+    def test_staff_scoped_to_own_history(self, school):
+        from rest_framework.test import APIClient
+
+        today = date.today()
+        own = self._slip(school, "trend-own@school.edu", today.replace(day=1))
+        self._slip(school, "trend-other@school.edu", today.replace(day=1))
+
+        c = APIClient()
+        c.force_authenticate(user=own.employee.user)
+        r = c.get(f"{HR_PAYSLIPS}payroll-trend/")
+        assert r.status_code == status.HTTP_200_OK
+        assert float(r.data["net"][-1]) == 40000.0  # only own slip
+
+    def test_admin_only_sees_whole_school(self, admin_client, school):
+        today = date.today()
+        self._slip(school, "trend-x@school.edu", today.replace(day=1))
+        r = admin_client.get(f"{HR_PAYSLIPS}payroll-trend/")
+        assert float(r.data["net"][-1]) == 40000.0

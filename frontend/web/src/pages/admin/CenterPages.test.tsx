@@ -161,6 +161,13 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/payslips/payroll-trend")) {
+        return ok({
+          months: ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"],
+          gross: ["0.00", "0.00", "45000.00", "45000.00", "180000.00"],
+          net: ["0.00", "0.00", "40000.00", "40000.00", "165000.00"],
+        });
+      }
       if (url.includes("/payslips/view-report")) {
         return ok({
           count: 2,
@@ -492,6 +499,18 @@ describe("Admin center pages", () => {
     const html2 = writeMock.mock.calls[1][0] as string;
     expect(html2).toContain("Alex Rivera");
     expect(html2).not.toContain("Maria Lopez");
+  });
+
+  test("HRCenterPage payroll trend shows this-month net and aligned sparklines", async () => {
+    renderWithProviders(<HRCenterPage />);
+    const trend = await screen.findByTestId("payroll-trend");
+    expect(trend).toHaveTextContent("Payroll trend");
+    expect(trend).toHaveTextContent("165,000.00");
+    // Two sparklines (net + gross) each with 5 month bars
+    const sparks = trend.querySelectorAll("[data-sparkline]");
+    expect(sparks.length).toBe(2);
+    expect(sparks[0].querySelectorAll("div").length).toBe(5);
+    expect(sparks[1].querySelectorAll("div").length).toBe(5);
   });
 
   test("HRCenterPage view tracking floats unviewed payslips to the top", async () => {
