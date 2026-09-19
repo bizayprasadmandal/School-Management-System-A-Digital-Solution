@@ -252,6 +252,34 @@ class EmployeeSalaryViewSet(viewsets.ModelViewSet):
         return Response(PayslipSerializer(payslip).data, status=201 if created else 200)
 
 
+def _notify_payslip_paid(payslip):
+    """Notify the employee (in-app) that their payslip has been paid.
+
+    Best-effort: never blocks or fails the payment transition. Shared by
+    mark-paid and the bulk mark-paid action.
+    """
+    try:
+        from services.communication.models import Notification
+
+        employee_user = payslip.employee.user
+        Notification.objects.create(
+            user=employee_user,
+            title="Payslip paid",
+            body=(
+                f"Your payslip for {payslip.period_start} → {payslip.period_end} "
+                f"has been paid. Net pay: {payslip.net_pay} "
+                f"({payslip.payment_method or '—'}, {payslip.payment_date or '—'})."
+            ),
+            channel="in_app",
+            status="sent",
+            reference_type="payslip",
+            reference_id=str(payslip.id),
+            sent_at=timezone.now(),
+        )
+    except Exception as e:  # pragma: no cover - notification must never break payment
+        logger.warning("Payslip %s paid-notification failed: %s", payslip.id, e)
+
+
 def _post_payslip_expense(payslip, user=None):
     """Post one payslip's net pay to the shared ledger as salary expense.
 
@@ -343,6 +371,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
         payslip.payment_method = request.data.get("payment_method", "")
         payslip.save(update_fields=["status", "payment_date", "payment_method"])
         _post_payslip_expense(payslip, user=request.user if request.user.is_authenticated else None)
+        _notify_payslip_paid(payslip)
         return Response(PayslipSerializer(payslip).data)
 
     @action(detail=False, methods=["post"], url_path="bulk-approve")
@@ -381,6 +410,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 payslip.payment_method = payment_method
                 payslip.save(update_fields=["status", "payment_date", "payment_method"])
                 _post_payslip_expense(payslip, user=request.user if request.user.is_authenticated else None)
+                _notify_payslip_paid(payslip)
                 paid_ids.append(str(payslip.id))
         return Response({"paid": len(paid_ids), "skipped": len(ids) - len(paid_ids), "ids": paid_ids})
 

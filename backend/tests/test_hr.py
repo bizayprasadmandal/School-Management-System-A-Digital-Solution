@@ -1233,3 +1233,81 @@ class TestPayslipViewReport:
         c.force_authenticate(user=user)
         r = c.get(f"{HR_PAYSLIPS}view-report/")
         assert r.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestPayslipPaidNotification:
+    """Employees get an in-app notification when their payslip is paid."""
+
+    def _approved_slip(self, school, email):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.get_or_create(school=school, name="Notify", defaults={"code": "NTFY"})[0]
+        emp = Employee.objects.create(
+            school=school,
+            user=user,
+            department=dept,
+            employee_id=f"EMP-{email[:10]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        slip = Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=date.today().replace(day=1),
+            period_end=date.today(),
+            basic_salary=Decimal("30000"),
+            gross_pay=Decimal("45000"),
+            total_deductions=Decimal("5000"),
+            net_pay=Decimal("40000"),
+            status="approved",
+        )
+        return user, emp, slip
+
+    def test_mark_paid_notifies_employee(self, admin_client, school):
+        from services.communication.models import Notification
+
+        _, emp, slip = self._approved_slip(school, "notify@school.edu")
+        r = admin_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/", {"payment_method": "bank"}, format="json")
+        assert r.status_code == status.HTTP_200_OK
+        notes = Notification.objects.filter(user=emp.user, reference_type="payslip", reference_id=str(slip.id))
+        assert notes.exists()
+        n = notes.first()
+        assert n.channel == "in_app"
+        assert "paid" in n.title.lower()
+        assert "40000.00" in n.body
+
+    def test_bulk_mark_paid_notifies_each_employee(self, admin_client, school):
+        from services.communication.models import Notification
+
+        _, emp_a, slip_a = self._approved_slip(school, "bulka@school.edu")
+        _, emp_b, slip_b = self._approved_slip(school, "bulkb@school.edu")
+        r = admin_client.post(
+            f"{HR_PAYSLIPS}bulk-mark-paid/",
+            {"ids": [str(slip_a.id), str(slip_b.id)]},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["paid"] == 2
+        for emp, slip in ((emp_a, slip_a), (emp_b, slip_b)):
+            assert Notification.objects.filter(
+                user=emp.user, reference_type="payslip", reference_id=str(slip.id)
+            ).exists()
+
+    def test_no_notification_without_payment(self, admin_client, school):
+        from services.communication.models import Notification
+
+        _, _, slip = self._approved_slip(school, "nopay@school.edu")
+        # Draft: wrong-state transition is rejected — no payment, no notification
+        slip.status = "draft"
+        slip.save(update_fields=["status"])
+        r = admin_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/", {}, format="json")
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+        # Already paid: retry is rejected too
+        slip.status = "paid"
+        slip.save(update_fields=["status"])
+        r2 = admin_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/", {}, format="json")
+        assert r2.status_code == status.HTTP_400_BAD_REQUEST
+        assert Notification.objects.filter(reference_type="payslip").count() == 0
