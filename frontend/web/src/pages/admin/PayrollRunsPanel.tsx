@@ -13,12 +13,24 @@ import { BanknotesIcon, CheckBadgeIcon, PlayIcon, PrinterIcon } from "@heroicons
 interface PayslipRow {
   id: number;
   employee_name?: string;
+  employee_id_number?: string;
   status: string;
   net_pay: string;
   period_start?: string;
   period_end?: string;
   department_name?: string | null;
   gross_pay?: string;
+  total_deductions?: string;
+  basic_salary?: string;
+  housing_allowance?: string;
+  transport_allowance?: string;
+  medical_allowance?: string;
+  other_allowances?: string;
+  tax_deduction?: string;
+  pension_deduction?: string;
+  other_deductions?: string;
+  payment_date?: string | null;
+  payment_method?: string;
 }
 
 interface RunSummary {
@@ -153,7 +165,10 @@ export default function PayrollRunsPanel() {
     if (!w) return; // popup blocked
     const esc = (s: string) =>
       s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
-    const body = rows
+    const num = (v: string | undefined) => fmtMoney(v ?? "0");
+    const total = rows.reduce((a, s) => a + Number(s.net_pay ?? 0), 0);
+
+    const summaryRows = rows
       .map(
         (s) => `<tr>
           <td>${esc(s.employee_name ?? `#${s.id}`)}</td>
@@ -164,7 +179,56 @@ export default function PayrollRunsPanel() {
         </tr>`,
       )
       .join("");
-    const total = rows.reduce((a, s) => a + Number(s.net_pay ?? 0), 0);
+
+    const slipsHtml = rows
+      .map((s) => {
+        const earnings: [string, string | undefined][] = [
+          ["Basic salary", s.basic_salary],
+          ["Housing allowance", s.housing_allowance],
+          ["Transport allowance", s.transport_allowance],
+          ["Medical allowance", s.medical_allowance],
+          ["Other allowances", s.other_allowances],
+        ];
+        const deductions: [string, string | undefined][] = [
+          ["Tax (PAYE)", s.tax_deduction],
+          ["Pension", s.pension_deduction],
+          ["Other deductions", s.other_deductions],
+        ];
+        const earnRows = earnings
+          .map(([label, v]) => `<tr><td>${label}</td><td class="num">${num(v)}</td></tr>`)
+          .join("");
+        const dedRows = deductions
+          .map(([label, v]) => `<tr><td>${label}</td><td class="num">${num(v)}</td></tr>`)
+          .join("");
+        return `<section class="slip">
+  <h2>Payslip — ${esc(s.employee_name ?? `#${s.id}`)}</h2>
+  <table class="kv">
+    <tr><th>Employee ID</th><td>${esc(s.employee_id_number ?? "—")}</td></tr>
+    <tr><th>Department</th><td>${esc(s.department_name ?? "—")}</td></tr>
+    <tr><th>Pay period</th><td>${esc(s.period_start ?? "—")} → ${esc(s.period_end ?? "—")}</td></tr>
+    <tr><th>Status</th><td>${esc(s.status)}${
+      s.payment_date ? ` · paid ${esc(s.payment_date)} via ${esc(s.payment_method || "—")}` : ""
+    }</td></tr>
+  </table>
+  <div class="cols">
+    <table>
+      <thead><tr><th colspan="2">Earnings</th></tr></thead>
+      <tbody>${earnRows}<tr class="sub"><td>Gross pay</td><td class="num">${num(
+        s.gross_pay,
+      )}</td></tr></tbody>
+    </table>
+    <table>
+      <thead><tr><th colspan="2">Deductions</th></tr></thead>
+      <tbody>${dedRows}<tr class="sub"><td>Total deductions</td><td class="num">${num(
+        s.total_deductions,
+      )}</td></tr></tbody>
+    </table>
+  </div>
+  <p class="net">Net pay: <strong>${fmtMoney(s.net_pay)}</strong></p>
+</section>`;
+      })
+      .join("");
+
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
 <title>Payslips ${esc(periodFilter === "all" ? "— all periods" : periodFilter)}</title>
 <style>
@@ -176,6 +240,15 @@ export default function PayrollRunsPanel() {
   th { background: #f4f4f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tfoot td { font-weight: 700; border-top: 2px solid #111; }
+  section.slip { page-break-before: always; }
+  section.slip:first-of-type { page-break-before: avoid; }
+  section.slip h2 { font-size: 15px; margin: 0 0 8px; }
+  section.slip table.kv { width: auto; min-width: 50%; margin-bottom: 10px; }
+  section.slip table.kv th { background: none; text-transform: none; font-size: 12px; width: 130px; color: #444; }
+  .cols { display: flex; gap: 24px; }
+  .cols table { flex: 1; }
+  tr.sub td, tr.sub th { font-weight: 700; border-top: 1px solid #111; }
+  p.net { font-size: 14px; }
 </style></head><body>
 <h1>Payslips ${esc(periodFilter === "all" ? "— all periods" : periodFilter)}</h1>
 <p class="meta">${rows.length} payslip(s) · status: ${esc(
@@ -183,9 +256,10 @@ export default function PayrollRunsPanel() {
     )} · generated ${new Date().toLocaleDateString()}</p>
 <table>
 <thead><tr><th>Employee</th><th>Department</th><th>Period</th><th>Status</th><th class="num">Net pay</th></tr></thead>
-<tbody>${body}</tbody>
+<tbody>${summaryRows}</tbody>
 <tfoot><tr><td colspan="4">Total net</td><td class="num">${fmtMoney(total)}</td></tr></tfoot>
 </table>
+${slipsHtml}
 </body></html>`);
     w.document.close();
     w.focus();

@@ -448,6 +448,12 @@ describe("Admin center pages", () => {
     expect(html).toContain("John Smith");
     expect(html).toContain("Science");
     expect(html).toContain("15,500.00");
+    // Per-slip breakdown: earnings/deductions sections and gross/net lines
+    expect(html).toContain("Basic salary");
+    expect(html).toContain("Tax (PAYE)");
+    expect(html).toContain("Gross pay");
+    expect(html).toContain("Total deductions");
+    expect(html).toContain("Net pay:");
     expect(fakeWin.print).toHaveBeenCalled();
     // Narrow the filter → print view contains only the filtered row
     fireEvent.change(screen.getByLabelText("Filter payslips by status"), {
