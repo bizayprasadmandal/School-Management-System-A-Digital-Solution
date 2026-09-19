@@ -161,6 +161,35 @@ describe("Admin center pages", () => {
           ],
         });
       }
+      if (url.includes("/payslips/view-report")) {
+        return ok({
+          count: 2,
+          results: [
+            {
+              payslip_id: "vr-2",
+              employee_name: "Bea Unviewed",
+              department_name: "Science",
+              period_start: "2026-10-01",
+              period_end: "2026-10-31",
+              status: "approved",
+              net_pay: "6000.00",
+              view_count: 0,
+              last_viewed_at: null,
+            },
+            {
+              payslip_id: "vr-1",
+              employee_name: "Ann Viewed",
+              department_name: "Science",
+              period_start: "2026-10-01",
+              period_end: "2026-10-31",
+              status: "paid",
+              net_pay: "4500.00",
+              view_count: 2,
+              last_viewed_at: "2026-10-02T09:30:00Z",
+            },
+          ],
+        });
+      }
       if (url.includes("/payslips")) {
         return ok({
           count: 3,
@@ -463,6 +492,19 @@ describe("Admin center pages", () => {
     const html2 = writeMock.mock.calls[1][0] as string;
     expect(html2).toContain("Alex Rivera");
     expect(html2).not.toContain("Maria Lopez");
+  });
+
+  test("HRCenterPage view tracking floats unviewed payslips to the top", async () => {
+    renderWithProviders(<HRCenterPage />);
+    const tracking = await screen.findByTestId("view-tracking");
+    expect(tracking).toHaveTextContent("Payslip view tracking");
+    expect(tracking).toHaveTextContent("1 unviewed");
+    // Unviewed first, zero views highlighted
+    const rows = tracking.querySelectorAll("tbody tr");
+    expect(rows[0]).toHaveTextContent("Bea Unviewed");
+    expect(rows[0]).toHaveTextContent("0");
+    expect(rows[1]).toHaveTextContent("Ann Viewed");
+    expect(rows[1]).toHaveTextContent("2");
   });
 
   test("HRCenterPage entity tabs still render after the panel tab", async () => {

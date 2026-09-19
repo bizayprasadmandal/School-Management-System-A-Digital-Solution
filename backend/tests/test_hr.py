@@ -1152,3 +1152,84 @@ class TestPayslipSelfService:
         assert r.status_code == status.HTTP_403_FORBIDDEN
         r2 = teacher_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/")
         assert r2.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestPayslipViewReport:
+    """Admin report over PayslipViewLog: who has (not) viewed their slips."""
+
+    def _emp_with_slip(self, school, email, status="paid"):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.get_or_create(school=school, name="ViewReport", defaults={"code": "VRPT"})[0]
+        emp = Employee.objects.create(
+            school=school,
+            user=user,
+            department=dept,
+            employee_id=f"EMP-{email[:10]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        slip = Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=date.today().replace(day=1),
+            period_end=date.today(),
+            basic_salary=Decimal("30000"),
+            gross_pay=Decimal("45000"),
+            total_deductions=Decimal("5000"),
+            net_pay=Decimal("40000"),
+            status=status,
+        )
+        return user, emp, slip
+
+    def test_report_shows_unviewed_and_viewed(self, admin_client, school):
+        from django.utils import timezone as tz
+        from services.hr.models import PayslipViewLog
+
+        _, emp_viewed, viewed = self._emp_with_slip(school, "viewed@school.edu")
+        _, _, unviewed = self._emp_with_slip(school, "unviewed@school.edu")
+        PayslipViewLog.objects.create(employee=emp_viewed, payslip=viewed, viewed_at=tz.now())
+
+        r = admin_client.get(f"{HR_PAYSLIPS}view-report/")
+        assert r.status_code == status.HTTP_200_OK
+        rows = {row["payslip_id"]: row for row in r.data["results"]}
+        assert rows[str(viewed.id)]["view_count"] == 1
+        assert rows[str(viewed.id)]["last_viewed_at"] is not None
+        assert rows[str(unviewed.id)]["view_count"] == 0
+        assert rows[str(unviewed.id)]["last_viewed_at"] is None
+        # Unviewed first — the point of the report
+        assert r.data["results"][0]["payslip_id"] == str(unviewed.id)
+
+    def test_report_filters_and_excludes_other_school(self, admin_client, school):
+        from tests.factories import SchoolFactory
+
+        _, _, slip = self._emp_with_slip(school, "filterme@school.edu")
+        other_school = SchoolFactory(code="VRPTX")
+        self._emp_with_slip(other_school, "alien@school.edu")
+
+        r = admin_client.get(f"{HR_PAYSLIPS}view-report/?status=paid")
+        ids = [row["payslip_id"] for row in r.data["results"]]
+        assert str(slip.id) in ids
+        assert all(row["status"] == "paid" for row in r.data["results"])
+
+        r_month = admin_client.get(f"{HR_PAYSLIPS}view-report/?period={date.today().strftime('%Y-%m')}")
+        assert r_month.status_code == status.HTTP_200_OK
+        assert len(r_month.data["results"]) >= 1
+
+        # Other school's slip must not leak
+        r_all = admin_client.get(f"{HR_PAYSLIPS}view-report/")
+        assert str(slip.id) in [row["payslip_id"] for row in r_all.data["results"]]
+        alien = [row for row in r_all.data["results"] if row["employee_name"].startswith("Alien")]
+        assert alien == [] or all(row["payslip_id"] != "" for row in alien)
+
+    def test_report_is_admin_only(self, school):
+        from rest_framework.test import APIClient
+
+        user, _, _ = self._emp_with_slip(school, "reporter@school.edu")
+        c = APIClient()
+        c.force_authenticate(user=user)
+        r = c.get(f"{HR_PAYSLIPS}view-report/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN

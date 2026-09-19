@@ -4,7 +4,7 @@ import logging
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember
-from django.db.models import Count
+from django.db.models import Count, Max
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, viewsets
@@ -305,6 +305,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
             "payroll_run",
             "bulk_approve",
             "bulk_mark_paid",
+            "view_report",
         ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
@@ -455,6 +456,46 @@ class PayslipViewSet(viewsets.ModelViewSet):
             },
             status=201 if created_slips else 200,
         )
+
+    @action(detail=False, methods=["get"], url_path="view-report")
+    def view_report(self, request):
+        """Admin report: who has (not) viewed their payslips.
+
+        Aggregates PayslipViewLog per payslip for the school. Each row:
+        payslip id, employee, department, period, status, net pay, view
+        count, last viewed at. Filterable by period month (``period=YYYY-MM``)
+        and ``status``. Sorted so unviewed/paid-but-unviewed floats to top.
+        """
+        slips = self.get_queryset().select_related("employee__user", "employee__department")
+        period = request.query_params.get("period")
+        if period:
+            slips = slips.filter(period_start__startswith=period)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            slips = slips.filter(status=status_filter)
+
+        last_views = {
+            v["payslip_id"]: v
+            for v in PayslipViewLog.objects.values("payslip_id").annotate(last=Max("viewed_at"), total=Count("id"))
+        }
+        rows = []
+        for s in slips:
+            v = last_views.get(s.id)
+            rows.append(
+                {
+                    "payslip_id": str(s.id),
+                    "employee_name": s.employee.user.full_name if s.employee and s.employee.user else "—",
+                    "department_name": s.employee.department.name if s.employee and s.employee.department else None,
+                    "period_start": s.period_start,
+                    "period_end": s.period_end,
+                    "status": s.status,
+                    "net_pay": str(s.net_pay),
+                    "view_count": v["total"] if v else 0,
+                    "last_viewed_at": v["last"] if v else None,
+                }
+            )
+        rows.sort(key=lambda r: (r["view_count"], r["last_viewed_at"] or ""))
+        return Response({"count": len(rows), "results": rows})
 
 
 class LeaveRequestViewSet(viewsets.ModelViewSet):

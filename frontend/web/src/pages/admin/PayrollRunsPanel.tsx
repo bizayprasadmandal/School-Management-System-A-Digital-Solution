@@ -282,6 +282,37 @@ ${slipsHtml}
       (periodFilter === "all" || (s.period_start ?? "").slice(0, 7) === periodFilter),
   );
 
+  // ── Payslip view tracking (admin report over PayslipViewLog) ──
+  interface ViewReportRow {
+    payslip_id: string;
+    employee_name: string;
+    department_name?: string | null;
+    period_start?: string;
+    period_end?: string;
+    status: string;
+    net_pay: string;
+    view_count: number;
+    last_viewed_at: string | null;
+  }
+  const [viewRows, setViewRows] = useState<ViewReportRow[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ count: number; results: ViewReportRow[] }>("/hr/payslips/view-report/", {
+        page_size: 500,
+      })
+      .then((res) => {
+        if (!cancelled) setViewRows(res.results ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setViewRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const unviewedCount = (viewRows ?? []).filter((r) => r.view_count === 0).length;
+
   /** Per-department net/gross totals + headcount, grouped from the loaded slips. */
   const byDepartment = (() => {
     const map = new Map<
@@ -492,6 +523,72 @@ ${slipsHtml}
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Payslip view tracking */}
+      {viewRows !== null && viewRows.length > 0 && (
+        <div
+          data-testid="view-tracking"
+          className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Payslip view tracking
+              </h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Who has opened their payslips. Unviewed slips float to the top — chase these first.
+              </p>
+            </div>
+            {unviewedCount > 0 && (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                {unviewedCount} unviewed
+              </span>
+            )}
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-600">
+                  {"Employee|Period|Status|Net pay|Views|Last viewed".split("|").map((h) => (
+                    <th
+                      key={h}
+                      className={`pb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 ${
+                        h === "Net pay" || h === "Views" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {viewRows.map((r) => (
+                  <tr key={r.payslip_id}>
+                    <td className="py-2 text-slate-900 dark:text-slate-100">{r.employee_name}</td>
+                    <td className="py-2 text-slate-500 dark:text-slate-400">
+                      {r.period_start ?? "—"} → {r.period_end ?? "—"}
+                    </td>
+                    <td className="py-2">{r.status}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                      {fmtMoney(r.net_pay)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {r.view_count === 0 ? (
+                        <span className="font-semibold text-amber-600 dark:text-amber-400">0</span>
+                      ) : (
+                        r.view_count
+                      )}
+                    </td>
+                    <td className="py-2 text-slate-500 dark:text-slate-400">
+                      {r.last_viewed_at ? new Date(r.last_viewed_at).toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
