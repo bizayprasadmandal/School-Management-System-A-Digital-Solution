@@ -7,10 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { XMarkIcon, BellIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import {
-  useNotifications,
-  useMarkNotificationRead,
-} from "../../api/hooks";
+import { useNotifications, useMarkNotificationRead } from "../../api/hooks";
 import { QK } from "../../api/hooks";
 import { useClickOutside } from "../../hooks";
 import { VERIFICATION_REF } from "../../types";
@@ -35,9 +32,19 @@ const ROLE_VERIFY_PATHS: Record<string, string> = {
 
 const CHANNEL_ICONS: Record<string, string> = {
   in_app: "🔔",
-  email:  "📧",
-  sms:    "📱",
-  push:   "📲",
+  email: "📧",
+  sms: "📱",
+  push: "📲",
+};
+
+/** reference_type → route the notification should deep-link to. */
+const REFERENCE_ROUTES: Record<string, string> = {
+  payslip: "/teacher/my-payslips",
+};
+
+/** reference_type → icon override (money events get their own glyph). */
+const REFERENCE_ICONS: Record<string, string> = {
+  payslip: "💰",
 };
 
 export default memo(function NotificationPanel({ open, onClose }: NotificationPanelProps) {
@@ -52,19 +59,19 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
   const verifyPath = ROLE_VERIFY_PATHS[user?.role ?? ""] ?? "/admin/verify-email";
 
   const notifications = data?.results ?? [];
-  const unread = notifications.filter(n => !n.read_at);
-  const unreadVerification = unread.filter(n => n.reference_type === VERIFICATION_REF);
+  const unread = notifications.filter((n) => !n.read_at);
+  const unreadVerification = unread.filter((n) => n.reference_type === VERIFICATION_REF);
   const hasUnread = unread.length > 0;
   const hasUnreadVerification = unreadVerification.length > 0;
 
   const handleMarkAllRead = async () => {
-    await Promise.all(unread.map(n => markRead.mutateAsync(n.id)));
+    await Promise.all(unread.map((n) => markRead.mutateAsync(n.id)));
     qc.invalidateQueries({ queryKey: QK.communication.unreadCount });
     dismissBanner();
   };
 
   const handleDismissVerifications = async () => {
-    await Promise.all(unreadVerification.map(n => markRead.mutateAsync(n.id)));
+    await Promise.all(unreadVerification.map((n) => markRead.mutateAsync(n.id)));
     qc.invalidateQueries({ queryKey: QK.communication.unreadCount });
     dismissBanner();
   };
@@ -86,7 +93,7 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
         className={clsx(
           "fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl",
           "border-l border-slate-200 transition-transform duration-300",
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "translate-x-full",
         )}
       >
         {/* Header */}
@@ -95,9 +102,7 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
             <BellIcon className="h-5 w-5 text-slate-600" />
             <div>
               <h2 className="text-base font-bold text-slate-900">Notifications</h2>
-              {hasUnread && (
-                <p className="text-xs text-slate-500">{unread.length} unread</p>
-              )}
+              {hasUnread && <p className="text-xs text-slate-500">{unread.length} unread</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -106,8 +111,18 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
                 onClick={handleDismissVerifications}
                 className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                  />
                 </svg>
                 {unreadVerification.length} email
               </button>
@@ -149,52 +164,62 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
               {notifications.map((notif) => {
                 const isUnread = !notif.read_at;
                 const isVerification = notif.reference_type === VERIFICATION_REF;
+                const refRoute = REFERENCE_ROUTES[notif.reference_type ?? ""];
+                const refIcon = REFERENCE_ICONS[notif.reference_type ?? ""];
 
                 return (
                   <li
                     key={notif.id}
                     className={clsx(
                       "flex items-start gap-3 px-5 py-4 transition-colors",
-                      isVerification ? [
-                        "border-l-2",
-                        isUnread
-                          ? "border-l-amber-400 bg-amber-50/70 hover:bg-amber-50"
-                          : "border-l-amber-200 hover:bg-slate-50",
-                      ] : [
-                        "cursor-pointer",
-                        isUnread
-                          ? "bg-indigo-50/50 hover:bg-indigo-50"
-                          : "hover:bg-slate-50",
-                      ]
+                      isVerification
+                        ? [
+                            "border-l-2",
+                            isUnread
+                              ? "border-l-amber-400 bg-amber-50/70 hover:bg-amber-50"
+                              : "border-l-amber-200 hover:bg-slate-50",
+                          ]
+                        : [
+                            "cursor-pointer",
+                            isUnread ? "bg-indigo-50/50 hover:bg-indigo-50" : "hover:bg-slate-50",
+                          ],
                     )}
                     onClick={() => {
                       if (isUnread && !isVerification) {
                         handleMarkOne(notif.id);
                       }
+                      if (refRoute) {
+                        onClose();
+                        navigate(refRoute);
+                      }
                     }}
                   >
                     {/* Icon */}
-                    <div className={clsx(
-                      "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-base",
-                      isVerification
-                        ? "bg-amber-100"
-                        : isUnread ? "bg-indigo-100" : "bg-slate-100"
-                    )}>
-                      {isVerification ? "📧" : (CHANNEL_ICONS[notif.channel] ?? "🔔")}
+                    <div
+                      className={clsx(
+                        "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-base",
+                        isVerification
+                          ? "bg-amber-100"
+                          : isUnread
+                            ? "bg-indigo-100"
+                            : "bg-slate-100",
+                      )}
+                    >
+                      {isVerification ? "📧" : refIcon ?? CHANNEL_ICONS[notif.channel] ?? "🔔"}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className={clsx(
-                        "text-sm leading-snug",
-                        isUnread ? "font-semibold text-slate-900" : "font-medium text-slate-700",
-                        isVerification && "text-amber-900 dark:text-amber-200"
-                      )}>
+                      <p
+                        className={clsx(
+                          "text-sm leading-snug",
+                          isUnread ? "font-semibold text-slate-900" : "font-medium text-slate-700",
+                          isVerification && "text-amber-900 dark:text-amber-200",
+                        )}
+                      >
                         {notif.title}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
-                        {notif.body}
-                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.body}</p>
                       <p className="text-[11px] text-slate-400 mt-1.5">
                         {dayjs(notif.created_at).fromNow()}
                       </p>
@@ -231,10 +256,12 @@ export default memo(function NotificationPanel({ open, onClose }: NotificationPa
 
                     {/* Unread dot */}
                     {isUnread && (
-                      <div className={clsx(
-                        "mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full",
-                        isVerification ? "bg-amber-500" : "bg-indigo-500"
-                      )} />
+                      <div
+                        className={clsx(
+                          "mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full",
+                          isVerification ? "bg-amber-500" : "bg-indigo-500",
+                        )}
+                      />
                     )}
                   </li>
                 );
