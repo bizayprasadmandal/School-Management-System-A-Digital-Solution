@@ -1077,3 +1077,78 @@ class TestBulkPayrollActions:
         assert r.status_code == status.HTTP_200_OK
         assert r.data["paid"] == 0
         assert not AccountingEntry.objects.filter(reference_type="payslip").exists()
+
+
+@pytest.mark.django_db
+class TestPayslipSelfService:
+    """Self-service: staff read only their own payslips; view logging on retrieve."""
+
+    def _employee_with_slip(self, school, email, net="40000.00"):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.get_or_create(school=school, name="SelfService", defaults={"code": "SELF"})[0]
+        emp = Employee.objects.create(
+            school=school,
+            user=user,
+            department=dept,
+            employee_id=f"EMP-{email[:10]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        slip = Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=date.today().replace(day=1),
+            period_end=date.today(),
+            basic_salary=Decimal("30000"),
+            gross_pay=Decimal("45000"),
+            total_deductions=Decimal("5000"),
+            net_pay=Decimal(net),
+            status="paid",
+        )
+        return user, emp, slip
+
+    def test_staff_sees_only_own_slips(self, admin_client, school):
+        own_user, _, own = self._employee_with_slip(school, "own@school.edu")
+        _, _, other = self._employee_with_slip(school, "other@school.edu", net="99000.00")
+
+        c = APIClient()
+        c.force_authenticate(user=own_user)
+        r = c.get(HR_PAYSLIPS)
+        assert r.status_code == status.HTTP_200_OK
+        ids = [str(row["id"]) for row in r.data["results"]]
+        assert str(own.id) in ids
+        assert str(other.id) not in ids
+
+        # Detail access to someone else's slip is 404, not 403 (no existence leak)
+        r404 = c.get(f"{HR_PAYSLIPS}{other.id}/")
+        assert r404.status_code == status.HTTP_404_NOT_FOUND
+
+        # Admin still sees the whole school's slips
+        r_admin = admin_client.get(HR_PAYSLIPS)
+        admin_ids = [str(row["id"]) for row in r_admin.data["results"]]
+        assert str(own.id) in admin_ids and str(other.id) in admin_ids
+
+    def test_retrieve_own_slip_logs_view(self, school):
+        user, emp, slip = self._employee_with_slip(school, "viewer@school.edu")
+
+        c = APIClient()
+        c.force_authenticate(user=user)
+        r = c.get(f"{HR_PAYSLIPS}{slip.id}/")
+        assert r.status_code == status.HTTP_200_OK
+        assert r.data["net_pay"] == "40000.00"
+
+        from services.hr.models import PayslipViewLog
+
+        assert PayslipViewLog.objects.filter(payslip=slip, employee=emp).exists()
+
+    def test_admin_actions_stay_restricted(self, teacher_client, school):
+        _, _, slip = self._employee_with_slip(school, "norole@school.edu")
+
+        # The bulk/self-service surface must not hand out admin powers
+        r = teacher_client.post(f"{HR_PAYSLIPS}{slip.id}/approve/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN
+        r2 = teacher_client.post(f"{HR_PAYSLIPS}{slip.id}/mark-paid/")
+        assert r2.status_code == status.HTTP_403_FORBIDDEN

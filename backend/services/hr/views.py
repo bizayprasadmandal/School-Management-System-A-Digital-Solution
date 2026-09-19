@@ -11,6 +11,7 @@ from rest_framework import filters, generics, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.auth.models import UserRole
 
 from .models import (
     AccountantProfile,
@@ -283,9 +284,15 @@ class PayslipViewSet(viewsets.ModelViewSet):
     ordering = ["-period_start"]
 
     def get_queryset(self):
-        return Payslip.objects.filter(school=self.request.user.school).select_related(
+        qs = Payslip.objects.filter(school=self.request.user.school).select_related(
             "employee__user", "employee__department"
         )
+        # Self-service: non-admins see only their own payslips. Admins see all
+        # school slips (payroll management views). Users without an Employee
+        # record (students/parents) see nothing.
+        if self.request.user.role not in [UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN]:
+            qs = qs.filter(employee__user_id=self.request.user.id)
+        return qs
 
     def get_permissions(self):
         if self.action in [
@@ -304,6 +311,15 @@ class PayslipViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(school=self.request.user.school)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Serve a payslip and record the view (self-service audit trail)."""
+        response = super().retrieve(request, *args, **kwargs)
+        slip = self.get_object()
+        employee = Employee.objects.filter(user_id=request.user.id).only("id").first()
+        if employee is not None and employee.id == slip.employee_id:
+            PayslipViewLog.objects.create(employee=employee, payslip=slip)
+        return response
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):

@@ -96,6 +96,7 @@ const TeacherLibrary = React.lazy(() => import("./pages/teacher/LibraryPage"));
 const TeacherSports = React.lazy(() => import("./pages/teacher/SportsPage"));
 const TeacherBehavior = React.lazy(() => import("./pages/teacher/BehaviorPage"));
 const TeacherCounseling = React.lazy(() => import("./pages/teacher/CounselingPage"));
+const TeacherMyPayslips = React.lazy(() => import("./pages/teacher/MyPayslipsPage"));
 
 // Shared pages
 const VerifyEmailSettingsPage = React.lazy(() => import("./pages/shared/VerifyEmailSettingsPage"));
@@ -361,6 +362,7 @@ function App() {
                   <Route path="sports" element={<TeacherSports />} />
                   <Route path="behavior" element={<TeacherBehavior />} />
                   <Route path="counseling" element={<TeacherCounseling />} />
+                  <Route path="my-payslips" element={<TeacherMyPayslips />} />
                 </Route>
               </Route>
 
