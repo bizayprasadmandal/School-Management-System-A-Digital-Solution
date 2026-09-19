@@ -170,6 +170,8 @@ describe("Admin center pages", () => {
               employee_name: "Alex Rivera",
               status: "draft",
               net_pay: "5000.00",
+              gross_pay: "6000.00",
+              department_name: "Science",
               period_start: "2026-10-01",
               period_end: "2026-10-31",
             },
@@ -178,6 +180,8 @@ describe("Admin center pages", () => {
               employee_name: "Maria Lopez",
               status: "approved",
               net_pay: "6000.00",
+              gross_pay: "7000.00",
+              department_name: "Science",
               period_start: "2026-10-01",
               period_end: "2026-10-31",
             },
@@ -186,6 +190,8 @@ describe("Admin center pages", () => {
               employee_name: "John Smith",
               status: "paid",
               net_pay: "4500.00",
+              gross_pay: "5000.00",
+              department_name: "Mathematics",
               period_start: "2026-09-01",
               period_end: "2026-09-30",
             },
@@ -379,6 +385,20 @@ describe("Admin center pages", () => {
       "/hr/payslips/bulk-approve/",
       expect.objectContaining({ ids: [11] }),
     );
+  });
+
+  test("HRCenterPage payroll panel groups totals by department", async () => {
+    renderWithProviders(<HRCenterPage />);
+    const breakdown = await screen.findByTestId("department-breakdown");
+    // Science: 5000 + 6000 net = 11,000 (2 slips); Mathematics: 4,500 (1 slip)
+    expect(breakdown).toHaveTextContent("Science");
+    expect(breakdown).toHaveTextContent("11,000.00");
+    expect(breakdown).toHaveTextContent("Mathematics");
+    expect(breakdown).toHaveTextContent("4,500.00");
+    // Status mix line under each bar
+    expect(breakdown).toHaveTextContent("1 draft");
+    expect(breakdown).toHaveTextContent("1 approved");
+    expect(breakdown).toHaveTextContent("1 paid");
   });
 
   test("HRCenterPage entity tabs still render after the panel tab", async () => {

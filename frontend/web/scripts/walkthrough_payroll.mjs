@@ -183,6 +183,45 @@ await page.reload({ waitUntil: "networkidle" });
 const rowCount = await page.locator("tbody tr").count();
 step(9, rowCount > 0, `Payslip table renders ${rowCount} rows`);
 
+// 10. per-department breakdown renders and matches the API
+const deptCheck = await page.evaluate(
+  async ({ api, email, password }) => {
+    const login = await fetch(`${api}/auth/login/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).then((r) => r.json());
+    const slips = await fetch(`${api}/hr/payslips/?page_size=200`, {
+      headers: { Authorization: `Bearer ${login.access || login.token}` },
+    }).then((r) => r.json());
+    const rows = slips.results ?? slips;
+    const expected = {};
+    for (const s of rows) {
+      const key = s.department_name?.trim() || "Unassigned";
+      expected[key] = (expected[key] ?? 0) + Number(s.net_pay ?? 0);
+    }
+    return expected;
+  },
+  { api: API, email: EMAIL, password: PASSWORD },
+);
+const deptNames = Object.keys(deptCheck);
+const breakdownVisible = await page
+  .getByTestId("department-breakdown")
+  .isVisible()
+  .catch(() => false);
+let deptsMatch = breakdownVisible && deptNames.length > 0;
+if (deptsMatch) {
+  const rendered = await page.getByTestId("department-breakdown").textContent();
+  for (const name of deptNames) {
+    if (!rendered.includes(name)) deptsMatch = false;
+  }
+}
+step(
+  10,
+  deptsMatch,
+  `Department breakdown renders (${deptNames.length} dept(s): ${deptNames.join(", ")})`,
+);
+
 await page.screenshot({ path: "walkthrough_payroll.png", fullPage: true });
 await browser.close();
 

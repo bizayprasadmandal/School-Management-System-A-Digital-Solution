@@ -17,6 +17,8 @@ interface PayslipRow {
   net_pay: string;
   period_start?: string;
   period_end?: string;
+  department_name?: string | null;
+  gross_pay?: string;
 }
 
 interface RunSummary {
@@ -147,6 +149,24 @@ export default function PayrollRunsPanel() {
   const drafts = slips.filter((s) => s.status === "draft").length;
   const approved = slips.filter((s) => s.status === "approved").length;
   const paid = slips.filter((s) => s.status === "paid").length;
+
+  /** Per-department net/gross totals + headcount, grouped from the loaded slips. */
+  const byDepartment = (() => {
+    const map = new Map<
+      string,
+      { net: number; gross: number; count: number; statusCounts: Record<string, number> }
+    >();
+    for (const s of slips) {
+      const key = s.department_name?.trim() || "Unassigned";
+      const cur =
+        map.get(key) ?? map.set(key, { net: 0, gross: 0, count: 0, statusCounts: {} }).get(key)!;
+      cur.net += Number(s.net_pay ?? 0);
+      cur.gross += Number(s.gross_pay ?? 0);
+      cur.count += 1;
+      cur.statusCounts[s.status] = (cur.statusCounts[s.status] ?? 0) + 1;
+    }
+    return [...map.entries()].sort((a, b) => b[1].net - a[1].net);
+  })();
 
   return (
     <div className="space-y-6">
@@ -286,6 +306,63 @@ export default function PayrollRunsPanel() {
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{paid}</p>
         </div>
       </div>
+
+      {/* Per-department breakdown */}
+      {byDepartment.length > 0 && (
+        <div
+          data-testid="department-breakdown"
+          className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800"
+        >
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Payroll by department
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Net totals across all loaded payslips, grouped by each employee's department.
+          </p>
+          <div className="mt-4 space-y-3">
+            {byDepartment.map(([name, agg]) => {
+              const total = byDepartment.reduce((acc, [, a]) => acc + a.net, 0);
+              const pct = total > 0 ? Math.round((agg.net / total) * 100) : 0;
+              return (
+                <div key={name}>
+                  <div className="flex items-baseline justify-between gap-4 text-sm">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{name}</span>
+                    <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                      {agg.count} {agg.count === 1 ? "payslip" : "payslips"} ·{" "}
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {fmtMoney(agg.net)}
+                      </span>
+                      {agg.gross > 0 && (
+                        <span className="text-slate-400 dark:text-slate-500">
+                          {" "}
+                          gross {fmtMoney(agg.gross)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                    <div
+                      className="h-full rounded-full bg-indigo-500 transition-all"
+                      style={{ width: `${Math.max(pct, 1)}%` }}
+                      role="meter"
+                      aria-label={`${name} share of payroll`}
+                      aria-valuenow={pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    {pct}% ·{" "}
+                    {Object.entries(agg.statusCounts)
+                      .map(([st, n]) => `${n} ${st}`)
+                      .join(", ")}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Per-slip breakdown */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
