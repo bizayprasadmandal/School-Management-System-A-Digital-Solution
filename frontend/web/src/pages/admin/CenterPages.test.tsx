@@ -177,6 +177,11 @@ describe("Admin center pages", () => {
           committed: "60000.00",
           variance: "40000.00",
           utilization: 60.0,
+          pace: {
+            months: ["2026-08", "2026-09"],
+            committed: ["40000.00", "60000.00"],
+            monthly_allowance: "8,333.33",
+          },
         });
       }
       if (url.includes("/payslips/view-report")) {
@@ -535,6 +540,12 @@ describe("Admin center pages", () => {
     // Under budget → green variance, indigo meter
     expect(budget.querySelector("[role=meter]")).not.toBeNull();
     expect(budget.textContent).toContain("20,000.00 approved awaiting payment");
+    // Monthly pace row: sparkline bars + even-allowance text
+    expect(budget.textContent).toContain("Monthly pace (committed)");
+    expect(budget.textContent).toContain("2026-08 → 2026-09");
+    const paceSparks = budget.querySelectorAll("[data-sparkline]");
+    expect(paceSparks.length).toBe(1);
+    expect(paceSparks[0].querySelectorAll("div").length).toBe(2);
   });
 
   test("HRCenterPage view tracking floats unviewed payslips to the top", async () => {

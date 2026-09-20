@@ -590,9 +590,11 @@ class PayslipViewSet(viewsets.ModelViewSet):
         salaries or wages (line items carry no explicit payroll flag).
         Variance = budgeted − committed (positive means under budget).
         """
+        from datetime import timedelta
         from decimal import Decimal
 
         from django.db.models import Sum
+        from django.db.models.functions import TruncMonth
         from services.fees.models import BudgetLineItem, BudgetPlan
         from services.students.models import AcademicYear
 
@@ -631,6 +633,25 @@ class PayslipViewSet(viewsets.ModelViewSet):
         variance = (budgeted - committed).quantize(Decimal("0.01"))
         utilization = round(float(committed) / float(budgeted) * 100.0, 1) if budgeted > 0 else None
 
+        # Per-month pace: committed payroll for each elapsed month of the
+        # year window (zero-filled), plus the even monthly allowance the
+        # budgeted amount implies.
+        by_month = {
+            b["bucket"].strftime("%Y-%m"): b["committed"]
+            for b in slips.annotate(bucket=TruncMonth("period_start"))
+            .values("bucket")
+            .annotate(committed=Sum("net_pay"))
+            .order_by("bucket")
+        }
+        window_start = year.start_date if year is not None and year.start_date else today.replace(month=1, day=1)
+        window_end = year.end_date if year is not None and year.end_date else today.replace(month=12, day=31)
+        total_months = max((window_end.year - window_start.year) * 12 + (window_end.month - window_start.month) + 1, 1)
+        pace_months = []
+        cursor = window_start.replace(day=1)
+        while cursor <= today and len(pace_months) < total_months:
+            pace_months.append(cursor.strftime("%Y-%m"))
+            cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+
         return Response(
             {
                 "academic_year": year_label,
@@ -640,6 +661,15 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 "committed": str(committed),
                 "variance": str(variance),
                 "utilization": utilization,
+                "pace": {
+                    "months": pace_months,
+                    "committed": [
+                        str(by_month[m].quantize(Decimal("0.01"))) if m in by_month else "0.00" for m in pace_months
+                    ],
+                    "monthly_allowance": (
+                        str((budgeted / total_months).quantize(Decimal("0.01"))) if budgeted > 0 else "0.00"
+                    ),
+                },
             }
         )
 

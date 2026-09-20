@@ -345,6 +345,11 @@ ${slipsHtml}
     committed: string;
     variance: string;
     utilization: number | null;
+    pace: {
+      months: string[];
+      committed: string[];
+      monthly_allowance: string;
+    };
   }
   const [budget, setBudget] = useState<BudgetData | null>(null);
   useEffect(() => {
@@ -626,6 +631,20 @@ ${slipsHtml}
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
             {fmtMoney(budget.paid)} paid · {fmtMoney(budget.pending)} approved awaiting payment
           </p>
+          {budget.pace && budget.pace.months.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-700">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Monthly pace (committed)
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {budget.pace.months[0]} → {budget.pace.months[budget.pace.months.length - 1]} ·
+                  even allowance {fmtMoney(budget.pace.monthly_allowance)}/mo
+                </p>
+              </div>
+              <Sparkline values={budget.pace.committed} tone="green" />
+            </div>
+          )}
         </div>
       )}
 

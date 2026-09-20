@@ -1423,7 +1423,7 @@ class TestPayrollBudget:
         BudgetLineItem.objects.create(budget_plan=plan, description="Library books", budgeted_amount=Decimal("50000"))
         return year
 
-    def _slip(self, school, email, status, net):
+    def _slip(self, school, email, status, net, period_start=None):
         from services.hr.models import Department, Employee, Payslip
         from tests.factories import UserFactory
 
@@ -1440,7 +1440,7 @@ class TestPayrollBudget:
         return Payslip.objects.create(
             school=school,
             employee=emp,
-            period_start=date.today().replace(day=1),
+            period_start=period_start or date.today().replace(day=1),
             period_end=date.today(),
             basic_salary=Decimal("30000"),
             gross_pay=Decimal(net) + Decimal("5000"),
@@ -1472,6 +1472,27 @@ class TestPayrollBudget:
         assert float(r.data["budgeted"]) == 0.0
         assert float(r.data["committed"]) == 25000.0
         assert r.data["utilization"] is None  # nothing budgeted
+
+    def test_pace_series_alignment_and_allowance(self, admin_client, school):
+        year = self._setup(school)
+        # Two slips inside the AY window (Aug..Jul), different months.
+        ay_start = year.start_date
+        self._slip(school, "pace-a@school.edu", "paid", Decimal("30000"))  # period = today
+        late_month = ay_start.replace(day=1) if ay_start.replace(day=1) < date.today().replace(day=1) else None
+        if late_month and late_month != date.today().replace(day=1):
+            self._slip(school, "pace-b@school.edu", "approved", Decimal("10000"), period_start=late_month)
+
+        r = admin_client.get(f"{HR_PAYSLIPS}payroll-budget/")
+        assert r.status_code == status.HTTP_200_OK
+        pace = r.data["pace"]
+        # Months run from AY start to the current month, zero-filled gaps.
+        assert pace["months"][0] == ay_start.strftime("%Y-%m")
+        assert pace["months"][-1] == date.today().strftime("%Y-%m")
+        committed = [float(v) for v in pace["committed"]]
+        assert committed[-1] == 30000.0
+        assert len(committed) == len(pace["months"])
+        # Even allowance: salary budgeted / months in the AY window.
+        assert float(pace["monthly_allowance"]) == round(100000.0 / 12, 2)
 
     def test_staff_forbidden(self, teacher_client, school):
         r = teacher_client.get(f"{HR_PAYSLIPS}payroll-budget/")
