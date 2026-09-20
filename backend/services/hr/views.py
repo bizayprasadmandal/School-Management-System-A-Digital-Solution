@@ -334,6 +334,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
             "bulk_approve",
             "bulk_mark_paid",
             "view_report",
+            "payroll_budget",
         ]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]
@@ -575,6 +576,70 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 "months": labels,
                 "gross": [_money(points[lab]["gross"]) if lab in points else "0.00" for lab in labels],
                 "net": [_money(points[lab]["net"]) if lab in points else "0.00" for lab in labels],
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="payroll-budget")
+    def payroll_budget(self, request):
+        """Payroll actuals vs budgeted salary lines for the current academic year.
+
+        Committed payroll = paid payslips (spent) + approved-but-unpaid
+        payslips (pending commitment) whose period falls inside the school's
+        current academic year. Budgeted comes from fees.BudgetPlan line items
+        for that year whose description/category mentions salary, payroll,
+        salaries or wages (line items carry no explicit payroll flag).
+        Variance = budgeted − committed (positive means under budget).
+        """
+        from decimal import Decimal
+
+        from django.db.models import Sum
+        from services.fees.models import BudgetLineItem, BudgetPlan
+        from services.students.models import AcademicYear
+
+        school = request.user.school
+        today = timezone.localdate()
+        year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        year_label = year.name if year else f"{today.year}"
+
+        if year is not None and year.start_date and year.end_date:
+            slips = self.get_queryset().filter(period_start__gte=year.start_date, period_start__lte=year.end_date)
+        else:
+            slips = self.get_queryset().filter(period_start__year=today.year)
+
+        paid = slips.filter(status=Payslip.Status.PAID).aggregate(v=Sum("net_pay"))["v"] or Decimal("0")
+        pending = slips.filter(status=Payslip.Status.APPROVED).aggregate(v=Sum("net_pay"))["v"] or Decimal("0")
+
+        plans = (
+            BudgetPlan.objects.filter(school=school, academic_year=year)
+            if year is not None
+            else BudgetPlan.objects.none()
+        )
+        keywords = ("salary", "salaries", "payroll", "wages")
+        budgeted = Decimal("0")
+        for line in BudgetLineItem.objects.filter(budget_plan__in=plans).select_related("category"):
+            haystack = " ".join(
+                [
+                    line.description or "",
+                    line.category.name if line.category else "",
+                ]
+            ).lower()
+            if any(k in haystack for k in keywords):
+                budgeted += line.budgeted_amount
+
+        committed = (paid + pending).quantize(Decimal("0.01"))
+        budgeted = budgeted.quantize(Decimal("0.01"))
+        variance = (budgeted - committed).quantize(Decimal("0.01"))
+        utilization = round(float(committed) / float(budgeted) * 100.0, 1) if budgeted > 0 else None
+
+        return Response(
+            {
+                "academic_year": year_label,
+                "budgeted": str(budgeted),
+                "paid": str(paid.quantize(Decimal("0.01"))),
+                "pending": str(pending.quantize(Decimal("0.01"))),
+                "committed": str(committed),
+                "variance": str(variance),
+                "utilization": utilization,
             }
         )
 

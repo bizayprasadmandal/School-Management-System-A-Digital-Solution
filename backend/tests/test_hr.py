@@ -1392,3 +1392,87 @@ class TestPayrollTrend:
         self._slip(school, "trend-x@school.edu", today.replace(day=1))
         r = admin_client.get(f"{HR_PAYSLIPS}payroll-trend/")
         assert float(r.data["net"][-1]) == 40000.0
+
+
+@pytest.mark.django_db
+class TestPayrollBudget:
+    """Payroll actuals vs budgeted salary lines for the current academic year."""
+
+    def _setup(self, school, with_year=True):
+        """Current academic year + a budget plan with matching and non-matching lines."""
+        from services.fees.models import BudgetLineItem, BudgetPlan
+        from services.students.models import AcademicYear
+
+        if not with_year:
+            AcademicYear.objects.filter(school=school).update(is_current=False)
+            return None
+        today = date.today()
+        year, _ = AcademicYear.objects.get_or_create(
+            school=school,
+            name=f"{today.year}-{today.year + 1}",
+            defaults={"start_date": date(today.year, 1, 1), "end_date": date(today.year, 12, 31), "is_current": True},
+        )
+        year.is_current = True
+        year.save()
+        plan = BudgetPlan.objects.create(
+            school=school, academic_year=year, title="FY Plan", total_budget=Decimal("150000")
+        )
+        BudgetLineItem.objects.create(
+            budget_plan=plan, description="Teacher salaries", budgeted_amount=Decimal("100000")
+        )
+        BudgetLineItem.objects.create(budget_plan=plan, description="Library books", budgeted_amount=Decimal("50000"))
+        return year
+
+    def _slip(self, school, email, status, net):
+        from services.hr.models import Department, Employee, Payslip
+        from tests.factories import UserFactory
+
+        user = UserFactory(school=school, role="teacher", email=email)
+        dept = Department.objects.get_or_create(school=school, name="Budget", defaults={"code": "BDGT"})[0]
+        emp = Employee.objects.create(
+            school=school,
+            user=user,
+            department=dept,
+            employee_id=f"EMP-{email[:10]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        )
+        return Payslip.objects.create(
+            school=school,
+            employee=emp,
+            period_start=date.today().replace(day=1),
+            period_end=date.today(),
+            basic_salary=Decimal("30000"),
+            gross_pay=Decimal(net) + Decimal("5000"),
+            total_deductions=Decimal("5000"),
+            net_pay=Decimal(net),
+            status=status,
+        )
+
+    def test_budget_math_and_line_matching(self, admin_client, school):
+        self._setup(school)
+        self._slip(school, "budget-a@school.edu", "paid", Decimal("40000"))
+        self._slip(school, "budget-b@school.edu", "approved", Decimal("20000"))
+
+        r = admin_client.get(f"{HR_PAYSLIPS}payroll-budget/")
+        assert r.status_code == status.HTTP_200_OK
+        assert float(r.data["budgeted"]) == 100000.0  # only the salary line matches
+        assert float(r.data["paid"]) == 40000.0
+        assert float(r.data["pending"]) == 20000.0
+        assert float(r.data["committed"]) == 60000.0
+        assert float(r.data["variance"]) == 40000.0  # under budget
+        assert r.data["utilization"] == 60.0
+
+    def test_fallback_without_current_year(self, admin_client, school):
+        self._setup(school, with_year=False)
+        self._slip(school, "budget-c@school.edu", "paid", Decimal("25000"))
+
+        r = admin_client.get(f"{HR_PAYSLIPS}payroll-budget/")
+        assert r.status_code == status.HTTP_200_OK
+        assert float(r.data["budgeted"]) == 0.0
+        assert float(r.data["committed"]) == 25000.0
+        assert r.data["utilization"] is None  # nothing budgeted
+
+    def test_staff_forbidden(self, teacher_client, school):
+        r = teacher_client.get(f"{HR_PAYSLIPS}payroll-budget/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN

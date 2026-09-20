@@ -168,6 +168,17 @@ describe("Admin center pages", () => {
           net: ["0.00", "0.00", "40000.00", "40000.00", "165000.00"],
         });
       }
+      if (url.includes("/payslips/payroll-budget")) {
+        return ok({
+          academic_year: "2026-2027",
+          budgeted: "100000.00",
+          paid: "40000.00",
+          pending: "20000.00",
+          committed: "60000.00",
+          variance: "40000.00",
+          utilization: 60.0,
+        });
+      }
       if (url.includes("/payslips/view-report")) {
         return ok({
           count: 2,
@@ -511,6 +522,19 @@ describe("Admin center pages", () => {
     expect(sparks.length).toBe(2);
     expect(sparks[0].querySelectorAll("div").length).toBe(5);
     expect(sparks[1].querySelectorAll("div").length).toBe(5);
+  });
+
+  test("HRCenterPage payroll vs budget shows variance and utilization meter", async () => {
+    renderWithProviders(<HRCenterPage />);
+    const budget = await screen.findByTestId("payroll-budget");
+    expect(budget).toHaveTextContent("Payroll vs budget");
+    expect(budget).toHaveTextContent("FY 2026-2027");
+    expect(budget).toHaveTextContent("100,000.00");
+    expect(budget).toHaveTextContent("60,000.00");
+    expect(budget).toHaveTextContent("60%");
+    // Under budget → green variance, indigo meter
+    expect(budget.querySelector("[role=meter]")).not.toBeNull();
+    expect(budget.textContent).toContain("20,000.00 approved awaiting payment");
   });
 
   test("HRCenterPage view tracking floats unviewed payslips to the top", async () => {
