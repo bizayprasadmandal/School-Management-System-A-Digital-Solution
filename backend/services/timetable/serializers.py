@@ -320,14 +320,6 @@ class AcademicCalendarSerializer(serializers.ModelSerializer):
             "updated_at",
             "school",
             "academic_year",
-            "title",
-            "calendar_type",
-            "start_date",
-            "end_date",
-            "description",
-            "is_school_wide",
-            "target_grades",
-            "notes",
         ]
 
 
@@ -335,7 +327,6 @@ class RoomBookingSerializer(serializers.ModelSerializer):
     booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
     approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True)
 
-    booked_by_name = serializers.CharField(source="booked_by.get_full_name", read_only=True)
     booking_type_display = serializers.CharField(source="get_booking_type_display", read_only=True)
 
     class Meta:
@@ -346,16 +337,7 @@ class RoomBookingSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "school",
-            "room_name",
-            "booking_type",
             "booked_by",
-            "date",
-            "start_time",
-            "end_time",
-            "purpose",
-            "attendees_count",
-            "status",
-            "notes",
             "approved_by",
             "booked_by_name",
             "approved_by_name",
@@ -368,7 +350,6 @@ class TimetableTemplateSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "description",
             "grade",
@@ -416,13 +397,6 @@ class TeacherPreferenceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "teacher",
-            "preference_type",
-            "day_of_week",
-            "period",
-            "reason",
-            "is_recurring",
-            "effective_from",
-            "effective_to",
             "teacher_name",
             "period_name",
         ]
@@ -448,15 +422,15 @@ class TimetableApprovalSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "school",
-            "title",
             "academic_year",
-            "grade",
             "status",
             "submitted_by",
             "submitted_at",
             "approved_by",
             "approved_at",
             "approved_by_name",
+            "submitted_by_name",
+            "status_display",
         ]
 
 
@@ -497,17 +471,7 @@ class CoCurricularScheduleSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "school",
-            "activity_name",
-            "activity_type",
             "instructor",
-            "day_of_week",
-            "start_time",
-            "end_time",
-            "venue",
-            "max_participants",
-            "target_grades",
-            "is_mandatory",
-            "is_active",
         ]
 
     def get_day_name(self, obj):
@@ -549,13 +513,6 @@ class SchoolClosureSerializer(serializers.ModelSerializer):
             "id",
             "created_at",
             "school",
-            "title",
-            "closure_type",
-            "date",
-            "description",
-            "affects_all",
-            "target_grades",
-            "notified",
         ]
 
 

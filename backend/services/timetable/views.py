@@ -9,6 +9,7 @@ from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from services.students.models import AcademicYear
 
 from .models import (
     AcademicCalendar,
@@ -314,7 +315,10 @@ class AcademicCalendarViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(
+            school=self.request.user.school,
+            academic_year=AcademicYear.objects.filter(school=self.request.user.school, is_current=True).first(),
+        )
 
     def get_queryset(self):
         return AcademicCalendar.objects.filter(school=self.request.user.school)
@@ -325,7 +329,7 @@ class RoomBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school, booked_by=self.request.user)
 
     def get_queryset(self):
         return RoomBooking.objects.filter(school=self.request.user.school)
@@ -336,7 +340,7 @@ class TimetableTemplateViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school)
 
     def get_queryset(self):
         return TimetableTemplate.objects.filter(school=self.request.user.school)
@@ -358,7 +362,7 @@ class TeacherPreferenceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(teacher=self.request.user)
 
     def get_queryset(self):
         return TeacherPreference.objects.filter(teacher=self.request.user)
@@ -369,7 +373,14 @@ class TimetableApprovalViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        from django.utils import timezone
+
+        serializer.save(
+            school=self.request.user.school,
+            academic_year=AcademicYear.objects.filter(school=self.request.user.school, is_current=True).first(),
+            submitted_by=self.request.user,
+            submitted_at=timezone.now(),
+        )
 
     def get_queryset(self):
         return TimetableApproval.objects.filter(school=self.request.user.school)
@@ -391,7 +402,7 @@ class CoCurricularScheduleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school)
 
     def get_queryset(self):
         return CoCurricularSchedule.objects.filter(school=self.request.user.school)
@@ -413,7 +424,7 @@ class SchoolClosureViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(school=self.request.user.school)
 
     def get_queryset(self):
         return SchoolClosure.objects.filter(school=self.request.user.school)
@@ -690,7 +701,7 @@ class TimetableResourceViewSet(viewsets.ModelViewSet):
     filterset_fields = ["school"]
 
     def get_queryset(self):
-        return TimetableResource.objects.filter(school=self.request.user.school)
+        return TimetableResource.objects.filter(school=self.request.user.school).order_by("name")
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

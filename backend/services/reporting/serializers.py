@@ -64,7 +64,7 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "school", "created_at", "updated_at"]
 
 
 class AcademicPerformanceReportSerializer(serializers.ModelSerializer):
