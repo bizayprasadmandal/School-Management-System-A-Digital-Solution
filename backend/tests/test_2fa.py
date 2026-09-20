@@ -1693,6 +1693,23 @@ class TestAuthLoginThrottle:
     UNKNOWN_EMAIL = "unknown@school.edu"
     PAYLOAD = {"email": UNKNOWN_EMAIL, "password": "WrongPass@1234"}
 
+    @pytest.fixture(autouse=True)
+    def _pin_login_rate(self):
+        """Pin the documented 10/minute default for every test in this class.
+
+        The e2e environment raises ``AUTH_LOGIN_THROTTLE_RATE`` to
+        10000/minute (docker-compose and the ci-full.yml e2e job) so long
+        sequential login runs aren't throttled mid-suite. These tests assert
+        the default limit explicitly, so they pin the rate rather than
+        inheriting whatever the environment happens to set.
+        """
+        from rest_framework.throttling import SimpleRateThrottle
+
+        rates = dict(SimpleRateThrottle.THROTTLE_RATES)
+        rates["auth_login"] = "10/minute"
+        with _patch_throttle_rates(rates):
+            yield
+
     def test_exceeding_10_per_minute_returns_429(self, api_client):
         """
         Sending more than 10 login requests within the same minute should
