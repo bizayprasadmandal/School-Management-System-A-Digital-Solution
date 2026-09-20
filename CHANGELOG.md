@@ -63,6 +63,15 @@ project uses [Semantic Versioning](https://semver.org/).
   `Model.save()`); serializers now pop them before saving.
 - **Communication `DeviceTokenView.destroy` raised `NameError`** (`DeviceToken` was
   never imported); the token is now resolved from the model and deactivated.
+- **The suite could not run from a cold test database**: pytest-timeout counted
+  setup time, so the ~500-migration `create_test_db` build exhausted the 120s
+  per-test budget and every test errored at `django_db_setup`. `timeout_func_only`
+  now times only the test body, leaving slow fixtures (and cold DB builds) alone.
+- **Login-throttle tests asserted a limit that was not in force**: they inherited
+  the e2e environment's `AUTH_LOGIN_THROTTLE_RATE=10000/minute` (set by
+  docker-compose and the ci-full.yml e2e job) while asserting the documented
+  10/minute behaviour. The rate is now pinned in those tests, so they pass in
+  both the default and e2e-tuned environments.
 
 ### Changed
 
@@ -75,6 +84,10 @@ project uses [Semantic Versioning](https://semver.org/).
 - Celery beat schedule consolidated in `core/celery.py` (added
   `cleanup-expired-verification-tokens`, `notify-low-backup-codes`); removed the
   duplicate from settings and the dead `cache_school_analytics` task.
+- **Roadmap re-audited (2026-09-20)**: Phases 1–3 verified item by item against
+  the code — CSV onboarding covers all five record types in backend and UI,
+  parent fee/attendance notifications are scheduled, the grade-change approval
+  queue and analytics charts are live. `docs/ROADMAP.md` now reflects that state.
 
 ## [2.0.0] - 2026-08
 
