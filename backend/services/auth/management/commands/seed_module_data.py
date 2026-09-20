@@ -168,6 +168,19 @@ def shape_text(model_name, field, i):
             "Transport",
             "Health & Safety",
         ][(i - 1) % 8]
+    if model_name == "BudgetPlan" and n == "title":
+        return f"Budget Plan {2024 + (i - 1) % 3}-{2025 + (i - 1) % 3}"
+    if model_name == "BudgetLineItem" and n == "description":
+        return [
+            "Teacher Salaries",
+            "Staff Salaries",
+            "Utilities",
+            "Maintenance",
+            "Supplies",
+            "Transport",
+            "Technology",
+            "Events & Activities",
+        ][(i - 1) % 8]
     if n in {"name", "title"}:
         return f"{fake.word().capitalize()} {fake.word().capitalize()} {i}"
     if "description" in n or n in {
