@@ -24,7 +24,7 @@ django-celery-beat==2.8.0
 flower==2.0.1
 
 # Security
-cryptography==42.0.5
+cryptography==50.0.1
 pyotp==2.9.0
 django-ratelimit==4.1.0
 django-axes==6.4.0
