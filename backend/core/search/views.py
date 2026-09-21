@@ -224,6 +224,66 @@ def _search_announcements(q: str, school: Any, user: Any) -> list[dict[str, Any]
     ]
 
 
+def _search_checkouts(q: str, school: Any, user: Any) -> list[dict[str, Any]]:
+    """Library checkouts — staff-only: hits expose other students' names."""
+    from services.library.models import Checkout
+
+    # Checkout carries no school FK of its own — it scopes through the book.
+    qs = Checkout.objects.filter(book__school=school).filter(
+        Q(book__title__icontains=q)
+        | Q(book__author__icontains=q)
+        | Q(student__user__first_name__icontains=q)
+        | Q(student__user__last_name__icontains=q)
+    )
+    return [
+        {
+            "id": str(c.id),
+            "title": f"{c.book.title} — {c.student}",
+            "subtitle": f"Checkout · due {c.due_date}",
+            "url": "/admin/library",
+        }
+        for c in qs.select_related("book", "student__user")[:PER_GROUP_LIMIT]
+    ]
+
+
+def _search_sessions(q: str, school: Any, user: Any) -> list[dict[str, Any]]:
+    """Counseling sessions — sensitive; restricted to admins and counselors."""
+    from services.counseling.models import CounselingSession
+
+    qs = CounselingSession.objects.filter(school=school).filter(
+        Q(session_type__icontains=q)
+        | Q(presenting_issue__icontains=q)
+        | Q(student__user__first_name__icontains=q)
+        | Q(student__user__last_name__icontains=q)
+    )
+    return [
+        {
+            "id": str(s.id),
+            "title": f"{s.student} — {s.presenting_issue or 'Session'}",
+            "subtitle": f"Counseling · {s.session_date}",
+            "url": "/admin/counseling",
+        }
+        for s in qs.select_related("student__user")[:PER_GROUP_LIMIT]
+    ]
+
+
+def _search_inventory(q: str, school: Any, user: Any) -> list[dict[str, Any]]:
+    from services.inventory.models import InventoryItem
+
+    qs = _name_qs(InventoryItem, "school", school).filter(
+        Q(name__icontains=q) | Q(sku__icontains=q) | Q(barcode__icontains=q) | Q(location__icontains=q)
+    )
+    return [
+        {
+            "id": str(i.id),
+            "title": i.name,
+            "subtitle": f"Inventory · {i.sku or 'no SKU'}",
+            "url": "/admin/inventory-center",
+        }
+        for i in qs[:PER_GROUP_LIMIT]
+    ]
+
+
 def _search_rooms(q: str, school: Any, user: Any) -> list[dict[str, Any]]:
     from services.hostel.models import HostelRoom
 
@@ -281,4 +341,12 @@ SEARCH_ENGINES: list[dict[str, Any]] = [
         "roles": STAFF_ROLES | {"student", "parent"},
         "search": _search_announcements,
     },
+    {"key": "checkouts", "label": "Checkouts", "roles": STAFF_ROLES, "search": _search_checkouts},
+    {
+        "key": "sessions",
+        "label": "Counseling",
+        "roles": {"super_admin", "school_admin", "counselor"},
+        "search": _search_sessions,
+    },
+    {"key": "inventory", "label": "Inventory", "roles": STAFF_ROLES, "search": _search_inventory},
 ]

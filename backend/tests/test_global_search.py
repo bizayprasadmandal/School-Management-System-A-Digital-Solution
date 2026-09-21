@@ -235,3 +235,64 @@ def test_finds_hostel_room(school_a, client_a):
     resp = make_client(admin).get("/api/v1/search/", {"q": "204"})
     groups = {g["key"]: g for g in resp.data["groups"]}
     assert groups["rooms"]["results"][0]["title"] == "Room 204"
+
+
+# ─── Extended entities (checkouts, counseling, inventory) ─────────────────────
+
+
+@pytest.mark.django_db
+def test_finds_checkout_by_book_title(school_a, client_a):
+    from datetime import timedelta
+
+    from services.library.models import Checkout
+
+    admin = AdminUserFactory(school=school_a)
+    book = Book.objects.create(school=school_a, title="Algebra Basics", author="A. Mathematician", isbn="978-ALG1")
+    student_user = User.objects.create_user(
+        email="checkoutstudent@alpha.edu", password="Student@1234", role="student", school=school_a
+    )
+    student = StudentFactory(user=student_user)
+    Checkout.objects.create(book=book, student=student, due_date=date.today() + timedelta(days=7))
+    resp = make_client(admin).get("/api/v1/search/", {"q": "algebra"})
+    groups = {g["key"]: g for g in resp.data["groups"]}
+    assert "Algebra Basics" in groups["checkouts"]["results"][0]["title"]
+
+
+@pytest.mark.django_db
+def test_counseling_sessions_role_gated(school_a, client_a):
+    """Sessions are sensitive: admins/counselors see hits, teachers must not."""
+    from services.counseling.models import CounselingSession
+
+    admin = AdminUserFactory(school=school_a)
+    student_user = User.objects.create_user(
+        email="counselstudent@alpha.edu", password="Student@1234", role="student", school=school_a
+    )
+    student = StudentFactory(user=student_user)
+    CounselingSession.objects.create(
+        school=school_a,
+        counselor=admin,
+        student=student,
+        session_date=date.today(),
+        start_time="10:00",
+        presenting_issue="exam anxiety",
+    )
+
+    resp = make_client(admin).get("/api/v1/search/", {"q": "anxiety"})
+    keys = [g["key"] for g in resp.data["groups"]]
+    assert "sessions" in keys
+
+    teacher = TeacherUserFactory(school=school_a)
+    resp_teacher = make_client(teacher).get("/api/v1/search/", {"q": "anxiety"})
+    keys_teacher = [g["key"] for g in resp_teacher.data["groups"]]
+    assert "sessions" not in keys_teacher
+
+
+@pytest.mark.django_db
+def test_finds_inventory_by_sku(school_a, client_a):
+    from services.inventory.models import InventoryItem
+
+    admin = AdminUserFactory(school=school_a)
+    InventoryItem.objects.create(school=school_a, name="Whiteboard Markers", sku="SKU-SEARCH-777")
+    resp = make_client(admin).get("/api/v1/search/", {"q": "SKU-SEARCH"})
+    groups = {g["key"]: g for g in resp.data["groups"]}
+    assert groups["inventory"]["results"][0]["title"] == "Whiteboard Markers"
