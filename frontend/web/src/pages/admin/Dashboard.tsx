@@ -71,6 +71,18 @@ const GRADE_COLORS: Record<string, string> = {
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
+/** Aggregated finance & operations health (GET /reporting/finance-ops/). */
+interface FinanceOps {
+  payroll: { month_net: number; month_payslips: number; pending_count: number };
+  collections: { month_collected: number; outstanding: number };
+  ops: {
+    open_maintenance: number;
+    open_complaints: number;
+    stock_alerts: number;
+    vehicles_total: number;
+  };
+}
+
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -150,6 +162,14 @@ export default function AdminDashboard() {
   const { data: funnel, isError: funnelError } = useEnrollmentFunnel();
   const { data: forecast, isError: forecastError } = useFeeForecast();
   const atRiskStudents = atRisk?.students?.slice(0, 5) ?? [];
+
+  const { data: financeOps } = useQuery<FinanceOps>({
+    queryKey: ["finance-ops"],
+    queryFn: () => api.get("/reporting/finance-ops/"),
+  });
+
+  const money = (v?: number | null) =>
+    v == null ? "—" : `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   /**
    * Fee collection trend = trailing 3 months of real collections
@@ -306,6 +326,131 @@ export default function AdminDashboard() {
                 </PieChart>
               </ResponsiveContainer>
             )}
+          </div>
+        </div>
+      </ErrorBoundary>
+
+      {/* Finance & Operations health */}
+      <ErrorBoundary>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Money */}
+          <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                Money This Month
+              </h2>
+              <Link
+                to="/admin/finance-center"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5"
+              >
+                Finance center <ChevronRightIcon className="h-3 w-3" />
+              </Link>
+            </div>
+            <dl className="grid grid-cols-2 gap-4">
+              <div>
+                <dt className="text-xs text-slate-400 dark:text-slate-500">Payroll committed</dt>
+                <dd className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white tabular-nums">
+                  {money(financeOps?.payroll?.month_net)}
+                </dd>
+                <dd className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {financeOps?.payroll?.month_payslips ?? 0} payslips
+                  {(financeOps?.payroll?.pending_count ?? 0) > 0 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">
+                      · {financeOps!.payroll!.pending_count} draft
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-400 dark:text-slate-500">Fees collected</dt>
+                <dd className="mt-0.5 text-lg font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {money(financeOps?.collections?.month_collected)}
+                </dd>
+              </div>
+              <div className="col-span-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+                <dt className="text-xs text-amber-700 dark:text-amber-300">Outstanding invoices</dt>
+                <dd className="text-base font-semibold text-amber-800 dark:text-amber-200 tabular-nums">
+                  {money(financeOps?.collections?.outstanding)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* Operations */}
+          <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                Operations Health
+              </h2>
+            </div>
+            <ul className="space-y-2">
+              <li>
+                <Link
+                  to="/admin/hostel-center"
+                  className="flex items-center justify-between rounded-lg px-2 py-1.5 -mx-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                >
+                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                    Open hostel maintenance
+                  </span>
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${
+                      (financeOps?.ops?.open_maintenance ?? 0) > 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {financeOps?.ops?.open_maintenance ?? 0}
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/hostel-center"
+                  className="flex items-center justify-between rounded-lg px-2 py-1.5 -mx-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                >
+                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                    Open complaints
+                  </span>
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${
+                      (financeOps?.ops?.open_complaints ?? 0) > 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {financeOps?.ops?.open_complaints ?? 0}
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/inventory-center"
+                  className="flex items-center justify-between rounded-lg px-2 py-1.5 -mx-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                >
+                  <span className="text-sm text-slate-600 dark:text-slate-300">Stock alerts</span>
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${
+                      (financeOps?.ops?.stock_alerts ?? 0) > 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {financeOps?.ops?.stock_alerts ?? 0}
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/transportation-center"
+                  className="flex items-center justify-between rounded-lg px-2 py-1.5 -mx-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                >
+                  <span className="text-sm text-slate-600 dark:text-slate-300">Fleet vehicles</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                    {financeOps?.ops?.vehicles_total ?? 0}
+                  </span>
+                </Link>
+              </li>
+            </ul>
           </div>
         </div>
       </ErrorBoundary>

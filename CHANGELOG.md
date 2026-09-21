@@ -8,6 +8,13 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Finance & Operations dashboard section** (`GET /api/v1/reporting/finance-ops/`):
+  one aggregated round-trip for the admin dashboard — payroll committed this month
+  (net, payslip count, drafts pending), fee collections this month, outstanding
+  invoices, and operations health (open hostel maintenance, open complaints, stock
+  alerts, fleet size). Rendered as two new cards on the admin dashboard with
+  drill-down links to the finance/hostel/inventory/transport centers.
+
 - **Wide API coverage for hostel/transport/inventory** (31 create-through-the-API
   tests + tenant isolation + 401): surfaced and fixed a `hostel-asset` 500
   (unique-but-blank `asset_tag` collided on empty string; now derives a

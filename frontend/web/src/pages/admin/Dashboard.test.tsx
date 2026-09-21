@@ -161,6 +161,12 @@ const mockFunnel = {
   conversion: { submitted_to_accepted: 32, accepted_to_enrolled: 62.5 },
 };
 
+const mockFinanceOps = {
+  payroll: { month_net: 68259, month_payslips: 2, pending_count: 1 },
+  collections: { month_collected: 120000, outstanding: 42500 },
+  ops: { open_maintenance: 2, open_complaints: 1, stock_alerts: 3, vehicles_total: 5 },
+};
+
 const mockForecast = {
   today: "2024-06-15",
   overdue_total: 82000,
@@ -230,6 +236,9 @@ beforeEach(() => {
         ],
       });
     }
+    if (url.includes("finance-ops")) {
+      return Promise.resolve(mockFinanceOps);
+    }
     return Promise.resolve(mockDashboardStats);
   });
 
@@ -283,6 +292,21 @@ describe("rendering", () => {
       expect(screen.getByText("At-Risk Students")).toBeInTheDocument();
       expect(screen.getByText("Enrollment Funnel")).toBeInTheDocument();
     });
+  });
+
+  test("renders the finance & operations section with live figures", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Money This Month")).toBeInTheDocument();
+      expect(screen.getByText("Operations Health")).toBeInTheDocument();
+    });
+    // Payroll + collections figures from the finance-ops fixture.
+    expect(screen.getByText("$68,259")).toBeInTheDocument();
+    expect(screen.getByText("2 payslips")).toBeInTheDocument();
+    expect(screen.getByText("$120,000")).toBeInTheDocument();
+    // Ops counts from the fixture.
+    expect(screen.getByText("Stock alerts")).toBeInTheDocument();
+    expect(screen.getByText("Fleet vehicles")).toBeInTheDocument();
   });
 
   test("renders announcements section", async () => {

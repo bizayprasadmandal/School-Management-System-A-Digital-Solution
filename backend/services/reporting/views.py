@@ -133,6 +133,84 @@ class ReportingViewSet(viewsets.ViewSet):
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolStaff()]
 
+    @action(detail=False, methods=["get"], url_path="finance-ops")
+    def finance_ops(self, request):
+        """Aggregated finance & operations health for the admin dashboard.
+
+        One round-trip for the money view (payroll committed this month,
+        fee collections this month, outstanding invoices) and the
+        operations view (open maintenance, open hostel complaints,
+        active stock alerts). Scoped to the caller's school like
+        dashboard-stats — never the header-resolved tenant.
+        """
+        school = request.user.school
+        if school is None:
+            return Response(
+                {
+                    "payroll": {"month_net": 0, "month_payslips": 0, "pending_count": 0},
+                    "collections": {"month_collected": 0, "outstanding": 0},
+                    "ops": {"open_maintenance": 0, "open_complaints": 0, "stock_alerts": 0, "vehicles_total": 0},
+                }
+            )
+
+        from django.db.models import Count, Sum
+        from django.utils import timezone
+        from services.fees.models import FeeInvoice, Payment
+        from services.hostel.models import ComplaintManagement, RoomMaintenance
+        from services.hr.models import Payslip
+        from services.inventory.models import InventoryAlert
+        from services.transportation.models import Vehicle
+
+        today = timezone.now().date()
+        month_start = today.replace(day=1)
+
+        payslip_agg = Payslip.objects.filter(school=school, period_start__gte=month_start).aggregate(
+            net=Sum("net_pay"),
+            count=Count("id"),
+        )
+        pending_payslips = Payslip.objects.filter(school=school, status="draft").count()
+        collected = (
+            Payment.objects.filter(
+                invoice__student__school=school,
+                status="successful",
+                paid_at__date__gte=month_start,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        outstanding = (
+            FeeInvoice.objects.filter(student__school=school, status__in=["unpaid", "partial", "overdue"]).aggregate(
+                total=Sum("total_amount") - Sum("paid_amount")
+            )["total"]
+            or 0
+        )
+
+        ops = {
+            "open_maintenance": (
+                RoomMaintenance.objects.filter(room__hostel__school=school)
+                .exclude(status__in=["completed", "cancelled"])
+                .count()
+            ),
+            "open_complaints": (
+                ComplaintManagement.objects.filter(hostel__school=school)
+                .exclude(status__in=["resolved", "closed", "rejected"])
+                .count()
+            ),
+            "stock_alerts": InventoryAlert.objects.filter(school=school).count(),
+            "vehicles_total": Vehicle.objects.filter(school=school).count(),
+        }
+
+        return Response(
+            {
+                "payroll": {
+                    "month_net": payslip_agg["net"] or 0,
+                    "month_payslips": payslip_agg["count"] or 0,
+                    "pending_count": pending_payslips,
+                },
+                "collections": {"month_collected": collected, "outstanding": outstanding},
+                "ops": ops,
+            }
+        )
+
     @action(detail=False, methods=["get"], url_path="dashboard-stats")
     def dashboard_stats(self, request):
         # Always scope to the authenticated user's school — never the

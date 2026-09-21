@@ -25,6 +25,7 @@ from tests.factories import (
     StudentFactory,
     StudentUserFactory,
     TeacherUserFactory,
+    UserFactory,
 )
 from tests.url_helpers import (
     COMMUNICATION_ANNOUNCEMENTS,
@@ -295,3 +296,57 @@ class TestCommunicationExtended:
         assert r.status_code == status.HTTP_200_OK
         ann.refresh_from_db()
         assert not ann.is_draft
+
+
+# ─── Finance & Ops dashboard overview (ReportingViewSet.finance_ops) ─────────
+
+
+@pytest.mark.django_db
+def test_finance_ops_overview_aggregates():
+    """The endpoint rolls up payroll, collections, and ops health for the
+    caller's school — and only that school."""
+    from datetime import date
+
+    from services.hostel.models import Hostel, HostelRoom
+    from services.hr.models import Employee, Payslip
+    from services.students.models import Student
+
+    school = SchoolFactory()
+    AcademicYearFactory(school=school, is_current=True)
+    admin = AdminUserFactory(school=school)
+    client = APIClient()
+    client.force_authenticate(user=admin)
+
+    student_user = UserFactory(school=school, role="student")
+    student = StudentFactory(user=student_user)
+    Student.objects.filter(pk=student.pk).update(school=school)
+    hostel = Hostel.objects.create(school=school, name="Ops Hall")
+    room = HostelRoom.objects.create(hostel=hostel, room_number="O-1", capacity=2)
+    Payslip.objects.create(
+        school=school,
+        employee=Employee.objects.create(
+            school=school,
+            user=UserFactory(school=school, role="teacher"),
+            employee_id=f"OPS-EMP-{str(school.pk)[:8]}",
+            designation="Teacher",
+            joining_date=date.today(),
+        ),
+        period_start=date.today().replace(day=1),
+        period_end=date.today(),
+        basic_salary=Decimal("1000.00"),
+        gross_pay=Decimal("1000.00"),
+        net_pay=Decimal("850.00"),
+        total_deductions=Decimal("150.00"),
+        status="draft",
+    )
+    assert room is not None
+
+    resp = client.get("/api/v1/reporting/finance-ops/")
+    assert resp.status_code == status.HTTP_200_OK
+    body = resp.json()
+    assert set(body.keys()) == {"payroll", "collections", "ops"}
+    assert set(body["payroll"].keys()) == {"month_net", "month_payslips", "pending_count"}
+    assert set(body["collections"].keys()) == {"month_collected", "outstanding"}
+    assert set(body["ops"].keys()) == {"open_maintenance", "open_complaints", "stock_alerts", "vehicles_total"}
+    assert body["payroll"]["month_payslips"] == 1
+    assert float(body["payroll"]["month_net"]) == 850.0
