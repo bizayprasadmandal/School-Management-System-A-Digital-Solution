@@ -35,7 +35,7 @@ channels-redis==4.3.0
 sendgrid==6.11.0
 twilio==9.0.4
 vonage==4.0.0
-firebase-admin==6.4.0
+firebase-admin==7.6.0
 
 # Reporting & Docs
 reportlab==4.2.0
