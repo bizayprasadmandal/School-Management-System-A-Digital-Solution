@@ -74,5 +74,5 @@ isort==5.13.2
 # WSGI/ASGI servers
 daphne==4.2.3
 gunicorn==21.2.0
-uvicorn[standard]==0.52.4
+uvicorn[standard]==0.53.0
 python-json-logger==2.0.7
