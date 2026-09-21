@@ -9,12 +9,32 @@ import { useNavigate } from "react-router-dom";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
+import { api } from "../../api/client";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CommandItem {
   label: string;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Optional secondary line (record hits from global search). */
+  subtitle?: string;
+  /** Optional group header (entity type, e.g. "Students"). */
+  groupLabel?: string;
+}
+
+/** One record hit returned by the global search API. */
+export interface SearchHit {
+  id: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
+export interface SearchResultGroup {
+  key: string;
+  label: string;
+  results: SearchHit[];
 }
 
 type AccentColor = "indigo" | "emerald" | "blue" | "amber" | "teal" | "pink" | "violet";
@@ -94,8 +114,7 @@ const ICON_BG: Record<AccentColor, string> = {
 // ─── Platform detection (computed once, not per render) ─────────────────────
 
 const IS_MAC =
-  typeof navigator !== "undefined" &&
-  /Mac|iPod|iPhone|iPad/.test(navigator.platform ?? "");
+  typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform ?? "");
 
 const SHORTCUT_LABEL = IS_MAC ? "⌘K" : "Ctrl+K";
 const MODIFIER_LABEL = IS_MAC ? "Cmd" : "Ctrl";
@@ -110,11 +129,57 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Filter items by label
-  const filtered = useMemo(() => {
+  const navItems = useMemo(() => {
     if (!query.trim()) return items;
     const q = query.toLowerCase();
     return items.filter((item) => item.label.toLowerCase().includes(q));
   }, [items, query]);
+
+  // ── Remote global search (debounced, ≥2 chars) ────────────────────────────
+  const [remoteGroups, setRemoteGroups] = useState<SearchResultGroup[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!open || q.length < 2) {
+      setRemoteGroups([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    let cancelled = false;
+    const t = setTimeout(() => {
+      api
+        .get<{ groups: SearchResultGroup[] }>("/search/", { q })
+        .then((data) => {
+          if (!cancelled) setRemoteGroups(data.groups ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setRemoteGroups([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query, open]);
+
+  // Merge: local nav matches first, then API-backed record hits grouped by entity.
+  const filtered = useMemo(() => {
+    const remote: CommandItem[] = remoteGroups.flatMap((group) =>
+      group.results.map((hit) => ({
+        label: hit.title,
+        to: hit.url,
+        icon: MagnifyingGlassIcon,
+        subtitle: hit.subtitle,
+        groupLabel: group.label,
+      })),
+    );
+    return [...navItems, ...remote];
+  }, [navItems, remoteGroups]);
 
   // Global keyboard shortcut: Ctrl+K / Cmd+K to toggle, Escape to close
   useEffect(() => {
@@ -150,7 +215,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
       navigate(item.to);
       handleClose();
     },
-    [navigate, handleClose]
+    [navigate, handleClose],
   );
 
   const handleKeyDown = useCallback(
@@ -166,7 +231,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
         handleSelect(filtered[selectedIndex]);
       }
     },
-    [filtered, selectedIndex, handleSelect]
+    [filtered, selectedIndex, handleSelect],
   );
 
   const hl = HIGHLIGHT[accent] ?? HIGHLIGHT.indigo;
@@ -180,6 +245,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
           setOpen(true);
           setQuery("");
           setSelectedIndex(0);
+          setRemoteGroups([]);
         }}
         title={`Search pages (${MODIFIER_LABEL}+K)`}
         className={clsx(
@@ -188,7 +254,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
           "hover:bg-slate-100 dark:hover:bg-slate-700",
           "hover:text-slate-900 dark:hover:text-white",
           "transition-all duration-200",
-          "group"
+          "group",
         )}
       >
         <MagnifyingGlassIcon className="h-5 w-5" />
@@ -203,7 +269,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
             "text-slate-400 dark:text-slate-500",
             "transition-colors duration-200",
             "group-hover:border-slate-400 dark:group-hover:border-slate-500",
-            "group-hover:text-slate-500 dark:group-hover:text-slate-400"
+            "group-hover:text-slate-500 dark:group-hover:text-slate-400",
           )}
         >
           {SHORTCUT_LABEL}
@@ -227,7 +293,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
               "rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40",
               "border border-slate-200 dark:border-slate-700",
               "overflow-hidden",
-              "animate-in fade-in zoom-in-95 slide-in-from-top-3 duration-200 ease-out"
+              "animate-in fade-in zoom-in-95 slide-in-from-top-3 duration-200 ease-out",
             )}
           >
             {/* Gradient top accent bar */}
@@ -240,7 +306,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
                 accent === "amber" && "bg-gradient-to-r from-amber-500 to-amber-400",
                 accent === "teal" && "bg-gradient-to-r from-teal-500 to-teal-400",
                 accent === "pink" && "bg-gradient-to-r from-pink-500 to-pink-400",
-                accent === "violet" && "bg-gradient-to-r from-violet-500 to-violet-400"
+                accent === "violet" && "bg-gradient-to-r from-violet-500 to-violet-400",
               )}
             />
 
@@ -256,9 +322,16 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search pages…"
+                placeholder="Search pages, students, invoices…"
                 className="w-full py-3.5 text-sm bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none border-none"
               />
+
+              {/* Searching indicator */}
+              {searching && (
+                <span className="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500">
+                  Searching…
+                </span>
+              )}
 
               {/* Item count badge */}
               {query.trim() && (
@@ -281,7 +354,7 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
                     <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
                   </div>
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    No pages found
+                    No results found
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     Try a different search term
@@ -292,8 +365,16 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
                   {filtered.map((item, index) => {
                     const Icon = item.icon;
                     const isSelected = index === selectedIndex;
+                    const showGroupHeader =
+                      item.groupLabel !== undefined &&
+                      (index === 0 || filtered[index - 1].groupLabel !== item.groupLabel);
                     return (
-                      <li key={item.to} role="option" aria-selected={isSelected}>
+                      <li key={`${item.to}-${index}`} role="option" aria-selected={isSelected}>
+                        {showGroupHeader && (
+                          <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            {item.groupLabel}
+                          </div>
+                        )}
                         <button
                           onClick={() => handleSelect(item)}
                           onMouseEnter={() => setSelectedIndex(index)}
@@ -302,28 +383,35 @@ export default function CommandPalette({ items, accent = "indigo" }: CommandPale
                             "border-l-2",
                             isSelected
                               ? clsx(hl.bg, hl.text, hl.border, "shadow-sm")
-                              : "border-l-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:border-l-slate-200 dark:hover:border-l-slate-600"
+                              : "border-l-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:border-l-slate-200 dark:hover:border-l-slate-600",
                           )}
                         >
                           {/* Icon container */}
                           <span
                             className={clsx(
                               "flex h-7 w-7 items-center justify-center rounded-lg flex-shrink-0 transition-colors duration-150",
-                              isSelected ? iBg : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
+                              isSelected
+                                ? iBg
+                                : "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500",
                             )}
                           >
                             <Icon className="h-3.5 w-3.5" />
                           </span>
 
-                          <span className="flex-1 truncate">{item.label}</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate">{item.label}</span>
+                            {item.subtitle && (
+                              <span className="block truncate text-[11px] text-slate-400 dark:text-slate-500">
+                                {item.subtitle}
+                              </span>
+                            )}
+                          </span>
 
                           {/* Arrow indicator on hover/selected */}
                           <span
                             className={clsx(
                               "flex-shrink-0 transition-all duration-150",
-                              isSelected
-                                ? "opacity-100 translate-x-0"
-                                : "opacity-0 -translate-x-1"
+                              isSelected ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1",
                             )}
                           >
                             <svg

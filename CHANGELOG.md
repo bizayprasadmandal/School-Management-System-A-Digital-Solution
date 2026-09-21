@@ -8,6 +8,14 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Global tenant-aware search** (`GET /api/v1/search/`): one permission-filtered
+  endpoint scanning nine high-value entities (students, staff, invoices, incidents,
+  books, applications, vehicles, hostel rooms, announcements) with grouped results,
+  per-role visibility (accountants see invoices but not incidents; students see
+  announcements only), and strict school scoping. The Ctrl+K command palette now
+  debounces (250 ms) queries ≥2 chars into it, merging remote record hits (title,
+  subtitle, deep link) under local nav matches.
+
 - **Public application portal** (`services/admissions`): unauthenticated `POST /admissions/public/apply/`, `GET /admissions/public/status/{tracking_id}/`, and `GET /admissions/public/intakes/` endpoints; entrance assessment model (`EntranceAssessment`) linked to applications; frontend pages (`/apply`, `/apply/status`) with form validation and status tracking.
 - **Admissions state machine**: enforced valid transitions (applied → screening → interview → offer → enrolled → waitlisted → rejected → withdrawn); status-change emails sent to applicants on each transition.
 - **Offer deadlines**: configurable `offer_deadline` on applications with Celery auto-expiry task; deadline-expired emails sent to applicants.

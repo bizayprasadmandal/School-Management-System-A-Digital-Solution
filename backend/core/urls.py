@@ -16,6 +16,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # Health check
     path("health/", include("core.health.urls")),
+    # Global search (command palette backend)
+    path(API_V1 + "search/", include("core.search.urls")),
     # ── REST API v1 ──────────────────────────────────────────────────────────
     path(API_V1 + "auth/", include("services.auth.urls", namespace="auth_v1")),
     path(API_V1 + "students/", include("services.students.urls", namespace="students_v1")),
