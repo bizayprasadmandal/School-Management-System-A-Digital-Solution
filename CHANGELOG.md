@@ -8,6 +8,16 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Subscription plan gating** (`core/plan_features.py` + `IsPremiumFeature`):
+  `School.subscription_tier` (basic/standard/premium) now enforces tiered
+  features — premium unlocks the double-entry ledger depth (summary/trend),
+  advanced analytics (at-risk, funnel, forecast), live transport tracking
+  (bus tracking, stop ETAs, geofences), and finance overview; standard keeps
+  the finance overview plus the full core SIS. `/auth/me/` now returns
+  `plan_features` (plan, unlocked feature keys, is_premium) so the UI can
+  badge gated surfaces. 11 tests pin registry semantics, enforcement, and
+  discovery.
+
 - **Finance & Operations dashboard section** (`GET /api/v1/reporting/finance-ops/`):
   one aggregated round-trip for the admin dashboard — payroll committed this month
   (net, payslip count, drafts pending), fee collections this month, outstanding

@@ -7,6 +7,51 @@ from rest_framework import permissions
 from services.auth.models import UserRole
 
 
+class IsPremiumFeature(permissions.BasePermission):
+    """Gate viewsets/actions behind the school's subscription tier.
+
+    The required feature key comes from the view (``view.premium_feature``)
+    or, for views that gate only some actions, from ``view.premium_feature_map``
+    mapping action name -> feature key. Super admins always pass (platform
+    staff manage every tenant).
+
+    Returns 403 with a machine-readable ``plan_required`` code so the
+    frontend can render an upgrade prompt instead of a generic error.
+    """
+
+    message = "This feature requires a plan upgrade."
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if getattr(user, "role", None) == UserRole.SUPER_ADMIN:
+            return True
+
+        from core.plan_features import ENDPOINT_FEATURE_MAP, school_has_feature
+
+        feature_key = getattr(view, "premium_feature", None)
+        if feature_key is None:
+            # Action-scoped gating: only the mapped actions are premium.
+            action_map = getattr(view, "premium_feature_map", None) or {}
+            feature_key = action_map.get(getattr(view, "action", None))
+            if feature_key is None:
+                # Last resort: match the request path against the registry
+                # (e.g. router-registered detail actions).
+                path = request.path.rstrip("/").split("/api/v1/")[-1]
+                base = "/".join(path.split("/")[:2])
+                feature_key = ENDPOINT_FEATURE_MAP.get(base) or ENDPOINT_FEATURE_MAP.get(path)
+        if feature_key is None:
+            return True  # nothing gated on this view/action
+
+        school = getattr(user, "school", None)
+        if school_has_feature(school, feature_key):
+            return True
+
+        self.message = f"This feature requires a plan upgrade (feature: {feature_key})."
+        return False
+
+
 class IsSchoolMember(permissions.BasePermission):
     """User belongs to the same school as the requested resource."""
 

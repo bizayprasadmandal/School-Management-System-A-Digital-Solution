@@ -9,7 +9,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember
+from core.permissions import IsPremiumFeature, IsSchoolAdmin, IsSchoolMember
 from django.db import transaction
 from django.http import FileResponse
 from django.utils import timezone
@@ -1822,6 +1822,12 @@ class ReceiptTemplateViewSet(viewsets.ModelViewSet):
 
 
 class AccountingEntryViewSet(viewsets.ModelViewSet):
+    # Ledger depth (summary/trend streams) is a premium capability; the
+    # basic transaction list stays available on every plan.
+    premium_feature_map = {
+        "monthly_summary": "accounting_ledger",
+        "monthly_trend": "accounting_ledger",
+    }
     serializer_class = AccountingEntrySerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -1832,6 +1838,8 @@ class AccountingEntryViewSet(viewsets.ModelViewSet):
         return AccountingEntry.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):
+        if self.action in ["monthly_summary", "monthly_trend"]:
+            return [IsAuthenticated(), IsSchoolMember(), IsPremiumFeature()]
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]

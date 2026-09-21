@@ -8,7 +8,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
+from core.permissions import IsPremiumFeature, IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
 from django.core.cache import cache
 from django.db.models import Avg, Count, Q, Sum
 from django.http import FileResponse, HttpResponse
@@ -122,15 +122,28 @@ ACCENT_COLOR = colors.HexColor("#E0E7FF")
 class ReportingViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsSchoolStaff]
 
+    # Plan gating: analytics depth and the finance overview are tiered.
+    # finance_overview is deliberately unlocked on Standard; the deeper
+    # analytics require Premium.
+    premium_feature_map = {
+        "finance_ops": "finance_overview",
+        "at_risk_students": "advanced_analytics",
+        "enrollment_funnel": "advanced_analytics",
+        "fee_forecast": "advanced_analytics",
+    }
+
     def get_permissions(self):
         """
         Read-only analytics are available to school staff (accountants and
         librarians render them on their dashboards; students/parents never
         see school-wide figures). State-changing actions (e.g. cache
-        refresh) stay admin-only.
+        refresh) stay admin-only. Plan-gated actions additionally require
+        the school's subscription tier to unlock them.
         """
         if self.action == "refresh_dashboard":
             return [IsAuthenticated(), IsSchoolAdmin()]
+        if self.action in getattr(self, "premium_feature_map", {}):
+            return [IsAuthenticated(), IsSchoolStaff(), IsPremiumFeature()]
         return [IsAuthenticated(), IsSchoolStaff()]
 
     @action(detail=False, methods=["get"], url_path="finance-ops")

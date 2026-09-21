@@ -27,7 +27,9 @@ class SchoolFactory(factory.django.DjangoModelFactory):
     email = factory.LazyAttribute(lambda o: f"admin@{o.subdomain}.edu")
     timezone = "UTC"
     is_active = True
-    subscription_tier = "standard"
+    # Tests default to premium so analytics/ledger/tracking suites exercise
+    # the full surface; plan-gating tests create standard/basic explicitly.
+    subscription_tier = "premium"
 
 
 class UserFactory(factory.django.DjangoModelFactory):

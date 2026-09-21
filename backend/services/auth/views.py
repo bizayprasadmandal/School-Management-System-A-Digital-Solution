@@ -850,7 +850,13 @@ class RegenerateBackupCodesView(APIView):
 @permission_classes([IsAuthenticated])
 def me(request):
     """Lightweight endpoint to check token validity and fetch own user data."""
-    return Response(UserProfileSerializer(request.user).data)
+    from core.plan_features import plan_features_for_tier
+
+    data = UserProfileSerializer(request.user).data
+    school = getattr(request.user, "school", None)
+    tier = getattr(school, "subscription_tier", "basic") if school else "basic"
+    data["plan_features"] = plan_features_for_tier(tier)
+    return Response(data)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

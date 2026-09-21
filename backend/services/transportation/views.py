@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from core.pagination import StandardResultsSetPagination
-from core.permissions import IsSchoolAdmin, IsSchoolMember
+from core.permissions import IsPremiumFeature, IsSchoolAdmin, IsSchoolMember
 from django.db import transaction as db_transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -496,6 +496,7 @@ class VehicleGPSLogViewSet(viewsets.ModelViewSet):
 
 
 class GeofenceZoneViewSet(viewsets.ModelViewSet):
+    premium_feature = "live_transport_tracking"
     serializer_class = GeofenceZoneSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -509,12 +510,11 @@ class GeofenceZoneViewSet(viewsets.ModelViewSet):
         serializer.save(school=self.request.user.school)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolMember(), IsPremiumFeature()]
 
 
 class GeofenceAlertViewSet(viewsets.ModelViewSet):
+    premium_feature = "live_transport_tracking"
     serializer_class = GeofenceAlertSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -524,12 +524,12 @@ class GeofenceAlertViewSet(viewsets.ModelViewSet):
         return GeofenceAlert.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolMember(), IsPremiumFeature()]
 
 
 class BusTrackingViewSet(viewsets.ModelViewSet):
+    # Live tracking depth is premium-gated (GPS hardware + polling costs).
+    premium_feature = "live_transport_tracking"
     serializer_class = BusTrackingSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -539,12 +539,11 @@ class BusTrackingViewSet(viewsets.ModelViewSet):
         return BusTracking.objects.filter(vehicle__school=self.request.user.school)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolMember(), IsPremiumFeature()]
 
 
 class StopETAViewSet(viewsets.ModelViewSet):
+    premium_feature = "live_transport_tracking"
     serializer_class = StopETASerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -554,9 +553,7 @@ class StopETAViewSet(viewsets.ModelViewSet):
         return StopETA.objects.filter(tracking__vehicle__school=self.request.user.school)
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsSchoolAdmin()]
-        return [IsAuthenticated(), IsSchoolMember()]
+        return [IsAuthenticated(), IsSchoolMember(), IsPremiumFeature()]
 
 
 class DriverLicenseViewSet(viewsets.ModelViewSet):
