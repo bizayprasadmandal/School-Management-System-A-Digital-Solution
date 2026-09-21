@@ -199,12 +199,27 @@ class ReportingViewSet(viewsets.ViewSet):
             "vehicles_total": Vehicle.objects.filter(school=school).count(),
         }
 
+        # 6-month payroll net trend for the dashboard sparkline.
+        trend_start = (month_start - timedelta(days=183)).replace(day=1)
+        trend_rows = (
+            Payslip.objects.filter(school=school, period_start__gte=trend_start)
+            .values_list("period_start")
+            .annotate(net=Sum("net_pay"))
+            .order_by("period_start")
+        )
+        months: dict = {}
+        for period_start, net in trend_rows:
+            key = period_start.replace(day=1)
+            months[key] = months.get(key, Decimal("0")) + (net or Decimal("0"))
+        payroll_trend = [{"month": key.strftime("%Y-%m"), "net": float(value)} for key, value in sorted(months.items())]
+
         return Response(
             {
                 "payroll": {
                     "month_net": payslip_agg["net"] or 0,
                     "month_payslips": payslip_agg["count"] or 0,
                     "pending_count": pending_payslips,
+                    "trend_6m": payroll_trend,
                 },
                 "collections": {"month_collected": collected, "outstanding": outstanding},
                 "ops": ops,

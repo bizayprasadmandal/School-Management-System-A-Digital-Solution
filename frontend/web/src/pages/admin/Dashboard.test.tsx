@@ -162,7 +162,16 @@ const mockFunnel = {
 };
 
 const mockFinanceOps = {
-  payroll: { month_net: 68259, month_payslips: 2, pending_count: 1 },
+  payroll: {
+    month_net: 68259,
+    month_payslips: 2,
+    pending_count: 1,
+    trend_6m: [
+      { month: "2026-04", net: 40000 },
+      { month: "2026-05", net: 42000 },
+      { month: "2026-06", net: 51000 },
+    ],
+  },
   collections: { month_collected: 120000, outstanding: 42500 },
   ops: { open_maintenance: 2, open_complaints: 1, stock_alerts: 3, vehicles_total: 5 },
 };
@@ -304,6 +313,8 @@ describe("rendering", () => {
     expect(screen.getByText("$68,259")).toBeInTheDocument();
     expect(screen.getByText("2 payslips")).toBeInTheDocument();
     expect(screen.getByText("$120,000")).toBeInTheDocument();
+    // Payroll trend sparkline renders from the 6-month series.
+    expect(document.querySelector("[data-sparkline]")).toBeInTheDocument();
     // Ops counts from the fixture.
     expect(screen.getByText("Stock alerts")).toBeInTheDocument();
     expect(screen.getByText("Fleet vehicles")).toBeInTheDocument();

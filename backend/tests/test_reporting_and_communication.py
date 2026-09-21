@@ -345,7 +345,8 @@ def test_finance_ops_overview_aggregates():
     assert resp.status_code == status.HTTP_200_OK
     body = resp.json()
     assert set(body.keys()) == {"payroll", "collections", "ops"}
-    assert set(body["payroll"].keys()) == {"month_net", "month_payslips", "pending_count"}
+    assert set(body["payroll"].keys()) == {"month_net", "month_payslips", "pending_count", "trend_6m"}
+    assert isinstance(body["payroll"]["trend_6m"], list)
     assert set(body["collections"].keys()) == {"month_collected", "outstanding"}
     assert set(body["ops"].keys()) == {"open_maintenance", "open_complaints", "stock_alerts", "vehicles_total"}
     assert body["payroll"]["month_payslips"] == 1

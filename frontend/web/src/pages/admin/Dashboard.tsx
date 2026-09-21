@@ -41,7 +41,7 @@ import {
   useFeeForecast,
 } from "../../api/hooks";
 import { SkeletonDashboard, ErrorState, ErrorBoundary } from "../../components/common";
-import LedgerSummaryCard from "../../components/common/LedgerSummaryCard";
+import LedgerSummaryCard, { Sparkline } from "../../components/common/LedgerSummaryCard";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -73,7 +73,12 @@ const GRADE_COLORS: Record<string, string> = {
 
 /** Aggregated finance & operations health (GET /reporting/finance-ops/). */
 interface FinanceOps {
-  payroll: { month_net: number; month_payslips: number; pending_count: number };
+  payroll: {
+    month_net: number;
+    month_payslips: number;
+    pending_count: number;
+    trend_6m?: { month: string; net: number }[];
+  };
   collections: { month_collected: number; outstanding: number };
   ops: {
     open_maintenance: number;
@@ -360,6 +365,14 @@ export default function AdminDashboard() {
                     </span>
                   )}
                 </dd>
+                {(financeOps?.payroll?.trend_6m?.length ?? 0) > 1 && (
+                  <dd className="mt-1">
+                    <Sparkline
+                      values={financeOps!.payroll!.trend_6m!.map((t) => String(t.net))}
+                      tone="green"
+                    />
+                  </dd>
+                )}
               </div>
               <div>
                 <dt className="text-xs text-slate-400 dark:text-slate-500">Fees collected</dt>
