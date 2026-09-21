@@ -703,7 +703,6 @@ class HostelAssetSerializer(serializers.ModelSerializer):
         model = HostelAsset
         fields = [
             "id",
-            "id",
             "room",
             "hostel",
             "asset_name",
@@ -719,12 +718,33 @@ class HostelAssetSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def validate(self, attrs):
+        """asset_tag is unique but blank-allowed — an empty tag would
+        collide on the unique index once a second untagged asset exists.
+        Derive a collision-safe fallback from the asset name.
+
+        (Object-level validate runs even when the field is absent from the
+        payload — per-field validators don't, which is why a model-level
+        ``""`` default slipped through to the DB.)
+        """
+        if attrs.get("asset_tag"):
+            return attrs
+        if self.instance is not None and "asset_tag" not in attrs:
+            return attrs  # partial update not touching the tag
+        name = (attrs.get("asset_name") or getattr(self.instance, "asset_name", "") or "asset").strip()
+        base = f"AST-{(name or 'asset').upper().replace(' ', '-')[:24]}"
+        tag, suffix = base, 1
+        while HostelAsset.objects.filter(asset_tag=tag).exclude(pk=getattr(self.instance, "pk", None)).exists():
+            suffix += 1
+            tag = f"{base}-{suffix}"
+        attrs["asset_tag"] = tag
+        return attrs
+
 
 class HostelAssetTransferSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelAssetTransfer
         fields = [
-            "id",
             "id",
             "asset",
             "from_room",
@@ -742,7 +762,6 @@ class HostelEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelEvent
         fields = [
-            "id",
             "id",
             "hostel",
             "organizer",

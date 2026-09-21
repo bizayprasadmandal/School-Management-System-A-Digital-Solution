@@ -430,7 +430,6 @@ class GeofenceZoneSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "school",
-            "id",
             "name",
             "zone_type",
             "center_latitude",
@@ -443,7 +442,7 @@ class GeofenceZoneSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "school"]
 
 
 class GeofenceAlertSerializer(serializers.ModelSerializer):

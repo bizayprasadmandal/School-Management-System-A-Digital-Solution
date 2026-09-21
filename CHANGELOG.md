@@ -8,6 +8,12 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Wide API coverage for hostel/transport/inventory** (31 create-through-the-API
+  tests + tenant isolation + 401): surfaced and fixed a `hostel-asset` 500
+  (unique-but-blank `asset_tag` collided on empty string; now derives a
+  collision-safe tag) and a `geofence-zone` 400 (serializer demanded writable
+  `school` while the viewset never injected it).
+
 - **Global tenant-aware search** (`GET /api/v1/search/`): one permission-filtered
   endpoint scanning nine high-value entities (students, staff, invoices, incidents,
   books, applications, vehicles, hostel rooms, announcements) with grouped results,
