@@ -39,7 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f"ws_{self.room_name}"
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
+        await self.accept(subprotocol=_negotiated_subprotocol(self.scope))
         logger.info("WS connect: user=%s room=%s", user.id, self.room_name)
 
     async def disconnect(self, close_code):
@@ -168,6 +168,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({"type": "error", "detail": detail}))
 
 
+def _negotiated_subprotocol(scope) -> str | None:
+    """Subprotocol to echo back per RFC 6455 (client-offered auth protocol)."""
+    return scope.get("ws_auth_subprotocol")
+
+
 class NotificationConsumer(AsyncWebsocketConsumer):
     """
     Per-user notification channel.
@@ -183,7 +188,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         self.user = user
         self.group_name = f"notifications_{user.id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        await self.accept(subprotocol=_negotiated_subprotocol(self.scope))
 
         # Send unread count on connect
         count = await self.get_unread_count()
@@ -265,7 +270,7 @@ class AttendanceLiveConsumer(AsyncWebsocketConsumer):
             return
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        await self.accept(subprotocol=_negotiated_subprotocol(self.scope))
 
         # Send current snapshot
         snapshot = await self.get_snapshot()

@@ -8,6 +8,13 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **WebSocket handshake fix** — the browser aborts the connection when the
+  client offers `Sec-WebSocket-Protocol: Bearer, <token>` but the server
+  echoes none back (RFC 6455). `JWTAuthMiddleware` now records the offered
+  auth subprotocol in the scope and all consumers (notifications, chat,
+  live attendance) echo it in `accept(subprotocol=...)`. Verified: WSCONNECT
+  stays open, zero console errors in a real browser.
+
 - **Super admin school switcher now works end-to-end** — selecting a school
   in the switcher actually swaps the data. The tenant context (and an
   in-memory tenant override on the resolved user, guarded by a `pre_save`

@@ -51,6 +51,11 @@ class JWTAuthMiddleware(BaseMiddleware):
             protocol_header = headers.get(b"sec-websocket-protocol", b"").decode()
             parts = [p.strip() for p in protocol_header.split(",")]
             token_key = parts[1] if len(parts) >= 2 and parts[0].lower() == "bearer" else ""
+            if protocol_header:
+                # RFC 6455: when the client offers subprotocols the server MUST
+                # echo one back in its 101 response, or browsers abort the
+                # handshake. Consumers pass this to accept(subprotocol=...).
+                scope["ws_auth_subprotocol"] = parts[0] if parts else "Bearer"
 
         scope["user"] = await get_user_from_token(token_key) if token_key else AnonymousUser()
         return await super().__call__(scope, receive, send)
