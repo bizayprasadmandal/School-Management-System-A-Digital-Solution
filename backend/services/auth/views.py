@@ -1039,6 +1039,56 @@ class PlatformDashboardView(APIView):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class PlatformRevenueView(APIView):
+    """Revenue & Plans — per-school billing overview for the platform console.
+
+    For every school: subscription tier, per-tier pricing × its student count
+    (the platform's MRR), and successful revenue collected all-time. Super
+    admin only.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        from core.plan_features import TIER_PRICING
+        from django.db.models import Count, Q, Sum
+
+        schools = School.objects.annotate(
+            student_count=Count("users", filter=Q(users__role="student"), distinct=True),
+            revenue=Sum(
+                "users__student_profile__invoices__payments__amount",
+                filter=Q(users__student_profile__invoices__payments__status="successful"),
+            ),
+        ).values("id", "name", "code", "subscription_tier", "is_active", "student_count", "revenue")
+
+        tiers = {}
+        total_mrr = 0
+        rows = []
+        for s in schools:
+            pricing = TIER_PRICING.get(s["subscription_tier"], TIER_PRICING["basic"])
+            mrr = (pricing["per_student_month"] or 0) * (s["student_count"] or 0)
+            total_mrr += mrr
+            tiers[s["subscription_tier"]] = tiers.get(s["subscription_tier"], 0) + 1
+            rows.append(
+                {
+                    **s,
+                    "revenue": float(s["revenue"] or 0),
+                    "mrr": mrr,
+                    "arr": mrr * 10,
+                }
+            )
+
+        rows.sort(key=lambda r: -r["mrr"])
+        return Response(
+            {
+                "total_mrr": total_mrr,
+                "total_arr": total_mrr * 10,
+                "schools_by_tier": tiers,
+                "schools": rows,
+            }
+        )
+
+
 class SchoolViewSet(viewsets.ModelViewSet):
     """
     School records. Super admins manage all schools (list/create/toggle/add
@@ -1199,9 +1249,13 @@ class AuditLogViewSet(viewsets.ModelViewSet):
     filterset_fields = ["action", "resource_type", "user"]
 
     def get_queryset(self):
+        if self.request.user.role == "super_admin":
+            return AuditLog.objects.all().select_related("user", "school")
         return AuditLog.objects.filter(school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
+        if self.request.user.role == "super_admin":
+            return [IsAuthenticated()]
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]
         return [IsAuthenticated(), IsSchoolMember()]

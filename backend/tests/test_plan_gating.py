@@ -270,3 +270,90 @@ def test_change_tier_rejects_non_admins():
     assert res.status_code == status.HTTP_403_FORBIDDEN
     school.refresh_from_db()
     assert school.subscription_tier == "standard"
+
+
+# ─── Platform console: Revenue & cross-school audit ──────────────────────────
+
+
+@pytest.mark.django_db
+def test_platform_revenue_aggregates_schools():
+    """Super admin sees per-school tier/MRR/ARR and platform totals."""
+    from decimal import Decimal
+
+    from tests.factories import (
+        AcademicYearFactory,
+        FeeCategoryFactory,
+        FeeInvoiceFactory,
+        FeeStructureFactory,
+        GradeFactory,
+        PaymentFactory,
+        StudentFactory,
+        StudentUserFactory,
+    )
+
+    premium_school = SchoolFactory(subscription_tier="premium")
+    basic_school = SchoolFactory(subscription_tier="basic")
+    sa = UserFactory(role="super_admin", school=None, is_staff=True)
+
+    # Anchor every factory dependency to the premium school so the test
+    # creates exactly two schools (premium + basic), no orphans.
+    grade = GradeFactory(school=premium_school)
+    category = FeeCategoryFactory(school=premium_school)
+    ay = AcademicYearFactory(school=premium_school)
+    fs = FeeStructureFactory(school=premium_school, academic_year=ay, grade=grade, fee_category=category)
+    students = [StudentFactory(user=StudentUserFactory(school=premium_school)) for _ in range(3)]
+    invoice = FeeInvoiceFactory(student=students[0], academic_year=ay, fee_structure=fs)
+    # collected_by=sa avoids PaymentFactory's AdminUserFactory sub-factory,
+    # which would otherwise create yet another school.
+    PaymentFactory(invoice=invoice, collected_by=sa, amount=Decimal("5000.00"), status="successful")
+
+    res = client_as(sa).get("/api/v1/auth/platform/revenue/")
+
+    assert res.status_code == status.HTTP_200_OK
+    body = res.json()
+    # 3 premium students × 60 = 180; basic contributes 0
+    assert body["total_mrr"] == 180
+    assert body["total_arr"] == 1800
+    assert body["schools_by_tier"] == {"premium": 1, "basic": 1}
+    rows = {r["id"]: r for r in body["schools"]}
+    assert rows[str(premium_school.id)]["mrr"] == 180
+    assert rows[str(premium_school.id)]["revenue"] == 5000.0
+    assert rows[str(basic_school.id)]["mrr"] == 0
+
+
+@pytest.mark.django_db
+def test_platform_revenue_rejects_school_admins():
+    school = SchoolFactory(subscription_tier="premium")
+    admin = AdminUserFactory(school=school)
+
+    res = client_as(admin).get("/api/v1/auth/platform/revenue/")
+
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_super_admin_audit_log_spans_schools():
+    """Super admin reads the platform-wide audit trail; admins stay scoped."""
+    from services.auth.models import AuditLog
+
+    school_a = SchoolFactory(subscription_tier="standard")
+    school_b = SchoolFactory(subscription_tier="standard")
+    admin_a = AdminUserFactory(school=school_a)
+    sa = UserFactory(role="super_admin", school=None, is_staff=True)
+    AuditLog.objects.create(
+        school=school_a,
+        user=admin_a,
+        action="plan_tier_change",
+        resource_type="school",
+        resource_id=str(school_a.id),
+    )
+    AuditLog.objects.create(school=school_b, user=sa, action="login", resource_type="user", resource_id=str(sa.id))
+
+    res_sa = client_as(sa).get("/api/v1/auth/audit-log/")
+    assert res_sa.status_code == status.HTTP_200_OK
+    school_ids = {str(row["school"]) for row in res_sa.json()["results"]}
+    assert str(school_a.id) in school_ids and str(school_b.id) in school_ids
+
+    res_admin = client_as(admin_a).get("/api/v1/auth/audit-log/")
+    school_ids_admin = {str(row["school"]) for row in res_admin.json()["results"]}
+    assert school_ids_admin <= {str(school_a.id)}

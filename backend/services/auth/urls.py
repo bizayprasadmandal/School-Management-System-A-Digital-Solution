@@ -38,6 +38,7 @@ from .views import (
     PlanChangeTierView,
     PlanView,
     PlatformDashboardView,
+    PlatformRevenueView,
     ProfileView,
     RegenerateBackupCodesView,
     RequestPasswordResetView,
@@ -142,4 +143,6 @@ urlpatterns = [
     path("regenerate-backup-codes/", RegenerateBackupCodesView.as_view(), name="regenerate_backup_codes"),
     # Platform Management (super admin)
     path("platform/stats/", PlatformDashboardView.as_view(), name="platform_stats"),
+    path("platform/revenue/", PlatformRevenueView.as_view(), name="platform_revenue"),
+    path("platform/revenue/", PlatformRevenueView.as_view(), name="platform_revenue"),
 ]

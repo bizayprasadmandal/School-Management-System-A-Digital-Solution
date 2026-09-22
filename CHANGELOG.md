@@ -8,6 +8,14 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Two-mode super admin console** — super admins now land in a dedicated
+  platform console (Platform Dashboard, Tenants → Schools/Revenue & Plans,
+  Governance → Audit Logs) instead of the school-admin sidebar. Selecting a
+  school in the switcher flips into school mode (full school nav, scoped to
+  that school) with an "exit" affordance back to the platform. Backend:
+  `GET /auth/platform/revenue/` (per-school tier/MRR/ARR + platform totals),
+  super-admin cross-school audit-log access with `school_name` on rows.
+
 - **Per-tier pricing on the Plan & Billing page** — `TIER_PRICING` registry
   (NPR per-student monthly + yearly rates, basic free, annual = 10× monthly)
   exposed through `GET /auth/plan/`; the page renders three pricing cards with

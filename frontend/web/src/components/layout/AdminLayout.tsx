@@ -233,18 +233,31 @@ const NAV_SECTIONS: SidebarNavSection[] = [
   { label: "Plan & Billing", to: "/admin/plan-billing", icon: CreditCardIcon },
 ];
 
-const PLATFORM_SECTION: SidebarNavSection = {
-  title: "Platform Management",
-  icon: BuildingOffice2Icon,
-  items: [
-    { label: "Platform Dashboard", to: "/admin/platform", icon: ChartBarIcon },
-    {
-      label: "Schools",
-      to: "/admin/platform/schools",
-      icon: BuildingOffice2Icon,
-    },
-  ],
-};
+// ── Platform console nav (super admin in platform mode) ──
+const PLATFORM_NAV_SECTIONS: SidebarNavSection[] = [
+  { label: "Platform Dashboard", to: "/admin/platform", icon: ChartBarIcon },
+  {
+    title: "Tenants",
+    icon: BuildingOffice2Icon,
+    items: [
+      { label: "Schools", to: "/admin/platform/schools", icon: BuildingOffice2Icon },
+      {
+        label: "Revenue & Plans",
+        to: "/admin/platform/revenue",
+        icon: BanknotesIcon,
+      },
+    ],
+  },
+  {
+    title: "Governance",
+    icon: ShieldCheckIcon,
+    items: [{ label: "Audit Logs", to: "/admin/platform/audit", icon: ClipboardDocumentListIcon }],
+  },
+];
+
+// School-context nav for super admins — same as school admins but with a
+// one-click escape hatch back to the platform console.
+const SUPER_ADMIN_SCHOOL_NAV_SECTIONS: SidebarNavSection[] = [...NAV_SECTIONS];
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -258,10 +271,14 @@ export default function AdminLayout() {
   const activeSchoolName = activeSchool?.name || user?.school?.name;
   usePlanSync(); // sync plan_features from /auth/me/ into the auth store
 
-  const navSections = useMemo(
-    () => [...NAV_SECTIONS, ...(isSuperAdmin ? [PLATFORM_SECTION] : [])],
-    [isSuperAdmin],
-  );
+  // Two-mode navigation for super admins: platform console by default;
+  // the school-admin sidebar only once a school context is chosen (via the
+  // SchoolSwitcher). Everyone else always sees the school sidebar.
+  const platformMode = isSuperAdmin && !activeSchool;
+  const navSections = useMemo(() => {
+    if (platformMode) return PLATFORM_NAV_SECTIONS;
+    return SUPER_ADMIN_SCHOOL_NAV_SECTIONS;
+  }, [platformMode]);
   const commandItems = useMemo(() => flattenSections(navSections), [navSections]);
 
   const handleLogout = useCallback(() => {
@@ -307,7 +324,20 @@ export default function AdminLayout() {
         {activeSchoolName && (
           <div className="mx-4 mt-4 rounded-lg bg-indigo-800/60 dark:bg-indigo-900/80 px-3 py-2">
             <p className="text-xs text-indigo-300 dark:text-indigo-400">
-              {activeSchool ? "Active School" : "School"}
+              {activeSchool ? (
+                <button
+                  onClick={() => {
+                    useSchoolContextStore.getState().clearSchoolContext();
+                    navigate("/admin/platform");
+                  }}
+                  className="inline-flex items-center gap-1 underline decoration-dotted hover:text-white"
+                  title="Return to platform console"
+                >
+                  Active School · exit
+                </button>
+              ) : (
+                "School"
+              )}
             </p>
             <p className="text-sm font-medium text-white truncate flex items-center gap-1.5">
               {activeSchoolName}

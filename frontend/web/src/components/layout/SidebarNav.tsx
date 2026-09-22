@@ -64,6 +64,26 @@ export default function SidebarNav({ sections, onNavigate }: SidebarNavProps) {
     });
   }, [pathname, sections]);
 
+  // Re-expand collapsed groups when the section list changes (e.g. super
+  // admins switching between platform and school navigation modes).
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const section of sections) {
+        if (
+          isGroup(section) &&
+          section.items.some((item) => pathname.startsWith(item.to)) &&
+          !next.has(section.title)
+        ) {
+          next.add(section.title);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [sections, pathname]);
+
   const toggle = (title: string) =>
     setOpenGroups((prev) => {
       const next = new Set(prev);

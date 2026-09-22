@@ -117,12 +117,14 @@ class TwoFactorBackupCodeSerializer(serializers.ModelSerializer):
 class AuditLogSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
+    school_name = serializers.CharField(source="school.name", read_only=True, default=None)
 
     class Meta:
         model = AuditLog
         fields = [
             "id",
             "school",
+            "school_name",
             "user",
             "user_name",
             "user_email",
