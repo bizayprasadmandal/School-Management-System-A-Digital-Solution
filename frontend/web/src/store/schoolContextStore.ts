@@ -9,6 +9,22 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { QueryClient } from "@tanstack/react-query";
+
+/**
+ * Module-level handle to the app QueryClient, set once in App.tsx.
+ * Lets non-React modules invalidate queries when the tenant context
+ * changes so school-scoped data refetches immediately.
+ */
+let _queryClient: QueryClient | null = null;
+export const registerQueryClient = (qc: QueryClient) => {
+  _queryClient = qc;
+};
+
+/** Invalidate every cached query — used on tenant switches. */
+export const invalidateAllQueries = () => {
+  void _queryClient?.invalidateQueries();
+};
 
 export interface SchoolContext {
   id: string;
@@ -37,6 +53,6 @@ export const useSchoolContextStore = create<SchoolContextState>()(
       name: "sms-school-context",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ activeSchool: state.activeSchool }),
-    }
-  )
+    },
+  ),
 );

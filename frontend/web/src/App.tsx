@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./store/authStore";
+import { registerQueryClient } from "./store/schoolContextStore";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import RouteProgressBar from "./components/common/RouteProgressBar";
 import NotificationWebSocketSync from "./components/common/NotificationWebSocketSync";
@@ -196,6 +197,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Tenant switches (super admin school switcher) invalidate every query so
+// school-scoped data refetches with the new X-School-ID header.
+registerQueryClient(queryClient);
 
 // ─── Guard components ─────────────────────────────────────────────────────────
 

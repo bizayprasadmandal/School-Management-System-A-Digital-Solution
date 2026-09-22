@@ -58,9 +58,21 @@ class IsSchoolMember(permissions.BasePermission):
     message = "You do not have access to this school's resources."
 
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.school)
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        # Super admins have no school FK of their own — they operate on a
+        # tenant chosen via X-School-ID (resolved into request.school by
+        # TenantMiddleware) and are verified per-object below instead.
+        if getattr(user, "role", None) == UserRole.SUPER_ADMIN:
+            return True
+        return bool(user.school)
 
     def has_object_permission(self, request, view, obj):
+        # Super admins (platform staff) may access any tenant's objects —
+        # their tenant context comes from X-School-ID, not user.school.
+        if getattr(request.user, "role", None) == UserRole.SUPER_ADMIN:
+            return True
         # Direct messages carry sender/recipient instead of school/student
         if hasattr(obj, "sender") and hasattr(obj, "recipient"):
             return obj.sender_id == request.user.id or obj.recipient_id == request.user.id

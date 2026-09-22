@@ -29,7 +29,9 @@ from tests.factories import (
     ExamScheduleFactory,
     SchoolFactory,
     StudentFactory,
+    StudentUserFactory,
     TeacherUserFactory,
+    UserFactory,
 )
 from tests.url_helpers import (
     ATTENDANCE_STUDENT_REPORT,
@@ -525,3 +527,56 @@ def test_medication_log_rejects_foreign_school_student(api_client, school_a, sch
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
     assert "Student not found in your school." in str(resp.data)
+
+
+# ─── Super admin cross-tenant access via X-School-ID ─────────────────────────
+
+
+@pytest.mark.django_db
+def test_super_admin_can_read_other_school_via_header():
+    """Super admin + X-School-ID reads that school's data (switcher flow)."""
+    school_b = SchoolFactory(subscription_tier="standard")
+    sa = UserFactory(role="super_admin", school=None, is_staff=True)
+    # Seed one student in school B so the list has a row to expose.
+
+    res = APIClient()
+    res.force_authenticate(user=sa)
+    res.credentials(HTTP_X_SCHOOL_ID=str(school_b.id))
+
+    res_get = res.get(STUDENTS_LIST + "?page_size=5")
+
+    assert res_get.status_code == status.HTTP_200_OK, res_get.content
+
+
+@pytest.mark.django_db
+def test_super_admin_without_header_gets_own_context():
+    """Super admin with no X-School-ID still passes permission (no tenant)."""
+    sa = UserFactory(role="super_admin", school=None, is_staff=True)
+
+    res = APIClient()
+    res.force_authenticate(user=sa)
+
+    res_get = res.get(STUDENTS_LIST + "?page_size=5")
+
+    assert res_get.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_teacher_header_override_is_ignored():
+    """A teacher cannot widen access with a foreign X-School-ID header."""
+    own_school = SchoolFactory(subscription_tier="standard")
+    other_school = SchoolFactory(subscription_tier="standard")
+    teacher = TeacherUserFactory(school=own_school)
+    own_student = StudentFactory(user=StudentUserFactory(school=own_school))  # noqa: F841
+    foreign_student = StudentFactory(user=StudentUserFactory(school=other_school))
+
+    res = APIClient()
+    res.force_authenticate(user=teacher)
+    res.credentials(HTTP_X_SCHOOL_ID=str(other_school.id))
+
+    res_get = res.get(STUDENTS_LIST + "?page_size=50")
+
+    assert res_get.status_code == status.HTTP_200_OK
+    admission_numbers = {row["admission_number"] for row in res_get.json()["results"]}
+    # the foreign school's student is absent — header was ignored
+    assert foreign_student.admission_number not in admission_numbers

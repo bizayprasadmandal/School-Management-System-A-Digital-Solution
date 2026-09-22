@@ -8,6 +8,15 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Super admin school switcher now works end-to-end** — selecting a school
+  in the switcher actually swaps the data. The tenant context (and an
+  in-memory tenant override on the resolved user, guarded by a `pre_save`
+  hook so it can never be persisted) is now injected at JWT authentication
+  time via `JWTAuthenticationWithTenant`, fixing the 403s/empty lists school
+  pages showed for super admins. Frontend invalidates the whole react-query
+  cache on switch. Tests: header-override is ignored for non-super roles,
+  super-admin cross-tenant reads, persistence guard.
+
 - **Two-mode super admin console** — super admins now land in a dedicated
   platform console (Platform Dashboard, Tenants → Schools/Revenue & Plans,
   Governance → Audit Logs) instead of the school-admin sidebar. Selecting a

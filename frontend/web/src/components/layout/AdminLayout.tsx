@@ -42,6 +42,7 @@ import {
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import SchoolSwitcher from "../common/SchoolSwitcher";
+import { invalidateAllQueries } from "../../store/schoolContextStore";
 import { useAuthStore } from "../../store/authStore";
 import { useSchoolContextStore } from "../../store/schoolContextStore";
 import NotificationBell from "../../components/common/NotificationBell";
@@ -328,6 +329,7 @@ export default function AdminLayout() {
                 <button
                   onClick={() => {
                     useSchoolContextStore.getState().clearSchoolContext();
+                    invalidateAllQueries();
                     navigate("/admin/platform");
                   }}
                   className="inline-flex items-center gap-1 underline decoration-dotted hover:text-white"

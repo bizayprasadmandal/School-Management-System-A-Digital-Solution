@@ -14,7 +14,7 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { usePlatformSchools } from "../../api/hooks";
-import { useSchoolContextStore } from "../../store/schoolContextStore";
+import { useSchoolContextStore, invalidateAllQueries } from "../../store/schoolContextStore";
 
 export default function SchoolSwitcher() {
   const [open, setOpen] = useState(false);
@@ -60,14 +60,17 @@ export default function SchoolSwitcher() {
           subdomain: school.subdomain,
         });
       }
+      // Tenant changed — every cached school-scoped query is now stale.
+      invalidateAllQueries();
       setOpen(false);
       setSearch("");
     },
-    [activeSchool, setActiveSchool]
+    [activeSchool, setActiveSchool],
   );
 
   const handleClear = useCallback(() => {
     setActiveSchool(null);
+    invalidateAllQueries();
     setOpen(false);
     setSearch("");
   }, [setActiveSchool]);
@@ -91,7 +94,11 @@ export default function SchoolSwitcher() {
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
           </span>
         )}
-        <BuildingOffice2Icon className={`h-4 w-4 flex-shrink-0 ${activeSchool ? "text-emerald-600 dark:text-emerald-400" : ""}`} />
+        <BuildingOffice2Icon
+          className={`h-4 w-4 flex-shrink-0 ${
+            activeSchool ? "text-emerald-600 dark:text-emerald-400" : ""
+          }`}
+        />
         <span className="hidden sm:inline max-w-[140px] truncate">
           {activeSchool ? activeSchool.name : "All Schools"}
         </span>
