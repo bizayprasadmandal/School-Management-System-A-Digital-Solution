@@ -69,6 +69,14 @@ ENDPOINT_FEATURE_MAP: dict[str, str] = {
 STANDARD_FEATURES: frozenset[str] = frozenset({"finance_overview"})
 PREMIUM_FEATURE_KEYS: frozenset[str] = frozenset(feature.key for feature in PREMIUM_FEATURES)
 
+# Display pricing (NPR, per student) surfaced on the Plan & Billing page.
+# Annual price = 10× monthly (two months free). Basic is free.
+TIER_PRICING: dict[str, dict] = {
+    "basic": {"currency": "NPR", "per_student_month": 0, "per_student_year": 0},
+    "standard": {"currency": "NPR", "per_student_month": 30, "per_student_year": 300},
+    "premium": {"currency": "NPR", "per_student_month": 60, "per_student_year": 600},
+}
+
 
 def school_has_feature(school, feature_key: str) -> bool:
     """Whether ``school``'s subscription tier unlocks ``feature_key``.

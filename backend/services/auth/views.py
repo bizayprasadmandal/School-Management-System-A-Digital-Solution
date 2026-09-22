@@ -871,7 +871,7 @@ class PlanView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from core.plan_features import PREMIUM_FEATURES, STANDARD_FEATURES, plan_features_for_tier
+        from core.plan_features import PREMIUM_FEATURES, STANDARD_FEATURES, TIER_PRICING, plan_features_for_tier
 
         school = getattr(request.user, "school", None)
         tier = getattr(school, "subscription_tier", "basic") if school else "basic"
@@ -895,6 +895,7 @@ class PlanView(APIView):
                 "features": plan_features_for_tier(tier)["features"],
                 "matrix": matrix,
                 "can_manage": request.user.role in ("school_admin", "super_admin"),
+                "pricing": TIER_PRICING,
             }
         )
 

@@ -8,6 +8,12 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Per-tier pricing on the Plan & Billing page** — `TIER_PRICING` registry
+  (NPR per-student monthly + yearly rates, basic free, annual = 10× monthly)
+  exposed through `GET /auth/plan/`; the page renders three pricing cards with
+  the current tier highlighted and prices the upgrade/downgrade CTA directly
+  ("Upgrade to Premium · Rs. 60.00/student/mo").
+
 - **In-app Plan & Billing page** (`/admin/plan-billing`) — current tier card
   with plan badges, the tiered feature matrix (per-tier availability from the
   registry via `GET /auth/plan/`), and an upgrade/downgrade CTA for school

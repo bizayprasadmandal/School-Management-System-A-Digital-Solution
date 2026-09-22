@@ -13,6 +13,7 @@ import { api } from "../../api/client";
 import { Button, SkeletonCard, SkeletonStatCard } from "../../components/common";
 import { useAuthStore } from "../../store/authStore";
 import { useTitle } from "../../hooks";
+import { npr } from "../../utils";
 import toast from "react-hot-toast";
 
 interface MatrixRow {
@@ -23,6 +24,12 @@ interface MatrixRow {
   premium: boolean;
 }
 
+interface TierPricing {
+  currency: string;
+  per_student_month: number;
+  per_student_year: number;
+}
+
 interface PlanOverview {
   plan: "basic" | "standard" | "premium";
   is_premium: boolean;
@@ -30,6 +37,7 @@ interface PlanOverview {
   features: string[];
   matrix: MatrixRow[];
   can_manage: boolean;
+  pricing: Record<string, TierPricing>;
 }
 
 const TIER_ORDER: Record<string, number> = { basic: 0, standard: 1, premium: 2 };
@@ -121,6 +129,11 @@ export default function PlanBillingPage() {
   const upgradeTargets = (["basic", "standard", "premium"] as const).filter(
     (t) => TIER_ORDER[t] > TIER_ORDER[plan.plan],
   );
+  const tierPrice = (t: string) => {
+    const p = plan.pricing?.[t];
+    if (!p) return "";
+    return p.per_student_month === 0 ? "Free" : `${npr(p.per_student_month)}/student/mo`;
+  };
 
   return (
     <div className="space-y-5">
@@ -150,7 +163,7 @@ export default function PlanBillingPage() {
             <p className="text-xs text-slate-400 mt-1">
               {plan.features.length} gated feature{plan.features.length === 1 ? "" : "s"} unlocked
             </p>
-          </div>
+          </div>{" "}
           {plan.can_manage && upgradeTargets.length > 0 && (
             <div className="flex items-center gap-2">
               {upgradeTargets.map((t) => (
@@ -163,15 +176,63 @@ export default function PlanBillingPage() {
                   {changing ? (
                     <ArrowPathIcon className="h-4 w-4 animate-spin" aria-hidden />
                   ) : t === "premium" ? (
-                    <>💎 Upgrade to {TIER_META[t].label}</>
+                    <>
+                      💎 Upgrade to {TIER_META[t].label} · {tierPrice(t)}
+                    </>
                   ) : (
-                    <>Switch to {TIER_META[t].label}</>
+                    <>
+                      Switch to {TIER_META[t].label} · {tierPrice(t)}
+                    </>
                   )}
                 </Button>
               ))}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Pricing row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {(["basic", "standard", "premium"] as const).map((t) => {
+          const p = plan.pricing?.[t];
+          const current = t === plan.plan;
+          return (
+            <div
+              key={t}
+              className={`rounded-2xl border p-4 shadow-sm ${
+                current
+                  ? "border-indigo-300 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-900/20"
+                  : "bg-white border-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:shadow-none"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {TIER_META[t].label}
+                </span>
+                {current && (
+                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
+                    current
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                {p && p.per_student_month > 0 ? (
+                  <>
+                    {npr(p.per_student_month)}
+                    <span className="text-xs font-normal text-slate-500"> /student/mo</span>
+                  </>
+                ) : (
+                  "Free"
+                )}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {p && p.per_student_month > 0
+                  ? `${npr(p.per_student_year)}/student billed yearly (2 months free)`
+                  : "No cost"}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Feature matrix */}

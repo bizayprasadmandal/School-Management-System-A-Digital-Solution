@@ -25,6 +25,11 @@ jest.mock("../../api/client", () => ({
           school_name: "Bright Future Academy",
           features: ["finance_overview"],
           can_manage: true,
+          pricing: {
+            basic: { currency: "NPR", per_student_month: 0, per_student_year: 0 },
+            standard: { currency: "NPR", per_student_month: 30, per_student_year: 300 },
+            premium: { currency: "NPR", per_student_month: 60, per_student_year: 600 },
+          },
           matrix: [
             {
               key: "accounting_ledger",
@@ -126,6 +131,21 @@ describe("PlanBillingPage", () => {
     expect(await screen.findByRole("button", { name: /upgrade to premium/i })).toBeInTheDocument();
   });
 
+  it("shows per-tier pricing cards with the current tier highlighted", async () => {
+    renderPage();
+    expect(await screen.findByText("Rs. 30.00")).toBeInTheDocument();
+    expect(screen.getByText("Rs. 60.00")).toBeInTheDocument();
+    expect(screen.getAllByText("Free").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("/student/mo").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("current")).toBeInTheDocument();
+  });
+
+  it("includes the price on the upgrade CTA", async () => {
+    renderPage();
+    const btn = await screen.findByRole("button", { name: /upgrade to premium/i });
+    expect(btn.textContent).toContain("Rs. 60.00");
+  });
+
   it("fires the change-tier call and refreshes plan data on upgrade", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -157,6 +177,11 @@ describe("PlanBillingPage", () => {
                 "live_transport_tracking",
               ],
               can_manage: true,
+              pricing: {
+                basic: { currency: "NPR", per_student_month: 0, per_student_year: 0 },
+                standard: { currency: "NPR", per_student_month: 30, per_student_year: 300 },
+                premium: { currency: "NPR", per_student_month: 60, per_student_year: 600 },
+              },
               matrix: [
                 {
                   key: "accounting_ledger",
@@ -194,6 +219,11 @@ describe("PlanBillingPage", () => {
               school_name: "Bright Future Academy",
               features: ["finance_overview"],
               can_manage: false,
+              pricing: {
+                basic: { currency: "NPR", per_student_month: 0, per_student_year: 0 },
+                standard: { currency: "NPR", per_student_month: 30, per_student_year: 300 },
+                premium: { currency: "NPR", per_student_month: 60, per_student_year: 600 },
+              },
               matrix: [
                 {
                   key: "finance_overview",

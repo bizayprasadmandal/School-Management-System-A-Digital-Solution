@@ -199,6 +199,25 @@ def test_plan_overview_returns_matrix_and_tier():
 
 
 @pytest.mark.django_db
+def test_plan_overview_includes_pricing_for_all_tiers():
+    """The pricing block (per-student rates per tier) advertises upgrades."""
+    from core.plan_features import TIER_PRICING
+
+    user = UserFactory(role="teacher")
+    res = client_as(user).get("/api/v1/auth/plan/")
+
+    assert res.status_code == status.HTTP_200_OK
+    pricing = res.json()["pricing"]
+    assert set(pricing) == {"basic", "standard", "premium"}
+    assert pricing == TIER_PRICING
+    assert pricing["basic"]["per_student_month"] == 0
+    assert pricing["premium"]["per_student_month"] > pricing["standard"]["per_student_month"]
+    # annual = 10x monthly (two months free)
+    for tier in ("standard", "premium"):
+        assert pricing[tier]["per_student_year"] == pricing[tier]["per_student_month"] * 10
+
+
+@pytest.mark.django_db
 def test_plan_overview_admin_sees_manage_flag():
     school = SchoolFactory(subscription_tier="premium")
     user = AdminUserFactory(school=school)
