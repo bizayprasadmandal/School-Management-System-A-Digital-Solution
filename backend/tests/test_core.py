@@ -488,3 +488,33 @@ class TestTenantIsolation:
         client.force_authenticate(user=admin_a)
         response = client.get(student_detail(student_b.id))
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ─── CORS preflight for the tenant-switching header ──────────────────────────
+
+
+class TestTenantHeaderCORS:
+    """The super-admin school switcher sends X-School-ID on every request.
+
+    If that header isn't in CORS_ALLOW_HEADERS the browser's preflight is
+    rejected and *every* API call fails with a CORS policy error once a
+    school is selected. Pin the setting and the preflight response.
+    """
+
+    def test_x_school_id_is_allowed(self):
+        from django.conf import settings
+
+        assert "x-school-id" in settings.CORS_ALLOW_HEADERS
+
+    def test_preflight_allows_x_school_id(self, client):
+        response = client.options(
+            "/api/v1/students/",
+            HTTP_ORIGIN="http://localhost:5173",
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="authorization,x-school-id",
+        )
+
+        assert response.status_code == 200
+        allowed = response.headers.get("Access-Control-Allow-Headers", "")
+        assert "x-school-id" in allowed.lower()
+        assert response.headers.get("Access-Control-Allow-Origin") == "http://localhost:5173"

@@ -8,6 +8,13 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **CORS fix for the school switcher** — `X-School-ID` (sent on every request
+  while a super admin operates in a school context) was missing from
+  `CORS_ALLOW_HEADERS`, so the browser's preflight failed and _every_ API call
+  was blocked with a CORS policy error once a school was selected. The header
+  is now explicitly allowed; preflight verified live (200 +
+  `Access-Control-Allow-Headers: … x-school-id`), pinned by 2 tests.
+
 - **WebSocket handshake fix** — the browser aborts the connection when the
   client offers `Sec-WebSocket-Protocol: Bearer, <token>` but the server
   echoes none back (RFC 6455). `JWTAuthMiddleware` now records the offered

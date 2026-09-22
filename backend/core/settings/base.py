@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 
 env = environ.Env(DEBUG=(bool, False))
 
@@ -296,6 +297,12 @@ CORS_ALLOWED_ORIGINS = env.list(
     ],
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# Custom request headers must be explicitly allowed or the browser's CORS
+# preflight (OPTIONS + Access-Control-Request-Headers) fails and blocks the
+# actual request. `x-school-id` is sent by the frontend whenever a super
+# admin operates inside a school context (the school switcher).
+CORS_ALLOW_HEADERS = (*default_headers, "x-school-id")
 
 # ─── Email ────────────────────────────────────────────────────────────────────
 
