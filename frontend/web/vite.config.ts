@@ -11,6 +11,14 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
+    // Docker Desktop on Windows/macOS does not propagate inotify events across
+    // bind-mounted volumes, so Vite never sees file edits and keeps serving a
+    // stale module graph (edits appear "not applied" until a container
+    // restart). Polling makes HMR and on-demand transforms pick up changes.
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       "/api": {
         target: "http://localhost:8000",

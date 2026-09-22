@@ -8,6 +8,16 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Platform vs school dashboard routing** — `/admin` now renders the school
+  dashboard whenever a super admin has a school selected, and the platform
+  dashboard only in platform mode (previously it keyed off role alone, so a
+  switched school still showed cross-school platform data).
+
+- **Vite dev-server file watching** — `server.watch.usePolling` is enabled so
+  edits made on the host are picked up inside the container. Without it,
+  Docker's bind mount swallowed inotify events and the dev server kept serving
+  a stale module graph (edits appeared "not applied" until a restart).
+
 - **CORS fix for the school switcher** — `X-School-ID` (sent on every request
   while a super admin operates in a school context) was missing from
   `CORS_ALLOW_HEADERS`, so the browser's preflight failed and _every_ API call
