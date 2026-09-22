@@ -8,6 +8,13 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **In-app Plan & Billing page** (`/admin/plan-billing`) — current tier card
+  with plan badges, the tiered feature matrix (per-tier availability from the
+  registry via `GET /auth/plan/`), and an upgrade/downgrade CTA for school
+  admins through `POST /auth/plan/change-tier/` (validated, idempotent-reject,
+  audit-logged). Non-admins see a read-only view. 5 backend + 6 frontend tests;
+  verified live in both directions.
+
 - **Plan gating UI** — plan badges in the admin header (from `/auth/me/`
   `plan_features`), `PlanGate`/`UpgradePrompt` components, and locking on all
   gated surfaces: ledger summary/trend, at-risk/funnel/forecast analytics,

@@ -15,6 +15,7 @@ surfaces:
 
 import pytest
 from core.plan_features import ENDPOINT_FEATURE_MAP, PREMIUM_FEATURES, plan_features_for_tier, school_has_feature
+from rest_framework import status
 from rest_framework.test import APIClient
 from tests.factories import AdminUserFactory, SchoolFactory, UserFactory
 
@@ -169,3 +170,84 @@ def test_super_admin_bypasses_gating_for_any_tier():
         assert (
             resp.status_code != 403 or "upgrade" not in str(resp.data.get("detail", "")).lower()
         ), f"super admin should not be plan-blocked at {endpoint}"
+
+
+# ─── Plan & billing page API ─────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_plan_overview_returns_matrix_and_tier():
+    """Any school member can see the current plan and the full feature matrix."""
+    school = SchoolFactory(subscription_tier="standard")
+    user = UserFactory(school=school, role="teacher")
+
+    res = client_as(user).get("/api/v1/auth/plan/")
+
+    assert res.status_code == status.HTTP_200_OK
+    body = res.json()
+    assert body["plan"] == "standard"
+    assert body["school_name"] == school.name
+    assert body["features"] == ["finance_overview"]
+    assert body["can_manage"] is False
+    keys = {row["key"]: row for row in body["matrix"]}
+    assert set(keys) == {f.key for f in PREMIUM_FEATURES}
+    # matrix shape: premium unlocks all, basic none, standard only shared keys
+    for row in keys.values():
+        assert row["premium"] is True
+        assert row["basic"] is False
+        assert row["standard"] == (row["key"] == "finance_overview")
+
+
+@pytest.mark.django_db
+def test_plan_overview_admin_sees_manage_flag():
+    school = SchoolFactory(subscription_tier="premium")
+    user = AdminUserFactory(school=school)
+
+    res = client_as(user).get("/api/v1/auth/plan/")
+
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["can_manage"] is True
+    assert res.json()["is_premium"] is True
+
+
+@pytest.mark.django_db
+def test_change_tier_upgrade_and_downgrade():
+    school = SchoolFactory(subscription_tier="standard")
+    user = AdminUserFactory(school=school)
+    client = client_as(user)
+
+    res = client.post("/api/v1/auth/plan/change-tier/", {"tier": "premium"}, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["plan"] == "premium"
+    assert set(res.json()["plan_features"]["features"]) == {f.key for f in PREMIUM_FEATURES}
+    school.refresh_from_db()
+    assert school.subscription_tier == "premium"
+
+    res = client.post("/api/v1/auth/plan/change-tier/", {"tier": "basic"}, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    school.refresh_from_db()
+    assert school.subscription_tier == "basic"
+
+
+@pytest.mark.django_db
+def test_change_tier_validates_input_and_idempotence():
+    school = SchoolFactory(subscription_tier="standard")
+    client = client_as(AdminUserFactory(school=school))
+
+    res = client.post("/api/v1/auth/plan/change-tier/", {"tier": "ultra"}, format="json")
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+    res = client.post("/api/v1/auth/plan/change-tier/", {"tier": "standard"}, format="json")
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_change_tier_rejects_non_admins():
+    school = SchoolFactory(subscription_tier="standard")
+    teacher = UserFactory(school=school, role="teacher")
+
+    res = client_as(teacher).post("/api/v1/auth/plan/change-tier/", {"tier": "premium"}, format="json")
+
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+    school.refresh_from_db()
+    assert school.subscription_tier == "standard"

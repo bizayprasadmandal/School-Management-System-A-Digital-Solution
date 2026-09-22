@@ -46,6 +46,7 @@ const AcademicsPage = React.lazy(() => import("./pages/admin/AcademicsPage"));
 const AnnouncementsPage = React.lazy(() => import("./pages/admin/AnnouncementsPage"));
 const FeesPage = React.lazy(() => import("./pages/admin/FeesPage"));
 const SettingsPage = React.lazy(() => import("./pages/admin/SettingsPage"));
+const PlanBillingPage = React.lazy(() => import("./pages/admin/PlanBillingPage"));
 const ZoomIntegrationPage = React.lazy(() => import("./pages/admin/ZoomIntegrationPage"));
 const ReportsPage = React.lazy(() => import("./pages/admin/ReportsPage"));
 const EventsCalendarPage = React.lazy(() => import("./pages/admin/EventsCalendarPage"));
@@ -340,6 +341,7 @@ function App() {
                   <Route path="platform/schools" element={<PlatformSchoolsPage />} />
                   <Route path="platform/schools/:id" element={<PlatformSchoolDetail />} />
                   <Route path="settings" element={<SettingsPage />} />
+                  <Route path="plan-billing" element={<PlanBillingPage />} />
                 </Route>
               </Route>
 

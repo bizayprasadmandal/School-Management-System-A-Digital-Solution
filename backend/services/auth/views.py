@@ -859,6 +859,94 @@ def me(request):
     return Response(data)
 
 
+class PlanView(APIView):
+    """Plan & billing overview for the authenticated user's school.
+
+    Returns the current tier, the full feature matrix (every gated
+    capability with per-tier availability), and an admin-only change-tier
+    hint. Available to every school member — the matrix doubles as the
+    in-app upgrade advertisement.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.plan_features import PREMIUM_FEATURES, STANDARD_FEATURES, plan_features_for_tier
+
+        school = getattr(request.user, "school", None)
+        tier = getattr(school, "subscription_tier", "basic") if school else "basic"
+
+        matrix = [
+            {
+                "key": feature.key,
+                "label": feature.label,
+                "basic": False,
+                "standard": feature.key in STANDARD_FEATURES,
+                "premium": True,
+            }
+            for feature in PREMIUM_FEATURES
+        ]
+
+        return Response(
+            {
+                "plan": tier,
+                "is_premium": tier == "premium",
+                "school_name": school.name if school else None,
+                "features": plan_features_for_tier(tier)["features"],
+                "matrix": matrix,
+                "can_manage": request.user.role in ("school_admin", "super_admin"),
+            }
+        )
+
+
+class PlanChangeTierView(APIView):
+    """Change the authenticated admin's school subscription tier.
+
+    Stand-in for real billing: school/super admins may move their school
+    between basic, standard, and premium directly (demo environments use
+    this as the upgrade CTA target). Other roles get 403.
+    """
+
+    permission_classes = [IsAuthenticated, IsSchoolAdmin]
+
+    def post(self, request):
+        from core.plan_features import plan_features_for_tier
+
+        school = request.user.school
+        tier = str(request.data.get("tier", "")).strip().lower()
+        if tier not in ("basic", "standard", "premium"):
+            return Response(
+                {"detail": "tier must be one of: basic, standard, premium."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if school.subscription_tier == tier:
+            return Response(
+                {"detail": f"School is already on the {tier} plan."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        previous = school.subscription_tier
+        school.subscription_tier = tier
+        school.save(update_fields=["subscription_tier", "updated_at"])
+
+        AuditLog.objects.create(
+            school=school,
+            user=request.user,
+            action="plan_tier_change",
+            resource_type="school",
+            resource_id=str(school.id),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        return Response(
+            {
+                "detail": f"Plan changed from {previous} to {tier}.",
+                "plan": tier,
+                "plan_features": plan_features_for_tier(tier),
+            }
+        )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Super Admin — Platform Management
 # ═══════════════════════════════════════════════════════════════════════════════

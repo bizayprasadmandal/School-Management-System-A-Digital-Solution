@@ -38,6 +38,7 @@ import {
   GlobeAltIcon,
   DocumentTextIcon,
   ArrowsRightLeftIcon,
+  CreditCardIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "../common/CommandPalette";
 import SchoolSwitcher from "../common/SchoolSwitcher";
@@ -229,6 +230,7 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     ],
   },
   { label: "Settings", to: "/admin/settings", icon: Cog6ToothIcon },
+  { label: "Plan & Billing", to: "/admin/plan-billing", icon: CreditCardIcon },
 ];
 
 const PLATFORM_SECTION: SidebarNavSection = {
