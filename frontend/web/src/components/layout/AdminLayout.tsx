@@ -50,6 +50,8 @@ import EmailVerificationBanner from "../../components/common/EmailVerificationBa
 import BackupCodeWarningBanner from "../../components/common/BackupCodeWarningBanner";
 import LanguageSwitcher from "../../components/common/LanguageSwitcher";
 import UserMenuDropdown from "../../components/common/UserMenuDropdown";
+import { PlanBadge } from "../../components/common/PlanGate";
+import { usePlanSync } from "../../api/hooks";
 import clsx from "clsx";
 import NotificationPanel from "./NotificationPanel";
 import SidebarNav, { flattenSections, type SidebarNavSection } from "./SidebarNav";
@@ -252,6 +254,7 @@ export default function AdminLayout() {
   const isSuperAdmin = user?.role === "super_admin";
   const activeSchool = useSchoolContextStore((s) => s.activeSchool);
   const activeSchoolName = activeSchool?.name || user?.school?.name;
+  usePlanSync(); // sync plan_features from /auth/me/ into the auth store
 
   const navSections = useMemo(
     () => [...NAV_SECTIONS, ...(isSuperAdmin ? [PLATFORM_SECTION] : [])],
@@ -432,6 +435,9 @@ export default function AdminLayout() {
                 </span>
               </button>
             )}
+
+            {/* Plan badge */}
+            <PlanBadge />
 
             {/* Notifications bell */}
             <NotificationBell onClick={() => setNotifOpen((v) => !v)} />

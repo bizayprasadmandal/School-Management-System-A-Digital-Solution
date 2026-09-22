@@ -4,6 +4,7 @@
  * 37 entity tabs (config-driven via EntitySection). Vehicles, drivers, routes, stops, tracking, GPS, geofences, fees, incidents, maintenance and analytics.
  */
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   KeyboardShortcutHelp,
   useShortcutHelp,
@@ -58,6 +59,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     icon: TruckIcon,
     label: "Bus Tracking",
     endpoint: "bus-tracking",
+    premiumFeature: "live_transport_tracking",
     titleField: "vehicle",
     subtitleField: "status",
     fields: [
@@ -264,6 +266,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     icon: TruckIcon,
     label: "Geofence Alert",
     endpoint: "geofence-alert",
+    premiumFeature: "live_transport_tracking",
     titleField: "vehicle",
     subtitleField: "status",
     fields: [
@@ -301,6 +304,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     icon: TruckIcon,
     label: "Geofence Zone",
     endpoint: "geofence-zone",
+    premiumFeature: "live_transport_tracking",
     titleField: "name",
     fields: [
       { key: "name", label: "Name" },
@@ -665,6 +669,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     icon: TruckIcon,
     label: "Stop E T A",
     endpoint: "stop-e-t-a",
+    premiumFeature: "live_transport_tracking",
     titleField: "tracking",
     fields: [
       { key: "tracking", label: "Tracking" },
@@ -1259,7 +1264,16 @@ const TABS = Object.entries(ENTITY_CONFIGS).map(([key, cfg]) => ({
 export default function TransportationCenterPage() {
   useTitle("Transportation Center");
   useShortcutHelp();
-  const [activeTab, setActiveTab] = useState(TABS[0]?.key ?? "");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTabState] = useState(
+    initialTab && ENTITY_CONFIGS[initialTab] ? initialTab : TABS[0]?.key ?? "",
+  );
+  // Keep ?tab= in the URL so center-page deep links work (and survive reloads).
+  const setActiveTab = (key: string) => {
+    setActiveTabState(key);
+    setSearchParams({ tab: key }, { replace: true });
+  };
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"pagination" | "infinite">("pagination");

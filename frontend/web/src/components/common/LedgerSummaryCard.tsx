@@ -10,6 +10,8 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { useFeatureLocked } from "../../store/authStore";
+import { FeatureLockNotice } from "./PlanGate";
 
 export interface LedgerStream {
   stream: string;
@@ -180,6 +182,9 @@ export default function LedgerSummaryCard({
 }: {
   onDrillDown?: (stream: string) => void;
 }) {
+  // Premium gate (`accounting_ledger`): fail-open until plan_features loads,
+  // then the backend's own 403 stays the hard enforcement.
+  const ledgerLocked = useFeatureLocked("accounting_ledger");
   const [range, setRange] = useState(6);
   const { data, isLoading } = useQuery({
     queryKey: ["ledger-monthly-summary"],
@@ -231,6 +236,10 @@ export default function LedgerSummaryCard({
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (ledgerLocked) {
+    return <FeatureLockNotice featureKey="accounting_ledger" />;
+  }
 
   if (isLoading) {
     return (

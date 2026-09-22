@@ -12,6 +12,8 @@ import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { api } from "../../api/client";
 import { useBulkSelect } from "../../hooks/useBulkSelect";
+import { useFeatureLocked } from "../../store/authStore";
+import { FeatureLockNotice } from "./PlanGate";
 import { InfiniteScroll } from "./InfiniteScroll";
 import { Modal } from "./index";
 import { Button } from "./index";
@@ -66,6 +68,9 @@ export interface EntityConfig {
   actions?: EntityAction[];
   readOnly?: boolean;
   searchKeys?: string[];
+  /** Premium feature key (core/plan_features.py) — when the caller's plan
+   * lacks it, the section renders an upgrade notice instead of the data. */
+  premiumFeature?: string;
 }
 
 export const BADGE_COLORS: Record<string, string> = {
@@ -279,6 +284,7 @@ export function EntitySection({
 }) {
   const qc = useQueryClient();
   const queryKey = [basePath, cfg.endpoint];
+  const planLocked = useFeatureLocked(cfg.premiumFeature); // undefined → never locked
   const { data: rows = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
@@ -287,6 +293,7 @@ export function EntitySection({
       });
       return res.results ?? [];
     },
+    enabled: !planLocked, // don't even fetch gated endpoints when locked
   });
 
   const searchKeys = useMemo(
@@ -417,6 +424,10 @@ export function EntitySection({
     registerActions?.({ add: cfg.readOnly ? undefined : openCreate, export: handleExport });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg, filtered]);
+
+  if (planLocked) {
+    return <FeatureLockNotice featureKey={cfg.premiumFeature as string} />;
+  }
 
   if (isLoading) return <CardSkeleton />;
 

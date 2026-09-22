@@ -8,6 +8,13 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Plan gating UI** — plan badges in the admin header (from `/auth/me/`
+  `plan_features`), `PlanGate`/`UpgradePrompt` components, and locking on all
+  gated surfaces: ledger summary/trend, at-risk/funnel/forecast analytics,
+  finance-ops card, and live transport tracking tabs. Center pages now honor
+  `?tab=` deep links (previously silently ignored). Fail-open until plan data
+  loads. 9 jest tests; verified live in both premium and standard states.
+
 - **Subscription plan gating** (`core/plan_features.py` + `IsPremiumFeature`):
   `School.subscription_tier` (basic/standard/premium) now enforces tiered
   features — premium unlocks the double-entry ledger depth (summary/trend),

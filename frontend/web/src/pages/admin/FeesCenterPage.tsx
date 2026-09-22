@@ -4,6 +4,7 @@
  * 39 entity tabs (config-driven via EntitySection). Invoices, payments, budgets, expenses, refunds, reconciliations, templates and audits.
  */
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import LedgerSummaryCard from "../../components/common/LedgerSummaryCard";
 import {
   KeyboardShortcutHelp,
@@ -1292,7 +1293,17 @@ const TABS = Object.entries(ENTITY_CONFIGS).map(([key, cfg]) => ({
 export default function FeesCenterPage() {
   useTitle("Finance Center");
   useShortcutHelp();
-  const [activeTab, setActiveTab] = useState(TABS[0]?.key ?? "");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTabState] = useState(
+    initialTab && ENTITY_CONFIGS[initialTab] ? initialTab : TABS[0]?.key ?? "",
+  );
+  // Keep ?tab= in the URL so center-page deep links work (e.g. the premium
+  // ledger tab linked from the dashboard / drill-downs) and survive reloads.
+  const setActiveTab = (key: string) => {
+    setActiveTabState(key);
+    setSearchParams({ tab: key }, { replace: true });
+  };
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"pagination" | "infinite">("pagination");

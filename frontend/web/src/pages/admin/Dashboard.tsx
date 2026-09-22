@@ -42,6 +42,8 @@ import {
 } from "../../api/hooks";
 import { SkeletonDashboard, ErrorState, ErrorBoundary } from "../../components/common";
 import LedgerSummaryCard, { Sparkline } from "../../components/common/LedgerSummaryCard";
+import { FeatureLockNotice } from "../../components/common/PlanGate";
+import { useFeatureLocked } from "../../store/authStore";
 import dayjs from "dayjs";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -166,6 +168,10 @@ export default function AdminDashboard() {
   const { data: atRisk, isError: atRiskError } = useAtRiskStudents();
   const { data: funnel, isError: funnelError } = useEnrollmentFunnel();
   const { data: forecast, isError: forecastError } = useFeeForecast();
+
+  // Premium gates — fail-open until plan_features loads (backend 403 is the
+  // hard enforcement; these only swap in upgrade prompts once plan is known).
+  const analyticsLocked = useFeatureLocked("advanced_analytics");
   const atRiskStudents = atRisk?.students?.slice(0, 5) ?? [];
 
   const { data: financeOps } = useQuery<FinanceOps>({
@@ -583,155 +589,159 @@ export default function AdminDashboard() {
 
       {/* At-risk students + enrollment funnel */}
       <ErrorBoundary>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* At-risk students */}
-          <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <UserGroupIcon className="h-5 w-5 text-amber-500" />
-                At-Risk Students
-              </h2>
-              {!atRiskError && atRisk && atRisk.count > 0 && (
-                <span className="rounded-full bg-red-50 dark:bg-red-900/30 px-2.5 py-1 text-xs font-semibold text-red-600 dark:text-red-300">
-                  {atRisk.count} flagged
-                </span>
-              )}
-            </div>
-            {atRiskError ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
-                Risk analytics unavailable
-              </p>
-            ) : atRiskStudents.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
-                🎉 No students currently flagged
-              </p>
-            ) : (
-              <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-                {atRiskStudents.map((s) => (
-                  <li key={s.student_id} className="flex items-center gap-3 py-2.5">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 text-sm font-semibold flex-shrink-0">
-                      {s.student_name.charAt(0)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                        {s.student_name}
-                      </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                        {s.classroom ?? "No classroom"} · Adm. {s.admission_number}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {s.reasons.map((r) => (
-                        <span
-                          key={r}
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            r === "low_academics"
-                              ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                              : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300"
-                          }`}
-                        >
-                          {r === "low_academics" ? "Academics" : "Attendance"}
-                        </span>
-                      ))}
-                      {s.attendance_pct !== null && (
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 w-12 text-right">
-                          {s.attendance_pct}%
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Enrollment funnel */}
-          <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <InboxArrowDownIcon className="h-5 w-5 text-indigo-500" />
-                Enrollment Funnel
-              </h2>
-              {!funnelError && funnel && funnel.total_applications > 0 && (
-                <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
-                  {funnel.total_applications} apps
-                </span>
-              )}
-            </div>
-            {funnelError ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
-                Funnel data unavailable
-              </p>
-            ) : !funnel?.funnel || funnel.funnel.every((f) => f.count === 0) ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
-                No applications yet
-              </p>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={210}>
-                  <BarChart
-                    data={funnel.funnel}
-                    layout="vertical"
-                    margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      type="category"
-                      dataKey="stage"
-                      width={88}
-                      tick={{ fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v: string) => v.replace(/_/g, " ")}
-                    />
-                    <Tooltip formatter={(v: number) => [`${v} applications`]} />
-                    <Bar
-                      dataKey="count"
-                      name="Applications"
-                      radius={[0, 4, 4, 0]}
-                      label={{ position: "right", fontSize: 11, fill: "#94a3b8" }}
-                    >
-                      {funnel.funnel.map((entry) => (
-                        <Cell
-                          key={entry.stage}
-                          fill={
-                            entry.stage === "rejected"
-                              ? "#ef4444"
-                              : entry.stage === "enrolled" || entry.stage === "accepted"
-                                ? "#22c55e"
-                                : entry.stage === "waitlisted"
-                                  ? "#fbbf24"
-                                  : "#6366f1"
-                          }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                {funnel?.conversion && (
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3 text-center">
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                        Submitted → Accepted
-                      </p>
-                      <p className="mt-0.5 text-lg font-bold text-slate-800 dark:text-white">
-                        {funnel.conversion.submitted_to_accepted}%
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3 text-center">
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                        Accepted → Enrolled
-                      </p>
-                      <p className="mt-0.5 text-lg font-bold text-slate-800 dark:text-white">
-                        {funnel.conversion.accepted_to_enrolled}%
-                      </p>
-                    </div>
-                  </div>
+        {analyticsLocked ? (
+          <FeatureLockNotice featureKey="advanced_analytics" />
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* At-risk students */}
+            <div className="lg:col-span-2 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <UserGroupIcon className="h-5 w-5 text-amber-500" />
+                  At-Risk Students
+                </h2>
+                {!atRiskError && atRisk && atRisk.count > 0 && (
+                  <span className="rounded-full bg-red-50 dark:bg-red-900/30 px-2.5 py-1 text-xs font-semibold text-red-600 dark:text-red-300">
+                    {atRisk.count} flagged
+                  </span>
                 )}
-              </>
-            )}
+              </div>
+              {atRiskError ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
+                  Risk analytics unavailable
+                </p>
+              ) : atRiskStudents.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
+                  🎉 No students currently flagged
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {atRiskStudents.map((s) => (
+                    <li key={s.student_id} className="flex items-center gap-3 py-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 text-sm font-semibold flex-shrink-0">
+                        {s.student_name.charAt(0)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {s.student_name}
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                          {s.classroom ?? "No classroom"} · Adm. {s.admission_number}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {s.reasons.map((r) => (
+                          <span
+                            key={r}
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              r === "low_academics"
+                                ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300"
+                            }`}
+                          >
+                            {r === "low_academics" ? "Academics" : "Attendance"}
+                          </span>
+                        ))}
+                        {s.attendance_pct !== null && (
+                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 w-12 text-right">
+                            {s.attendance_pct}%
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Enrollment funnel */}
+            <div className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <InboxArrowDownIcon className="h-5 w-5 text-indigo-500" />
+                  Enrollment Funnel
+                </h2>
+                {!funnelError && funnel && funnel.total_applications > 0 && (
+                  <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+                    {funnel.total_applications} apps
+                  </span>
+                )}
+              </div>
+              {funnelError ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
+                  Funnel data unavailable
+                </p>
+              ) : !funnel?.funnel || funnel.funnel.every((f) => f.count === 0) ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
+                  No applications yet
+                </p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={210}>
+                    <BarChart
+                      data={funnel.funnel}
+                      layout="vertical"
+                      margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
+                    >
+                      <XAxis type="number" hide />
+                      <YAxis
+                        type="category"
+                        dataKey="stage"
+                        width={88}
+                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v: string) => v.replace(/_/g, " ")}
+                      />
+                      <Tooltip formatter={(v: number) => [`${v} applications`]} />
+                      <Bar
+                        dataKey="count"
+                        name="Applications"
+                        radius={[0, 4, 4, 0]}
+                        label={{ position: "right", fontSize: 11, fill: "#94a3b8" }}
+                      >
+                        {funnel.funnel.map((entry) => (
+                          <Cell
+                            key={entry.stage}
+                            fill={
+                              entry.stage === "rejected"
+                                ? "#ef4444"
+                                : entry.stage === "enrolled" || entry.stage === "accepted"
+                                  ? "#22c55e"
+                                  : entry.stage === "waitlisted"
+                                    ? "#fbbf24"
+                                    : "#6366f1"
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {funnel?.conversion && (
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3 text-center">
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          Submitted → Accepted
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold text-slate-800 dark:text-white">
+                          {funnel.conversion.submitted_to_accepted}%
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 p-3 text-center">
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          Accepted → Enrolled
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold text-slate-800 dark:text-white">
+                          {funnel.conversion.accepted_to_enrolled}%
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </ErrorBoundary>
 
       {/* Outstanding fees alert */}

@@ -2,8 +2,10 @@
  * TanStack Query hooks — typed data fetching for all SMS modules
  */
 
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "./client";
+import { useAuthStore, type PlanFeatures } from "../store/authStore";
 import type {
   PaginatedResponse,
   CounselingAppointment,
@@ -938,6 +940,26 @@ export function useRejectGradeChangeProposal() {
 }
 
 // ─── User profile ─────────────────────────────────────────────────────────────
+
+/**
+ * Fetches /auth/me/ once per session and syncs the school's plan + feature
+ * entitlements into the auth store (PlanFeatures + useHasFeature live there).
+ */
+export function usePlanSync() {
+  const setPlanFeatures = useAuthStore((s) => s.setPlanFeatures);
+  const accessToken = useAuthStore((s) => s.tokens?.access);
+  useEffect(() => {
+    if (!accessToken) return;
+    api
+      .get<{ plan_features?: PlanFeatures }>("/auth/me/")
+      .then((me) => {
+        if (me.plan_features) setPlanFeatures(me.plan_features);
+      })
+      .catch(() => {
+        /* non-fatal: UI falls back to badge-less rendering */
+      });
+  }, [accessToken, setPlanFeatures]);
+}
 
 export function useProfile() {
   return useQuery({
