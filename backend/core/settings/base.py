@@ -209,7 +209,14 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "50/hour",
-        "user": "500/hour",
+        # Authenticated limit is PER USER. The admin SPA fires 10-25 requests per
+        # page view (list + counts + lookups) on top of background polling
+        # (unread-count every 30s, notifications every 3 min), so a normal
+        # browsing session burns >1k requests/hour. The old 500/hour started
+        # returning 429 to real users mid-session, which the UI surfaces as
+        # empty pages / "failed" endpoints. Kept env-tunable so a deployment can
+        # tighten it (it is still a runaway-loop guard, ~1.7 req/s sustained).
+        "user": env("USER_THROTTLE_RATE", default="6000/hour"),
         # Anon login limit — raised in e2e environments via AUTH_LOGIN_THROTTLE_RATE
         # so suites (many sequential logins from one IP) aren't throttled mid-run.
         "auth_login": env("AUTH_LOGIN_THROTTLE_RATE", default="10/minute"),
