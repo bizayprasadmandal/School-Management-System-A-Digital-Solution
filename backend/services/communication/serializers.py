@@ -383,7 +383,8 @@ class ConferenceParticipantSerializer(serializers.ModelSerializer):
             "joined_at",
             "left_at",
             "duration_minutes",
-            "invited_at" "conference_title",
+            "invited_at",
+            "conference_title",
             "user_name",
         ]
         read_only_fields = ["id"]
@@ -508,7 +509,8 @@ class ReadReceiptSerializer(serializers.ModelSerializer):
             "id",
             "message",
             "user",
-            "read_at" "user_name",
+            "read_at",
+            "user_name",
         ]
         read_only_fields = ["id"]
 
@@ -525,7 +527,8 @@ class TypingIndicatorSerializer(serializers.ModelSerializer):
             "chat_type",
             "chat_id",
             "started_at",
-            "expires_at" "user_name",
+            "expires_at",
+            "user_name",
         ]
         read_only_fields = ["id"]
 
@@ -541,7 +544,8 @@ class MessageReactionSerializer(serializers.ModelSerializer):
             "message",
             "user",
             "emoji",
-            "created_at" "user_name",
+            "created_at",
+            "user_name",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -731,7 +735,8 @@ class PollVoteSerializer(serializers.ModelSerializer):
             "parent",
             "staff",
             "selected_options",
-            "voted_at" "poll_title",
+            "voted_at",
+            "poll_title",
             "student_name",
             "parent_name",
             "staff_name",

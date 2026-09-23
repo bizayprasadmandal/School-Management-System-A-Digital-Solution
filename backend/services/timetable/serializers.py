@@ -604,7 +604,8 @@ class ClassGroupEnrollmentSerializer(serializers.ModelSerializer):
             "student",
             "enrolled_date",
             "is_active",
-            "created_at" "class_group_label",
+            "created_at",
+            "class_group_label",
             "student_name",
         ]
         read_only_fields = ["id", "created_at"]
@@ -722,7 +723,8 @@ class SeatingArrangementSerializer(serializers.ModelSerializer):
             "seat_number",
             "row",
             "column",
-            "created_at" "student_name",
+            "created_at",
+            "student_name",
         ]
         read_only_fields = ["id", "created_at"]
 

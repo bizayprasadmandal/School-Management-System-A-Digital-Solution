@@ -389,8 +389,16 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         ]
 
         # Class-wise comparison (today)
+        # NOTE: Grade has no `academic_year` FK — the academic-year link lives on
+        # Enrollment, so scope classrooms through their active enrollments
+        # (`grade__academic_year__is_current` raised FieldError -> HTTP 500 and
+        # the Attendance dashboard rendered nothing).
         class_comparison = []
-        classrooms = Classroom.objects.filter(school=school, grade__academic_year__is_current=True)
+        classrooms = Classroom.objects.filter(
+            school=school,
+            enrollments__academic_year__is_current=True,
+            enrollments__is_active=True,
+        ).distinct()
         for classroom in classrooms[:20]:  # Limit to 20 classes
             class_records = today_records.filter(classroom=classroom)
             class_total = class_records.count()

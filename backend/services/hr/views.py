@@ -787,10 +787,12 @@ class PerformanceReviewViewSet(viewsets.ModelViewSet):
     search_fields = ["employee__user__first_name", "employee__user__last_name"]
 
     def get_queryset(self):
-        return (
-            PerformanceReview.objects.filter(employee__school=self.request.user.school)
-            .select_related("employee__user", "cycle", "reviewer")
-            .prefetch_related("goals")
+        # NOTE: no `.prefetch_related("goals")` — PerformanceReview has no
+        # `goals` relation (PerformanceGoal hangs off Employee/ReviewCycle), and
+        # an invalid prefetch raises AttributeError -> HTTP 500 for the whole
+        # list endpoint (HR Center's Performance Reviews tab rendered empty).
+        return PerformanceReview.objects.filter(employee__school=self.request.user.school).select_related(
+            "employee__user", "cycle", "reviewer"
         )
 
     def get_permissions(self):
@@ -1126,12 +1128,15 @@ class TrainingProgramViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "description", "instructor"]
 
     def get_queryset(self):
-        from django.db.models import Count
-
+        # ``TrainingProgram.enrollment_count`` is a *property* (it counts the
+        # related rows), so annotating the same name raised
+        # "property 'enrollment_count' has no setter" -> HTTP 500. Prefetch the
+        # enrollments instead: the property then counts from that cache without
+        # an N+1 query per row.
         return (
             TrainingProgram.objects.filter(school=self.request.user.school)
             .select_related("created_by")
-            .annotate(enrollment_count=Count("enrollments"))
+            .prefetch_related("enrollments")
         ).order_by("-start_date")
 
     def get_permissions(self):
@@ -1335,14 +1340,18 @@ class HRDashboardViewSet(viewsets.GenericViewSet):
         """Get or calculate HR dashboard metrics."""
         from django.utils import timezone
 
+        # Latest snapshot for the school, created on first use. `get_or_create`
+        # blew up with MultipleObjectsReturned (HTTP 500) as soon as a school had
+        # more than one row — the model keeps snapshots and has no unique
+        # constraint on `school`, so "the" metrics row must be picked explicitly.
         school = request.user.school
-        metrics, _ = HRDashboardMetrics.objects.get_or_create(
-            school=school,
-            defaults={
-                "total_employees": Employee.objects.filter(school=school).count(),
-                "active_employees": Employee.objects.filter(school=school, status="active").count(),
-            },
-        )
+        metrics = HRDashboardMetrics.objects.filter(school=school).order_by("-calculated_at", "id").first()
+        if metrics is None:
+            metrics = HRDashboardMetrics.objects.create(
+                school=school,
+                total_employees=Employee.objects.filter(school=school).count(),
+                active_employees=Employee.objects.filter(school=school, status="active").count(),
+            )
         # Recalculate key metrics
         metrics.active_employees = Employee.objects.filter(school=school, status="active").count()
         metrics.pending_leave_requests = LeaveRequest.objects.filter(school=school, status="pending").count()

@@ -323,6 +323,17 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'attachment; filename="invoice_{invoice.invoice_number}.pdf"'
         return response
 
+    # NOTE: Student has no `classroom` FK — the student→classroom link is the
+    # Enrollment model — so `inv.student.classroom` raised AttributeError.
+    @staticmethod
+    def _invoice_grade(inv):
+        """Grade label for an invoice, via the student's enrollment for that year."""
+        for enrollment in inv.student.enrollments.all():
+            if enrollment.academic_year_id == inv.academic_year_id and enrollment.classroom_id:
+                grade = enrollment.classroom.grade
+                return grade.name if grade else "—"
+        return "—"
+
     @action(detail=False, methods=["get"], url_path="aging-report")
     def aging_report(self, request):
         """
@@ -332,28 +343,34 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
         Query params:
             academic_year (optional) — filter by academic year ID
         """
-        from django.db.models import DateField, ExpressionWrapper, F
-        from django.db.models.functions import Greatest
+        from django.db.models import DurationField, ExpressionWrapper, F
 
         today = timezone.now().date()
-        qs = FeeInvoice.objects.filter(
-            student__school=request.user.school,
-            status__in=["unpaid", "overdue", "partial"],
-            due_date__lt=today,
-        ).select_related("student__user", "student__classroom__grade")
+        # NOTE: Student has no `classroom` FK (the student→classroom link is the
+        # Enrollment model), so a `student__classroom__grade` select_related
+        # raised FieldError -> HTTP 500 for the whole aging report.
+        qs = (
+            FeeInvoice.objects.filter(
+                student__school=request.user.school,
+                status__in=["unpaid", "overdue", "partial"],
+                due_date__lt=today,
+            )
+            .select_related("student__user")
+            .prefetch_related("student__enrollments__classroom__grade")
+        )
 
         academic_year = request.query_params.get("academic_year")
         if academic_year:
             qs = qs.filter(academic_year_id=academic_year)
 
-        # Annotate days overdue
+        # Days overdue as a duration. (The old form clamped the value with
+        # Greatest(..., 0), which mixed DateField and IntegerField and made
+        # Django raise "Expression contains mixed types" -> HTTP 500. The clamp
+        # was also redundant: the filter above already requires due_date < today.)
         qs = qs.annotate(
-            days_overdue_expr=Greatest(
-                ExpressionWrapper(
-                    today - F("due_date"),
-                    output_field=DateField(),
-                ),
-                0,
+            days_overdue_expr=ExpressionWrapper(
+                today - F("due_date"),
+                output_field=DurationField(),
             )
         )
 
@@ -374,9 +391,7 @@ class FeeInvoiceViewSet(viewsets.ModelViewSet):
                 "id": str(inv.id),
                 "invoice_number": inv.invoice_number,
                 "student_name": student_name,
-                "grade": (
-                    inv.student.classroom.grade.name if inv.student.classroom and inv.student.classroom.grade else "—"
-                ),
+                "grade": self._invoice_grade(inv),
                 "total_amount": float(inv.total_amount),
                 "paid_amount": float(inv.paid_amount),
                 "outstanding_amount": outstanding,
@@ -1224,12 +1239,15 @@ class FeeCollectionDashboardViewSet(viewsets.ModelViewSet):
         )
 
         # Stats by grade
+        # NOTE: traverse the student's enrollment for the year (see above) —
+        # `student__classroom__grade__name` is not a real path.
         by_grade = list(
             FeeInvoice.objects.filter(
                 student__school=school,
                 academic_year=academic_year,
+                student__enrollments__academic_year=academic_year,
             )
-            .values("student__classroom__grade__name")
+            .values("student__enrollments__classroom__grade__name")
             .annotate(
                 total=Sum("total_amount"),
                 collected=Sum("paid_amount"),
@@ -1331,7 +1349,7 @@ class FeeCollectionDashboardViewSet(viewsets.ModelViewSet):
                 ],
                 "by_grade": [
                     {
-                        "grade": g["student__classroom__grade__name"] or "Unknown",
+                        "grade": g["student__enrollments__classroom__grade__name"] or "Unknown",
                         "total": float(g["total"] or 0),
                         "collected": float(g["collected"] or 0),
                         "count": g["count"],
