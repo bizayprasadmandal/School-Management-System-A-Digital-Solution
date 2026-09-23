@@ -144,6 +144,53 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Authenticated request throttle starved the whole admin UI** — `user` was
+  capped at 500 requests/hour, but the SPA fires 10-25 calls per page view plus
+  background polling (unread-count every 30s), so a normal session ran out and
+  _every_ endpoint answered 429 for the rest of the hour (pages rendered empty
+  and looked "disconnected"). Raised to a per-user 6000/hour default, overridable
+  with `USER_THROTTLE_RATE`; documented in `.env.example`.
+
+- **`User` was missing `get_full_name()`** — `AbstractBaseUser` does not provide
+  it (only `AbstractUser` does). ~160 serializer fields use
+  `source="…get_full_name"`, and since DRF silently skips a read-only field whose
+  attribute is missing, every "…name" column (communication 38, timetable 35,
+  attendance 35, cafeteria 27, health 17, library 13, …) rendered **blank**; the
+  6 sites that _called_ it raised `AttributeError` and 500'd their endpoints
+  (free-reduced, online-order, meal-pre-order, meal-subscription). Both
+  `get_full_name()` and `get_short_name()` now exist on the model.
+
+- **Seven serializers declared a field that a botched edit had glued into the
+  previous entry** (`"voted_at" "poll_title",`), so DRF raised
+  `AssertionError: The field … was declared but has not been included in the
+'fields' option` and the endpoint 500'd (communication `poll-vote`,
+  `conference-attendee`, `read-receipt`, `typing-indicator`, `message-reaction`;
+  timetable `class-group-enrollment`, `exam-seating`). Added
+  `scripts/check_serializers.py`, which instantiates all 932 serializer classes
+  so this class of error can't reach an endpoint again (currently 0 problems).
+
+- **Five more endpoints returned 500** and left their pages blank:
+  `hr/hr-dashboard/metrics/` (`get_or_create` blew up once a school had more
+  than one metrics row — the latest snapshot is now selected explicitly),
+  `hr/performance-reviews/` (prefetched a non-existent `goals` relation),
+  `hr/training-programs/` (annotated over a model _property_ of the same name),
+  `attendance/records/dashboard/` (`grade__academic_year__is_current` — `Grade`
+  has no academic-year FK; classrooms are now scoped through their active
+  enrollments), `fees/dashboard/realtime/` and `fees/invoices/aging-report/`
+  (`student__classroom` — the student→classroom link is `Enrollment`; the aging
+  report also built a `Greatest(DateField, 0)` expression Django rejects).
+  Verified with `scripts/sweep_api_endpoints.py`: all **1104 parameterless
+  routes** now answer without a single 5xx.
+
+- **HR Center shipped a dead duplicate tab** — `hr-dashboard` pointed at a list
+  endpoint that does not exist (the viewset only exposes
+  `hr-dashboard/metrics/`), so "H R Dashboard Metrics" always rendered a 404; the
+  real entry (`hr-dashboard-metrics`) is kept.
+
+- **Docker**: the sms redis no longer binds host port 6379 (owned by the
+  bus-ticket-booking stack); it is exposed on **6380** instead — both projects
+  can now run side by side.
+
 - Teacher grade listing now resolves via the real `TeacherAssignment` relation
   (`subject__assignments__teacher` / invigilator) instead of the non-existent
   `exam_schedule__assignment` lookup — the old query raised on every teacher grade
