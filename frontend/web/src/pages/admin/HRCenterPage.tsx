@@ -336,29 +336,10 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: "current_salary", label: "Current Salary" },
     ],
   },
-  "hr-dashboard": {
-    key: "hr-dashboard",
-    icon: UsersIcon,
-    label: "H R Dashboard Metrics",
-    endpoint: "hr-dashboard",
-    titleField: "total_employees",
-    fields: [
-      { key: "total_employees", label: "Total Employees" },
-      { key: "active_employees", label: "Active Employees" },
-      { key: "new_hires_this_month", label: "New Hires This Month" },
-      { key: "separations_this_month", label: "Separations This Month" },
-      { key: "turnover_rate", label: "Turnover Rate" },
-      { key: "average_tenure_months", label: "Average Tenure Months" },
-      { key: "total_payroll_this_month", label: "Total Payroll This Month" },
-      { key: "pending_leave_requests", label: "Pending Leave Requests" },
-      { key: "pending_overtime_requests", label: "Pending Overtime Requests" },
-      { key: "expiring_certifications", label: "Expiring Certifications" },
-      { key: "active_trainings", label: "Active Trainings" },
-      { key: "department_breakdown", label: "Department Breakdown" },
-      { key: "employment_type_breakdown", label: "Employment Type Breakdown" },
-      { key: "calculated_at", label: "Calculated At", type: "date" },
-    ],
-  },
+  // NOTE: a duplicate `hr-dashboard` tab used to live here pointing at
+  // `GET /hr/hr-dashboard/`, which does not exist (that viewset only exposes
+  // `hr-dashboard/metrics/`) — the tab always rendered a 404/empty state.
+  // `hr-dashboard-metrics` below is the real, list-capable endpoint.
   "hr-dashboard-metrics": {
     key: "hr-dashboard-metrics",
     icon: UsersIcon,

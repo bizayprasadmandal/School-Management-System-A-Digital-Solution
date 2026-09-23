@@ -89,3 +89,7 @@ nul
 
 # ── Docker ───────────────────────────────────────────────────────────────
 docker-compose.override.yml
+
+# generated audit dumps
+backend/scripts/url_patterns.json
+backend/scripts/frontend_api_paths.json
