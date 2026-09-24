@@ -32,10 +32,9 @@ django.setup()
 
 from django.apps import apps  # noqa: E402
 from django.db import IntegrityError, transaction  # noqa: E402
-
 from services.auth.models import School  # noqa: E402
 
-MAX_TEACHERS = 8
+MAX_TEACHERS = 100
 MONTHS = 3
 
 
@@ -67,23 +66,14 @@ def main():
     Classroom = apps.get_model("students", "Classroom")
     AY = apps.get_model("students", "AcademicYear")
 
-    ay = AY.objects.filter(school=school, is_current=True).first() or AY.objects.filter(
-        school=school
-    ).first()
+    ay = AY.objects.filter(school=school, is_current=True).first() or AY.objects.filter(school=school).first()
 
     subjects = list(Subject.objects.filter(school=school))
     # Only classrooms that actually have enrolled students — assignments
     # pointing at empty classrooms leave the teacher with a dead roster
-    classrooms = list(
-        Classroom.objects.filter(school=school, enrollments__is_active=True).distinct()
-    )
-    teachers = list(
-        User.objects.filter(role="teacher", school=school, is_active=True)[:MAX_TEACHERS]
-    )
-    print(
-        f"teachers: {len(teachers)} | subjects: {len(subjects)} | "
-        f"classrooms: {len(classrooms)} | ay: {ay}"
-    )
+    classrooms = list(Classroom.objects.filter(school=school, enrollments__is_active=True).distinct())
+    teachers = list(User.objects.filter(role="teacher", school=school, is_active=True)[:MAX_TEACHERS])
+    print(f"teachers: {len(teachers)} | subjects: {len(subjects)} | " f"classrooms: {len(classrooms)} | ay: {ay}")
     if not (teachers and subjects and classrooms and ay):
         print("nothing to do — missing teachers/subjects/classrooms/AY")
         return
@@ -98,9 +88,7 @@ def main():
                 (s, c)
                 for s in subjects
                 for c in classrooms
-                if not TeacherAssignment.objects.filter(
-                    teacher=teacher, subject=s, classroom=c
-                ).exists()
+                if not TeacherAssignment.objects.filter(teacher=teacher, subject=s, classroom=c).exists()
             ],
             min(2, len(subjects) * len(classrooms)),
         )
@@ -225,10 +213,11 @@ def main():
         ConferenceSlot = apps.get_model("conferences", "ConferenceSlot")
         if not ConferenceSlot.objects.filter(teacher=teacher, date=today).exists():
             roster = list(
-                apps.get_model("students", "Student")
-                .objects.filter(school=school, enrollments__classroom__in=[
-                    a.classroom for a in assignments
-                ], enrollments__is_active=True)[:3]
+                apps.get_model("students", "Student").objects.filter(
+                    school=school,
+                    enrollments__classroom__in=[a.classroom for a in assignments],
+                    enrollments__is_active=True,
+                )[:3]
             )
             from datetime import time as dtime
 
@@ -247,9 +236,10 @@ def main():
                 created["slots"] = created.get("slots", 0) + 1
 
         # ── DirectMessages (2 in/out with another staff member) ─────────────
-        if not DirectMessage.objects.filter(sender=teacher).exists() and not DirectMessage.objects.filter(
-            recipient=teacher
-        ).exists():
+        if (
+            not DirectMessage.objects.filter(sender=teacher).exists()
+            and not DirectMessage.objects.filter(recipient=teacher).exists()
+        ):
             partner = next(
                 (t for t in teachers if t.id != teacher.id),
                 User.objects.filter(school=school, role="school_admin").first(),
