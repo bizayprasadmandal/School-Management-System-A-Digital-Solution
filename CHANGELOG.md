@@ -8,6 +8,20 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Teacher-portal audit & fixes** — a data-level browser walk of all 15
+  teacher pages (HTTP status + row counts + rendered text) found 2 pages
+  calling non-existent endpoints (`health-clinic/visits/`,
+  `behavior/behavior-records/`). The Health page now uses the real
+  `/health/visits/` endpoint with a student-picker form (actual NurseVisit
+  fields), and the Behavior page uses `/behavior/points/` with a proper
+  award form (student picker, earned/deducted type, reason).
+- **Teacher workspace seeder** (`scripts/seed_teacher_workspace.py`) — the
+  generic seeder scatters rows without teacher ownership, so real teacher
+  logins showed empty tabs. This rerunnable pass gives up to 8 teachers per
+  school: 2 TeacherAssignments (classrooms filtered to those with enrolled
+  students), 3 LessonPlans + 2 Assessments per assignment, PeriodAttendance
+  for a roster day, an Employee record + 3 Payslips, 2 DirectMessages, and
+  3 conference slots today. Final audit: 15/15 pages render with data.
 - **Student-portal audit & fixes** — a browser walk of all 17 student pages
   (same playbook as the parent audit) found 4 pages calling non-existent
   admin-style endpoints (`behavior-records/`, `daily-menus/`,
