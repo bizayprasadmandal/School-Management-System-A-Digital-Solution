@@ -460,6 +460,13 @@ export function EntitySection({
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-400 dark:border-slate-600">
           <p className="text-sm">No {cfg.label.toLowerCase()} found</p>
+          {!cfg.readOnly && (
+            <div className="mt-3 flex justify-center">
+              <Button size="sm" onClick={openCreate} leftIcon={<PlusIcon className="h-4 w-4" />}>
+                Add {cfg.label}
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

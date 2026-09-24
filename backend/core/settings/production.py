@@ -138,3 +138,10 @@ STRIPE_WEBHOOK_REQUIRE_SIGNATURE = env.bool("STRIPE_WEBHOOK_REQUIRE_SIGNATURE", 
 KHALTI_BASE_URL = env("KHALTI_BASE_URL", default="https://khalti.com")
 ESEWA_BASE_URL = env("ESEWA_BASE_URL", default="https://epay.esewa.com.np")
 ESEWA_STATUS_BASE_URL = env("ESEWA_STATUS_BASE_URL", default="https://esewa.com.np")
+
+# ─── Throttle hardening (production) ─────────────────────────────────────────
+# base.py raises AUTH_LOGIN_THROTTLE_RATE in dev/e2e so test suites and local
+# runs aren't throttled mid-login. Production must never inherit a raised
+# value from the environment by accident: the anon login limit is pinned to
+# the secure default here (it is the brute-force guard).
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["auth_login"] = "10/minute"
