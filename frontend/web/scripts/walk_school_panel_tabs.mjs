@@ -92,7 +92,8 @@ page.on("response", async (r) => {
 });
 page.on("console", (m) => {
   if (m.type() === "error" && !m.text().includes("WebSocket")) {
-    consoleErrors.set(m.text().slice(0, 120), true);
+    const key = `${m.text().slice(0, 120)}  [at ${currentPage || "?"}]`;
+    consoleErrors.set(key, true);
   }
 });
 page.on("pageerror", (e) => consoleErrors.set(`PAGEERROR ${String(e).slice(0, 120)}`, true));
@@ -134,8 +135,10 @@ async function snapshot() {
 }
 
 const results = [];
+let currentPage = "";
 
 for (const path of PAGES) {
+  currentPage = path;
   await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" }).catch(() => {});
   await page.waitForTimeout(2200);
 

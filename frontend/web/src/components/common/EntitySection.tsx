@@ -463,12 +463,12 @@ export function EntitySection({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((row: any) => {
+          {visible.map((row: any, idx: number) => {
             const title = row[cfg.titleField];
             const sub = cfg.subtitleField ? row[cfg.subtitleField] : undefined;
             return (
               <div
-                key={row.id}
+                key={row.id ?? idx}
                 className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
               >
                 <div className="flex items-start justify-between gap-2">

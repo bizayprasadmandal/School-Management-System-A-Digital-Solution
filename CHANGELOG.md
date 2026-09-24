@@ -8,6 +8,16 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **React key warning on the Accounting Entry tab** —
+  `PaymentGatewayConfigSerializer` omitted `"id"` from its field list, so every
+  row rendered with an `undefined` React key (`Check the render method of
+EntitySection`). The serializer now exposes `id` and `EntitySection` falls
+  back to the row index when a payload lacks one. Verified: 45 finance-center
+  tabs walked, 0 key warnings (previously 1 on every visit).
+- The tab-walk script now attributes console errors to the page that produced
+  them (`[at /path]`), and a dedicated probe (`find_key_warning.mjs`) captures
+  React's full component stack for key warnings.
+
 - **`generate_bulk_invoices` crash-loop** — the task passed `created` (a
   reserved `LogRecord` attribute) via `logger.extra=`, raising
   `KeyError: Attempt to overwrite 'created' in LogRecord` and retrying
