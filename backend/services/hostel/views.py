@@ -147,9 +147,13 @@ class HostelAllocationViewSet(viewsets.ModelViewSet):
     filterset_fields = ["room", "student", "status", "is_paid"]
 
     def get_queryset(self):
-        return HostelAllocation.objects.filter(room__hostel__school=self.request.user.school).select_related(
-            "student__user", "room__hostel", "allocated_by"
-        )
+        qs = HostelAllocation.objects.filter(
+            room__hostel__school=self.request.user.school
+        ).select_related("student__user", "room__hostel", "allocated_by")
+        # Students see only their own allocation
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

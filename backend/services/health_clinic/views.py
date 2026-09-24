@@ -109,11 +109,15 @@ class HealthRecordViewSet(viewsets.ModelViewSet):
     filterset_fields = ["blood_type"]
 
     def get_queryset(self):
-        return (
+        qs = (
             HealthRecord.objects.filter(school=self.request.user.school)
             .order_by("-created_at")
             .select_related("student__user")
         )
+        # Students see only their own record, not the whole school's
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
@@ -138,7 +142,13 @@ class NurseVisitViewSet(viewsets.ModelViewSet):
     filterset_fields = ["visit_type", "status", "student"]
 
     def get_queryset(self):
-        return NurseVisit.objects.filter(school=self.request.user.school).select_related("student__user", "treated_by")
+        qs = NurseVisit.objects.filter(school=self.request.user.school).select_related(
+            "student__user", "treated_by"
+        )
+        # Students see only their own visits
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         return [IsAuthenticated(), IsSchoolMember()]
@@ -159,7 +169,13 @@ class ImmunizationViewSet(viewsets.ModelViewSet):
     filterset_fields = ["student", "vaccine_name"]
 
     def get_queryset(self):
-        return Immunization.objects.filter(student__school=self.request.user.school).select_related("student__user")
+        qs = Immunization.objects.filter(student__school=self.request.user.school).select_related(
+            "student__user"
+        )
+        # Students see only their own immunizations
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

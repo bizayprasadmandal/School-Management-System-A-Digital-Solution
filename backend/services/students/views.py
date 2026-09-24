@@ -249,13 +249,27 @@ class StudentViewSet(viewsets.ModelViewSet):
     @extend_schema(summary="Get student's cumulative GPA")
     @action(detail=True, methods=["get"], url_path="cumulative-gpa")
     def cumulative_gpa(self, request, pk=None):
-        """Compute cumulative weighted GPA across all exams in the current academic year."""
+        """Compute cumulative weighted GPA across all exams in the current academic year.
+
+        Returns a zeroed payload (HTTP 200) when the student has no grades
+        in the current academic year — a 404 here reads as "wrong URL" to
+        the SPA and triggers pointless retries; "no grades yet" is data.
+        """
         student = self.get_object()
         from services.gradebook.tasks import compute_cumulative_gpa
 
         result = compute_cumulative_gpa(str(student.id), student.school)
         if result is None:
-            return Response({"detail": "No grades found for current academic year."}, status=404)
+            return Response(
+                {
+                    "cumulative_percentage": 0,
+                    "cumulative_gpa": 0,
+                    "total_exams": 0,
+                    "grade_count": 0,
+                }
+            )
+        # normalize the field name the SPA reads (was exams_count)
+        result["total_exams"] = result.pop("exams_count", 0)
         return Response(result)
 
     @extend_schema(summary="Promote students to next grade")

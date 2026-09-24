@@ -8,6 +8,24 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Student-portal audit & fixes** — a browser walk of all 17 student pages
+  (same playbook as the parent audit) found 4 pages calling non-existent
+  admin-style endpoints (`behavior-records/`, `daily-menus/`,
+  `health-clinic/health-records/`, `hostel/room-assignments/`) with bogus
+  Add/Edit/Delete CRUD that students must never have. The pages are now
+  read-only self-service views over the real endpoints; the cumulative-GPA
+  endpoint returns a zeroed 200 (was 404 → infinite retry noise) and its
+  `exams_count` field was renamed to the `total_exams` the SPA reads.
+- **Student self-scoping (privacy fix)** — the behavior incidents/points,
+  health records/visits/immunizations, cafeteria pre-orders, and hostel
+  allocations viewsets were school-scoped only: any student querying them
+  directly got the whole school's data. They now filter to the caller's own
+  rows when `role == "student"` (admins/staff unaffected; live-verified:
+  student sees 1 row where admin sees 164).
+- **Demo email verification** — 2000 of 2281 seeded users had
+  `email_verified=False`, which leaves them stuck on /login after a
+  successful login (banner only, no redirect). All demo users are now
+  verified.
 - **Parent-portal per-child endpoints** — the parent SPA's module pages
   (health, cafeteria, library, sports, behavior, counseling) called
   `<app>/…/children/` endpoints that did not exist (7 pages with dead API

@@ -112,13 +112,29 @@ class HostelRoomSerializer(serializers.ModelSerializer):
 
 
 class HostelAllocationSerializer(serializers.ModelSerializer):
+    room_number = serializers.CharField(source="room.room_number", read_only=True)
+    hostel_name = serializers.CharField(source="room.hostel.name", read_only=True)
+    floor = serializers.CharField(source="room.floor", read_only=True)
+    room_type = serializers.CharField(source="room.room_type", read_only=True)
+    room_type_display = serializers.CharField(
+        source="room.get_room_type_display", read_only=True
+    )
+    warden_name = serializers.CharField(
+        source="room.hostel.warden.full_name", read_only=True, default=None
+    )
+
     class Meta:
         model = HostelAllocation
         fields = [
             "id",
-            "id",
             "student",
             "room",
+            "room_number",
+            "hostel_name",
+            "floor",
+            "room_type",
+            "room_type_display",
+            "warden_name",
             "status",
             "check_in_date",
             "check_out_date",

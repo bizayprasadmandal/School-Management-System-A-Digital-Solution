@@ -646,7 +646,11 @@ class MealPreOrderViewSet(viewsets.ModelViewSet):
     filterset_fields = ["school"]
 
     def get_queryset(self):
-        return MealPreOrder.objects.filter(school=self.request.user.school)
+        qs = MealPreOrder.objects.filter(school=self.request.user.school)
+        # Students see only their own pre-orders
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:

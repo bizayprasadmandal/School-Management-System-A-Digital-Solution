@@ -156,9 +156,13 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering = ["-occurred_at"]
 
     def get_queryset(self):
-        return Incident.objects.filter(school=self.request.user.school).select_related(
+        qs = Incident.objects.filter(school=self.request.user.school).select_related(
             "student__user", "reported_by", "category"
         )
+        # Students see only incidents about themselves
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create"]:
@@ -245,9 +249,13 @@ class BehaviorPointViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return BehaviorPoint.objects.filter(school=self.request.user.school).select_related(
+        qs = BehaviorPoint.objects.filter(school=self.request.user.school).select_related(
             "student__user", "category", "awarded_by"
         )
+        # Students see only their own points
+        if self.request.user.role == "student":
+            qs = qs.filter(student__user=self.request.user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["create"]:
