@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from core import parent_portal as core_parent_portal  # noqa: E402
+
 from . import views
 
 app_name = "behavior_v1"
@@ -11,7 +13,11 @@ router.register("incidents", views.IncidentViewSet, basename="incident")
 router.register("referrals", views.ReferralViewSet, basename="referral")
 # PBIS Points
 router.register("points", views.BehaviorPointViewSet, basename="behavior-point")
-router.register("point-balances", views.BehaviorPointBalanceViewSet, basename="behavior-point-balance")
+router.register(
+    "point-balances",
+    views.BehaviorPointBalanceViewSet,
+    basename="behavior-point-balance",
+)
 # Consequences
 router.register("consequences", views.BehaviorConsequenceViewSet, basename="behavior-consequence")
 router.register("merits", views.BehaviorMeritViewSet, basename="behavior-merit")
@@ -35,7 +41,11 @@ router.register("streaks", views.BehaviorStreakViewSet, basename="behavior-strea
 router.register("alerts", views.BehaviorAlertViewSet, basename="behavior-alert")
 router.register("appeals", views.BehaviorAppealViewSet, basename="behavior-appeal")
 # Notifications
-router.register("parent-notifications", views.ParentNotificationViewSet, basename="parent-notification")
+router.register(
+    "parent-notifications",
+    views.ParentNotificationViewSet,
+    basename="parent-notification",
+)
 # Analytics
 router.register("analytics", views.BehaviorAnalyticsViewSet, basename="behavior-analytics")
 # Rewards & Redemption
@@ -49,46 +59,101 @@ router.register("leaderboards", views.BehaviorLeaderboardViewSet, basename="beha
 # Report Cards
 router.register("report-cards", views.BehaviorReportCardViewSet, basename="behavior-report-card")
 # Intervention Plans
-router.register("intervention-plans", views.BehaviorInterventionPlanViewSet, basename="behavior-intervention-plan")
+router.register(
+    "intervention-plans",
+    views.BehaviorInterventionPlanViewSet,
+    basename="behavior-intervention-plan",
+)
 # MTSS
 router.register("mtss", views.BehaviorMTSSViewSet, basename="behavior-mtss")
 # SEL
 router.register("sel-checkins", views.SELCheckInViewSet, basename="sel-checkin")
 router.register("sel-responses", views.SELCheckInResponseViewSet, basename="sel-response")
 # Staff Dashboard
-router.register("staff-dashboards", views.BehaviorStaffDashboardViewSet, basename="behavior-staff-dashboard")
+router.register(
+    "staff-dashboards",
+    views.BehaviorStaffDashboardViewSet,
+    basename="behavior-staff-dashboard",
+)
 # Gamification
 router.register("badges", views.BehaviorBadgeViewSet, basename="behavior-badge")
 router.register("badge-awards", views.BehaviorBadgeAwardViewSet, basename="behavior-badge-award")
 # SMS Alerts
 router.register("sms-alerts", views.BehaviorSMSAlertViewSet, basename="behavior-sms-alert")
 # Auto-Escalation
-router.register("auto-escalations", views.BehaviorAutoEscalationViewSet, basename="behavior-auto-escalation")
-router.register("escalation-logs", views.BehaviorEscalationLogViewSet, basename="behavior-escalation-log")
-# Attendance & Academic
-router.register("attendance-links", views.BehaviorAttendanceLinkViewSet, basename="behavior-attendance-link")
 router.register(
-    "academic-correlations", views.BehaviorAcademicCorrelationViewSet, basename="behavior-academic-correlation"
+    "auto-escalations",
+    views.BehaviorAutoEscalationViewSet,
+    basename="behavior-auto-escalation",
+)
+router.register(
+    "escalation-logs",
+    views.BehaviorEscalationLogViewSet,
+    basename="behavior-escalation-log",
+)
+# Attendance & Academic
+router.register(
+    "attendance-links",
+    views.BehaviorAttendanceLinkViewSet,
+    basename="behavior-attendance-link",
+)
+router.register(
+    "academic-correlations",
+    views.BehaviorAcademicCorrelationViewSet,
+    basename="behavior-academic-correlation",
 )
 # Data Visualization
-router.register("data-visualizations", views.BehaviorDataVisualizationViewSet, basename="behavior-data-visualization")
+router.register(
+    "data-visualizations",
+    views.BehaviorDataVisualizationViewSet,
+    basename="behavior-data-visualization",
+)
 # Predictive Analytics
 router.register(
-    "predictive-analytics", views.BehaviorPredictiveAnalyticsViewSet, basename="behavior-predictive-analytics"
+    "predictive-analytics",
+    views.BehaviorPredictiveAnalyticsViewSet,
+    basename="behavior-predictive-analytics",
 )
 # SEL Surveys
 router.register("sel-surveys", views.SELSurveyViewSet, basename="sel-survey")
-router.register("sel-survey-responses", views.SELSurveyResponseViewSet, basename="sel-survey-response")
-# Training
-router.register("training-materials", views.BehaviorTrainingMaterialViewSet, basename="behavior-training-material")
 router.register(
-    "training-completions", views.BehaviorTrainingCompletionViewSet, basename="behavior-training-completion"
+    "sel-survey-responses",
+    views.SELSurveyResponseViewSet,
+    basename="sel-survey-response",
+)
+# Training
+router.register(
+    "training-materials",
+    views.BehaviorTrainingMaterialViewSet,
+    basename="behavior-training-material",
+)
+router.register(
+    "training-completions",
+    views.BehaviorTrainingCompletionViewSet,
+    basename="behavior-training-completion",
 )
 # Policies
-router.register("policy-templates", views.BehaviorPolicyTemplateViewSet, basename="behavior-policy-template")
+router.register(
+    "policy-templates",
+    views.BehaviorPolicyTemplateViewSet,
+    basename="behavior-policy-template",
+)
 # Streak Challenges
-router.register("streak-challenges", views.BehaviorStreakChallengeViewSet, basename="behavior-streak-challenge")
+router.register(
+    "streak-challenges",
+    views.BehaviorStreakChallengeViewSet,
+    basename="behavior-streak-challenge",
+)
 # Parent Portal
-router.register("parent-portals", views.BehaviorParentPortalViewSet, basename="behavior-parent-portal")
+router.register(
+    "parent-portals",
+    views.BehaviorParentPortalViewSet,
+    basename="behavior-parent-portal",
+)
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    # Parent portal: guardian-scoped per-child data
+    path("incidents/children/", core_parent_portal.behavior_incidents_children),
+    path("points/children/", core_parent_portal.behavior_points_children),
+    path("", include(router.urls)),
+]

@@ -6,7 +6,33 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Parent-portal per-child endpoints** — the parent SPA's module pages
+  (health, cafeteria, library, sports, behavior, counseling) called
+  `<app>/…/children/` endpoints that did not exist (7 pages with dead API
+  calls). Twelve guardian-scoped read-only endpoints now back them, built on
+  one shared tenant-safe helper (`core/parent_portal.py`): scoping is strictly
+  to children linked via `StudentGuardian` (further bounded by the caller's
+  school, so forged links can't cross tenants), with a `{count, results}`
+  contract matching the SPA interfaces. Sports teams scope through
+  `TeamMember` (`Team` has no student FK) with per-team dedup.
+- **Regression suite** for the endpoints: contract shape, guardian scoping,
+  cross-school leak safety, role gating, and the TeamMember-based team flow
+  (16 tests).
+- **Per-child data seeder** (`scripts/seed_parent_children.py`) — the generic
+  seeder scatters rows across all students, so most parents saw empty tabs.
+  This rerunnable pass tops every guardian-linked child up to ≥1 row in each
+  of the twelve categories; per-child coverage on demo data rose from
+  33–153/370 to 360–370/370.
+
 ### Fixed
+
+- The `/children/` routes are registered **before** each app's DRF router
+  include — the router's `<pk>/` detail route was swallowing them
+  (`records/children/` matched as `pk="children"` and 404'd).
+- Cafeteria bookings mapping: `MealPreOrder` has no `menu` FK; the card now
+  shows the ordered `menu_items` and `meal_date`.
 
 - **Teacher Gradebook pre-fill** — the page never loaded previously saved
   marks, so re-entering showed blanks (risking silent overwrites). The

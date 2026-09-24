@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from core import parent_portal as core_parent_portal  # noqa: E402
+
 from .views import (
     AllergyManagementViewSet,
     ChronicConditionTrackingViewSet,
@@ -79,18 +81,48 @@ router.register(r"growth-chart", GrowthChartViewSet, basename="growth-chart")
 router.register(r"vital-signs", VitalSignsViewSet, basename="vital-signs")
 router.register(r"lab-result", LabResultViewSet, basename="lab-result")
 router.register(r"medical-history", MedicalHistoryViewSet, basename="medical-history")
-router.register(r"family-medical-history", FamilyMedicalHistoryViewSet, basename="family-medical-history")
-router.register(r"health-insurance-record", HealthInsuranceRecordViewSet, basename="health-insurance-record")
+router.register(
+    r"family-medical-history",
+    FamilyMedicalHistoryViewSet,
+    basename="family-medical-history",
+)
+router.register(
+    r"health-insurance-record",
+    HealthInsuranceRecordViewSet,
+    basename="health-insurance-record",
+)
 router.register(r"vaccination-schedule", VaccinationScheduleViewSet, basename="vaccination-schedule")
 router.register(r"health-assessment", HealthAssessmentViewSet, basename="health-assessment")
-router.register(r"health-risk-assessment", HealthRiskAssessmentViewSet, basename="health-risk-assessment")
+router.register(
+    r"health-risk-assessment",
+    HealthRiskAssessmentViewSet,
+    basename="health-risk-assessment",
+)
 router.register(r"mental-health-record", MentalHealthRecordViewSet, basename="mental-health-record")
-router.register(r"health-education-material", HealthEducationMaterialViewSet, basename="health-education-material")
+router.register(
+    r"health-education-material",
+    HealthEducationMaterialViewSet,
+    basename="health-education-material",
+)
 router.register(r"health-campaign", HealthCampaignViewSet, basename="health-campaign")
 router.register(r"health-survey", HealthSurveyViewSet, basename="health-survey")
 router.register(r"medical-equipment", MedicalEquipmentViewSet, basename="medical-equipment")
-router.register(r"equipment-maintenance", EquipmentMaintenanceViewSet, basename="equipment-maintenance")
-router.register(r"health-staff-training", HealthStaffTrainingViewSet, basename="health-staff-training")
+router.register(
+    r"equipment-maintenance",
+    EquipmentMaintenanceViewSet,
+    basename="equipment-maintenance",
+)
+router.register(
+    r"health-staff-training",
+    HealthStaffTrainingViewSet,
+    basename="health-staff-training",
+)
 router.register(r"health-audit", HealthAuditViewSet, basename="health-audit")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    # Parent portal: guardian-scoped per-child data
+    path("records/children/", core_parent_portal.health_records_children),
+    path("visits/children/", core_parent_portal.health_visits_children),
+    path("immunizations/children/", core_parent_portal.health_immunizations_children),
+    path("", include(router.urls)),
+]

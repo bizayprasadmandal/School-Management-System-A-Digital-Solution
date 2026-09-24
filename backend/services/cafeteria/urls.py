@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from core import parent_portal as core_parent_portal  # noqa: E402
+
 from .views import (
     AllergenManagementViewSet,
     CafeteriaAlertViewSet,
@@ -86,15 +88,35 @@ router.register(r"cafeteria-feedback", CafeteriaFeedbackViewSet, basename="cafet
 router.register(r"meal-pre-order", MealPreOrderViewSet, basename="meal-pre-order")
 router.register(r"nutrition-analysis", NutritionAnalysisViewSet, basename="nutrition-analysis")
 router.register(r"cafeteria-equipment", CafeteriaEquipmentViewSet, basename="cafeteria-equipment")
-router.register(r"cafeteria-reservation", CafeteriaReservationViewSet, basename="cafeteria-reservation")
+router.register(
+    r"cafeteria-reservation",
+    CafeteriaReservationViewSet,
+    basename="cafeteria-reservation",
+)
 router.register(r"cafeteria-alert", CafeteriaAlertViewSet, basename="cafeteria-alert")
 router.register(r"meal-subscription", MealSubscriptionViewSet, basename="meal-subscription")
 router.register(r"subscription-usage", SubscriptionUsageViewSet, basename="subscription-usage")
 router.register(r"cafeteria-analytics", CafeteriaAnalyticsViewSet, basename="cafeteria-analytics")
 router.register(r"cafeteria-capacity", CafeteriaCapacityViewSet, basename="cafeteria-capacity")
 router.register(r"menu-item-rating", MenuItemRatingViewSet, basename="menu-item-rating")
-router.register(r"cafeteria-holiday-schedule", CafeteriaHolidayScheduleViewSet, basename="cafeteria-holiday-schedule")
-router.register(r"cafeteria-monthly-report", CafeteriaMonthlyReportViewSet, basename="cafeteria-monthly-report")
-router.register(r"cafeteria-inventory-alert", CafeteriaInventoryAlertViewSet, basename="cafeteria-inventory-alert")
+router.register(
+    r"cafeteria-holiday-schedule",
+    CafeteriaHolidayScheduleViewSet,
+    basename="cafeteria-holiday-schedule",
+)
+router.register(
+    r"cafeteria-monthly-report",
+    CafeteriaMonthlyReportViewSet,
+    basename="cafeteria-monthly-report",
+)
+router.register(
+    r"cafeteria-inventory-alert",
+    CafeteriaInventoryAlertViewSet,
+    basename="cafeteria-inventory-alert",
+)
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    # Parent portal: guardian-scoped per-child data
+    path("bookings/children/", core_parent_portal.cafeteria_bookings_children),
+    path("", include(router.urls)),
+]

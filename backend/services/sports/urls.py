@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from core import parent_portal as core_parent_portal  # noqa: E402
+
 from .views import (
     BadgeAwardViewSet,
     ComplianceTrackingViewSet,
@@ -73,7 +75,11 @@ router.register(r"rosters", TeamRosterViewSet, basename="team-roster")
 router.register(r"lineups", GameLineupViewSet, basename="game-lineup")
 # Health & Medical
 router.register(r"injuries", InjuryTrackingViewSet, basename="injury-tracking")
-router.register(r"medical-clearances", SportsMedicalClearanceViewSet, basename="sports-medical-clearance")
+router.register(
+    r"medical-clearances",
+    SportsMedicalClearanceViewSet,
+    basename="sports-medical-clearance",
+)
 # Equipment
 router.register(r"equipment", EquipmentInventoryViewSet, basename="equipment-inventory")
 router.register(r"uniform-orders", SportsUniformOrderViewSet, basename="sports-uniform-order")
@@ -102,14 +108,22 @@ router.register(r"videos", VideoAnalysisViewSet, basename="video-analysis")
 # Wearables
 router.register(r"wearables", WearableIntegrationViewSet, basename="wearable-integration")
 # Development
-router.register(r"development-plans", PlayerDevelopmentPlanViewSet, basename="player-development-plan")
+router.register(
+    r"development-plans",
+    PlayerDevelopmentPlanViewSet,
+    basename="player-development-plan",
+)
 # Tryouts
 router.register(r"tryouts", TryoutAssessmentViewSet, basename="tryout-assessment")
 router.register(r"tryout-scores", TryoutScoreViewSet, basename="tryout-score")
 # Memberships
 router.register(r"season-passes", SeasonPassMembershipViewSet, basename="season-pass-membership")
 # Scheduling
-router.register(r"schedule-conflicts", MultiSportSchedulingViewSet, basename="multi-sport-scheduling")
+router.register(
+    r"schedule-conflicts",
+    MultiSportSchedulingViewSet,
+    basename="multi-sport-scheduling",
+)
 # Refunds
 router.register(r"refunds", RefundManagementViewSet, basename="refund-management")
 # Compliance
@@ -140,4 +154,9 @@ router.register(r"badges", SportsGamificationViewSet, basename="sports-gamificat
 router.register(r"badge-awards", BadgeAwardViewSet, basename="badge-award")
 router.register(r"leaderboards", SportsLeaderboardViewSet, basename="sports-leaderboard")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    # Parent portal: guardian-scoped per-child data
+    path("teams/children/", core_parent_portal.sports_teams_children),
+    path("achievements/children/", core_parent_portal.sports_achievements_children),
+    path("", include(router.urls)),
+]

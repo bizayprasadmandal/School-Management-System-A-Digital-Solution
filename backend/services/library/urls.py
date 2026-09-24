@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from core import parent_portal as core_parent_portal  # noqa: E402
+
 from . import views
 
 app_name = "library_v1"
@@ -62,17 +64,34 @@ router.register(r"book-repair", views.BookRepairViewSet, basename="book-repair")
 router.register(r"book-donation", views.BookDonationViewSet, basename="book-donation")
 router.register(r"book-purchase", views.BookPurchaseViewSet, basename="book-purchase")
 router.register(r"library-card", views.LibraryCardViewSet, basename="library-card")
-router.register(r"acquisition-request", views.AcquisitionRequestViewSet, basename="acquisition-request")
+router.register(
+    r"acquisition-request",
+    views.AcquisitionRequestViewSet,
+    basename="acquisition-request",
+)
 router.register(r"book-club", views.BookClubViewSet, basename="book-club")
-router.register(r"book-club-membership", views.BookClubMembershipViewSet, basename="book-club-membership")
-router.register(r"student-reading-log", views.StudentReadingLogViewSet, basename="student-reading-log")
+router.register(
+    r"book-club-membership",
+    views.BookClubMembershipViewSet,
+    basename="book-club-membership",
+)
+router.register(
+    r"student-reading-log",
+    views.StudentReadingLogViewSet,
+    basename="student-reading-log",
+)
 router.register(r"reading-challenge", views.ReadingChallengeViewSet, basename="reading-challenge")
 router.register(
-    r"reading-challenge-progress", views.ReadingChallengeProgressViewSet, basename="reading-challenge-progress"
+    r"reading-challenge-progress",
+    views.ReadingChallengeProgressViewSet,
+    basename="reading-challenge-progress",
 )
 router.register(r"library-feedback", views.LibraryFeedbackViewSet, basename="library-feedback")
 
 urlpatterns = [
+    # Parent portal: guardian-scoped per-child data
+    path("checkouts/children/", core_parent_portal.library_checkouts_children),
+    path("fines/children/", core_parent_portal.library_fines_children),
     path("", include(router.urls)),
     path("profile/", views.LibrarianProfileView.as_view(), name="librarian_profile"),
 ]
