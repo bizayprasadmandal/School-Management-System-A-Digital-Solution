@@ -81,11 +81,57 @@ export default function TeacherGradebookPage() {
     }
   }, [students]);
 
+  // Pre-fill previously saved grades for the selected exam schedule so a
+  // teacher re-entering the page edits existing marks instead of staring at
+  // blanks (and accidentally overwriting them with empty rows).
+  const { data: existingGrades } = useQuery<unknown[]>({
+    queryKey: ["existing-grades", selectedSubject],
+    queryFn: async () => {
+      // Pagination caps page_size at 200; fetch pages until exhausted.
+      const all: any[] = [];
+      for (let page = 1; page <= 10; page++) {
+        const res = await api.get<any>("/gradebook/grades/", {
+          exam_schedule_id: selectedSubject,
+          page_size: 200,
+          page,
+        });
+        const rows = Array.isArray(res) ? res : res?.results ?? [];
+        all.push(...rows);
+        if (Array.isArray(res) || !res?.next || rows.length === 0) break;
+      }
+      return all;
+    },
+    enabled: !!selectedSubject,
+  });
+
+  React.useEffect(() => {
+    if (!existingGrades) return;
+    setEntries((prev) => {
+      const next = { ...prev };
+      (existingGrades as any[]).forEach((g) => {
+        const cur = next[g.student];
+        if (!cur) return; // student not in this classroom
+        next[g.student] = {
+          ...cur,
+          marks_obtained: g.marks_obtained ?? "",
+          is_absent: !!g.is_absent,
+          remarks: g.remarks ?? "",
+        };
+      });
+      return next;
+    });
+    setDirty({});
+  }, [existingGrades]);
+
+  // Dirty tracking: student_id -> true once the teacher edits that row.
+  const [dirty, setDirty] = useState<Record<string, boolean>>({});
+
   const setField = useCallback((id: string, field: keyof GradeEntry, value: string | boolean) => {
     setEntries((prev) => ({
       ...prev,
       [id]: { ...prev[id], [field]: value },
     }));
+    setDirty((prev) => ({ ...prev, [id]: true }));
     setSaved(false);
   }, []);
 
@@ -94,12 +140,20 @@ export default function TeacherGradebookPage() {
       toast.error("Please select a subject");
       return;
     }
-    const grades = Object.values(entries).map((e) => ({
-      student_id: e.student_id,
-      marks_obtained: e.is_absent ? null : parseFloat(e.marks_obtained) || null,
-      is_absent: e.is_absent,
-      remarks: e.remarks,
-    }));
+    // Only rows the teacher actually touched are sent — untouched pre-filled
+    // rows keep their server state and don't inflate the payload.
+    const grades = Object.values(entries)
+      .filter((e) => dirty[e.student_id])
+      .map((e) => ({
+        student_id: e.student_id,
+        marks_obtained: e.is_absent ? null : parseFloat(e.marks_obtained) || null,
+        is_absent: e.is_absent,
+        remarks: e.remarks,
+      }));
+    if (grades.length === 0) {
+      toast.error("No changes to save");
+      return;
+    }
     try {
       const result = await submitGrades.mutateAsync({
         exam_schedule_id: selectedSubject,
@@ -108,6 +162,7 @@ export default function TeacherGradebookPage() {
       const pending = (result as { pending_approval?: number })?.pending_approval ?? 0;
       setSaved(true);
       setPendingApproval(pending);
+      setDirty({});
       if (pending > 0) {
         const applied = grades.length - pending;
         toast.success(

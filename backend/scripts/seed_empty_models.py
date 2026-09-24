@@ -209,6 +209,25 @@ def value_for_field(field, model, school, i, depth, cache):
         # STRICT tenant scoping: only same-school parents, ever. Reusing a
         # cross-tenant row is what previously linked Green Valley's rooms to
         # another school's hostels (empty tabs everywhere).
+        if field.related_model.__name__ == "User":
+            # Role-appropriate user picks: a FK named "teacher" must point at
+            # a teacher, "student" at a student, etc. The generic pool used
+            # to include parents/alumni, producing nonsense rows like
+            # TeacherAssignment(teacher=parent0032@…).
+            name = field.name.lower()
+            role_map = [
+                ("teacher", "teacher"),
+                ("student", "student"),
+                ("guardian", "parent"),
+                ("parent", "parent"),
+            ]
+            for token, role in role_map:
+                if token in name:
+                    qs = qs.filter(role=role)
+                    break
+            else:
+                if any(k in name for k in ("approver", "reviewer", "created_by", "updated_by", "assigned_by")):
+                    qs = qs.filter(role__in=["teacher", "school_admin"])
         rel_school_field = school_fk_field(field.related_model)
         if rel_school_field is not None:
             qs = qs.filter(**{rel_school_field.name: school})

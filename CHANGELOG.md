@@ -8,6 +8,20 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Teacher Gradebook pre-fill** — the page never loaded previously saved
+  marks, so re-entering showed blanks (risking silent overwrites). The
+  gradebook list endpoint gained an `exam_schedule_id` filter and the page
+  pre-fills saved grades (paginated fetch) with per-row dirty tracking, so
+  only edited rows are submitted.
+- **Role-blind user seeding** — the generic seeder picked any same-school
+  user for FKs like `TeacherAssignment.teacher`, producing nonsense rows
+  (parents/students/alumni as teachers). FK-name→role mapping now applies
+  (teacher→teacher, guardian/parent→parent, …); 33 bad-role assignments were
+  removed and a proper demo assignment created so the gradebook flow works
+  end-to-end.
+- The assigned demo teacher's password now matches the per-role scheme in
+  `docs/DEMO_CREDENTIALS.md`.
+
 - **React key warning on the Accounting Entry tab** —
   `PaymentGatewayConfigSerializer` omitted `"id"` from its field list, so every
   row rendered with an `undefined` React key (`Check the render method of

@@ -211,6 +211,11 @@ class GradeViewSet(viewsets.ModelViewSet):
         exam_id = self.request.query_params.get("exam_id")
         if exam_id:
             qs = qs.filter(exam_schedule__exam_id=exam_id)
+        exam_schedule_id = self.request.query_params.get("exam_schedule_id")
+        if exam_schedule_id:
+            # Lets the teacher gradebook pre-fill previously saved marks for
+            # one exam schedule (class × subject) instead of showing blanks.
+            qs = qs.filter(exam_schedule_id=exam_schedule_id)
         student_id = self.request.query_params.get("student_id")
         if student_id:
             qs = qs.filter(student_id=student_id)
