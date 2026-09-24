@@ -263,7 +263,11 @@ class TeacherTimetableViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def get_queryset(self):
-        return TeacherTimetable.objects.filter(teacher=self.request.user)
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            # admin panel view: every teacher's timetable in the school
+            return TeacherTimetable.objects.filter(teacher__school=user.school)
+        return TeacherTimetable.objects.filter(teacher=user)
 
 
 class SubstituteTeacherViewSet(viewsets.ModelViewSet):
@@ -365,7 +369,11 @@ class TeacherPreferenceViewSet(viewsets.ModelViewSet):
         serializer.save(teacher=self.request.user)
 
     def get_queryset(self):
-        return TeacherPreference.objects.filter(teacher=self.request.user)
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            # admin panel view: every teacher's preferences in the school
+            return TeacherPreference.objects.filter(teacher__school=user.school)
+        return TeacherPreference.objects.filter(teacher=user)
 
 
 class TimetableApprovalViewSet(viewsets.ModelViewSet):

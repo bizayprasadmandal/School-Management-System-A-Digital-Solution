@@ -2587,9 +2587,14 @@ class AcademicNotificationViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            # admin panel view: all notifications in the school — recipient-
+            # personal scoping renders the admin tab permanently empty
+            return AcademicNotification.objects.filter(school=user.school)
         return AcademicNotification.objects.filter(
-            school=self.request.user.school,
-            recipient=self.request.user,
+            school=user.school,
+            recipient=user,
         )
 
     def get_permissions(self):

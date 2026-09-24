@@ -172,6 +172,15 @@ for (const path of PAGES) {
     });
   }
   console.log(`walked ${path} (${tabs.length} tab(s))`);
+  // flush incrementally — a timeout mid-run shouldn't lose completed pages
+  fs.writeFileSync(
+    "scripts/tab_walk.json",
+    JSON.stringify(
+      { school: SCHOOL, pages: results.length, tabs: results.length, results },
+      null,
+      2,
+    ),
+  );
 }
 
 await browser.close();

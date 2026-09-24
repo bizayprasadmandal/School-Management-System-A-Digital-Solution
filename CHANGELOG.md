@@ -8,6 +8,27 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Full-panel demo data: every tab renders real rows** — the generic seeder
+  (`scripts/seed_empty_models.py`) now detects emptiness through _every_ FK
+  path to School (previously only the shortest path was checked, so multi-FK
+  models like `WearableIntegration` looked populated while the viewset's path
+  had zero rows), treats OneToOne-to-School config singletons as seedable,
+  anchors nullable tenant FKs to the current school instead of leaving them
+  school-less/invisible, and forces visibility booleans (`is_approved` etc.)
+  to True so moderation-gated rows actually appear. 5 viewsets with
+  recipient/teacher-personal scoping got an admin fallback (all rows for the
+  school when the caller is an admin): `TeacherTimetable`, `TeacherPreference`,
+  `QRCodeSession`, `AcademicNotification`, `BookRecommendation`. Verified by a
+  4-batch browser walk of all **807 tabs across 32 pages: 0 empty, 0 failed
+  API calls**.
+
+- **Tenant-link repair tooling** — `scripts/repair_tenant_links.py` deletes
+  rows whose FK paths disagree about the tenant; `scripts/diag_cross_tenant.py`
+  reports them (with creation timestamps). Both previously compared _parent
+  PKs_ instead of school ids (a `p[:-1]` off-by-one in the path→lookup
+  conversion) and flagged healthy multi-FK rows — fixed and proven: a full
+  seed → repair → seed → repair cycle now converges with **0 deletions**.
+
 - **Platform vs school dashboard routing** — `/admin` now renders the school
   dashboard whenever a super admin has a school selected, and the platform
   dashboard only in platform mode (previously it keyed off role alone, so a

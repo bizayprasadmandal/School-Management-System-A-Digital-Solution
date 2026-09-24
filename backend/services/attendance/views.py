@@ -1306,6 +1306,9 @@ class QRCodeSessionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if user.role in ["school_admin", "super_admin"]:
+            # admin panel view: every teacher's QR sessions in the school
+            return QRCodeSession.objects.filter(teacher__school=user.school).order_by("-created_at")
         return QRCodeSession.objects.filter(teacher=user).order_by("-created_at")
 
     def perform_create(self, serializer):

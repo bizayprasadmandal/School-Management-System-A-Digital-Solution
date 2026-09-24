@@ -93,3 +93,6 @@ docker-compose.override.yml
 # generated audit dumps
 backend/scripts/url_patterns.json
 backend/scripts/frontend_api_paths.json
+backend/model_routes.json
+backend/url_patterns.json
+frontend/web/scripts/tab_walk.json

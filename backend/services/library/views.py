@@ -572,7 +572,9 @@ class BookRecommendationViewSet(viewsets.ModelViewSet):
         student = Student.objects.filter(user=user).first()
         if student:
             return BookRecommendation.objects.filter(student=student, is_dismissed=False)
-        return BookRecommendation.objects.none()
+        # staff/admin view: every recommendation in the school — the admin
+        # panel's Recommendations tab otherwise renders permanently empty
+        return BookRecommendation.objects.filter(student__school=user.school, is_dismissed=False)
 
     @action(detail=True, methods=["post"], url_path="dismiss")
     def dismiss_recommendation(self, request, pk=None):
