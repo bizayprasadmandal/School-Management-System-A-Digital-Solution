@@ -618,7 +618,11 @@ def generate_bulk_invoices(self, structure_id: int, academic_year_id: int):
         logger.info(
             "generate_bulk_invoices completed",
             extra={
-                "created": created,
+                # NB: 'created' is a reserved LogRecord attribute (the log
+                # timestamp) — using it in extra raises
+                # KeyError("Attempt to overwrite 'created' in LogRecord")
+                # and crash-looped this task via retry.
+                "invoices_created": created,
                 "structure_id": structure_id,
                 "academic_year_id": academic_year_id,
             },

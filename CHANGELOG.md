@@ -6,6 +6,21 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`generate_bulk_invoices` crash-loop** — the task passed `created` (a
+  reserved `LogRecord` attribute) via `logger.extra=`, raising
+  `KeyError: Attempt to overwrite 'created' in LogRecord` and retrying
+  forever. Renamed the extra key and added a static guard suite
+  (`test_logging_extra_guard.py`) that parses every `services/**/*.py` file
+  and fails if any logger `extra=` dict uses a reserved name.
+- **Invoice/receipt numbering collisions across schools** — the numbering
+  generator scoped its max-lookup to one school while `invoice_number` /
+  `receipt_number` carry a single database-wide unique constraint, so two
+  schools could mint the same number and the second insert died with
+  `IntegrityError`. The sequence is now global (format unchanged, no
+  migration); `generate_bulk_invoices` verified completing live.
+
 ### Added
 
 - **Full-panel demo data: every tab renders real rows** — the generic seeder

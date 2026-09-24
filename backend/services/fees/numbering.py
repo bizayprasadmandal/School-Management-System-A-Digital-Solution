@@ -26,11 +26,15 @@ def generate_invoice_number(school) -> str:
     prefix = f"INV-{period}-"
 
     with transaction.atomic():
-        # Find the highest existing sequence number for this school + period
+        # Find the highest existing sequence number for this period. The
+        # sequence is deliberately GLOBAL, not per-school: invoice_number has
+        # a single database-wide unique constraint, so scoping the max lookup
+        # to one school let two schools both mint INV-YYYYMM-0001 and the
+        # second insert explode with IntegrityError (crash-looping
+        # generate_bulk_invoices via retry).
         last_invoice = (
             FeeInvoice.objects.select_for_update()
             .filter(
-                student__school=school,
                 invoice_number__startswith=prefix,
             )
             .order_by("-invoice_number")
@@ -65,10 +69,11 @@ def generate_receipt_number(school) -> str:
     prefix = f"RCPT-{period}-"
 
     with transaction.atomic():
+        # Global sequence for the same reason as generate_invoice_number:
+        # receipt_number's unique constraint is database-wide, not per-school.
         last_receipt = (
             Payment.objects.select_for_update()
             .filter(
-                invoice__student__school=school,
                 receipt_number__startswith=prefix,
             )
             .order_by("-receipt_number")
