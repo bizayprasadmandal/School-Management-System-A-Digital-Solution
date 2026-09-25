@@ -1254,7 +1254,9 @@ class AuditLogViewSet(viewsets.ModelViewSet):
         return AuditLog.objects.filter(school=self.request.user.school).select_related("user")
 
     def get_permissions(self):
-        if self.request.user.role == "super_admin":
+        # getattr guard: schema generation introspects this view without an
+        # authenticated user, so ``request.user.role`` would raise.
+        if getattr(self.request.user, "role", None) == "super_admin":
             return [IsAuthenticated()]
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSchoolAdmin()]

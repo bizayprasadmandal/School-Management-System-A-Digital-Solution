@@ -118,6 +118,10 @@ class VehicleViewSet(viewsets.ModelViewSet):
     ordering = ["plate_number"]
 
     def get_queryset(self):
+        # schema introspection builds the view without a user; return none()
+        # so the model resolves and path params keep their UUID type.
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return Vehicle.objects.none()
         return Vehicle.objects.filter(school=self.request.user.school).annotate(
             route_count=Count("assigned_routes", distinct=True),
             maintenance_count=Count("maintenance_records", distinct=True),
@@ -723,6 +727,8 @@ class VehiclePoolViewSet(viewsets.ModelViewSet):
     filterset_fields = ["school"]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return VehiclePool.objects.none()
         return VehiclePool.objects.filter(school=self.request.user.school)
 
     def get_permissions(self):

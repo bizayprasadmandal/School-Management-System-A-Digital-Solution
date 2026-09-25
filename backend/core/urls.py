@@ -8,6 +8,11 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+# noqa import: registers the JWT authentication extension with drf-spectacular
+# so the schema (live serving and ``manage.py spectacular``) gets a security
+# definition and Swagger UI shows the Authorize button.
+from core import schema as _schema  # noqa: F401
+
 API_V1 = "api/v1/"
 API_V2 = "api/v2/"
 

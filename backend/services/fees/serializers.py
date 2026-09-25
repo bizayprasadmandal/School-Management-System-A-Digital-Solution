@@ -130,10 +130,13 @@ class ScholarshipSerializer(serializers.ModelSerializer):
 
 
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
+    # The model's PK is ``school`` (OneToOne primary_key=True), so there is no
+    # ``id`` column; expose the school id as ``id`` — the UI uses row.id as
+    # the React list key (omitting it produced undefined keys).
+    id = serializers.CharField(source="school_id", read_only=True)
+
     class Meta:
         model = PaymentGatewayConfig
-        # 'id' must be exposed — the UI uses row.id as the React list key;
-        # omitting it produced undefined keys (console key warnings).
         fields = ["id", "school", "stripe_enabled", "khalti_enabled", "esewa_enabled", "updated_at"]
         read_only_fields = ["updated_at", "school"]
 

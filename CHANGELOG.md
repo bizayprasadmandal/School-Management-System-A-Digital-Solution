@@ -8,6 +8,17 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Live API docs** — `/api/schema/` (OpenAPI 3 document), `/api/docs/`
+  (Swagger UI) and `/api/redoc/` now serve a working schema (2 202 paths).
+  Three 500-causing bugs surfaced by introspection are fixed: `AuditLogViewSet`
+  read `user.role` off an `AnonymousUser`, `PaymentGatewayConfigSerializer`
+  listed an `id` field the model does not have (its PK is the `school`
+  OneToOne), and the transportation vehicle viewsets dereferenced
+  `user.school` for anonymous callers. Operations are now tagged by module
+  (students, fees, counseling, …) instead of collapsing into `v1`, and
+  `JWTAuthenticationWithTenant` is declared as the `jwtAuth` bearer security
+  scheme so "Authorize" works in Swagger UI — a regression test locks all of
+  this in (`backend/tests/test_api_schema.py`).
 - **Teacher-portal audit & fixes** — a data-level browser walk of all 15
   teacher pages (HTTP status + row counts + rendered text) found 2 pages
   calling non-existent endpoints (`health-clinic/visits/`,
