@@ -10,14 +10,14 @@ verify that every panel tab renders real rows.
 ## The toolkit
 
 | Script                                             | Purpose                                                                                                 |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --- | -------------------------------------- | ---------------------------------------------------------- |
 | `backend/scripts/seed_empty_models.py`             | Seeds every still-empty school-scoped model with plausible rows                                         |
 | `backend/scripts/seed_parent_children.py`          | Tops every guardian-linked child up to ≥1 row per parent-portal category                                |
 | `backend/scripts/seed_teacher_workspace.py`        | Gives up to 100 teachers/school an owned workspace (assignments, plans, attendance, payslips, messages) |
 | `backend/scripts/repair_tenant_links.py`           | Deletes rows whose FK paths disagree about the tenant                                                   |
 | `backend/scripts/diag_cross_tenant.py`             | Same check as the repair, **report-only** (no deletes)                                                  |
-| `backend/scripts/check_hostel_tabs.py`             | Endpoint-level count check for one module (template for others)                                         |
-| `backend/scripts/verify_all_logins.py`             | Logs in as every demo user to prove credentials still work                                              |
+| `backend/scripts/check_hostel_tabs.py`             | Endpoint-level count check for one module (template for others)                                         |     | `backend/scripts/verify_all_logins.py` | Logs in as every demo user to prove credentials still work |
+| `backend/scripts/fix_demo_user_emails.py`          | Repairs malformed filler emails + gives them role passwords                                             |
 | `backend/scripts/reset_demo_passwords_fast.py`     | Re-applies the per-role demo passwords (see `DEMO_CREDENTIALS.md`)                                      |
 | `frontend/web/scripts/walk_school_panel_tabs.mjs`  | Browser walk of every page + tab, flags EMPTY/error tabs                                                |
 | `frontend/web/scripts/walk_teacher_per_school.mjs` | Browser walk of the 8 teacher pages for one school                                                      |
@@ -69,8 +69,11 @@ docker exec sms_backend sh -c 'for s in "Green Valley" "EduSphere" "Bright Futur
 ```
 
 The teacher pass attaches its rows to the school's **named** teachers
-(`alice.morgan@…`, `sarah.mitchell@…`); the bulk filler accounts
-(`demo.*@…-<runid>`) cannot log in — see `DEMO_CREDENTIALS.md`.
+(`alice.morgan@…`, `sarah.mitchell@…`). The bulk filler accounts
+(`demo.<token>@<school-domain>`) now log in with their role password as well —
+`seed_empty_models.py` writes hashed role passwords and valid addresses, and
+`fix_demo_user_emails.py` repaired the rows created before that fix. See
+`DEMO_CREDENTIALS.md`.
 
 ### Verifying a portal walk
 

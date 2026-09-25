@@ -71,39 +71,45 @@ School 1). The canonical accounts in the tables below were checked with
 | `shree.tiwari@gmail.com`, `mamta.mandal@gmail.com` | (yours — unchanged) | personal student-role accounts         |
 | `smoke@demo.edusphere.school`                      | `Admin@1234`        | super_admin @ GVS, used by smoke tests |
 
-## Accounts that do _not_ log in
+## Bulk filler accounts
 
-The generic seeders also create bulk filler users whose addresses are built by
-appending a run suffix to the whole address, e.g.
-`demo.497725@greenvalley.edu-497725230` or `demo.0a5a2d@greenvalley.edu-0a5a2d278`.
-Those accounts are **not login-able** and should not be used in demos or walks:
+Beyond the named roster, the seeders create bulk filler users so tenant FKs have
+a parent (`demo.<token>@<domain>`, one per generated row). They used to be
+unusable — the address had the uniqueness suffix glued onto the domain
+(`demo.497725@greenvalley.edu-497725230`, which the login form's `.email()`
+validation refuses) and the row held an unhashed placeholder password. Both are
+fixed:
 
-- the address is malformed, so the browser login form's `.email()` validation
-  refuses to submit it;
-- the account's password is not one of the per-role passwords, so
-  `POST /api/v1/auth/login/` answers `401 No active account found with the
-given credentials`.
+- `scripts/seed_empty_models.py` keeps the domain intact and puts the suffix in
+  the local part, and writes a **hashed role password** plus `email_verified`
+  for every `User` it creates;
+- `scripts/fix_demo_user_emails.py` repaired the 1 417 accounts that already
+  existed (E2E Test School excluded — see below), so a filler account signs in
+  with the per-role password it is listed under above.
 
-Current counts of such teacher accounts: Green Valley 30, Bright Future 20,
-E2E 15, EduSphere 10, Test School 0 20, Test School 1 10. Use the named
-accounts above, or run the workspace seeders (`scripts/seed_teacher_workspace.py`)
-which attach data to the _named_ teachers. Making the filler emails valid is an
-open follow-up.
+Example, verified live: `demo.497725-497725230@school0.edu` / `Teacher@1234`
+(Test School 0) → `200` from `POST /api/v1/auth/login/`.
 
-Pages/scripts that need a session for such an account must inject a token:
-`frontend/web/scripts/walk_teacher_per_school.mjs --token <file>` fetches
-`/auth/me/` and seeds both `tokens` and `user` into the `sms-auth` localStorage
-key, otherwise the route guards render blank pages.
+Filler accounts are still noise — prefer the named accounts above, and run
+`scripts/seed_teacher_workspace.py` to attach real workspace data to the
+_named_ teachers. E2E Test School's 116 filler addresses are deliberately left
+malformed because CI pins that school's data; `--include-e2e` opts in.
+
+Any account whose address a form rejects can still be driven by token
+injection: `frontend/web/scripts/walk_teacher_per_school.mjs --token <file>`
+fetches `/auth/me/` and seeds both `tokens` and `user` into the `sms-auth`
+localStorage key, otherwise the route guards render blank pages.
 
 ## How the reset works
 
 `backend/scripts/reset_demo_passwords_fast.py` hashes each role's password
 once and bulk-updates via SQL. Exclusions are baked in: **E2E Test School** and
 **Test School 0** in their entirety, plus personal gmail accounts and API test
-artifacts (`api.test`, `formdata.test`, `verifytest`). Accounts in the excluded
-schools keep whatever password their seeder/`verify_all_logins.py` gave them,
-which is why Test School 0 teachers are not `Teacher@1234`. The per-role scheme
-above is then verified end-to-end by `backend/scripts/verify_all_logins.py`.
+artifacts (`api.test`, `formdata.test`, `verifytest`). Test School 0's accounts
+still get the per-role scheme — from the email-repair pass above, which is the
+only thing that made them login-able in the first place; the reset simply leaves
+them alone so a later reset cannot fight it. The per-role scheme is verified
+end-to-end by `backend/scripts/verify_all_logins.py`.
 
 ```bash
 # Re-apply the per-role passwords, then verify every account

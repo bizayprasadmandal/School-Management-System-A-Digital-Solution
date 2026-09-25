@@ -49,13 +49,13 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 
 ## Phase 4 — candidates (not yet scored)
 
-| Candidate                                                                          | Why it is on the list                                                                 |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Fix bulk-seeded `demo.*@…-<runid>` accounts (malformed address, unusable password) | 105 filler teacher accounts cannot log in; demos should not depend on token injection |
-| Fully describe the 34 plain `APIView`s (`@extend_schema`)                          | Removes the remaining `spectacular --validate` warnings and makes login/2FA SDK-ready |
-| Pilot-school onboarding support                                                    | Phase 2 item 6 is still owner-gated; tooling around it can start early                |
-| Mobile parity for the surfaces shipped this quarter                                | The Expo app predates the portal and analytics work                                   |
-| Operational hardening from the first school's usage                                | Whatever the first pilot actually breaks                                              |
+| Candidate                                                 | Why it is on the list                                                                                                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ~~Fix bulk-seeded `demo.*@…-<runid>` accounts~~           | ✅ Done 2026-09-25 — the seeder writes valid addresses + hashed role passwords, and `scripts/fix_demo_user_emails.py` repaired the 1 417 existing rows |
+| Fully describe the 34 plain `APIView`s (`@extend_schema`) | Removes the remaining `spectacular --validate` warnings and makes login/2FA SDK-ready                                                                  |
+| Pilot-school onboarding support                           | Phase 2 item 6 is still owner-gated; tooling around it can start early                                                                                 |
+| Mobile parity for the surfaces shipped this quarter       | The Expo app predates the portal and analytics work                                                                                                    |
+| Operational hardening from the first school's usage       | Whatever the first pilot actually breaks                                                                                                               |
 
 ## Parked / Could-have
 

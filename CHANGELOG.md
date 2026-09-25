@@ -69,6 +69,20 @@ project uses [Semantic Versioning](https://semver.org/).
   of the twelve categories; per-child coverage on demo data rose from
   33–153/370 to 360–370/370.
 
+### Fixed
+
+- **Unusable bulk-seeded demo accounts** — `seed_empty_models.py` appended its
+  uniqueness suffix to the whole generated value, so filler users were created
+  with addresses such as `demo.497725@greenvalley.edu-497725230` (which the
+  login form's `.email()` check refuses) and with an unhashed placeholder
+  password (so the API answered `401` even if the address was typed in). The
+  suffix now goes into the local part, addresses use the school's own mail
+  domain, and every created `User` gets the per-role demo password plus
+  `email_verified=True`. A new `scripts/fix_demo_user_emails.py` repaired the
+  1 417 affected rows that already existed (all schools except E2E Test School,
+  whose addresses CI pins) — verified live: a Test School 0 filler teacher now
+  logs in with `Teacher@1234`.
+
 ### Changed
 
 - **Documentation re-audited against the code** — every doc under `docs/` plus

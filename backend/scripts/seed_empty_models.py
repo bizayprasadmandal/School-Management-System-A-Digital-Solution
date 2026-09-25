@@ -15,8 +15,10 @@ models are skipped. Usage (inside the backend container):
 
 import os
 import random
+import re
 import sys
 import uuid
+from collections import Counter
 from datetime import timedelta
 from decimal import Decimal
 
@@ -28,6 +30,7 @@ import django  # noqa: E402
 django.setup()
 
 from django.apps import apps  # noqa: E402
+from django.contrib.auth.hashers import make_password  # noqa: E402
 from django.db import models as djm  # noqa: E402
 from django.utils import timezone  # noqa: E402
 from services.auth.models import School  # noqa: E402
@@ -70,12 +73,84 @@ uniq_suffix = uuid.uuid4().hex[:6]
 created_count = {}
 failed = {}
 
+# Loose but real validation: an address a login form / EmailField will accept.
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+
+# Filler users are FK parents for models nobody seeded; make them login-able
+# with the same per-role scheme the demo credentials document (see
+# docs/DEMO_CREDENTIALS.md) instead of a random unhashed string.
+ROLE_PASSWORDS = {
+    "super_admin": "Admin@1234",
+    "school_admin": "Admin@1234",
+    "teacher": "Teacher@1234",
+    "student": "Student@1234",
+    "parent": "Parent@1234",
+    "accountant": "Admin@1234",
+    "librarian": "Admin@1234",
+    "counselor": "Admin@1234",
+    "alumni": "Alumni@1234",
+}
+DEFAULT_DOMAIN = "greenvalley.edu"
+
+_domain_cache = {}
+
 
 def get_school(name):
     school = School.objects.filter(name__icontains=name).first()
     if school is None:
         school = School.objects.first()
     return school
+
+
+def school_email_domain(school):
+    """Domain to put generated addresses on.
+
+    Use the domain the school's real accounts already use, so filler rows read
+    like that school's mail (``@brightfuture.edu``) instead of every school
+    getting ``@greenvalley.edu``. Falls back to the school's own subdomain.
+    """
+    if school is None:
+        return DEFAULT_DOMAIN
+    if school.pk in _domain_cache:
+        return _domain_cache[school.pk]
+    domains = Counter()
+    for email in school.users.values_list("email", flat=True):
+        if email and EMAIL_RE.match(email):
+            domains[email.rsplit("@", 1)[1].lower()] += 1
+    if domains:
+        domain = domains.most_common(1)[0][0]
+    elif school.subdomain:
+        domain = f"{school.subdomain.lower()}.edu"
+    else:
+        domain = DEFAULT_DOMAIN
+    _domain_cache[school.pk] = domain
+    return domain
+
+
+def unique_suffix(value, field, suffix):
+    """Add a uniqueness suffix without breaking the value's format.
+
+    Historically the suffix was appended to the whole string, which turned
+    ``demo.497725@greenvalley.edu`` into ``demo.497725@greenvalley.edu-497725230``
+    — a syntactically invalid address that no login form would submit and no
+    mail server would accept. Email values keep the domain intact and take the
+    suffix in the local part instead.
+    """
+    max_len = getattr(field, "max_length", None)
+    if "@" in value:
+        local, _, domain = value.partition("@")
+        candidate = f"{local}{suffix}@{domain}"
+        if max_len and len(candidate) > max_len:
+            room = max(1, max_len - len(domain) - len(suffix) - 1)
+            candidate = f"{local[:room]}{suffix}@{domain}"
+        return candidate
+    if not max_len:
+        return value + suffix
+    if max_len - len(suffix) >= 1:
+        return value[: max_len - len(suffix)] + suffix
+    # suffix doesn't fit the column — a short random token is the only thing
+    # that both fits and stays unique
+    return uuid.uuid4().hex[:max_len]
 
 
 _school_path_cache = {}
@@ -270,7 +345,8 @@ def value_for_field(field, model, school, i, depth, cache):
     if internal in ("CharField", "TextField", "SlugField"):
         word = WORDS[(i + len(model.__name__)) % len(WORDS)]
         if any(k in name for k in ("email", "mail")):
-            val = f"demo.{name.replace('email', '')}{uniq_suffix}@greenvalley.edu"
+            domain = school_email_domain(school)
+            val = f"demo.{name.replace('email', '')}{uniq_suffix}@{domain}"
         elif "phone" in name or "mobile" in name:
             val = f"+97798{random.randint(10000000, 99999999)}"
         elif "url" in name or "link" in name:
@@ -356,20 +432,20 @@ def make_instance(model, school, depth=0, cache=None):
         if f.get_internal_type() in IP_TYPES:
             continue  # suffixing breaks inet syntax; random value suffices
         if isinstance(cur, str):
-            ml = getattr(f, "max_length", None)
             suffix = f"-{uniq_suffix}{random.randint(100, 999)}"
-            if not ml:
-                kwargs[fname] = cur + suffix
-            elif ml - len(suffix) >= 1:
-                kwargs[fname] = cur[: ml - len(suffix)] + suffix
-            else:
-                # suffix doesn't fit the column — a short random token is the
-                # only thing that both fits and stays unique
-                kwargs[fname] = uuid.uuid4().hex[:ml]
+            kwargs[fname] = unique_suffix(cur, f, suffix)
         elif isinstance(cur, int):
             # integer uniques (version_number etc.): nudge off the default so
             # retries don't reproduce the same collision
             kwargs[fname] = cur + random.randint(1, 9)
+    # filler accounts exist so tenant FKs have a parent — make them usable:
+    # a hashed role password and a verified address, otherwise the row holds an
+    # unhashed placeholder string that no login can ever match.
+    if model._meta.label == "auth_service.User" and kwargs.get("password"):
+        role = kwargs.get("role") or "school_admin"
+        kwargs["password"] = make_password(ROLE_PASSWORDS.get(role, "Admin@1234"))
+        kwargs["email_verified"] = True
+        kwargs["is_active"] = True
     obj = model._default_manager.create(**kwargs)
     return obj
 
