@@ -20,11 +20,14 @@ Enforced by `IsSchoolMember` permission + base queryset in every ViewSet.
 **Context:** True microservices add operational overhead (service mesh, distributed tracing,
 inter-service auth). The team is small.  
 **Decision:** One Django process divided into service modules (`services/students/`,
-`services/attendance/`, etc.) sharing one database, deployed as independent K8s pods.  
-**Rationale:** Gives logical separation and independent deployability without the
-distributed-systems complexity. Services communicate via Django ORM, not HTTP.  
-**Consequences:** Cannot scale individual services independently beyond process-level.
-Can be migrated to true microservices later by extracting service modules.
+`services/attendance/`, etc.) sharing one database and one deployable, scaled by
+adding replicas behind an HPA.  
+**Rationale:** Gives logical separation (23 modules, ~940 models, migrations and
+routers per module) without the distributed-systems complexity. Services
+communicate via Django ORM, not HTTP.  
+**Consequences:** The whole backend ships or rolls back as one image — a module
+cannot be deployed independently, only scaled horizontally. Can be migrated to
+true microservices later by extracting service modules.
 
 ---
 
@@ -98,3 +101,56 @@ Templates are Python code, not HTML, which fits better with backend service arch
 well-suited to reactive autoscaling. Manual scaling requires human intervention.  
 **Consequences:** Cold-start latency when scaling up (~60s for new pod readiness).
 PodDisruptionBudgets ensure at least 1 pod stays running during upgrades.
+
+---
+
+## ADR-009: OpenAPI schema generated from the code (drf-spectacular)
+
+**Status:** Accepted (2026-09)  
+**Context:** The API surface is ~4 400 URL patterns across 23 modules. A
+hand-written reference drifts within days, and consumers (the React SPA, the Expo
+app, partner integrations) need accurate request/response shapes.  
+**Decision:** Serve `drf-spectacular`'s generated OpenAPI 3 document at
+`/api/schema/`, with Swagger UI at `/api/docs/` and ReDoc at `/api/redoc/`. Two
+project-specific pieces make the output usable: a `TaggedAutoSchema` that tags
+each operation by the URL segment after `/api/v1/` (the default prefix splitting
+collapsed all 2 200 operations into one `v1` tag), and an
+`OpenApiAuthenticationExtension` that registers
+`core.authentication.JWTAuthenticationWithTenant` as the `jwtAuth` HTTP bearer
+scheme so Swagger's Authorize button works. Both are wired from `core/urls.py`,
+which is the earliest import every entry point (ASGI app, `spectacular`
+management command, test client) is guaranteed to hit.  
+**Rationale:** The schema is derived from the same serializers the API uses, so
+this class of drift is structurally impossible; `--validate` turns schema
+problems into CI noise rather than production surprises.  
+**Consequences:** Schema generation introspects every view, so viewsets whose
+`get_queryset`/`get_permissions` assume an authenticated user must guard against
+anonymous/non-request access — the failures are real bugs that also bite
+`AnonymousUser` requests. Plain `APIView`s without a `serializer_class` are
+documented as empty operations and reported as warnings (34 unique views today).
+Schema generation is slow (~6 minutes for the full document), so the regression
+suite generates it once per session (`backend/tests/test_api_schema.py`).
+
+---
+
+## ADR-010: Role portals are scoped views over shared module endpoints
+
+**Status:** Accepted (2026-09)  
+**Context:** The parent, student and teacher portals each needed read access to
+module data (health, library, cafeteria, behavior, sports, counseling, …). The
+cheap options were duplicate per-role endpoints, client-side filtering of
+school-wide lists, or scoping the existing endpoints.  
+**Decision:** Keep one endpoint per resource and scope it by the caller's role.
+Guardians read `<module>/…/children/` routes (`backend/core/parent_portal.py`)
+scoped to children linked via `StudentGuardian` and bounded by the caller's
+school; students get self-scoped rows from the behavior, health, cafeteria and
+hostel viewsets when `role == "student"`.  
+**Rationale:** One query path per resource means one place to enforce tenant
+(and now guardian) isolation, and no way for a portal page to silently fetch
+another family's data. Duplicated endpoints would have doubled the isolation
+surface — 12 new read endpoints instead of 12 new leak sites.  
+**Consequences:** The literal `children` routes must be registered **before** the
+module's DRF router, otherwise `children` is captured as a detail-route `pk`.
+Viewsets that mix admin and self-service access need their scoping expressed in
+the queryset (see `backend/tests/test_parent_portal_children.py` and the student
+self-scoping tests).

@@ -69,6 +69,22 @@ project uses [Semantic Versioning](https://semver.org/).
   of the twelve categories; per-child coverage on demo data rose from
   33–153/370 to 360–370/370.
 
+### Changed
+
+- **Documentation re-audited against the code** — every doc under `docs/` plus
+  the README and CONTRIBUTING now states what the repo actually contains:
+  correct module prefixes (`/api/v1/transport/`, `/api/v1/health/`, no
+  `/api/v2/`), the real throttle rates (6 000/hour per user), the current
+  migration/model/endpoint counts (23 modules · 938 models · 116 migration
+  files · 4 407 API URL patterns), the real admissions state machine
+  (`submitted` → `under_review` → `shortlisted`/`waitlisted` → `accepted` →
+  `enrolled`, not the fictional `applied`/`screening`/`offer` flow) and the
+  real public-application contract (`application_number`, not `tracking_id`).
+  Added ADR-009 (generated OpenAPI schema) and ADR-010 (role portals as scoped
+  views), module indexes for the API and URL schema, the parent/student
+  self-service endpoints, health-probe/Prometheus endpoints, the CI coverage
+  gate (68%), and an inventory of the demo accounts that cannot log in.
+
 ### Fixed
 
 - The `/children/` routes are registered **before** each app's DRF router

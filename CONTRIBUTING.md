@@ -17,19 +17,31 @@ Thanks for considering a contribution! This guide covers the basics.
 
 ## Commit Messages
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+Write the subject as an imperative sentence describing the change and why it
+matters — that is the style the existing history uses:
 
 ```
-feat(attendance): add bulk leave approval endpoint
-fix(gradebook): correct GPA rounding in report cards
-docs(api): document WebSocket notification payload
+Fix teacher portal: real endpoints, award forms, workspace seeder
+Serve a working OpenAPI schema and Swagger UI
 ```
+
+[Conventional Commits](https://www.conventionalcommits.org/) prefixes are welcome
+for new work; keep the body to a short paragraph on motivation, not a file list.
+
+Add a `CHANGELOG.md` entry under `## [Unreleased]` for every user-visible change
+before committing.
 
 ## Pull Request Process
 
-1. Ensure `make test` and `make lint` pass locally
-2. Update relevant documentation (`docs/API.md` for endpoint changes)
-3. Add tests for new functionality — aim for the existing coverage threshold (70%)
+1. Ensure `make test` and `make lint` pass locally (pre-commit runs the same
+   black / isort / flake8 / prettier / bandit hooks — run `pre-commit run --all-files`)
+2. Update the relevant documentation:
+   - `docs/API.md` for endpoint changes (the live schema at `/api/docs/` is
+     generated from the code, so the curated reference is what drifts)
+   - `docs/SEEDING.md` for seeder or demo-data changes
+   - `CHANGELOG.md` for every user-visible change
+3. Add tests for new functionality — CI enforces
+   `--cov-fail-under=68` (see `.github/workflows/ci-full.yml`)
 4. Fill out the PR template completely
 5. Request review from a maintainer
 6. PRs require at least one approval and passing CI before merge
@@ -55,7 +67,10 @@ docs(api): document WebSocket notification payload
 
 - New backend endpoints require at least one test covering success + one covering permission denial
 - Use `tests/factories.py` factories rather than manually constructing model instances
-- Run `make test-cov` to verify coverage doesn't regress
+- Run `make test-cov` to verify coverage doesn't regress (CI gate: 68%)
+- Run backend tests inside the stack that matches CI:
+  `docker exec sms_backend python -m pytest tests/ -q -p no:cacheprovider`
+- Frontend: `npm run type-check`, `npm run lint` and `npm run test` in `frontend/web`
 
 ## Reporting Issues
 

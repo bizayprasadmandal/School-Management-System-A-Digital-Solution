@@ -8,6 +8,48 @@
 | Staging     | `https://staging-api.edusphere.school/api/v1` |
 | Local       | `http://localhost:8000/api/v1`                |
 
+There is no `/api/v2/` — the root URL configuration declares only `api/v1/`.
+The version in the generated schema (`2.0.0`) is the product version, not a URL
+segment.
+
+### Module index
+
+Every service module is mounted under its own prefix and carries a matching
+tag in the generated schema. Prefixes that differ from the module name are
+called out because they are easy to guess wrong:
+
+| Prefix                    | Module (`backend/services/…`) | Tag              | Auth       |
+| ------------------------- | ----------------------------- | ---------------- | ---------- |
+| `/api/v1/auth/`           | `auth`                        | `auth`           | Partial    |
+| `/api/v1/students/`       | `students`                    | `students`       | Yes        |
+| `/api/v1/academics/`      | `academics`                   | `academics`      | Yes        |
+| `/api/v1/attendance/`     | `attendance`                  | `attendance`     | Yes        |
+| `/api/v1/gradebook/`      | `gradebook`                   | `gradebook`      | Yes        |
+| `/api/v1/timetable/`      | `timetable`                   | `timetable`      | Yes        |
+| `/api/v1/communication/`  | `communication`               | `communication`  | Yes        |
+| `/api/v1/reporting/`      | `reporting`                   | `reporting`      | Yes        |
+| `/api/v1/fees/`           | `fees`                        | `fees`           | Yes        |
+| `/api/v1/admissions/`     | `admissions`                  | `admissions`     | Yes        |
+| `/api/v1/hr/`             | `hr`                          | `hr`             | Yes        |
+| `/api/v1/library/`        | `library`                     | `library`        | Yes        |
+| `/api/v1/hostel/`         | `hostel`                      | `hostel`         | Yes        |
+| `/api/v1/transport/`      | `transportation`              | `transport`      | Yes        |
+| `/api/v1/cafeteria/`      | `cafeteria`                   | `cafeteria`      | Yes        |
+| `/api/v1/inventory/`      | `inventory`                   | `inventory`      | Yes        |
+| `/api/v1/sports/`         | `sports`                      | `sports`         | Yes        |
+| `/api/v1/health/`         | `health_clinic`               | `health`         | Yes        |
+| `/api/v1/behavior/`       | `behavior`                    | `behavior`       | Yes        |
+| `/api/v1/counseling/`     | `counseling`                  | `counseling`     | Yes        |
+| `/api/v1/conferences/`    | `conferences`                 | `conferences`    | Yes        |
+| `/api/v1/alumni/`         | `alumni`                      | `alumni`         | Yes        |
+| `/api/v1/infrastructure/` | `infrastructure`              | `infrastructure` | Yes        |
+| `/api/v1/search/`         | `core/search`                 | `search`         | Yes        |
+| `/health/live/`           | `core/health`                 | —                | **No**     |
+| `/health/ready/`          | `core/health`                 | —                | **No**     |
+| `/health/startup/`        | `core/health`                 | —                | **No**     |
+| `/metrics`                | `django-prometheus`           | —                | Deployment |
+| `/admin/`                 | Django admin                  | —                | Staff      |
+
 ## Authentication
 
 All endpoints (except `/auth/login/` and `/auth/password-reset/`) require a Bearer JWT token:
@@ -394,30 +436,41 @@ Content-Type: application/json
 
 ```json
 {
-  "tracking_id": "APP-2026-001234",
-  "status": "applied",
-  "message": "Application submitted successfully. Use your tracking ID to check status."
+  "application_number": "APP-202609-4F2A9C",
+  "status": "submitted",
+  "submitted_at": "2026-09-25T10:30:00Z",
+  "intake_name": "Fall 2026 Intake",
+  "message": "Application APP-202609-4F2A9C submitted successfully. Please save your application number to check the status later."
 }
 ```
+
+Application numbers are `APP-<YYYYMM>-<6 uppercase hex>` and unique in the whole
+system. The public form submits straight to `submitted` — the status machine is
+in `docs/LLD.md` §2.1.
 
 ### Check Application Status
 
 ```http
-GET /admissions/public/status/APP-2026-001234/
+GET /admissions/public/status/APP-202609-4F2A9C/
 ```
+
+No auth, but the application number is the only credential — it is a bearer
+capability, so treat it as secret.
 
 **Response 200:**
 
 ```json
 {
-  "tracking_id": "APP-2026-001234",
-  "status": "screening",
-  "status_display": "Screening",
+  "application_number": "APP-202609-4F2A9C",
+  "status": "under_review",
+  "status_display": "Under Review",
   "first_name": "Ram",
   "last_name": "Sharma",
-  "email": "ram.sharma@email.com",
-  "grade_applied_for": "Grade 8",
-  "created_at": "2026-08-19T10:30:00Z"
+  "intake_name": "Fall 2026 Intake",
+  "applying_for_grade": "Grade 8",
+  "submitted_at": "2026-09-25T10:30:00Z",
+  "offer_deadline": null,
+  "timeline": []
 }
 ```
 
@@ -427,15 +480,20 @@ GET /admissions/public/status/APP-2026-001234/
 GET /admissions/public/intakes/
 ```
 
-**Response 200:**
+**Response 200** (unpaginated list of open intakes):
 
 ```json
 [
   {
-    "id": 1,
+    "id": "03daad60-4347-45af-9181-275bf802a1be",
     "name": "Fall 2026 Intake",
-    "description": "Admissions open for Grade 1-10",
-    "application_deadline": "2026-10-31"
+    "academic_year": "2026-2027",
+    "application_start": "2026-05-16",
+    "application_end": "2026-10-13",
+    "enrollment_date": null,
+    "status": "open",
+    "status_display": "Open",
+    "description": "Admissions open for Grade 1-10"
   }
 ]
 ```
@@ -513,31 +571,85 @@ GET /admissions/public/intakes/
 
 ## Rate Limits
 
-| Client Type       | Limit                |
-| ----------------- | -------------------- |
-| Anonymous         | 50 requests / hour   |
-| Authenticated     | 500 requests / hour  |
-| Login (anonymous) | 10 requests / minute |
-| 2FA verification  | 5 requests / minute  |
+| Throttle scope    | Limit                              | Env override                    |
+| ----------------- | ---------------------------------- | ------------------------------- |
+| Anonymous         | 50 requests / hour                 | —                               |
+| Authenticated     | 6 000 requests / hour **per user** | `USER_THROTTLE_RATE`            |
+| Login (anonymous) | 10 requests / minute               | `AUTH_LOGIN_THROTTLE_RATE`      |
+| 2FA verification  | 5 requests / minute                | `AUTH_VERIFY_2FA_THROTTLE_RATE` |
 
-The `auth_login` and `auth_verify_2fa_login` rates are configurable via the
-`AUTH_LOGIN_THROTTLE_RATE` and `AUTH_VERIFY_2FA_THROTTLE_RATE` environment
-variables. All limits are defined in `backend/core/settings/base.py`.
+All limits live in `backend/core/settings/base.py` (`DEFAULT_THROTTLE_RATES`).
+The authenticated limit is high on purpose: the admin SPA fires 10–25 requests
+per page view plus background polling, so the old 500/hour returned 429 to real
+users mid-session and surfaced as empty pages. Lower it via
+`USER_THROTTLE_RATE` if you need a tighter runaway-loop guard.
 
-Rate limit headers returned on every response:
+Throttled requests return **429** with a `Retry-After` header (seconds) and
+`{"detail": "Request was throttled. Expected available in N seconds."}`. DRF does
+not emit `X-RateLimit-*` headers, so don't build clients that depend on them.
 
-```
-X-RateLimit-Limit: 500
-X-RateLimit-Remaining: 347
-X-RateLimit-Reset: 1701388800
-```
+---
+
+## Parent & student self-service endpoints
+
+Parents get a read-only, guardian-scoped view of several modules through
+`<module>/…/children/` routes. Scoping is to the children linked to the caller
+via `StudentGuardian`, further bounded by the caller's school, so a forged link
+cannot cross tenants. Responses use the standard `{count, results}` envelope.
+
+| Endpoint                              | Returns                              |
+| ------------------------------------- | ------------------------------------ |
+| `GET /health/records/children/`       | Children's health records            |
+| `GET /health/visits/children/`        | Clinic visits                        |
+| `GET /health/immunizations/children/` | Immunization records                 |
+| `GET /library/checkouts/children/`    | Book checkouts and due dates         |
+| `GET /library/fines/children/`        | Library fines                        |
+| `GET /cafeteria/bookings/children/`   | Meal bookings / pre-orders           |
+| `GET /sports/teams/children/`         | Teams the children play on           |
+| `GET /sports/achievements/children/`  | Sports achievements                  |
+| `GET /behavior/incidents/children/`   | Behavior incidents                   |
+| `GET /behavior/points/children/`      | Behavior points ledger               |
+| `GET /counseling/sessions/children/`  | Counseling sessions (summary fields) |
+| `GET /counseling/referrals/children/` | Counseling referrals                 |
+
+These routes are registered **before** each module's DRF router so the literal
+`children` segment is not captured as a detail-route `pk`. Implementations live
+in `backend/core/parent_portal.py`; regression coverage is in
+`backend/tests/test_parent_portal_children.py`.
+
+Students use the same underlying endpoints as admins, but the behavior, health,
+cafeteria and hostel viewsets additionally self-scope to the caller's own rows
+when `role == "student"` — a student querying them directly cannot read another
+student's data.
 
 ---
 
 ## Interactive API Docs
 
-| Format         | URL                                        |
-| -------------- | ------------------------------------------ |
-| Swagger UI     | `https://api.edusphere.school/api/docs/`   |
-| ReDoc          | `https://api.edusphere.school/api/redoc/`  |
-| OpenAPI Schema | `https://api.edusphere.school/api/schema/` |
+| Format             | URL                                          |
+| ------------------ | -------------------------------------------- |
+| Swagger UI         | `https://api.edusphere.school/api/docs/`     |
+| ReDoc              | `https://api.edusphere.school/api/redoc/`    |
+| OpenAPI 3 document | `https://api.edusphere.school/api/schema/`   |
+| JSON / YAML        | `…/api/schema/?format=json` · `?format=yaml` |
+
+Swagger UI ships an **Authorize** button bound to the `jwtAuth` security scheme
+(HTTP bearer, `bearerFormat: JWT`) — paste the `access` value from
+`/auth/login/` into the token box and Swagger sends
+`Authorization: Bearer <token>`. Operations are grouped by module tag, so the
+sidebar mirrors the module index above.
+
+The document is generated from the code by `drf-spectacular`; regenerate it
+after changing views or serializers:
+
+```bash
+# inside the backend container
+python manage.py spectacular --file /tmp/schema.yml
+python manage.py spectacular --file /tmp/schema.yml --validate   # warnings only
+```
+
+Operations that are plain `APIView`s without a `serializer_class` (login,
+logout, password-reset, 2FA, the public admissions portal, Zoom helpers) are
+reported as "unable to guess serializer" during `--validate`. Those warnings are
+expected and do not invalidate the document — add `@extend_schema` to such a
+view if you want it fully described.

@@ -4,7 +4,7 @@ Sentry is the error-tracking layer for the stack. The Prometheus/Grafana stack
 covers metrics; Sentry covers **who hit what error, when** across backend,
 workers, and the web app.
 
-## What is already wired
+## Sentry error tracking
 
 | Layer                             | Where                                 | Status                                                                                                                                                                         |
 | --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -15,6 +15,36 @@ workers, and the web app.
 **Release tracking:** the backend uses `APP_VERSION`; the web image bakes
 `REACT_APP_SENTRY_RELEASE=<git sha>` from the CI build. Errors in production are
 attributable to a specific commit.
+
+## Health probes and scrape endpoint
+
+Three unauthenticated probes back the Kubernetes manifests and the compose
+healthchecks (`backend/core/health/urls.py`):
+
+| Endpoint           | Answers                                                  | Failure code           |
+| ------------------ | -------------------------------------------------------- | ---------------------- |
+| `/health/live/`    | Is the process up? No dependency checks                  | 200 always             |
+| `/health/ready/`   | DB + Redis (hard) and a Celery `inspect().ping()` (soft) | 503 when DB/cache fail |
+| `/health/startup/` | Are there unapplied migrations?                          | 503 when pending       |
+
+`/health/ready/` reports per-dependency status and latency:
+
+```json
+{
+  "status": "ready",
+  "checks": {
+    "database": { "status": "ok", "latency_ms": 1.4 },
+    "cache": { "status": "ok", "latency_ms": 0.6 },
+    "celery": { "status": "ok", "latency_ms": 12.1, "workers": ["celery@…"] }
+  }
+}
+```
+
+Celery is deliberately a _soft_ check: workers going down must not pull the HTTP
+service out of rotation (their queue drains independently and is alerted on
+separately). `django-prometheus` instruments every request and exposes the
+Prometheus scrape endpoint at **`/metrics`**, which is what the rules in
+`infrastructure/monitoring/` consume.
 
 ## Celery worker logs (structured JSON)
 

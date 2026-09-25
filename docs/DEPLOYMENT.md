@@ -83,7 +83,7 @@ kubectl get pods -n sms -w
 
 ## Step 5 — Database Migrations
 
-> **Before the first deployment**, confirm the migration tree is complete and committed — all 23 services ship their own `0001_initial` migrations (53 migration files total). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
+> **Before the first deployment**, confirm the migration tree is complete and committed — all 23 service apps ship their own migration trees (116 files, every app has an `0001_initial`). Production should always apply pre-generated, reviewed migrations (`migrate`), never run `makemigrations` against a live database.
 
 ```bash
 # Run as a one-off Job
@@ -120,12 +120,22 @@ kubectl get pods -n sms
 # Check ingress
 kubectl get ingress -n sms
 
-# Test API health
+# Test API health (readiness also reports DB / Redis / Celery state)
+curl https://api.edusphere.school/health/live/
 curl https://api.edusphere.school/health/ready/
+
+# Test the generated API docs (should be 200 with the OpenAPI 3 document)
+curl -s -o /dev/null -w '%{http_code}\n' https://api.edusphere.school/api/schema/
 
 # Test frontend
 open https://app.edusphere.school
 ```
+
+The docs endpoints (`/api/schema/`, `/api/docs/`, `/api/redoc/`) are served by
+the backend itself and need no extra configuration. Schema generation takes
+~6 minutes on the full API surface — the first request after a deploy is slow,
+so `SpectacularAPIView` responses are best cached at the ingress/CDN if you
+expect traffic.
 
 ## Rolling Updates
 
@@ -209,7 +219,7 @@ aws rds restore-db-instance-from-db-snapshot \
 
 # Then verify the restored instance has the expected data:
 PGHOST=restored-instance.aws.com \
-  ./infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
+  ./backend/infrastructure/db/verify_backup.sh /backups/sms-manual-20241115.sql.gz
 ```
 
 ## Troubleshooting

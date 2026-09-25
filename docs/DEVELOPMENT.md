@@ -26,13 +26,23 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py seed_demo_data
 docker compose exec backend python manage.py createsuperuser
 
-# 5. Open browser
-open http://localhost:5173         # React web app (Vite)
-open http://localhost:8000/api/docs/   # Swagger API docs
-open http://localhost:8000/admin/      # Django admin
-open http://localhost:5555         # Celery Flower task monitor
-open http://localhost:9001         # MinIO console (admin/admin)
+# 5. Optional: deepen the demo per role (see docs/SEEDING.md)
+docker compose exec backend python scripts/seed_parent_children.py "Green Valley"
+docker compose exec backend python scripts/seed_teacher_workspace.py "Green Valley"
+
+# 6. Open browser
+open http://localhost:5173              # React web app (Vite)
+open http://localhost:8000/api/docs/    # Swagger UI (Authorize with a JWT)
+open http://localhost:8000/api/redoc/   # ReDoc
+open http://localhost:8000/api/schema/  # OpenAPI 3 document
+open http://localhost:8000/admin/       # Django admin
+open http://localhost:5555              # Celery Flower task monitor
+open http://localhost:9001              # MinIO console (admin/admin)
 ```
+
+Useful `make` targets: `up`, `down`, `logs`, `shell`, `migrate`, `seed`, `test`,
+`test-cov`, `typecheck`, `lint`, `format`, `docs-serve`, `check-env` (see
+`make help` for the full list, including the `prod-*` and `mobile-*` groups).
 
 ## Local Development (without Docker)
 
@@ -47,9 +57,8 @@ pip install -r requirements.txt
 # Start PostgreSQL and Redis separately (or use docker compose for just those)
 docker compose up -d postgres redis minio
 
-python manage.py makemigrations  # generates real migrations for students/academics/etc.;
-                                  # all 23 service apps ship their own migrations (53 files total)
-python manage.py migrate
+python manage.py makemigrations  # only needed if you changed a model
+python manage.py migrate        # 23 service apps ship their own trees (116 migration files)
 python manage.py seed_demo_data
 python manage.py runserver
 
@@ -88,25 +97,45 @@ npx expo start
 | Student | student001@demo.edusphere.school     | Student@1234 |
 | Parent  | parent001@demo.edusphere.school      | Parent@1234  |
 
+The full roster per school (including the bulk `demo.*` filler accounts that
+**cannot** log in) is documented in `docs/DEMO_CREDENTIALS.md`.
+
 ## Running Tests
 
-```bash
-# Backend — from backend/
-pytest tests/ -v
+Run backend tests **inside the container that matches CI** — the project pins
+black/isort/flake8 there, and running them on the Windows host produces line-end
+differences that make pre-commit rewrite files in a loop.
 
-# With coverage
-pytest tests/ --cov=services --cov-report=html
+```bash
+# Backend — 974 tests, 59 files
+docker exec sms_backend python -m pytest tests/ -q -p no:cacheprovider
+
+# A subset while iterating
+docker exec sms_backend python -m pytest tests/test_fees_and_gradebook.py -q -p no:cacheprovider
+
+# Coverage (CI gate: --cov-fail-under=68)
+docker exec sms_backend python -m pytest tests/ --cov=services --cov=core --cov-report=html
 
 # Frontend — type check
 cd frontend/web && npm run type-check
 
-# Frontend — lint
-cd frontend/web && npm run lint
+# Frontend — lint / unit tests
+cd frontend/web && npm run lint && npm run test
 ```
 
+Notes:
+
+- `pytest.ini` sets `--reuse-db --timeout=120 --strict-markers --tb=short` and
+  in-memory channels/cache for tests; markers are `slow`, `slow_axes`,
+  `integration`.
+- Settings default to `core.settings.base`; tests that hit the whole URL conf
+  need `Client(SERVER_NAME="localhost")` or Django raises `DisallowedHost`.
+- The OpenAPI regression suite (`tests/test_api_schema.py`) generates the ~7 MB
+  schema once per session and takes ~6 minutes — don't run it casually.
+
 Backend lint/pre-commit is configured at the repo root (`.pre-commit-config.yaml`,
-flake8 `--max-line-length=120`, `DJ01` ignored — the codebase deliberately uses
-`null=True` on image/file fields).
+black + isort + flake8 `--max-line-length=120`, `DJ01` ignored — the codebase
+deliberately uses `null=True` on image/file fields).
 
 ## Load Testing
 
@@ -161,16 +190,18 @@ across 6 core tables.
 
 ## Environment Variables Reference
 
-| Variable                  | Description                                                         | Default         |
-| ------------------------- | ------------------------------------------------------------------- | --------------- |
-| `SECRET_KEY`              | Django secret key (50+ chars)                                       | —               |
-| `DEBUG`                   | Enable debug mode                                                   | `False`         |
-| `DATABASE_URL`            | PostgreSQL connection string                                        | —               |
-| `REDIS_URL`               | Redis connection string                                             | —               |
-| `AWS_ACCESS_KEY_ID`       | S3/MinIO credentials                                                | —               |
-| `AWS_SECRET_ACCESS_KEY`   | S3/MinIO credentials                                                | —               |
-| `AWS_STORAGE_BUCKET_NAME` | S3 bucket for documents                                             | `sms-documents` |
-| `AWS_S3_ENDPOINT_URL`     | Override for MinIO in dev                                           | —               |
-| `REACT_APP_API_URL`       | Frontend API base URL (mapped to `VITE_API_URL` at build time)      | —               |
-| `REACT_APP_WS_URL`        | Frontend WebSocket base URL (mapped to `VITE_WS_URL` at build time) | —               |
-| `EXPO_PUBLIC_API_URL`     | Mobile API base URL                                                 | —               |
+| Variable                   | Description                                                                              | Default         |
+| -------------------------- | ---------------------------------------------------------------------------------------- | --------------- |
+| `SECRET_KEY`               | Django secret key (50+ chars)                                                            | —               |
+| `DEBUG`                    | Enable debug mode                                                                        | `False`         |
+| `DATABASE_URL`             | PostgreSQL connection string                                                             | —               |
+| `REDIS_URL`                | Redis connection string (`redis://redis:6379/0` in compose — published on host **6380**) | —               |
+| `AWS_ACCESS_KEY_ID`        | S3/MinIO credentials                                                                     | —               |
+| `AWS_SECRET_ACCESS_KEY`    | S3/MinIO credentials                                                                     | —               |
+| `AWS_STORAGE_BUCKET_NAME`  | S3 bucket for documents                                                                  | `sms-documents` |
+| `AWS_S3_ENDPOINT_URL`      | Override for MinIO in dev                                                                | —               |
+| `USER_THROTTLE_RATE`       | Authenticated requests/hour, per user (see `docs/API.md`)                                | `6000/hour`     |
+| `AUTH_LOGIN_THROTTLE_RATE` | Anonymous login attempts per minute                                                      | `10/minute`     |
+| `REACT_APP_API_URL`        | Frontend API base URL (mapped to `VITE_API_URL` at build time)                           | —               |
+| `REACT_APP_WS_URL`         | Frontend WebSocket base URL (mapped to `VITE_WS_URL` at build time)                      | —               |
+| `EXPO_PUBLIC_API_URL`      | Mobile API base URL                                                                      | —               |

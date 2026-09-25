@@ -16,9 +16,11 @@ Two jobs:
 Wiring:
 
 - ``REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = "core.schema.TaggedAutoSchema"``
-- ``from core import schema  # noqa`` in ``CoreConfig.ready()`` so the
-  authentication extension registers for both live serving and the
-  ``spectacular`` management command.
+  in ``core/settings/base.py``.
+- ``from core import schema as _schema  # noqa: F401`` in ``core/urls.py``, which
+  registers the authentication extension for both live serving and the
+  ``spectacular`` management command. (The project has no ``CoreConfig``, so the
+  URL configuration is the earliest import both paths are guaranteed to hit.)
 """
 
 from drf_spectacular.extensions import OpenApiAuthenticationExtension

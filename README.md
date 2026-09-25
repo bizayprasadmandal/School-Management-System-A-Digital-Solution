@@ -26,8 +26,9 @@ A production-grade, multi-tenant School Management System built with Django, Rea
 └──────┬─────────────────────┬─────────────────────────────┬────────────────┘
        │                     │                             │
        ▼                     ▼                             ▼
- REST API v1/v2          WebSocket
-  (DRF + JWT)          (Django Channels)
+ REST API v1              WebSocket
+  (DRF + JWT)           (Django Channels)
+  OpenAPI at /api/schema/
        │                     │
        └─────────────────────┘
                                      │
@@ -62,12 +63,16 @@ A production-grade, multi-tenant School Management System built with Django, Rea
 school-management-system/
 ├── backend/                          # Django backend
 │   ├── core/                         # Project config, URLs, middleware
-│   │   ├── settings/                 # base, development, production
+│   │   ├── settings/                 # base, development, production, test
 │   │   ├── permissions.py            # RBAC permission classes
 │   │   ├── pagination.py             # Custom paginators
-│   │   └── exceptions.py            # Global exception handler
-│   ├── services/                     # Independent service modules
-│   │   ├── auth/                     # User, School, JWT, 2FA
+│   │   ├── schema.py                 # OpenAPI schema class + JWT scheme
+│   │   ├── parent_portal.py          # Guardian-scoped /children/ endpoints
+│   │   ├── plan_features.py          # Subscription-plan gating
+│   │   ├── health/  search/          # Probe endpoints, global search
+│   │   └── exceptions.py             # Global exception handler
+│   ├── services/                     # 23 school-scoped service modules
+│   │   ├── auth/                     # User, School, JWT, 2FA, AuditLog
 │   │   ├── students/                 # Students, Guardians, Enrollments
 │   │   ├── academics/                # Subjects, Teacher Assignments, Lesson Plans
 │   │   ├── attendance/               # Daily + period attendance, Leaves
@@ -75,8 +80,16 @@ school-management-system/
 │   │   ├── timetable/                # Schedule slots, School Events
 │   │   ├── communication/            # Announcements, Messages, Notifications
 │   │   ├── reporting/                # Analytics, PDF/CSV exports
-│   │   ├── fees/                     # Invoices, Payments, Scholarships
-│   │   └── admissions/               # Public application portal, intake mgmt
+│   │   ├── fees/                     # Invoices, Payments, Scholarships, Gateways
+│   │   ├── admissions/               # Public application portal, intake mgmt
+│   │   ├── hr/                       # Employees, Payroll, Payslips, Leaves
+│   │   ├── library/  hostel/         # Catalog + checkouts, Rooms + allocations
+│   │   ├── transport/ (transportation) / cafeteria / inventory / sports
+│   │   ├── health_clinic/  behavior/  counseling/  conferences/
+│   │   ├── alumni/  infrastructure/  # Alumni portal, backups + monitoring
+│   │   └── managers.py               # Shared school-scoped querysets
+│   ├── tests/                        # 974 pytest tests (59 files)
+│   └── scripts/                      # Seeders, audits and repair tooling
 │
 ├── frontend/
 │   ├── web/                          # React 18 + TypeScript web app
@@ -127,24 +140,52 @@ docker compose exec backend python manage.py createsuperuser
 #    docker compose exec backend python manage.py seed_additional_schools  # extra schools + admins (multi-school demo)
 #    docker compose exec backend python manage.py seed_e2e_data            # exact Playwright e2e accounts (idempotent)
 
+#    Optional scripts — per-school demo depth (see docs/SEEDING.md):
+#    docker compose exec backend python scripts/seed_empty_models.py "Green Valley"
+#    docker compose exec backend python scripts/seed_parent_children.py "Green Valley"
+#    docker compose exec backend python scripts/seed_teacher_workspace.py "Green Valley"
+
 # 5. Open browser
-open http://localhost:5173
+open http://localhost:5173              # React web app (role-aware portals)
+open http://localhost:8000/api/docs/    # Swagger UI (Authorize with a JWT)
+open http://localhost:8000/api/redoc/   # ReDoc
+open http://localhost:8000/api/schema/  # OpenAPI 3 document
 ```
 
 ---
 
 ## 📚 Documentation
 
-| Doc                                              | What it covers                                                    |
-| ------------------------------------------------ | ----------------------------------------------------------------- |
-| [`docs/PRD.md`](docs/PRD.md)                     | Product vision, personas, anchors, scope, pricing decision points |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)             | RICE-prioritized 30/60/90 plan with owner-gated items             |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)   | System architecture & data flow                                   |
-| [`docs/API.md`](docs/API.md)                     | API reference & contracts                                         |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)       | Production deployment (k8s/Terraform/CI)                          |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)     | Local development setup                                           |
-| [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) | Logging, Sentry, monitoring, worker observability                 |
-| [`CHANGELOG.md`](CHANGELOG.md)                   | Release history (Keep a Changelog)                                |
+| Doc                                                    | What it covers                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------- |
+| [`docs/PRD.md`](docs/PRD.md)                           | Product vision, personas, anchors, scope, pricing decision points |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)                   | RICE-prioritized 30/60/90 plan with owner-gated items             |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)         | Architecture decision records (ADRs)                              |
+| [`docs/HLD.md`](docs/HLD.md)                           | High-level design: components, flows, URL & environment schema    |
+| [`docs/LLD.md`](docs/LLD.md)                           | Low-level design: model schemas, state machines, caching, queues  |
+| [`docs/API.md`](docs/API.md)                           | API reference & contracts (live schema at `/api/docs/`)           |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)             | Production deployment (k8s/Terraform/CI)                          |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)           | Local development setup                                           |
+| [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md)       | Logging, Sentry, metrics, health probes, worker observability     |
+| [`docs/SEEDING.md`](docs/SEEDING.md)                   | Demo-data seeding, tenant-link repair, empty-tab debugging        |
+| [`docs/DEMO_CREDENTIALS.md`](docs/DEMO_CREDENTIALS.md) | Seeded logins per school and role                                 |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                   | Branching, commit style, test requirements                        |
+| [`CHANGELOG.md`](CHANGELOG.md)                         | Release history (Keep a Changelog)                                |
+
+### Live API documentation
+
+The API ships its own OpenAPI 3 document — no hand-maintained mirror:
+
+| Surface        | URL                        | Notes                                                            |
+| -------------- | -------------------------- | ---------------------------------------------------------------- |
+| Swagger UI     | `/api/docs/`               | Click **Authorize**, paste an access token (scheme `jwtAuth`)    |
+| ReDoc          | `/api/redoc/`              | Read-only, grouped by module tag                                 |
+| OpenAPI 3 JSON | `/api/schema/`             | Feeds client generators; regenerate with `manage.py spectacular` |
+| JSON schema    | `/api/schema/?format=json` | Same document, `?format=yaml` for YAML                           |
+
+Operations are tagged by module (`students`, `fees`, `counseling`, …) — see
+[ADR-009](docs/ARCHITECTURE.md) for how the tags and the JWT security scheme
+are derived from the URL configuration.
 
 ## 🔐 User Roles & Access
 
@@ -156,6 +197,15 @@ open http://localhost:5173
 | Student      | ✅ Personal | 👁 Own profile  | 👁 Own grades   | 👁 Own         | 👁 Own        | ❌             |
 | Parent       | ✅ Personal | 👁 Own children | 👁 Children's   | 👁 Children's  | 💳 Pay        | ❌             |
 | Accountant   | ❌          | ❌              | ❌              | ❌             | ✅ Full       | ✅ Fee reports |
+| Librarian    | ✅ Library  | 👁 Borrowers    | ❌              | ❌             | ❌            | ✅ Library     |
+| Counselor    | ✅ Caseload | 👁 Own caseload | ❌              | ❌             | ❌            | ✅ Counseling  |
+| Alumni       | ✅ Alumni   | ❌              | ❌              | ❌             | ❌            | ❌             |
+
+Every portal is a set of role-scoped routes in the same React app
+(`frontend/web/src/pages/{admin,teacher,student,parent,alumni}`), guarded by
+`RequireAuth`; the parent portal additionally reads the guardian-scoped
+`<app>/children/` endpoints described in
+[`docs/API.md`](docs/API.md#parent--student-self-service-endpoints).
 
 ---
 
@@ -218,7 +268,7 @@ open http://localhost:5173
 - **Public application portal** — unauthenticated applicants can submit, track status
 - Intake management with configurable deadlines and auto-expiry
 - Entrance assessment linking and scoring
-- State machine workflow: applied → screening → interview → offer → enrolled
+- State machine workflow: submitted → under_review → shortlisted/waitlisted → accepted → enrolled (`Application.VALID_TRANSITIONS`, see `docs/LLD.md` §2.1)
 - Automated guardian account creation on enrollment with welcome notifications
 
 ### 9. Reporting & Analytics
@@ -289,6 +339,25 @@ open http://localhost:5173
 - SQL injection prevention via Django ORM
 - XSS protection headers via Nginx
 - CSP, CORS, and clickjacking protection
+
+---
+
+## 📈 Project at a glance
+
+Counts verified against the code on 2026-09-25:
+
+| Metric                        | Value                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| Backend service modules       | 23 (`backend/services/*`), 938 models                                     |
+| Migrations                    | 116 files, one tree per service                                           |
+| REST endpoints (URL patterns) | 4 407 under `/api/`, 945 ViewSets, 975 serializers                        |
+| Auth                          | JWT (tenant-aware) + TOTP 2FA + django-axes                               |
+| Async work                    | 38 Celery task definitions, 17 on the Beat schedule                       |
+| WebSocket consumers           | 3 (`/ws/notifications/`, `/ws/chat/<id>/`, `/ws/attendance/<id>/<date>/`) |
+| Backend tests                 | 974 pytest tests in 59 files (CI gate: 68% coverage)                      |
+| Web app                       | 177 pages, 171 routes, 46 Jest suites, 11 Playwright specs                |
+| Mobile app                    | 40 screens (Expo)                                                         |
+| API documentation             | Live OpenAPI 3 at `/api/docs/` (2 202 documented paths)                   |
 
 ---
 

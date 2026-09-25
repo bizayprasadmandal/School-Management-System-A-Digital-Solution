@@ -52,12 +52,16 @@ parent's phone, in the local context, with payments that actually work locally.
 
 **Must have (shipped):** students, attendance, grades/exams/report cards, fees &
 payments, communication/notifications, HR/teachers, timetable, dashboard/reporting,
-multi-tenancy, RBAC, 2FA, mobile app (read + basic write).
+multi-tenancy, RBAC, 2FA, mobile app (read + basic write), generated API docs
+(`/api/docs/`).
 
-**Should have (next):** admissions CRM funnel ✅, grade-change approval workflow,
-at-risk analytics (shipped), attendance/fee CSV import (shipped),
-data migration/import wizards for onboarding, i18n (Nepali) ✅,
-public application portal ✅.
+**Should have (shipped):** admissions CRM funnel ✅, grade-change approval workflow ✅,
+at-risk analytics ✅, attendance/fee CSV import ✅, i18n (Nepali) ✅,
+public application portal ✅, guardian/student/teacher self-service portals ✅.
+
+**Next (not yet scoped):** onboarding data-migration wizards beyond CSV (legacy
+SIS imports), mobile parity for the newest admin surfaces, native mobile crash
+reporting.
 
 **Could have:** QR/RFID attendance kiosk, transport GPS tracking, cafeteria POS,
 WhatsApp channel, biometric verification.
@@ -91,5 +95,7 @@ financial accounting (ledger/AP/AR) beyond fee management.
 
 ## 10. Out of scope for this document
 
-Technical architecture (see `docs/ARCHITECTURE.md`), deployment (see
-`docs/DEPLOYMENT.md`), API contracts (see `docs/API.md`).
+Technical architecture (see `docs/ARCHITECTURE.md` and the design records in
+`docs/HLD.md` / `docs/LLD.md`), deployment (see `docs/DEPLOYMENT.md`), API
+contracts (see `docs/API.md` and the live schema at `/api/docs/`), demo data
+(see `docs/SEEDING.md`).

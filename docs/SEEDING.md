@@ -9,13 +9,19 @@ verify that every panel tab renders real rows.
 
 ## The toolkit
 
-| Script                                            | Purpose                                                         |
-| ------------------------------------------------- | --------------------------------------------------------------- |
-| `backend/scripts/seed_empty_models.py`            | Seeds every still-empty school-scoped model with plausible rows |
-| `backend/scripts/repair_tenant_links.py`          | Deletes rows whose FK paths disagree about the tenant           |
-| `backend/scripts/diag_cross_tenant.py`            | Same check as the repair, **report-only** (no deletes)          |
-| `backend/scripts/check_hostel_tabs.py`            | Endpoint-level count check for one module (template for others) |
-| `frontend/web/scripts/walk_school_panel_tabs.mjs` | Browser walk of every page + tab, flags EMPTY/error tabs        |
+| Script                                             | Purpose                                                                                                 |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `backend/scripts/seed_empty_models.py`             | Seeds every still-empty school-scoped model with plausible rows                                         |
+| `backend/scripts/seed_parent_children.py`          | Tops every guardian-linked child up to ≥1 row per parent-portal category                                |
+| `backend/scripts/seed_teacher_workspace.py`        | Gives up to 100 teachers/school an owned workspace (assignments, plans, attendance, payslips, messages) |
+| `backend/scripts/repair_tenant_links.py`           | Deletes rows whose FK paths disagree about the tenant                                                   |
+| `backend/scripts/diag_cross_tenant.py`             | Same check as the repair, **report-only** (no deletes)                                                  |
+| `backend/scripts/check_hostel_tabs.py`             | Endpoint-level count check for one module (template for others)                                         |
+| `backend/scripts/verify_all_logins.py`             | Logs in as every demo user to prove credentials still work                                              |
+| `backend/scripts/reset_demo_passwords_fast.py`     | Re-applies the per-role demo passwords (see `DEMO_CREDENTIALS.md`)                                      |
+| `frontend/web/scripts/walk_school_panel_tabs.mjs`  | Browser walk of every page + tab, flags EMPTY/error tabs                                                |
+| `frontend/web/scripts/walk_teacher_per_school.mjs` | Browser walk of the 8 teacher pages for one school                                                      |
+| `frontend/web/scripts/audit_role_portals.mjs`      | Walks the parent / student / teacher portals and reports failures                                       |
 
 ## Quick start (Docker stack running)
 
@@ -36,6 +42,53 @@ docker exec sms_backend python scripts/repair_tenant_links.py
 The seeder is **rerunnable**: already-populated models are skipped, generated
 values carry a unique run suffix, and each row retries a few times on unique
 collisions. `--dry-run` lists what _would_ be seeded.
+
+## Role-portal seeding
+
+The generic seeder scatters rows across all students/teachers, so a _specific_
+parent or teacher login usually lands on empty tabs. Two rerunnable passes fix
+that per school:
+
+```bash
+# One row in each of the 12 parent-portal categories for every guardian-linked child
+docker exec sms_backend python scripts/seed_parent_children.py "Green Valley School"
+
+# Real teacher workspace: assignments, lesson plans, assessments, period attendance,
+# Employee + payslips, direct messages, conference slots (up to MAX_TEACHERS = 100)
+docker exec sms_backend python scripts/seed_teacher_workspace.py "Green Valley School"
+```
+
+Both take a school **name substring** and are safe to re-run (existing rows are
+reused, not duplicated). Run them for every demo school:
+
+```bash
+docker exec sms_backend sh -c 'for s in "Green Valley" "EduSphere" "Bright Future" \
+  "E2E Test" "Test School 0" "Test School 1"; do
+  python scripts/seed_parent_children.py "$s";
+  python scripts/seed_teacher_workspace.py "$s"; done'
+```
+
+The teacher pass attaches its rows to the school's **named** teachers
+(`alice.morgan@…`, `sarah.mitchell@…`); the bulk filler accounts
+(`demo.*@…-<runid>`) cannot log in — see `DEMO_CREDENTIALS.md`.
+
+### Verifying a portal walk
+
+```bash
+cd frontend/web
+
+# Form login — one school's teacher at a time (8 pages, PASS/FAIL per page)
+MSYS_NO_PATHCONV=1 node scripts/walk_teacher_per_school.mjs alice.morgan@greenvalley.edu Teacher@1234
+
+# Token injection — for accounts whose email the login form rejects
+MSYS_NO_PATHCONV=1 node scripts/walk_teacher_per_school.mjs --token /tmp/jwt.txt
+```
+
+`walk_teacher_per_school.mjs` walks the 8 teacher pages, printing per-page HTTP
+status, API row counts and a text sample. In `--token` mode it also fetches
+`/auth/me/` and seeds `{tokens, user}` into the `sms-auth` localStorage key,
+without which the route guards render blank pages. The dev server must be up on
+`http://localhost:5173`.
 
 ## How the seeder decides what to seed
 

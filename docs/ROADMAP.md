@@ -10,6 +10,12 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 > and verified against the code (endpoints, Celery schedules, and UI surfaces
 > checked individually). Only owner-gated work remains. New candidate items are
 > needed before this board is useful again.
+>
+> **Update 2026-09-25** — developer-experience and demo-fidelity work landed:
+> generated API documentation (item 12), role-portal fixes for the parent,
+> student and teacher surfaces, and per-school demo seeders. The docs set was
+> re-audited against the code the same day (counts, endpoints, env vars, and
+> credentials). Phase 4 candidates are listed at the bottom.
 
 ---
 
@@ -38,6 +44,18 @@ Legend: 🔴 P0 (blocking) · 🟠 P1 (this quarter) · 🟡 P2 (next quarter)
 | 9   | **Analytics dashboards UI** — at-risk / funnel / forecast exposed in the admin UI with charts                                    | 4·4·3/4 = 12 | ✅ Done — at-risk students (Attendance), admission funnel (Admissions Center), fee forecast + trend (Dashboard, Recharts)                                                                                      |
 | 10  | **i18n (Nepali)** — string extraction + Nepali locale for the web app                                                            | 4·4·3/5 = 10 | ✅ Done 2026-08 (EN/NE + language switcher)                                                                                                                                                                    |
 | 11  | **Split Sentry projects** — separate backend / web / mobile DSNs with per-app alert rules **[OWNER]**                            | 3·3·3/1 = 27 | Credentials from Sentry                                                                                                                                                                                        |
+| 12  | **Generated API documentation** — OpenAPI 3 served from the code, Swagger UI + ReDoc, module tags, Authorize button              | 3·4·4/1 = 48 | ✅ Done 2026-09-25 — `/api/schema/`, `/api/docs/`, `/api/redoc/`, regression test in `backend/tests/test_api_schema.py`                                                                                        |
+| 13  | **Role-portal completeness** — parent/student/teacher pages must point at real, self-scoped endpoints                            | 4·5·4/2 = 40 | ✅ Done 2026-09 — 12 guardian-scoped `/children/` endpoints, student self-scoping, teacher workspace seeder + per-school browser walk                                                                          |
+
+## Phase 4 — candidates (not yet scored)
+
+| Candidate                                                                          | Why it is on the list                                                                 |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Fix bulk-seeded `demo.*@…-<runid>` accounts (malformed address, unusable password) | 105 filler teacher accounts cannot log in; demos should not depend on token injection |
+| Fully describe the 34 plain `APIView`s (`@extend_schema`)                          | Removes the remaining `spectacular --validate` warnings and makes login/2FA SDK-ready |
+| Pilot-school onboarding support                                                    | Phase 2 item 6 is still owner-gated; tooling around it can start early                |
+| Mobile parity for the surfaces shipped this quarter                                | The Expo app predates the portal and analytics work                                   |
+| Operational hardening from the first school's usage                                | Whatever the first pilot actually breaks                                              |
 
 ## Parked / Could-have
 

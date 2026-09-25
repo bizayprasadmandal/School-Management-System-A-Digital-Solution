@@ -2,7 +2,8 @@
 
 > **Version:** 2.0  
 > **Date:** August 2026  
-> **Status:** Current  
+> **Status:** Current — model schemas and counts re-verified against the code on
+> **2026-09-25**  
 > **Companion to:** [docs/HLD.md](HLD.md)
 
 ---
@@ -65,93 +66,131 @@
 
 #### `auth_service.School` (Tenant Root)
 
-| Field        | Type           | Constraints              | Notes                     |
-| ------------ | -------------- | ------------------------ | ------------------------- |
-| `id`         | UUID           | PK                       | Auto-generated            |
-| `name`       | CharField(200) | not null                 | School display name       |
-| `code`       | CharField(20)  | unique                   | Short code (e.g., "DEMO") |
-| `subdomain`  | CharField(50)  | unique                   | Multi-tenant routing      |
-| `address`    | TextField      | blank                    |                           |
-| `phone`      | CharField(20)  | blank                    |                           |
-| `email`      | EmailField     | blank                    |                           |
-| `logo`       | ImageField     | blank                    | S3 storage                |
-| `timezone`   | CharField(50)  | default="Asia/Kathmandu" |                           |
-| `is_active`  | BooleanField   | default=True             |                           |
-| `created_at` | DateTimeField  | auto_now_add             |                           |
+| Field                       | Type                 | Constraints        | Notes                                        |
+| --------------------------- | -------------------- | ------------------ | -------------------------------------------- |
+| `id`                        | UUID                 | PK                 | Auto-generated                               |
+| `name`                      | CharField(255)       | not null           | School display name                          |
+| `code`                      | CharField(20)        | unique             | Short code (e.g., "GVS")                     |
+| `subdomain`                 | CharField(63)        | unique             | Multi-tenant routing                         |
+| `logo`                      | ImageField(100)      | null               | S3 storage                                   |
+| `address`                   | TextField            | blank              |                                              |
+| `phone`                     | CharField(20)        | blank              |                                              |
+| `email`                     | EmailField(254)      | blank              |                                              |
+| `website`                   | URLField(200)        | blank              |                                              |
+| `timezone`                  | CharField(50)        | default="UTC"      | Schools set `Asia/Kathmandu` in practice     |
+| `academic_year_start_month` | PositiveSmallInteger | default=9          | April–March style calendars use 4            |
+| `subscription_tier`         | CharField(20)        | default="standard" | Drives plan gating (`core/plan_features.py`) |
+| `is_active`                 | BooleanField         | default=True       |                                              |
+| `created_at` / `updated_at` | DateTimeField        | auto_now(\_add)    |                                              |
 
 #### `auth_service.User` (Multi-Role)
 
-| Field               | Type           | Constraints   | Notes                                                                                                 |
-| ------------------- | -------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
-| `id`                | UUID           | PK            |                                                                                                       |
-| `email`             | EmailField     | unique        | Login identifier                                                                                      |
-| `first_name`        | CharField(100) | not null      |                                                                                                       |
-| `last_name`         | CharField(100) | not null      |                                                                                                       |
-| `role`              | CharField(20)  | choices       | `super_admin`, `school_admin`, `teacher`, `student`, `parent`, `accountant`, `librarian`, `counselor` |
-| `school`            | FK → School    | nullable      | null for super_admin                                                                                  |
-| `is_active`         | BooleanField   | default=True  |                                                                                                       |
-| `is_email_verified` | BooleanField   | default=False |                                                                                                       |
-| `is_2fa_enabled`    | BooleanField   | default=False |                                                                                                       |
-| `two_factor_method` | CharField(10)  | choices       | `totp`, `backup`, null                                                                                |
-| `phone`             | CharField(20)  | blank         |                                                                                                       |
+| Field                             | Type                 | Constraints   | Notes                                                                                                 |
+| --------------------------------- | -------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `id`                              | UUID                 | PK            |                                                                                                       |
+| `email`                           | EmailField(254)      | unique        | Login identifier                                                                                      |
+| `first_name`                      | CharField(100)       | not null      |                                                                                                       |
+| `last_name`                       | CharField(100)       | not null      |                                                                                                       |
+| `phone`                           | CharField(20)        | blank         |                                                                                                       |
+| `avatar`                          | ImageField(100)      | null          | S3 storage                                                                                            |
+| `role`                            | CharField(20)        | choices       | `super_admin`, `school_admin`, `teacher`, `student`, `parent`, `accountant`, `librarian`, `counselor` |
+| `school`                          | FK → School          | nullable      | null for super_admin                                                                                  |
+| `is_active` / `is_staff`          | BooleanField         | default=False |                                                                                                       |
+| `email_verified`                  | BooleanField         | default=False | Seeded demo users are set True; False leaves the SPA on /login after auth                             |
+| `two_factor_enabled`              | BooleanField         | default=False | TOTP via pyotp                                                                                        |
+| `two_factor_secret`               | CharField(32)        | blank         |                                                                                                       |
+| `backup_code_failed_attempts`     | PositiveSmallInteger | default=0     | Lockout counter for backup codes                                                                      |
+| `backup_code_locked_until`        | DateTimeField        | null          |                                                                                                       |
+| `last_login_ip`                   | GenericIPAddress     | null          |                                                                                                       |
+| `notify_email` / `_sms` / `_push` | BooleanField         | default=True  | Per-user channel preferences                                                                          |
+| `date_joined` / `updated_at`      | DateTimeField        | auto          |                                                                                                       |
+
+The model's `role` choices are the eight above; production data also contains a
+legacy `alumni` value (used by the alumni portal accounts), which is why
+`scripts/reset_demo_passwords_fast.py` still handles that role.
 
 #### `students.Student`
 
-| Field               | Type            | Constraints       | Notes             |
-| ------------------- | --------------- | ----------------- | ----------------- |
-| `id`                | UUID            | PK                |                   |
-| `user`              | OneToOne → User | unique            | 1:1 with User     |
-| `school`            | FK → School     | not null          | Tenant FK         |
-| `admission_number`  | CharField(20)   | unique_per_school | Auto-generated    |
-| `date_of_birth`     | DateField       | not null          |                   |
-| `gender`            | CharField(1)    | choices           | `M`, `F`, `O`     |
-| `address`           | TextField       | blank             |                   |
-| `city`              | CharField(100)  | blank             |                   |
-| `country`           | CharField(100)  | default="Nepal"   |                   |
-| `admission_date`    | DateField       | not null          |                   |
-| `current_classroom` | FK → Classroom  | nullable          | Active enrollment |
-| `blood_group`       | CharField(5)    | blank             |                   |
-| `medical_notes`     | TextField       | blank             |                   |
+| Field                                                    | Type              | Constraints  | Notes                                  |
+| -------------------------------------------------------- | ----------------- | ------------ | -------------------------------------- |
+| `id`                                                     | UUID              | PK           |                                        |
+| `user`                                                   | OneToOne → User   | unique       | 1:1 with User                          |
+| `school`                                                 | FK → School       | not null     | Tenant FK                              |
+| `admission_number`                                       | CharField(30)     | not null     | Unique per school (enforced in `save`) |
+| `roll_number`                                            | CharField(20)     | blank        |                                        |
+| `date_of_birth`                                          | DateField         | not null     |                                        |
+| `gender`                                                 | CharField(1)      | choices      | `M`, `F`, `O`                          |
+| `blood_group`                                            | CharField(3)      | blank        |                                        |
+| `nationality` / `religion`                               | CharField(50)     | blank        |                                        |
+| `address` / `city` / `state` / `country` / `postal_code` | Text/Char(100/20) | blank        | `country` defaults to "Nepal"          |
+| `admission_date`                                         | DateField         | not null     |                                        |
+| `photo`                                                  | ImageField(100)   | null         |                                        |
+| `medical_conditions`                                     | TextField         | blank        | (named `medical_notes` in older docs)  |
+| `emergency_contact_name` / `_phone`                      | CharField(100/20) | blank        |                                        |
+| `previous_school`                                        | CharField(255)    | blank        |                                        |
+| `transfer_certificate`                                   | FileField(100)    | null         |                                        |
+| `bio` / `interests` / `learning_goals`                   | TextField         | blank        | Student self-service profile fields    |
+| `is_active`                                              | BooleanField      | default=True |                                        |
+| `created_at` / `updated_at`                              | DateTimeField     | auto         |                                        |
+
+There is **no `current_classroom` FK on `Student`** — class membership lives in
+`students.Enrollment` (`student` + `classroom` + `academic_year`), which is what
+the self-service portal and roster views query.
 
 #### `fees.FeeInvoice`
 
-| Field            | Type               | Constraints       | Notes                                                     |
-| ---------------- | ------------------ | ----------------- | --------------------------------------------------------- |
-| `id`             | UUID               | PK                |                                                           |
-| `school`         | FK → School        | not null          | Tenant FK                                                 |
-| `student`        | FK → Student       | not null          |                                                           |
-| `fee_structure`  | FK → FeeStructure  | not null          | Defines amount                                            |
-| `academic_year`  | FK → AcademicYear  | not null          |                                                           |
-| `invoice_number` | CharField(20)      | unique_per_school | Auto-generated                                            |
-| `amount`         | DecimalField(10,2) | not null          |                                                           |
-| `paid_amount`    | DecimalField(10,2) | default=0         | Running total                                             |
-| `status`         | CharField(20)      | choices           | `draft`, `unpaid`, `partial`, `paid`, `overdue`, `waived` |
-| `due_date`       | DateField          | not null          |                                                           |
-| `collected_by`   | FK → User          | nullable          | Who processed payment                                     |
+| Field                       | Type              | Constraints | Notes                                                                            |
+| --------------------------- | ----------------- | ----------- | -------------------------------------------------------------------------------- |
+| `id`                        | UUID              | PK          |                                                                                  |
+| `invoice_number`            | CharField(30)     | unique      | Auto-generated; includes the school code so numbers never collide across tenants |
+| `student`                   | FK → Student      | not null    | Tenant comes through the student (there is **no** `school` FK on the invoice)    |
+| `academic_year`             | FK → AcademicYear | not null    |                                                                                  |
+| `fee_structure`             | FK → FeeStructure | not null    | Defines the base amount                                                          |
+| `due_date`                  | DateField         | not null    |                                                                                  |
+| `base_amount`               | DecimalField      | not null    | From the fee structure                                                           |
+| `discount_amount`           | DecimalField      | default=0   | Concessions/scholarships                                                         |
+| `late_fee`                  | DecimalField      | default=0   | Applied by `process_installments` / late-fee rules                               |
+| `total_amount`              | DecimalField      | not null    | `base − discount + late_fee`                                                     |
+| `paid_amount`               | DecimalField      | default=0   | Running total                                                                    |
+| `status`                    | CharField(15)     | choices     | `draft`, `unpaid`, `partial`, `paid`, `overdue`, `waived`, `cancelled`           |
+| `notes`                     | TextField         | blank       |                                                                                  |
+| `created_by`                | FK → User         | nullable    | Staff member who generated it                                                    |
+| `created_at` / `updated_at` | DateTimeField     | auto        |                                                                                  |
 
 #### `admissions.Application`
 
-| Field               | Type                  | Constraints       | Notes                                   |
-| ------------------- | --------------------- | ----------------- | --------------------------------------- |
-| `id`                | UUID                  | PK                |                                         |
-| `school`            | FK → School           | not null          | Tenant FK                               |
-| `tracking_id`       | CharField(20)         | unique_per_school | `APP-YYYY-NNNNNN`                       |
-| `intake`            | FK → EnrollmentIntake | not null          | Application round                       |
-| `status`            | CharField(20)         | choices           | State machine (see §2.1)                |
-| `first_name`        | CharField(100)        | not null          |                                         |
-| `last_name`         | CharField(100)        | not null          |                                         |
-| `email`             | EmailField            | not null          |                                         |
-| `phone`             | CharField(20)         | not null          |                                         |
-| `date_of_birth`     | DateField             | not null          |                                         |
-| `gender`            | CharField(1)          | choices           |                                         |
-| `grade_applied_for` | CharField(50)         | not null          | Free-text grade name                    |
-| `previous_school`   | CharField(200)        | blank             |                                         |
-| `guardian_name`     | CharField(200)        | not null          |                                         |
-| `guardian_phone`    | CharField(20)         | not null          |                                         |
-| `guardian_email`    | EmailField            | not null          |                                         |
-| `relationship`      | CharField(20)         | choices           | `father`, `mother`, `guardian`, `other` |
-| `offer_deadline`    | DateTimeField         | nullable          | Auto-expiry for offers                  |
-| `created_at`        | DateTimeField         | auto_now_add      |                                         |
+| Field                                                    | Type                  | Constraints | Notes                                                      |
+| -------------------------------------------------------- | --------------------- | ----------- | ---------------------------------------------------------- |
+| `id`                                                     | UUID                  | PK          |                                                            |
+| `school`                                                 | FK → School           | not null    | Tenant FK                                                  |
+| `intake`                                                 | FK → EnrollmentIntake | not null    | Application round                                          |
+| `application_number`                                     | CharField(50)         | unique      | `APP-<YYYYMM>-<6 uppercase hex>`, e.g. `APP-202609-4F2A9C` |
+| `status`                                                 | CharField(20)         | choices     | State machine (see §2.1)                                   |
+| `first_name` / `middle_name` / `last_name`               | CharField(100)        | —           |                                                            |
+| `date_of_birth`                                          | DateField             | not null    |                                                            |
+| `gender`                                                 | CharField(10)         | choices     |                                                            |
+| `nationality`                                            | CharField(100)        | blank       |                                                            |
+| `email`                                                  | EmailField(254)       | not null    |                                                            |
+| `phone`                                                  | CharField(20)         | not null    |                                                            |
+| `address` / `city` / `state` / `postal_code`             | Text/Char(100/20)     | blank       |                                                            |
+| `previous_school` / `previous_grade`                     | Char(200/20)          | blank       |                                                            |
+| `applying_for_grade`                                     | CharField(20)         | not null    | Free-text grade name                                       |
+| `gpa`                                                    | DecimalField          | null        | Optional self-reported GPA                                 |
+| `guardian_name`                                          | CharField(200)        | not null    |                                                            |
+| `guardian_phone`                                         | CharField(20)         | not null    |                                                            |
+| `guardian_email`                                         | EmailField(254)       | not null    |                                                            |
+| `guardian_relation`                                      | CharField(50)         | blank       | `father`, `mother`, `guardian`, `other`                    |
+| `source`                                                 | CharField(50)         | blank       | Marketing attribution                                      |
+| `submitted_at`                                           | DateTimeField         | null        | Set on the draft → submitted transition                    |
+| `reviewed_by` / `review_notes`                           | FK → User / TextField | null        | Admin review                                               |
+| `tour_date` / `toured_at`                                | Date/DateTimeField    | null        | Campus tour tracking                                       |
+| `offer_sent_at` / `offer_deadline` / `offer_accepted_at` | DateTime/Date         | null        | Offer lifecycle                                            |
+| `linked_student`                                         | FK → Student          | null        | Set when the applicant is enrolled                         |
+| `created_at` / `updated_at`                              | DateTimeField         | auto        |                                                            |
+
+The 40-model `admissions` app also carries the funnel/reporting models
+(`AdmissionFunnelSnapshot`, `AdmissionDecision`, `AdmissionDocumentChecklist`,
+`AdmissionReminder`, …) built on top of this core record.
 
 ### 1.3 Key Relationships
 
@@ -179,57 +218,56 @@
 
 ### 2.1 Admissions Application State Machine
 
+Defined as `Application.VALID_TRANSITIONS` in `services/admissions/models.py`
+(`Status` = `draft`, `submitted`, `under_review`, `shortlisted`, `accepted`,
+`rejected`, `waitlisted`, `enrolled`, `cancelled`):
+
 ```
-                    ┌──────────────┐
-                    │   applied     │ ◀─── POST /public/apply/
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  screening    │ ◀─── Admin review
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  interview    │ ◀─── Scheduled
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │    offer      │ ◀─── Offer sent + deadline set
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-       ┌──────▼──────┐ ┌──▼──────┐ ┌───▼──────┐
-       │  enrolled    │ │waitlisted│ │ rejected  │
-       └─────────────┘ └─────────┘ └──────────┘
-              │
-       ┌──────▼──────┐
-       │  withdrawn   │ ◀─── Student declines
-       └─────────────┘
+   ┌──────────┐  POST /public/apply/   ┌────────────┐
+   │  draft   │───────────────────────▶│ submitted  │
+   └────┬─────┘  (public form saves    └─────┬──────┘
+        │         straight to submitted)     │
+        │                                     ▼
+        │                            ┌───────────────┐
+        │                            │ under_review  │
+        │                            └──┬──┬──┬──────┘
+        │                               │  │  │
+        │        ┌──────────────────────┘  │  └────────────┐
+        │        ▼                         ▼               ▼
+        │  ┌────────────┐          ┌────────────┐   ┌────────────┐
+        │  │shortlisted │          │ waitlisted │   │  rejected  │
+        │  └─────┬──────┘          └──────┬─────┘   └────────────┘
+        │        │        ┌───────────────┘
+        │        ▼        ▼
+        │  ┌────────────────┐
+        │  │    accepted    │
+        │  └────────┬───────┘
+        ▼           ▼
+   ┌──────────┐  ┌────────────┐
+   │cancelled │  │  enrolled  │
+   └──────────┘  └────────────┘
 ```
 
-**Valid Transitions (enforced in `services/admissions/models.py`):**
-
-| From         | To           | Trigger                                |
-| ------------ | ------------ | -------------------------------------- |
-| `applied`    | `screening`  | Admin reviews application              |
-| `screening`  | `interview`  | Interview scheduled                    |
-| `screening`  | `rejected`   | Application denied                     |
-| `interview`  | `offer`      | Interview passed                       |
-| `interview`  | `rejected`   | Interview failed                       |
-| `interview`  | `waitlisted` | Hold for capacity                      |
-| `offer`      | `enrolled`   | Student accepts + deadline not expired |
-| `offer`      | `withdrawn`  | Student declines or deadline expires   |
-| `waitlisted` | `offer`      | Spot opens up                          |
-| `enrolled`   | `withdrawn`  | Post-enrollment withdrawal             |
+| From                                  | Allowed next states                                  |
+| ------------------------------------- | ---------------------------------------------------- |
+| `draft`                               | `submitted`, `cancelled`                             |
+| `submitted`                           | `under_review`, `rejected`, `cancelled`              |
+| `under_review`                        | `shortlisted`, `rejected`, `waitlisted`, `cancelled` |
+| `shortlisted`                         | `accepted`, `rejected`, `cancelled`                  |
+| `waitlisted`                          | `accepted`, `rejected`, `cancelled`                  |
+| `accepted`                            | `enrolled`, `cancelled`                              |
+| `rejected` / `enrolled` / `cancelled` | terminal                                             |
 
 **Side effects on transition:**
 
-- `applied → screening`: Log `ApplicationTimelineEvent`
-- `screening → interview`: Email notification to applicant
-- `interview → offer`: Set `offer_deadline` (configurable days), send offer email
-- `offer → enrolled`: Create student account + guardian account, send welcome email
-- Any → `rejected`: Send rejection email
-- Deadline expiry: Celery beat task checks hourly, auto-moves expired offers to `withdrawn`
+- Submission: generate `application_number`, stamp `submitted_at`, write an
+  `ApplicationTimelineEvent`, send the applicant a confirmation email
+  (best-effort — a mail failure is logged, never rolled back into the response)
+- Offer/pre-offer states: set `offer_sent_at` / `offer_deadline`, notify the
+  applicant; `expire_overdue_offers` (Celery beat, daily 06:00) closes expired offers
+- `accepted → enrolled`: create the student + guardian accounts, link them via
+  `linked_student`, send the welcome email
+- `rejected`: send the rejection email
 
 ### 2.2 Fee Payment State Machine
 
@@ -283,7 +321,11 @@
 | **Delete**         | `DELETE /<service>/{id}/` → 204                                                    |
 | **Custom actions** | `POST /<service>/{id}/<action>/` → varies                                          |
 | **Filtering**      | Query params: `?search=`, `?status=`, `?page=`, `?page_size=`                      |
-| **Pagination**     | Page-number based, max 200 per page                                                |
+| **Pagination**     | Page-number based, default 25 / max 200 per page                                   |
+| **Auth**           | `Authorization: Bearer <access>` (tenant-aware JWT); login public                  |
+| **Throttling**     | anon 50/h · user 6 000/h · login 10/min · 2FA 5/min (429 + `Retry-After`)          |
+| **Self-service**   | `<module>/…/children/` guardian-scoped routes; students self-scope on 4 viewsets   |
+| **Docs**           | `/api/schema/` (OpenAPI 3), `/api/docs/` (Swagger UI), `/api/redoc/`               |
 | **Error format**   | `{ "detail": "...", "status_code": 400 }` or field errors `{ "field": ["error"] }` |
 
 ### 3.2 Key API Endpoints
@@ -370,9 +412,9 @@ POST   /admissions/applications/{id}/enroll/ → enroll student
 #### Admissions (Public — No Auth)
 
 ```
-POST   /admissions/public/apply/       → submit application
-GET    /admissions/public/status/{tracking_id}/ → check status
-GET    /admissions/public/intakes/     → list open intakes
+POST   /admissions/public/apply/       → submit application (201 + application_number)
+GET    /admissions/public/status/{application_number}/ → check status + timeline
+GET    /admissions/public/intakes/     → list open intakes (unpaginated)
 ```
 
 #### Communication
@@ -490,13 +532,13 @@ Applicant        Backend          PostgreSQL       Celery
   │                │                │               │
   │──POST /admissions/public/apply/──▶│                │               │
   │                │──validate serializer──▶│               │
-  │                │──generate tracking_id (APP-YYYY-NNN)│               │
-  │                │──create Application(applied)──▶│               │
+  │                │──generate application_number (APP-YYYYMM-XXXXXX)│               │
+  │                │──create Application(submitted)──▶│               │
   │                │──create TimelineEvent──▶│               │
-  │◀──{ tracking_id, status }│                │               │
+  │◀──{ application_number, status, intake_name }│               │
   │                │                │               │
   │──GET /admissions/public/status/APP-.../──▶│                │
-  │                │──query by tracking_id──▶│               │
+  │                │──query by application_number──▶│               │
   │◀──{ status, details }│                │               │
 ```
 
@@ -946,19 +988,25 @@ pages/
 
 ## Appendix: File Count Summary
 
-| Category                 | Count          |
-| ------------------------ | -------------- |
-| Django service modules   | 24             |
-| Django models (classes)  | 104            |
-| Django migrations        | 53             |
-| DRF ViewSets             | 105            |
-| DRF Serializers          | 123            |
-| URL router registrations | 80             |
-| Celery task files        | 24             |
-| React page modules       | 30+            |
-| React components         | 100+           |
-| Playwright e2e tests     | 12 spec files  |
-| Jest unit tests          | 32 test suites |
-| k6 load test scripts     | 4              |
-| API endpoints (REST)     | 200+           |
-| WebSocket consumers      | 2              |
+Counts re-verified against the code on **2026-09-25** (`apps.get_models()`, the
+URL resolver, and file counts):
+
+| Category                   | Count                                                |
+| -------------------------- | ---------------------------------------------------- |
+| Django service modules     | 23 (+ `core`)                                        |
+| Django models (classes)    | 938 (937 defined in `services/*/models.py`)          |
+| Django migrations          | 116 files (every service app has an `0001_initial`)  |
+| DRF ViewSets               | 945                                                  |
+| DRF Serializers            | 975                                                  |
+| URL router registrations   | 941                                                  |
+| URL patterns under `/api/` | 4 407 (2 202 documented paths in the OpenAPI schema) |
+| Celery task definitions    | 38 (17 on the Beat schedule)                         |
+| Celery queues              | `default`, `notifications`, `reports`                |
+| Backend tests              | 974 pytest tests in 59 files                         |
+| React pages / routes       | 177 page modules, 171 routes in `App.tsx`            |
+| React shared components    | 45 `.tsx` under `src/components`                     |
+| Jest unit tests            | 46 test files                                        |
+| Playwright e2e tests       | 11 spec files in `frontend/web/e2e`                  |
+| k6 load test scripts       | 5                                                    |
+| WebSocket consumers        | 3 (`Chat`, `Notification`, `AttendanceLive`)         |
+| React Native screens       | 40 `.tsx` files                                      |

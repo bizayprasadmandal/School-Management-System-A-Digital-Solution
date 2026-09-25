@@ -6,6 +6,11 @@ logs in with that role's password.
 
 > ⚠️ Demo data only — never reuse these passwords anywhere real.
 
+**Last verified:** 2026-09-25 against the six seeded schools (Green Valley,
+EduSphere Demo Academy, Bright Future, E2E Test School, Test School 0, Test
+School 1). The canonical accounts in the tables below were checked with
+`check_password()` and a live `POST /api/v1/auth/login/`.
+
 ## Canonical passwords by role
 
 | Role                               | Password       | Notes                   |
@@ -66,10 +71,42 @@ logs in with that role's password.
 | `shree.tiwari@gmail.com`, `mamta.mandal@gmail.com` | (yours — unchanged) | personal student-role accounts         |
 | `smoke@demo.edusphere.school`                      | `Admin@1234`        | super_admin @ GVS, used by smoke tests |
 
+## Accounts that do _not_ log in
+
+The generic seeders also create bulk filler users whose addresses are built by
+appending a run suffix to the whole address, e.g.
+`demo.497725@greenvalley.edu-497725230` or `demo.0a5a2d@greenvalley.edu-0a5a2d278`.
+Those accounts are **not login-able** and should not be used in demos or walks:
+
+- the address is malformed, so the browser login form's `.email()` validation
+  refuses to submit it;
+- the account's password is not one of the per-role passwords, so
+  `POST /api/v1/auth/login/` answers `401 No active account found with the
+given credentials`.
+
+Current counts of such teacher accounts: Green Valley 30, Bright Future 20,
+E2E 15, EduSphere 10, Test School 0 20, Test School 1 10. Use the named
+accounts above, or run the workspace seeders (`scripts/seed_teacher_workspace.py`)
+which attach data to the _named_ teachers. Making the filler emails valid is an
+open follow-up.
+
+Pages/scripts that need a session for such an account must inject a token:
+`frontend/web/scripts/walk_teacher_per_school.mjs --token <file>` fetches
+`/auth/me/` and seeds both `tokens` and `user` into the `sms-auth` localStorage
+key, otherwise the route guards render blank pages.
+
 ## How the reset works
 
 `backend/scripts/reset_demo_passwords_fast.py` hashes each role's password
-once and bulk-updates via SQL (734 accounts in <1s). Exclusions are baked in:
-E2E Test School, personal gmail accounts, and API test artifacts. The per-role
-scheme above is then verified end-to-end by
-`backend/scripts/verify_all_logins.py`.
+once and bulk-updates via SQL. Exclusions are baked in: **E2E Test School** and
+**Test School 0** in their entirety, plus personal gmail accounts and API test
+artifacts (`api.test`, `formdata.test`, `verifytest`). Accounts in the excluded
+schools keep whatever password their seeder/`verify_all_logins.py` gave them,
+which is why Test School 0 teachers are not `Teacher@1234`. The per-role scheme
+above is then verified end-to-end by `backend/scripts/verify_all_logins.py`.
+
+```bash
+# Re-apply the per-role passwords, then verify every account
+docker exec sms_backend python scripts/reset_demo_passwords_fast.py
+docker exec sms_backend python scripts/verify_all_logins.py
+```

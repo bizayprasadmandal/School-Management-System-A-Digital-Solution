@@ -2,7 +2,8 @@
 
 > **Version:** 2.0  
 > **Date:** August 2026  
-> **Status:** Current  
+> **Status:** Current — URL schema, module counts and env matrix re-verified
+> against the code on **2026-09-25**  
 > **Target Market:** Private schools in Nepal (100–1,500 students)
 
 ---
@@ -17,14 +18,15 @@ parents, accountants, librarians, and counselors.
 
 ### 1.1 Key Design Principles
 
-| Principle                  | Implementation                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| **Multi-tenancy**          | Row-level isolation via `school_id` FK on every model + middleware enforcement |
-| **Monolith-first**         | Single Django deployment divided into service modules (not microservices)      |
-| **Async by default**       | All I/O (email, SMS, push, PDF) offloaded to Celery workers                    |
-| **Offline-capable mobile** | React Native + Expo with local cache for low-bandwidth schools                 |
-| **Payment-localized**      | Stripe + Khalti + eSewa with per-school gateway toggles                        |
-| **Defense in depth**       | JWT + 2FA + RBAC + tenant isolation + audit logging                            |
+| Principle                  | Implementation                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| **Multi-tenancy**          | Row-level isolation via `school_id` FK on every model + middleware enforcement  |
+| **Self-describing API**    | OpenAPI 3 generated from the code at `/api/schema/`, Swagger UI at `/api/docs/` |
+| **Monolith-first**         | Single Django deployment divided into service modules (not microservices)       |
+| **Async by default**       | All I/O (email, SMS, push, PDF) offloaded to Celery workers                     |
+| **Offline-capable mobile** | React Native + Expo with local cache for low-bandwidth schools                  |
+| **Payment-localized**      | Stripe + Khalti + eSewa with per-school gateway toggles                         |
+| **Defense in depth**       | JWT + 2FA + RBAC + tenant isolation + audit logging                             |
 
 ---
 
@@ -100,6 +102,11 @@ parents, accountants, librarians, and counselors.
 ```
 
 ### 2.2 Service Module Pattern
+
+The backend is 23 school-scoped service modules (938 models, 116 migration
+files, 4 407 URL patterns under `/api/`, 945 ViewSets, 975 serializers) plus a
+`core` app that owns settings, tenant middleware, permissions, pagination, the
+guardian-scoped portal views, and the OpenAPI schema customization.
 
 Every service module follows a consistent internal structure:
 
@@ -212,9 +219,11 @@ services/<name>/
 └─────────┘     └─────────┘     └─────────┘     └─────────┘
      │               │               │               │
      ▼               ▼               ▼               ▼
-  Apply ──▶  POST /public/apply/ ──▶ Screening ──▶ Enroll
-  Status ◀── GET /public/status/ ◀── Review    ◀── Password
-                                                   Email
+  Apply ──▶  POST /public/apply/ ──▶ under_review ──▶ accepted
+  Status ◀── GET /public/status/ ◀── shortlist   ◀── enrolled
+             {application_number}      /waitlist       (student +
+                                       or reject        guardian
+                                                        accounts)
 ```
 
 ### 4.2 Fee Payment Flow
@@ -296,8 +305,10 @@ services/<name>/
 │                                                   │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐          │
 │  │ Postgres │ │  Redis   │ │  MinIO   │          │
-│  │  :5432   │ │  :6379   │ │  :9000   │          │
+│  │  :5432   │ │ 6380→6379│ │ :9000/01 │          │
 │  └──────────┘ └──────────┘ └──────────┘          │
+│   (Redis is published on host :6380 so it does    │
+│    not collide with other local stacks' :6379)    │
 │                                                   │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐          │
 │  │ Backend  │ │ Celery   │ │ Celery   │          │
@@ -498,45 +509,61 @@ auth ─────────────────────────
 
 ## Appendix A: URL Schema
 
-| Prefix                       | Service                                | Auth Required             |
-| ---------------------------- | -------------------------------------- | ------------------------- |
-| `/api/v1/auth/`              | Authentication, JWT, 2FA               | Partial (login is public) |
-| `/api/v1/students/`          | Student CRUD, enrollment               | Yes                       |
-| `/api/v1/academics/`         | Subjects, teacher assignments          | Yes                       |
-| `/api/v1/attendance/`        | Attendance records, leaves             | Yes                       |
-| `/api/v1/gradebook/`         | Exams, grades, report cards            | Yes                       |
-| `/api/v1/timetable/`         | Schedule slots, events                 | Yes                       |
-| `/api/v1/communication/`     | Announcements, messages, notifications | Yes                       |
-| `/api/v1/fees/`              | Invoices, payments, scholarships       | Yes                       |
-| `/api/v1/reporting/`         | Dashboard stats, exports               | Yes                       |
-| `/api/v1/hr/`                | Employees, salary, payroll             | Yes                       |
-| `/api/v1/admissions/`        | Intakes, applications (admin)          | Yes                       |
-| `/api/v1/admissions/public/` | Public application portal              | **No**                    |
-| `/api/v1/library/`           | Book catalog, checkout                 | Yes                       |
-| `/api/v1/hostel/`            | Hostel rooms, allocations              | Yes                       |
-| `/api/v1/transportation/`    | Routes, vehicles                       | Yes                       |
-| `/api/v1/cafeteria/`         | Meal menus, bookings                   | Yes                       |
-| `/api/v1/sports/`            | Teams, events, achievements            | Yes                       |
-| `/api/v1/counseling/`        | Appointments, referrals                | Yes                       |
-| `/api/v1/health-clinic/`     | Health records, visits                 | Yes                       |
-| `/api/v1/behavior/`          | Incidents, referrals                   | Yes                       |
-| `/api/v1/conferences/`       | Conference slots                       | Yes                       |
-| `/api/v1/inventory/`         | Items, stock, purchase orders          | Yes                       |
-| `/api/v1/alumni/`            | Alumni profiles, donations             | Yes                       |
-| `/ws/notifications/`         | WebSocket notifications                | Yes (JWT)                 |
-| `/ws/chat/{id}/`             | WebSocket chat                         | Yes (JWT)                 |
+There is **no `/api/v2/`** — `core/urls.py` mounts only `api/v1/`. Two prefixes
+differ from their module name: `transport` (module `transportation`) and
+`health` (module `health_clinic`).
+
+| Prefix                                  | Service                                | Auth Required             |
+| --------------------------------------- | -------------------------------------- | ------------------------- |
+| `/api/v1/auth/`                         | Authentication, JWT, 2FA, audit log    | Partial (login is public) |
+| `/api/v1/students/`                     | Student CRUD, guardians, enrollment    | Yes                       |
+| `/api/v1/academics/`                    | Subjects, teacher assignments          | Yes                       |
+| `/api/v1/attendance/`                   | Attendance records, leaves             | Yes                       |
+| `/api/v1/gradebook/`                    | Exams, grades, report cards            | Yes                       |
+| `/api/v1/timetable/`                    | Schedule slots, events                 | Yes                       |
+| `/api/v1/communication/`                | Announcements, messages, notifications | Yes                       |
+| `/api/v1/fees/`                         | Invoices, payments, scholarships       | Yes                       |
+| `/api/v1/reporting/`                    | Dashboard stats, exports               | Yes                       |
+| `/api/v1/hr/`                           | Employees, salary, payroll             | Yes                       |
+| `/api/v1/admissions/`                   | Intakes, applications (admin)          | Yes                       |
+| `/api/v1/admissions/public/`            | Public application portal + tracking   | **No**                    |
+| `/api/v1/library/`                      | Book catalog, checkout                 | Yes                       |
+| `/api/v1/hostel/`                       | Hostel rooms, allocations              | Yes                       |
+| `/api/v1/transport/`                    | Routes, vehicles, driver schedules     | Yes                       |
+| `/api/v1/cafeteria/`                    | Meal menus, bookings                   | Yes                       |
+| `/api/v1/sports/`                       | Teams, events, achievements            | Yes                       |
+| `/api/v1/counseling/`                   | Appointments, referrals                | Yes                       |
+| `/api/v1/health/`                       | Health records, visits, immunizations  | Yes                       |
+| `/api/v1/behavior/`                     | Incidents, points, referrals           | Yes                       |
+| `/api/v1/conferences/`                  | Conference slots                       | Yes                       |
+| `/api/v1/inventory/`                    | Items, stock, purchase orders          | Yes                       |
+| `/api/v1/alumni/`                       | Alumni profiles, donations             | Yes                       |
+| `/api/v1/infrastructure/`               | Assets, maintenance, backups           | Yes                       |
+| `/api/v1/search/`                       | Global search (command palette)        | Yes                       |
+| `/api/schema/`                          | OpenAPI 3 document                     | **No**                    |
+| `/api/docs/`                            | Swagger UI                             | **No**                    |
+| `/api/redoc/`                           | ReDoc                                  | **No**                    |
+| `/health/live/`                         | Liveness probe                         | **No**                    |
+| `/health/ready/`                        | Readiness probe (DB, cache, Celery)    | **No**                    |
+| `/health/startup/`                      | Migration-state probe                  | **No**                    |
+| `/metrics`                              | Prometheus scrape endpoint             | Network-restricted        |
+| `/admin/`                               | Django admin                           | Staff                     |
+| `/ws/notifications/`                    | WebSocket notifications                | Yes (JWT)                 |
+| `/ws/chat/{recipient_id}/`              | WebSocket chat                         | Yes (JWT)                 |
+| `/ws/attendance/{classroom_id}/{date}/` | Live attendance roster                 | Yes (JWT)                 |
 
 ---
 
 ## Appendix B: Environment Matrix
 
-| Variable               | Dev (Docker)                                         | Staging             | Production        |
-| ---------------------- | ---------------------------------------------------- | ------------------- | ----------------- |
-| `DEBUG`                | `True`                                               | `True`              | `False`           |
-| `DATABASE_URL`         | `postgresql://sms:sms_password@postgres:5432/sms_db` | RDS                 | RDS               |
-| `REDIS_URL`            | `redis://redis:6379/0`                               | ElastiCache         | ElastiCache       |
-| `ALLOWED_HOSTS`        | `localhost,backend`                                  | `staging-api.*`     | `api.*`           |
-| `EMAIL_BACKEND`        | `console`                                            | `smtp` (SendGrid)   | `smtp` (SendGrid) |
-| `SMS_PROVIDER`         | `console`                                            | `twilio`            | `twilio`          |
-| `SENTRY_DSN`           | (empty)                                              | Set                 | Set               |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173`                              | `https://staging.*` | `https://app.*`   |
+| Variable               | Dev (Docker)                                         | Staging             | Production           |
+| ---------------------- | ---------------------------------------------------- | ------------------- | -------------------- |
+| `DEBUG`                | `True`                                               | `True`              | `False`              |
+| `DATABASE_URL`         | `postgresql://sms:sms_password@postgres:5432/sms_db` | RDS                 | RDS                  |
+| `REDIS_URL`            | `redis://redis:6379/0`                               | ElastiCache         | ElastiCache          |
+| `ALLOWED_HOSTS`        | `localhost,backend`                                  | `staging-api.*`     | `api.*`              |
+| `EMAIL_BACKEND`        | `console`                                            | `smtp` (SendGrid)   | `smtp` (SendGrid)    |
+| `SMS_PROVIDER`         | `console`                                            | `twilio`            | `twilio`             |
+| `SENTRY_DSN`           | (empty)                                              | Set                 | Set                  |
+| `USER_THROTTLE_RATE`   | `6000/hour`                                          | `6000/hour`         | tuned per deployment |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173`                              | `https://staging.*` | `https://app.*`      |
