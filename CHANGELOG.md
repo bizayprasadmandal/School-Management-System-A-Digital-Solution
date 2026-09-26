@@ -112,6 +112,9 @@ project uses [Semantic Versioning](https://semver.org/).
   scenario — super admin picks a school → signs out → school admin signs in —
   and asserts the context was cleared, the panel shows the admin's own school,
   and the platform route is unreachable (6/6 checks pass).
+- **Docs**: `SEEDING.md` now lists the three scenario probes and the school-mode
+  audit walk in the toolkit table, with a “Scenario probes” section explaining
+  when to reach for each.
 
 ### Changed
 

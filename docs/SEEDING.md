@@ -9,19 +9,23 @@ verify that every panel tab renders real rows.
 
 ## The toolkit
 
-| Script                                             | Purpose                                                                                                 |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --- | -------------------------------------- | ---------------------------------------------------------- |
-| `backend/scripts/seed_empty_models.py`             | Seeds every still-empty school-scoped model with plausible rows                                         |
-| `backend/scripts/seed_parent_children.py`          | Tops every guardian-linked child up to ≥1 row per parent-portal category                                |
-| `backend/scripts/seed_teacher_workspace.py`        | Gives up to 100 teachers/school an owned workspace (assignments, plans, attendance, payslips, messages) |
-| `backend/scripts/repair_tenant_links.py`           | Deletes rows whose FK paths disagree about the tenant                                                   |
-| `backend/scripts/diag_cross_tenant.py`             | Same check as the repair, **report-only** (no deletes)                                                  |
-| `backend/scripts/check_hostel_tabs.py`             | Endpoint-level count check for one module (template for others)                                         |     | `backend/scripts/verify_all_logins.py` | Logs in as every demo user to prove credentials still work |
-| `backend/scripts/fix_demo_user_emails.py`          | Repairs malformed filler emails + gives them role passwords                                             |
-| `backend/scripts/reset_demo_passwords_fast.py`     | Re-applies the per-role demo passwords (see `DEMO_CREDENTIALS.md`)                                      |
-| `frontend/web/scripts/walk_school_panel_tabs.mjs`  | Browser walk of every page + tab, flags EMPTY/error tabs                                                |
-| `frontend/web/scripts/walk_teacher_per_school.mjs` | Browser walk of the 8 teacher pages for one school                                                      |
-| `frontend/web/scripts/audit_role_portals.mjs`      | Walks the parent / student / teacher portals and reports failures                                       |
+| Script                                                    | Purpose                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `backend/scripts/seed_empty_models.py`                    | Seeds every still-empty school-scoped model with plausible rows                                         |
+| `backend/scripts/seed_parent_children.py`                 | Tops every guardian-linked child up to ≥1 row per parent-portal category                                |
+| `backend/scripts/seed_teacher_workspace.py`               | Gives up to 100 teachers/school an owned workspace (assignments, plans, attendance, payslips, messages) |
+| `backend/scripts/repair_tenant_links.py`                  | Deletes rows whose FK paths disagree about the tenant                                                   |
+| `backend/scripts/diag_cross_tenant.py`                    | Same check as the repair, **report-only** (no deletes)                                                  |
+| `backend/scripts/check_hostel_tabs.py`                    | Endpoint-level count check for one module (template for others)                                         |
+| `backend/scripts/verify_all_logins.py`                    | Logs in as every demo user to prove credentials still work                                              |
+| `backend/scripts/fix_demo_user_emails.py`                 | Repairs malformed filler emails + gives them role passwords                                             |
+| `backend/scripts/reset_demo_passwords_fast.py`            | Re-applies the per-role demo passwords (see `DEMO_CREDENTIALS.md`)                                      |
+| `frontend/web/scripts/walk_school_panel_tabs.mjs`         | Browser walk of every page + tab, flags EMPTY/error tabs                                                |
+| `frontend/web/scripts/walk_teacher_per_school.mjs`        | Browser walk of the 8 teacher pages for one school                                                      |
+| `frontend/web/scripts/audit_role_portals.mjs`             | Walks the parent / student / teacher portals and reports failures                                       |
+| `frontend/web/scripts/audit_school_mode_panel.mjs`        | Logs in as the super admin, selects a school, audits all 32 admin pages for API failures/empty states   |
+| `frontend/web/scripts/probe_platform_console.mjs`         | Super-admin platform console: nav gating, dashboard cards, revenue, audit pages (7/7 checks)            |
+| `frontend/web/scripts/probe_school_context_isolation.mjs` | Drives super admin → pick school → sign out → school admin sign-in; asserts no context leak (6/6)       |
 
 ## Quick start (Docker stack running)
 
@@ -169,6 +173,26 @@ MSYS_NO_PATHCONV=1 WALK_PAGES="/admin/library,/admin/hostel-center" \
   the filter silently matches nothing.
 - Output flags per tab: `EMPTY (0 rows)`, API failures (≥400), and error
   banners. Console errors are listed at the end.
+
+### Scenario probes (targeted, fast)
+
+Three focused probes assert a whole user journey rather than every tab —
+useful as a pre-commit smoke test after touching auth, the school switcher,
+or the platform console. Each exits non-zero when a check fails.
+
+```bash
+cd frontend/web
+node scripts/probe_platform_console.mjs           # super admin platform console (7 checks)
+node scripts/probe_school_context_isolation.mjs   # school-context leak across logins (6 checks)
+node scripts/probe_switcher_flow.mjs              # switcher → X-School-ID header on requests
+```
+
+`probe_school_context_isolation.mjs` pins the regression fixed in 2026-09: a
+super admin's selected school used to survive sign-out in `localStorage`, so
+the next person to sign in saw the panel labelled with that school. It signs in
+as the super admin, picks a school, signs out, signs in as a school admin, and
+asserts the panel shows the admin's **own** school and that `/admin/platform`
+is unreachable.
 
 ## When a tab legitimately shows empty
 
