@@ -102,6 +102,16 @@ project uses [Semantic Versioning](https://semver.org/).
   non-super-admin sign-in, and `AdminLayout` ignores a stored context unless the
   signed-in user is a super admin. Covered by
   `src/store/schoolContextSession.test.ts`.
+- **Platform console routes required only an admin role** — `/admin/platform`
+  and its sub-pages were behind `RequireAuth["super_admin","school_admin"]`, so
+  a school admin could open them from a stale link and see a dead-end
+  “Failed to load platform data.” page (the API correctly 403s). They now sit
+  behind a `RequireSuperAdmin` guard that bounces non-super-admins to their own
+  dashboard. New live probe
+  `frontend/web/scripts/probe_school_context_isolation.mjs` drives the whole
+  scenario — super admin picks a school → signs out → school admin signs in —
+  and asserts the context was cleared, the panel shows the admin's own school,
+  and the platform route is unreachable (6/6 checks pass).
 
 ### Changed
 

@@ -214,6 +214,17 @@ function RequireAuth({ allowedRoles }: { allowedRoles?: UserRole[] }) {
   return <Outlet />;
 }
 
+/**
+ * Platform console guard — the cross-school console is super-admin only. A
+ * school admin who lands here (stale link, hand-typed URL) is sent back to
+ * their own dashboard instead of a page whose data requests 403.
+ */
+function RequireSuperAdmin() {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role !== "super_admin") return <Navigate to="/admin" replace />;
+  return <Outlet />;
+}
+
 function RedirectIfAuth() {
   const { isAuthenticated, user } = useAuthStore();
   if (!isAuthenticated) return <Outlet />;
@@ -347,11 +358,13 @@ function App() {
                   <Route path="communication" element={<CommunicationPage />} />
                   <Route path="zoom-integration" element={<ZoomIntegrationPage />} />
                   {/* Platform Management (super admin only) */}
-                  <Route path="platform" element={<PlatformDashboard />} />
-                  <Route path="platform/schools" element={<PlatformSchoolsPage />} />
-                  <Route path="platform/schools/:id" element={<PlatformSchoolDetail />} />
-                  <Route path="platform/revenue" element={<PlatformRevenuePage />} />
-                  <Route path="platform/audit" element={<PlatformAuditPage />} />
+                  <Route element={<RequireSuperAdmin />}>
+                    <Route path="platform" element={<PlatformDashboard />} />
+                    <Route path="platform/schools" element={<PlatformSchoolsPage />} />
+                    <Route path="platform/schools/:id" element={<PlatformSchoolDetail />} />
+                    <Route path="platform/revenue" element={<PlatformRevenuePage />} />
+                    <Route path="platform/audit" element={<PlatformAuditPage />} />
+                  </Route>
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="plan-billing" element={<PlanBillingPage />} />
                 </Route>
