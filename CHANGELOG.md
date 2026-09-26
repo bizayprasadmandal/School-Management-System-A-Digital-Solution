@@ -89,7 +89,9 @@ project uses [Semantic Versioning](https://semver.org/).
   annotated with a real student count (`PlatformRecentSchoolSerializer`), and
   the duplicated `platform/revenue/` URL was removed. Covered by
   `test_platform_stats_contract_and_permissions` and a new
-  `PlatformDashboard.test.tsx`.
+  `PlatformDashboard.test.tsx`, and the live `scripts/probe_platform_console.mjs`
+  walk now also asserts the dashboard cards and recent-school student counts
+  (7/7 checks pass).
 
 ### Changed
 

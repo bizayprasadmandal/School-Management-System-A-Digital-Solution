@@ -32,6 +32,14 @@ results["platform nav shown"] =
 results["school sections hidden in platform mode"] =
   !navText.includes("Student Life") && !navText.includes("Finance & Operations");
 
+// 1b. dashboard itself renders cross-school stats + recent-school student counts
+const dashText = await page.evaluate(() => document.body.innerText);
+results["dashboard: stat cards + school lists"] =
+  dashText.includes("Total Schools") &&
+  dashText.includes("Recently Created Schools") &&
+  dashText.includes("Top Schools by Revenue");
+results["dashboard: recent schools show student counts"] = /\d+ students/.test(dashText);
+
 // 2. revenue page renders
 await page.goto(`${BASE}/admin/platform/revenue`, { waitUntil: "domcontentloaded" });
 await page.waitForFunction(() => document.body.innerText.includes("Platform MRR"), {
