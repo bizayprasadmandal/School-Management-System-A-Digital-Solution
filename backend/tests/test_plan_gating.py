@@ -276,6 +276,54 @@ def test_change_tier_rejects_non_admins():
 
 
 @pytest.mark.django_db
+def test_platform_stats_contract_and_permissions():
+    """Platform dashboard payload matches the frontend contract.
+
+    Revenue is numeric (not a DRF decimal string) and recent-school rows
+    carry the annotated ``student_count`` the dashboard renders.
+    """
+    from decimal import Decimal
+
+    from tests.factories import (
+        AcademicYearFactory,
+        FeeCategoryFactory,
+        FeeInvoiceFactory,
+        FeeStructureFactory,
+        GradeFactory,
+        PaymentFactory,
+        StudentFactory,
+        StudentUserFactory,
+    )
+
+    premium_school = SchoolFactory(subscription_tier="premium")
+    sa = UserFactory(role="super_admin", school=None, is_staff=True)
+    admin = AdminUserFactory(school=premium_school)
+
+    grade = GradeFactory(school=premium_school)
+    category = FeeCategoryFactory(school=premium_school)
+    ay = AcademicYearFactory(school=premium_school)
+    fs = FeeStructureFactory(school=premium_school, academic_year=ay, grade=grade, fee_category=category)
+    student = StudentFactory(user=StudentUserFactory(school=premium_school))
+    invoice = FeeInvoiceFactory(student=student, academic_year=ay, fee_structure=fs)
+    PaymentFactory(invoice=invoice, collected_by=sa, amount=Decimal("250.00"), status="successful")
+
+    # School admins are locked out of the platform console.
+    assert client_as(admin).get("/api/v1/auth/platform/stats/").status_code == status.HTTP_403_FORBIDDEN
+
+    res = client_as(sa).get("/api/v1/auth/platform/stats/")
+
+    assert res.status_code == status.HTTP_200_OK
+    body = res.json()
+    assert isinstance(body["total_revenue"], (int, float))
+    assert body["total_revenue"] == 250.0
+    assert body["total_students"] == 1
+    assert body["schools_by_tier"] == {"premium": 1}
+    row = next(s for s in body["recent_schools"] if s["id"] == str(premium_school.id))
+    assert row["student_count"] == 1
+    assert isinstance(body["top_schools"], list)
+
+
+@pytest.mark.django_db
 def test_platform_revenue_aggregates_schools():
     """Super admin sees per-school tier/MRR/ARR and platform totals."""
     from decimal import Decimal

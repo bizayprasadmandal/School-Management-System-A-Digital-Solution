@@ -981,6 +981,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+class PlatformRecentSchoolSerializer(SchoolSerializer):
+    """Recent-school row for the platform dashboard.
+
+    Extends :class:`SchoolSerializer` with the annotated student count the
+    dashboard renders next to each school.
+    """
+
+    student_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta(SchoolSerializer.Meta):
+        fields = SchoolSerializer.Meta.fields + ["student_count"]
+
+
 class PlatformDashboardSerializer(serializers.Serializer):
     """Cross-school analytics for super admin platform dashboard."""
 
@@ -989,9 +1002,11 @@ class PlatformDashboardSerializer(serializers.Serializer):
     total_users = serializers.IntegerField()
     total_students = serializers.IntegerField()
     total_teachers = serializers.IntegerField()
-    total_revenue = serializers.DecimalField(max_digits=15, decimal_places=2)
+    # FloatField (not DecimalField) — DRF renders decimals as strings, which
+    # would not match the numeric `PlatformDashboardStats` TS contract.
+    total_revenue = serializers.FloatField()
     schools_by_tier = serializers.DictField(child=serializers.IntegerField())
-    recent_schools = SchoolSerializer(many=True)
+    recent_schools = PlatformRecentSchoolSerializer(many=True)
     top_schools = serializers.ListField(child=serializers.DictField())
 
 

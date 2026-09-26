@@ -82,6 +82,14 @@ project uses [Semantic Versioning](https://semver.org/).
   1 417 affected rows that already existed (all schools except E2E Test School,
   whose addresses CI pins) — verified live: a Test School 0 filler teacher now
   logs in with `Teacher@1234`.
+- **Platform dashboard contract mismatches** — `/auth/platform/stats/` returned
+  `total_revenue` as a DRF decimal _string_ while the frontend type declares a
+  number, and recent-school rows never carried `student_count`, so the console
+  always rendered “0 students”. Revenue is now a float and recent schools are
+  annotated with a real student count (`PlatformRecentSchoolSerializer`), and
+  the duplicated `platform/revenue/` URL was removed. Covered by
+  `test_platform_stats_contract_and_permissions` and a new
+  `PlatformDashboard.test.tsx`.
 
 ### Changed
 

@@ -993,8 +993,10 @@ class PlatformDashboardView(APIView):
             schools.values("subscription_tier").annotate(count=Count("id")).values_list("subscription_tier", "count")
         )
 
-        # Most recent 5 schools (pass raw queryset — let serializer handle it)
-        recent_schools = schools.order_by("-created_at")[:5]
+        # Most recent 5 schools, with the student count the dashboard shows.
+        recent_schools = schools.annotate(
+            student_count=Count("users", filter=Q(users__role="student"), distinct=True)
+        ).order_by("-created_at")[:5]
 
         # Top schools by revenue
         top_schools_data = (

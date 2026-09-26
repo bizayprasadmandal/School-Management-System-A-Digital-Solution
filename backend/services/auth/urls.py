@@ -144,5 +144,4 @@ urlpatterns = [
     # Platform Management (super admin)
     path("platform/stats/", PlatformDashboardView.as_view(), name="platform_stats"),
     path("platform/revenue/", PlatformRevenueView.as_view(), name="platform_revenue"),
-    path("platform/revenue/", PlatformRevenueView.as_view(), name="platform_revenue"),
 ]
