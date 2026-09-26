@@ -268,7 +268,11 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [isDark, toggleDark] = useDarkMode();
   const isSuperAdmin = user?.role === "super_admin";
-  const activeSchool = useSchoolContextStore((s) => s.activeSchool);
+  const switchedSchool = useSchoolContextStore((s) => s.activeSchool);
+  // Only super admins can hold a switched tenant. Ignore any leftover context
+  // for other roles so a school admin's panel always shows its own school
+  // instead of a selection made by a previous super-admin session.
+  const activeSchool = isSuperAdmin ? switchedSchool : null;
   const activeSchoolName = activeSchool?.name || user?.school?.name;
   usePlanSync(); // sync plan_features from /auth/me/ into the auth store
 

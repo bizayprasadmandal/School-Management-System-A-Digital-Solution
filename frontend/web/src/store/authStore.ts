@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { useSchoolContextStore } from "./schoolContextStore";
 import type { User, AuthTokens } from "../types";
 
 /** Plan entitlements from GET /auth/me/ → plan_features. */
@@ -38,7 +39,16 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       planFeatures: null,
 
-      setAuth: (user, tokens) => set({ user, tokens, isAuthenticated: true }),
+      setAuth: (user, tokens) => {
+        // A switched tenant belongs to a super-admin session only. If another
+        // role signs in on the same browser, drop any school context left over
+        // from a previous super admin so their panel isn't stuck on a foreign
+        // school (the header policy already ignores it; this clears the UI).
+        if (user.role !== "super_admin") {
+          useSchoolContextStore.getState().clearSchoolContext();
+        }
+        set({ user, tokens, isAuthenticated: true });
+      },
 
       setUser: (user) => set({ user }),
 
@@ -46,7 +56,11 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (tokens) => set({ tokens }),
 
-      logout: () => set({ user: null, tokens: null, isAuthenticated: false, planFeatures: null }),
+      logout: () => {
+        // Never let a selected school outlive the session that selected it.
+        useSchoolContextStore.getState().clearSchoolContext();
+        set({ user: null, tokens: null, isAuthenticated: false, planFeatures: null });
+      },
 
       setLoading: (isLoading) => set({ isLoading }),
     }),

@@ -92,6 +92,16 @@ project uses [Semantic Versioning](https://semver.org/).
   `PlatformDashboard.test.tsx`, and the live `scripts/probe_platform_console.mjs`
   walk now also asserts the dashboard cards and recent-school student counts
   (7/7 checks pass).
+- **A switched school outlived the session that selected it** — the super-admin
+  `sms-school-context` (persisted in `localStorage`) was never cleared on
+  sign-out, so the next person to sign in on the same browser inherited it: a
+  school admin's panel was labelled with — and its stray “Active School · exit”
+  link navigated to — the previous super admin's school, landing on the
+  super-admin-only `/admin/platform` page (“Failed to load platform data.”).
+  `authStore.logout()` now clears the context, `setAuth()` drops it for any
+  non-super-admin sign-in, and `AdminLayout` ignores a stored context unless the
+  signed-in user is a super admin. Covered by
+  `src/store/schoolContextSession.test.ts`.
 
 ### Changed
 
