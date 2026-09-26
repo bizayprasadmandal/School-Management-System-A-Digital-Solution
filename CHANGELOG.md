@@ -115,6 +115,15 @@ project uses [Semantic Versioning](https://semver.org/).
 - **Docs**: `SEEDING.md` now lists the three scenario probes and the school-mode
   audit walk in the toolkit table, with a “Scenario probes” section explaining
   when to reach for each.
+- **Classrooms page: the grade dropdown did nothing** — the endpoint wired up
+  `DjangoFilterBackend` without `filterset_fields`, so `?grade=<id>` was
+  silently ignored and every selection returned the full list. The filter now
+  narrows by grade (and `academic_year` is supported too), and the rows carry
+  the display fields the table renders (`grade_name`, `teacher_name`,
+  `student_count` — previously undefined, so the seat badge showed “/30” with
+  no count and sections rendered as “1A” instead of “Grade 1 1A”). The count is
+  a queryset annotation (the model property was a per-row N+1 query).
+  Regression tests in `backend/tests/test_classroom_grade_filter.py`.
 
 ### Changed
 

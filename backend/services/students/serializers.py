@@ -69,9 +69,27 @@ class GradeSerializer(serializers.ModelSerializer):
 
 
 class ClassroomSerializer(serializers.ModelSerializer):
+    # Display fields the admin tables render (grade/teacher names, live seat
+    # count); ``grade`` stays writable so create/update keep passing a bare id.
+    grade_name = serializers.CharField(source="grade.name", read_only=True)
+    teacher_name = serializers.CharField(source="class_teacher.full_name", read_only=True, default=None)
+    student_count = serializers.IntegerField(source="active_student_count", read_only=True)
+
     class Meta:
         model = Classroom
-        fields = ["id", "school", "grade", "name", "capacity", "room_number", "class_teacher", "academic_year"]
+        fields = [
+            "id",
+            "school",
+            "grade",
+            "grade_name",
+            "name",
+            "capacity",
+            "student_count",
+            "room_number",
+            "class_teacher",
+            "teacher_name",
+            "academic_year",
+        ]
         read_only_fields = ["school", "id"]
 
 

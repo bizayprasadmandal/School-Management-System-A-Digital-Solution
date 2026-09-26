@@ -4,7 +4,7 @@ Student Service — ViewSets with role-based access
 
 from core.pagination import StandardResultsSetPagination
 from core.permissions import IsSchoolAdmin, IsSchoolMember, IsSchoolStaff
-from django.db.models import CharField, OuterRef, Q, Subquery, Value
+from django.db.models import CharField, Count, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -512,11 +512,20 @@ class StudentViewSet(viewsets.ModelViewSet):
 class ClassroomViewSet(viewsets.ModelViewSet):
     serializer_class = ClassroomSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    # ``grade`` powers the admin Classrooms page dropdown — DjangoFilterBackend
+    # was wired up without this, so ``?grade=<id>`` was silently ignored and
+    # every selection returned the full list.
+    filterset_fields = ["grade", "academic_year"]
     search_fields = ["name", "grade__name"]
 
     def get_queryset(self):
-        return Classroom.objects.filter(school=self.request.user.school).select_related(
-            "grade", "class_teacher", "academic_year"
+        # ``active_student_count`` (annotated) feeds the serializer's
+        # ``student_count`` display field; the model property of the same name
+        # is a per-row query, so write to a different attribute here.
+        return (
+            Classroom.objects.filter(school=self.request.user.school)
+            .select_related("grade", "class_teacher", "academic_year")
+            .annotate(active_student_count=Count("enrollments", filter=Q(enrollments__is_active=True), distinct=True))
         )
 
     def get_permissions(self):

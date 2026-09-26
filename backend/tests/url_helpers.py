@@ -38,6 +38,7 @@ AUTH_REGENERATE_BACKUP_CODES = url("auth/regenerate-backup-codes/")
 STUDENTS_LIST = url("students/")
 STUDENTS_PROMOTE = url("students/promote/")
 STUDENTS_IMPORT_CSV = url("students/import-csv/")
+CLASSROOMS_LIST = url("students/classrooms/")
 CLASSROOMS_IMPORT_CSV = url("students/classrooms/import-csv/")
 
 
